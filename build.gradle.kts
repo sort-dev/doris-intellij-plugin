@@ -59,6 +59,11 @@ intellijPlatform {
 }
 
 tasks {
+    // Stable artifact name (no version suffix) so install-from-disk always points at the same file.
+    buildPlugin {
+        archiveVersion = ""
+    }
+
     withType<JavaCompile> {
         sourceCompatibility = "21"
         targetCompatibility = "21"
