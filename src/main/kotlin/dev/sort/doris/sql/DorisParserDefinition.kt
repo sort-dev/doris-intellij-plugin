@@ -7,7 +7,6 @@ import com.intellij.psi.tree.IFileElementType
 import com.intellij.sql.dialects.base.SqlElementFactoryBase
 import com.intellij.sql.dialects.base.SqlParserDefinitionBase
 import com.intellij.sql.dialects.mysql.MysqlElementFactory
-import com.intellij.sql.dialects.mysql.MysqlLexer
 import com.intellij.sql.psi.stubs.elementTypes.SqlFileElementType
 
 /**
@@ -18,7 +17,9 @@ import com.intellij.sql.psi.stubs.elementTypes.SqlFileElementType
  */
 class DorisParserDefinition : SqlParserDefinitionBase() {
     override fun createElementFactory(): SqlElementFactoryBase = MysqlElementFactory()
-    override fun createLexer(project: Project): Lexer = MysqlLexer()
+    // DorisLexer wraps MysqlLexer to mask `* EXCEPT(cols)` before the generated grammar mis-reads
+    // EXCEPT as a set operator. Parser-only; the editor highlighter uses its own MysqlLexer.
+    override fun createLexer(project: Project): Lexer = DorisLexer()
     override fun createParser(project: Project): PsiParser = DorisPsiParser()
     override fun getFileNodeType(): IFileElementType = FILE
 

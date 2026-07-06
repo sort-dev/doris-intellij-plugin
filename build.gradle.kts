@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    testImplementation("junit:junit:4.13.2")
 
     // Authoritative Doris grammar (standalone ANTLR CST parser), vendored from Doris source because
     // it is not published to any public Maven repo — see vendor/README.md for the exact Doris SHA
@@ -31,6 +32,10 @@ dependencies {
         // can build without a local IDE install.
         datagrip("2026.1.3")
         bundledPlugin("com.intellij.database")
+        // Required transitively in the TEST runtime: the database plugin's intellij.json.backend
+        // module dependency lives in the JSON plugin; without it com.intellij.database won't load
+        // in unit tests and the DorisSQL language never registers.
+        bundledPlugin("com.intellij.modules.json")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 }
@@ -60,7 +65,10 @@ tasks {
     }
 
     named<Test>("test") {
-        useJUnitPlatform()
+        useJUnit()
+        // The light test fixture doesn't enable the database plugin by default; without it our
+        // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
+        systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin")
     }
 }
 
