@@ -30,11 +30,71 @@ import com.intellij.sql.psi.SqlTokens
 class DorisLexer : LookAheadLexer(MysqlLexer()) {
 
     override fun lookAhead(baseLexer: Lexer) {
-        if (isExceptColumnExclusion(baseLexer)) {
-            maskExceptColumnList(baseLexer)
-        } else {
-            super.lookAhead(baseLexer)
+        when {
+            isExceptColumnExclusion(baseLexer) -> maskExceptColumnList(baseLexer)
+            isInsertOverwrite(baseLexer) -> maskInsertOverwriteHeader(baseLexer)
+            isPartitionStar(baseLexer) -> maskThroughRightParen(baseLexer)
+            else -> super.lookAhead(baseLexer)
         }
+    }
+
+    /**
+     * Doris `INSERT OVERWRITE TABLE t ...`: mask `OVERWRITE` (and the following `TABLE`) so the MySQL
+     * grammar parses the statement as a plain `INSERT t ...` (INTO is optional in MySQL) — yielding a
+     * REAL insert PSI with a resolvable target table, instead of the lenient junk-token header that
+     * degraded completion scoping inside the source query.
+     */
+    private fun isInsertOverwrite(base: Lexer): Boolean {
+        if (base.tokenType == null) return false
+        val seq = base.bufferSequence
+        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "INSERT")) return false
+        val i = skipWhitespace(seq, base.tokenEnd)
+        return regionIsWordIgnoreCase(seq, i, "OVERWRITE")
+    }
+
+    private fun maskInsertOverwriteHeader(base: Lexer) {
+        advanceLexer(base) // INSERT, as-is
+        while (base.tokenType != null && base.tokenText.isBlank()) advanceLexer(base)
+        // OVERWRITE -> comment
+        addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT)
+        base.advance()
+        while (base.tokenType != null && base.tokenText.isBlank()) advanceLexer(base)
+        if (base.tokenType != null && base.tokenText.equals("TABLE", ignoreCase = true)) {
+            addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT) // TABLE -> comment
+            base.advance()
+        }
+    }
+
+    /** Doris auto-partition overwrite `PARTITION(*)` — `*` is not a valid MySQL partition name; mask
+     *  the whole group. Named `PARTITION (p1, p2)` is valid MySQL and left untouched. */
+    private fun isPartitionStar(base: Lexer): Boolean {
+        if (base.tokenType == null) return false
+        val seq = base.bufferSequence
+        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "PARTITION")) return false
+        var i = skipWhitespace(seq, base.tokenEnd)
+        if (i >= seq.length || seq[i] != '(') return false
+        i = skipWhitespace(seq, i + 1)
+        if (i >= seq.length || seq[i] != '*') return false
+        i = skipWhitespace(seq, i + 1)
+        return i < seq.length && seq[i] == ')'
+    }
+
+    private fun maskThroughRightParen(base: Lexer) {
+        var end = base.tokenEnd
+        while (base.tokenType != null) {
+            val done = base.tokenText == ")"
+            end = base.tokenEnd
+            base.advance()
+            if (done) break
+        }
+        addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
+    }
+
+    private fun regionIsWordIgnoreCase(seq: CharSequence, start: Int, word: String): Boolean {
+        if (start + word.length > seq.length) return false
+        for (k in word.indices) if (seq[start + k].uppercaseChar() != word[k]) return false
+        val after = start + word.length
+        return after >= seq.length || !(seq[after].isLetterOrDigit() || seq[after] == '_')
     }
 
     /** True iff the current token is `EXCEPT` followed by `( <identifier that is not a query>` — the

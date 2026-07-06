@@ -65,6 +65,43 @@ class DorisExceptParsingTest : BasePlatformTestCase() {
         assertEmpty("plain SELECT must parse without errors", errors.toList())
     }
 
+    fun testInsertOverwriteWithCtes() {
+        val tree = dump(
+            """
+            INSERT OVERWRITE TABLE acme_derived.user_watch_video PARTITION(*)
+            WITH sourced AS (
+                SELECT * FROM acme_derived.events_watch_time_by_user_1h_mv
+                WHERE window_start_at >= '2026-06-30'
+            ), withPrevEvent AS (
+                SELECT *, earliest_event_at FROM sourced
+            )
+            SELECT * FROM withPrevEvent;
+            """.trimIndent()
+        )
+        println("=== INSERT OVERWRITE + CTEs ===")
+        println(tree)
+        assertFalse("insert-overwrite must parse without error elements", tree.contains("PsiErrorElement"))
+        assertTrue("must produce a real insert DML instruction (resolvable target)",
+            tree.contains("SQL_INSERT_DML_INSTRUCTION"))
+        assertTrue("OVERWRITE must be masked as a comment", tree.contains("PsiComment(SQL_BLOCK_COMMENT)('OVERWRITE')"))
+    }
+
+    fun testSameCtesWithoutInsertHeader() {
+        val tree = dump(
+            """
+            WITH sourced AS (
+                SELECT * FROM acme_derived.events_watch_time_by_user_1h_mv
+                WHERE window_start_at >= '2026-06-30'
+            ), withPrevEvent AS (
+                SELECT *, earliest_event_at FROM sourced
+            )
+            SELECT * FROM withPrevEvent;
+            """.trimIndent()
+        )
+        println("=== same CTEs, no INSERT header ===")
+        println(tree)
+    }
+
     fun testExceptSetOperatorUntouched() {
         val tree = dump("select a from t EXCEPT select a from u;")
         println("=== EXCEPT set operator ===")

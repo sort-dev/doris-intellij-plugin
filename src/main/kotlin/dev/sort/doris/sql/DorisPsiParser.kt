@@ -11,7 +11,6 @@ package dev.sort.doris.sql
 
 import com.intellij.lang.PsiBuilder
 import com.intellij.sql.dialects.mysql.MysqlParser
-import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INSERT_STATEMENT
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 
 /**
@@ -32,9 +31,6 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
-        if (isInsertOverwrite(builder)) {
-            return parseInsertOverwrite(builder)
-        }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
             isCreateJob(builder)) {
             return parseLenientToQueryTail(builder, SQL_STATEMENT)
@@ -49,9 +45,6 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     }
 
     // --- dispatch predicates (bounded, non-consuming; all use mark/rollback) ---
-
-    private fun isInsertOverwrite(builder: PsiBuilder): Boolean =
-        wordAt(builder, 0) == "INSERT" && wordAt(builder, 1) == "OVERWRITE"
 
     private fun isCreateMaterializedView(builder: PsiBuilder): Boolean =
         wordAt(builder, 0) == "CREATE" && wordAt(builder, 1) == "MATERIALIZED" && wordAt(builder, 2) == "VIEW"
@@ -107,7 +100,6 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
         return when (wordAt(builder, 0)) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM" -> true
-            "INSERT" -> wordAt(builder, 1) == "OVERWRITE"
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
@@ -139,15 +131,6 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     }
 
     // --- lenient consumers ---
-
-    private fun parseInsertOverwrite(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        consumeWord(builder, "INSERT")
-        consumeWord(builder, "OVERWRITE")
-        parseUntilQueryTail(builder)
-        marker.done(SQL_INSERT_STATEMENT)
-        return true
-    }
 
     /** Consume the statement prefix leniently; when a SELECT/WITH tail appears, parse it for real. */
     private fun parseLenientToQueryTail(builder: PsiBuilder, done: com.intellij.psi.tree.IElementType): Boolean {
@@ -305,12 +288,6 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             if (word !in CREATE_TABLE_MODIFIERS) return null
         }
         return null
-    }
-
-    private fun consumeWord(builder: PsiBuilder, expected: String): Boolean {
-        if (!builder.tokenText.equals(expected, ignoreCase = true)) return false
-        builder.advanceLexer()
-        return true
     }
 
     private fun isCurrentWord(builder: PsiBuilder, expected: String): Boolean =
