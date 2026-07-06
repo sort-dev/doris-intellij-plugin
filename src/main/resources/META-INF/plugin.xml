@@ -4,25 +4,46 @@
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
 
     <description><![CDATA[
-        <p>First-class Apache Doris data source support for DataGrip and IntelliJ IDEA Ultimate.</p>
-
-        <p>Provides a ready-to-use Apache Doris driver template with built-in JDBC artifact download,
-        connection validation, and Doris SQL dialect support.</p>
+        <p>Apache Doris SQL dialect and data-source support for DataGrip and IntelliJ IDEA Ultimate.</p>
 
         <ul>
-            <li>Apache Doris data source entry in the <b>Data Sources and Drivers</b> dialog</li>
-            <li>Preconfigured JDBC URL template with default port 9030</li>
-            <li>Connection validation with Doris-specific port and URL checks</li>
-            <li>Doris SQL dialect with 565 keyword highlighting</li>
-            <li>Definition provider for tables, views, and databases (SHOW CREATE)</li>
-            <li>MySQL fallback for standard SQL syntax support</li>
+            <li>Dedicated <b>DorisSQL dialect</b> with correct statement and run-block boundaries for
+                Doris syntax the generic MySQL dialect mis-parses: <code>INSERT OVERWRITE</code>,
+                <code>SELECT * EXCEPT(...)</code>, <code>QUALIFY</code>, <code>CREATE JOB</code>,
+                materialized views, <code>DISTRIBUTED BY</code> / <code>PROPERTIES</code> DDL,
+                <code>REFRESH</code>, <code>WARM UP</code>, and more</li>
+            <li>Window functions, CTEs, Doris cast targets (<code>STRING</code>, <code>LARGEINT</code>,
+                <code>ARRAY&lt;...&gt;</code>, <code>MAP&lt;...&gt;</code>), <code>TRY_CAST</code>,
+                and map access (<code>col['key']</code>) parse with full structure and completion</li>
+            <li>Completion for 825 Doris built-in functions and Doris data types
+                (<code>VARIANT</code>, <code>BITMAP</code>, <code>HLL</code>, <code>AGG_STATE</code>, ...)</li>
+            <li>Doris-accurate syntax validation via an embedded build of the Doris SQL parser</li>
+            <li>Ready-to-use <b>Apache Doris</b> data-source template: MySQL Connector/J download,
+                default port 9030, connection validation, SHOW CREATE definitions</li>
         </ul>
 
-        <p>Apache Doris is a high-performance real-time analytical database based on MPP architecture.
-        This plugin is intended for Doris users who want a native setup experience inside JetBrains database IDEs.</p>
+        <p><i>This is an independent, community plugin developed by Sortdev SRL. It is not affiliated
+        with, endorsed by, or sponsored by the Apache Software Foundation. "Apache Doris", Doris, and
+        the Doris logo are trademarks of the Apache Software Foundation, used here only to identify
+        the database this plugin supports. For the official project see
+        <a href="https://doris.apache.org/">doris.apache.org</a>.</i></p>
 
-        <p>Keywords: Apache Doris OLAP analytical database SQL JDBC MySQL-compatible</p>
+        <p>Source, issues and documentation:
+        <a href="https://github.com/sort-dev/doris-intellij-plugin">github.com/sort-dev/doris-intellij-plugin</a></p>
     ]]></description>
+
+    <change-notes><![CDATA[
+        <b>0.2.2</b> — first public release.
+        <ul>
+            <li>DorisSQL dialect on the MySQL foundation with correct statement/run-block boundaries
+                for Doris-specific syntax</li>
+            <li>Native parsing for window functions, IF(), CTE chains, and INSERT OVERWRITE pipelines</li>
+            <li><code>SELECT * EXCEPT(...)</code>, Doris cast targets, <code>TRY_CAST</code>, and
+                <code>REGEXP(...)</code> handled without breaking resolution or completion</li>
+            <li>825-function completion, Doris data types, Doris-accurate error checking</li>
+            <li>Apache Doris driver template with automatic MySQL Connector/J download</li>
+        </ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
