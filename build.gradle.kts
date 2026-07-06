@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.10.2"
 }
 
-group = "com.brikk.doris"
+group = "dev.sort.doris"
 version = "0.1.0"
 
 repositories {

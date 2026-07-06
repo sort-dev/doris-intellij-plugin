@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.brikk.doris-intellij-plugin</id>
+    <id>dev.sort.doris-intellij-plugin</id>
     <name>Apache Doris Driver Integration</name>
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
 
@@ -29,21 +29,21 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <database.driversConfig config="config/doris-drivers.xml"/>
-        <database.configValidator implementation="com.brikk.doris.DorisConfigValidator"/>
-        <sql.dialect dbms="DORIS" implementationClass="com.brikk.doris.sql.DorisSqlDialect" order="first"/>
-        <lang.parserDefinition language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisParserDefinition"/>
-        <lang.syntaxHighlighterFactory language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisSyntaxHighlighterFactory"/>
-        <lang.commenter language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisCommenter"/>
-        <highlightErrorFilter implementation="com.brikk.doris.sql.DorisHighlightErrorFilter"/>
-        <daemon.highlightInfoFilter implementation="com.brikk.doris.sql.DorisHighlightInfoFilter"/>
-        <externalAnnotator language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisErrorAnnotator"/>
-        <completion.contributor language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisCompletionContributor"/>
+        <database.configValidator implementation="dev.sort.doris.DorisConfigValidator"/>
+        <sql.dialect dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisSqlDialect" order="first"/>
+        <lang.parserDefinition language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisSyntaxHighlighterFactory"/>
+        <lang.commenter language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCommenter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
+        <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
+        <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
+        <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
-        <dbms id="DORIS" instance="com.brikk.doris.DorisDbms.DORIS"/>
-        <modelFacade dbms="DORIS" implementationClass="com.brikk.doris.DorisModelFacade"/>
-        <definitionProvider dbms="DORIS" implementationClass="com.brikk.doris.DorisDefinitionProvider"/>
+        <dbms id="DORIS" instance="dev.sort.doris.DorisDbms.DORIS"/>
+        <modelFacade dbms="DORIS" implementationClass="dev.sort.doris.DorisModelFacade"/>
+        <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>
         <extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
     </extensions>
