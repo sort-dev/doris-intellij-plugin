@@ -35,7 +35,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         if (isInsertOverwrite(builder)) {
             return parseInsertOverwrite(builder)
         }
-        if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder)) {
+        if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
+            isCreateJob(builder)) {
             return parseLenientToQueryTail(builder, SQL_STATEMENT)
         }
         if (isDorisSpecificStatement(builder)) {
@@ -74,29 +75,40 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return false
     }
 
+    /**
+     * `CREATE JOB <name> ON SCHEDULE ... DO <statement>` (Doris scheduled job). MySQL doesn't know it,
+     * so the DO-body statement (typically INSERT ... SELECT) gets parsed as its own statement and the
+     * CREATE JOB prefix is orphaned — the run-block only covers the INSERT. Consume it as one
+     * statement, parsing the trailing query for completion.
+     */
+    private fun isCreateJob(builder: PsiBuilder): Boolean =
+        wordAt(builder, 0) == "CREATE" && wordAt(builder, 1) == "JOB"
+
     private fun isDorisCreateTable(builder: PsiBuilder): Boolean =
         wordAt(builder, 0) == "CREATE" &&
             createTableKeywordOffset(builder) != null &&
             statementContainsAny(builder, *DORIS_TABLE_CLAUSES)
 
     /**
-     * SELECT/WITH queries containing a clause the MySQL parser mis-parses — `SELECT * EXCEPT(col)`
-     * column-exclusion, `QUALIFY`, or a window function `OVER (...)` (which can split the statement
-     * when placed on a new line after a select-list comma). All routed through [parseBoundedQuery],
-     * which parses for real (structure + completion preserved) and only forces the boundary to ';'.
-     * Any resulting parse-error element on the unknown clause is hidden by DorisHighlightErrorFilter.
+     * SELECT/WITH queries containing a clause/expression the MySQL parser mis-parses — `* EXCEPT(col)`
+     * column-exclusion, `QUALIFY`, a window function `OVER (...)`, or a reserved-word used as a
+     * function (`IF(...)`, `REGEXP(...)`) which the MySQL grammar treats specially and which splits
+     * the select list / statement boundary. All routed through [parseBoundedQuery], which parses for
+     * real (structure + completion preserved) and only forces the boundary to ';'. Any resulting
+     * parse-error element on the unknown construct is hidden by DorisHighlightErrorFilter.
      */
     private fun isQueryWithDorisOnlyClause(builder: PsiBuilder): Boolean =
         isQueryStart(builder) &&
             (containsWindowFunction(builder) ||
                 containsExceptFollowedByParen(builder) ||
+                containsKeywordFunctionCall(builder, "IF", "REGEXP") ||
                 statementContainsAny(builder, "QUALIFY"))
 
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
         return when (wordAt(builder, 0)) {
-            "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC" -> true
+            "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM" -> true
             "INSERT" -> wordAt(builder, 1) == "OVERWRITE"
-            "REFRESH" -> wordAt(builder, 1) == "MATERIALIZED"
+            "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             "CREATE" -> isDorisCreateStatement(builder)
@@ -117,6 +129,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         val third = wordAt(builder, 2)
         if (second == "MATERIALIZED" && third == "VIEW") return true
         if (second == "ROUTINE" && third == "LOAD") return true
+        // CREATE DATABASE ... PROPERTIES(...) (external/managed props) — MySQL splits at PROPERTIES.
+        if (second == "DATABASE") return statementContainsAny(builder, "PROPERTIES")
         if (createTableKeywordOffset(builder) != null) {
             return statementContainsAny(builder, *DORIS_TABLE_CLAUSES)
         }
@@ -232,6 +246,30 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             if (text != null && text.isNotBlank()) {
                 if (sawOver && text == "(") { found = true; break }
                 sawOver = text.equals("OVER", ignoreCase = true)
+            }
+            builder.advanceLexer()
+            scanned++
+        }
+        marker.rollbackTo()
+        return found
+    }
+
+    /**
+     * True if any of [keywords] (uppercase) appears immediately followed by `(` before the next ';' —
+     * a reserved word used as a function (`IF(...)`, `REGEXP(...)`) that the MySQL grammar handles
+     * specially and mis-parses in a select list. Non-consuming.
+     */
+    private fun containsKeywordFunctionCall(builder: PsiBuilder, vararg keywords: String): Boolean {
+        val expected = keywords.toHashSet()
+        val marker = builder.mark()
+        var scanned = 0
+        var prev: String? = null
+        var found = false
+        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
+            val text = builder.tokenText
+            if (text != null && text.isNotBlank()) {
+                if (text == "(" && prev != null && expected.contains(prev)) { found = true; break }
+                prev = text.uppercase()
             }
             builder.advanceLexer()
             scanned++
