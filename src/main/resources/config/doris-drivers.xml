@@ -1,0 +1,12 @@
+<drivers>
+  <driver id="doris" name="Apache Doris" dialect="DorisSQL" forced-dbms="DORIS"
+          driver-class="com.mysql.cj.jdbc.Driver">
+    <url-template name="default"
+      template="jdbc:mysql://{host::localhost}[:{port::9030}][/{database:path}?][\?&lt;&amp;,user={user:param},password={password:param},useSSL={useSSL:param:false},allowPublicKeyRetrieval={allowPublicKeyRetrieval:param:true},defaultAuthenticationPlugin={defaultAuthenticationPlugin:param:mysql_native_password},{:identifier}={:param}&gt;]"/>
+    <!-- Reference DataGrip's built-in downloadable MySQL Connector/J artifact BY NAME (DataGrip
+         matches artifacts by name, not id). Rolling to latest is fine: 9.x works against Doris as
+         long as native auth is used, which the url-template forces via defaultAuthenticationPlugin. -->
+    <artifact name="MySQL Connector/J" use="true" rolling="true"/>
+    <option name="auto-sync" value="true"/>
+  </driver>
+</drivers>

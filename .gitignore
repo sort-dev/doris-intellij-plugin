@@ -1,0 +1,21 @@
+# Build output
+build/
+*/build/
+out/
+
+# Gradle (cache/local state — NOT the wrapper under gradle/)
+.gradle/
+
+# IntelliJ Platform Gradle plugin + Kotlin caches
+.intellijPlatform/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Local / machine-specific
+local.properties

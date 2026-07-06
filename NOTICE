@@ -1,0 +1,11 @@
+Doris SQL Plugin for IntelliJ IDEA / DataGrip
+Copyright 2026 Sortdev SRL
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+This product bundles and/or adapts third-party software, each licensed under the
+Apache License, Version 2.0. See THIRD_PARTY_NOTICES.md for details and attributions:
+
+  - Apache Doris (fe/fe-sql-parser) — Copyright The Apache Software Foundation
+  - StarRocks Support (github.com/ycyz97/starrocks-datagrip-plugin)

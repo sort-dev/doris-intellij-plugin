@@ -1,0 +1,50 @@
+<idea-plugin>
+    <id>com.brikk.doris-intellij-plugin</id>
+    <name>Apache Doris Driver Integration</name>
+    <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
+
+    <description><![CDATA[
+        <p>First-class Apache Doris data source support for DataGrip and IntelliJ IDEA Ultimate.</p>
+
+        <p>Provides a ready-to-use Apache Doris driver template with built-in JDBC artifact download,
+        connection validation, and Doris SQL dialect support.</p>
+
+        <ul>
+            <li>Apache Doris data source entry in the <b>Data Sources and Drivers</b> dialog</li>
+            <li>Preconfigured JDBC URL template with default port 9030</li>
+            <li>Connection validation with Doris-specific port and URL checks</li>
+            <li>Doris SQL dialect with 565 keyword highlighting</li>
+            <li>Definition provider for tables, views, and databases (SHOW CREATE)</li>
+            <li>MySQL fallback for standard SQL syntax support</li>
+        </ul>
+
+        <p>Apache Doris is a high-performance real-time analytical database based on MPP architecture.
+        This plugin is intended for Doris users who want a native setup experience inside JetBrains database IDEs.</p>
+
+        <p>Keywords: Apache Doris OLAP analytical database SQL JDBC MySQL-compatible</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.database</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <database.driversConfig config="config/doris-drivers.xml"/>
+        <database.configValidator implementation="com.brikk.doris.DorisConfigValidator"/>
+        <sql.dialect dbms="DORIS" implementationClass="com.brikk.doris.sql.DorisSqlDialect" order="first"/>
+        <lang.parserDefinition language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisSyntaxHighlighterFactory"/>
+        <lang.commenter language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisCommenter"/>
+        <highlightErrorFilter implementation="com.brikk.doris.sql.DorisHighlightErrorFilter"/>
+        <daemon.highlightInfoFilter implementation="com.brikk.doris.sql.DorisHighlightInfoFilter"/>
+        <externalAnnotator language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisErrorAnnotator"/>
+        <completion.contributor language="DorisSQL" implementationClass="com.brikk.doris.sql.DorisCompletionContributor"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij.database">
+        <dbms id="DORIS" instance="com.brikk.doris.DorisDbms.DORIS"/>
+        <modelFacade dbms="DORIS" implementationClass="com.brikk.doris.DorisModelFacade"/>
+        <definitionProvider dbms="DORIS" implementationClass="com.brikk.doris.DorisDefinitionProvider"/>
+        <extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>
+        <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
+    </extensions>
+</idea-plugin>
