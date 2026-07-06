@@ -14,12 +14,21 @@ parsing and validation.
 
 ## StarRocks Support (`ycyz97/starrocks-datagrip-plugin`) — adapted source
 
-`com.brikk.doris.sql.DorisPsiParser` adapts the lenient statement-parsing approach (statement
+`dev.sort.doris.sql.DorisPsiParser` adapts the lenient statement-parsing approach (statement
 dispatch by bounded keyword look-ahead, and helpers such as `wordAt` / `statementContainsAny` /
 consume-to-`;`) from this project's `StarRocksParser.kt`. The code has been modified for Apache
 Doris syntax.
 
 - Project: StarRocks Support — https://github.com/ycyz97/starrocks-datagrip-plugin
+- License: Apache License, Version 2.0
+
+## Apache Doris logo (icon)
+
+The plugin's data-source and marketplace icons (`icons/doris.svg`, `META-INF/pluginIcon.svg`) are the
+Apache Doris logo, used to identify Apache Doris data sources.
+
+- Source: Apache Doris — https://github.com/apache/doris (`.idea/icon.svg`)
+- Copyright: The Apache Software Foundation
 - License: Apache License, Version 2.0
 
 ---

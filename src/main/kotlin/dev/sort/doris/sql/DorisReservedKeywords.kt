@@ -14,10 +14,10 @@
  *  limitations under the License.
  */
 
-package dev.sort.doris.sql;
+package dev.sort.doris.sql
 
-public interface DorisReservedKeywords {
-    String[] RESERVED_KEYWORDS = {
+object DorisReservedKeywords {
+    val RESERVED_KEYWORDS = arrayOf(
             "ACCOUNT_LOCK",
             "ACCOUNT_UNLOCK",
             "ADD",
@@ -205,5 +205,5 @@ public interface DorisReservedKeywords {
             "WORKLOAD",
             "WRITE",
             "XOR",
-    };
+    )
 }

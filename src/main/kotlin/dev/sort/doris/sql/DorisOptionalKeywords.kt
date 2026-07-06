@@ -14,10 +14,10 @@
  *  limitations under the License.
  */
 
-package dev.sort.doris.sql;
+package dev.sort.doris.sql
 
-public interface DorisOptionalKeywords {
-    String[] OPTIONAL_KEYWORDS = {
+object DorisOptionalKeywords {
+    val OPTIONAL_KEYWORDS = arrayOf(
             "ACTIONS",
             "AFTER",
             "AGGREGATE",
@@ -395,5 +395,5 @@ public interface DorisOptionalKeywords {
             "WORK",
             "YEAR",
             "YEAR_MONTH",
-    };
+    )
 }

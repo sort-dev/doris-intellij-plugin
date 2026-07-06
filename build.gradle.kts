@@ -26,9 +26,10 @@ dependencies {
     implementation("org.antlr:antlr4-runtime:4.13.1")
 
     intellijPlatform {
-        // Build against the locally-installed DataGrip 2026.1 (build 261). Doris users are on the
-        // 2026.x line; the 252 SQL API (e.g. SqlFileElementType's package) is incompatible with 261.
-        local("/Users/jminard/Applications/DataGrip.app")
+        // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
+        // (e.g. SqlFileElementType's package) is incompatible with 261. Remote SDK so any clone/CI
+        // can build without a local IDE install.
+        datagrip("2026.1.3")
         bundledPlugin("com.intellij.database")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
