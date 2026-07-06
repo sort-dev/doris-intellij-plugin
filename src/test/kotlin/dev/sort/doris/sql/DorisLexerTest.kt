@@ -48,6 +48,63 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertFalse("the count(*) query must parse without errors", tree.contains("PsiErrorElement"))
     }
 
+    fun testInsertLagSingleLine() {
+        val tree = parseTree(
+            "INSERT OVERWRITE TABLE t PARTITION(*)\n" +
+            "WITH sourced AS (SELECT * FROM x WHERE a >= '2026-01-01'),\n" +
+            "withPrevEvent AS (\n" +
+            "    SELECT *, LAG(earliest_event_at) OVER (PARTITION BY k) AS prev FROM sourced\n" +
+            ")\n" +
+            "SELECT * FROM withPrevEvent;"
+        )
+        println("=== insert + single-line LAG ===")
+        println(tree)
+    }
+
+    fun testInsertLagMultiLine() {
+        val tree = parseTree(
+            "INSERT OVERWRITE TABLE t PARTITION(*)\n" +
+            "WITH sourced AS (SELECT * FROM x WHERE a >= '2026-01-01'),\n" +
+            "withPrevEvent AS (\n" +
+            "    SELECT *,\n" +
+            "        LAG(earliest_event_at) OVER (PARTITION BY k) AS prev\n" +
+            "    FROM sourced\n" +
+            ")\n" +
+            "SELECT * FROM withPrevEvent;"
+        )
+        println("=== insert + multi-line LAG ===")
+        println(tree)
+    }
+
+    fun testRawGrammarProbes() {
+        // Inside INSERT the statement bypasses our dispatch — pure grammar behavior.
+        val probes = mapOf(
+            "IF multi-line" to
+                "INSERT INTO t\nSELECT a,\n    IF(b IS NULL, 'x', 'y') AS c\nFROM s;",
+            "REGEXP function form" to
+                "INSERT INTO t\nSELECT REGEXP(ua, '(?i)bot') AS is_bot FROM s;"
+        )
+        for ((name, sql) in probes) {
+            val tree = parseTree(sql)
+            val errs = Regex("PsiErrorElement").findAll(tree).count()
+            println("PROBE-RESULT $name -> $errs errors")
+            assertEquals("$name must parse cleanly", 0, errs)
+        }
+    }
+
+    fun testTopLevelMultiLineLagGetsRealStatement() {
+        // With the builtin-function map fixed, window functions parse natively — no bounded wrapper.
+        val tree = parseTree(
+            "WITH s AS (SELECT 1 AS ts, 2 AS k)\n" +
+            "SELECT *,\n" +
+            "    LAG(ts) OVER (PARTITION BY k ORDER BY ts) AS prev FROM s;"
+        )
+        println(tree)
+        assertFalse("no parse errors", tree.contains("PsiErrorElement"))
+        assertTrue("must be a real select statement, not a generic bounded wrapper",
+            tree.contains("SQL_SELECT_STATEMENT"))
+    }
+
     fun testTokensIdenticalWhenNoMaskApplies() {
         // JSON and CHAR are MySQL-valid cast targets -> nothing masked -> streams must be identical.
         val sql = "select count(*) from t where INSTR(CAST(CAST(v AS JSON) AS CHAR), 'x') > 0 limit 10;"

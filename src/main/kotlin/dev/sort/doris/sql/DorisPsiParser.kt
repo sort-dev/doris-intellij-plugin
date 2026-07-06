@@ -16,17 +16,19 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 /**
  * A lenient PSI parser for the DorisSQL language. It extends the platform's MySQL parser and only
  * overrides statement dispatch: when a statement leads with Doris-specific syntax that the MySQL
- * grammar mis-parses (INSERT OVERWRITE, CREATE ... DISTRIBUTED BY, materialized views, routine load,
- * SELECT * EXCEPT(...), ADMIN/SHOW variants, ...), it consumes tokens up to the next ';' and wraps
- * them in a single SQL_STATEMENT node. This keeps the console "run statement at caret" boundaries
- * correct — the one thing that cannot be fixed while delegating parsing wholesale.
+ * grammar mis-parses (CREATE ... DISTRIBUTED BY, materialized views, routine load, CREATE JOB,
+ * ADMIN/SHOW/REFRESH/WARM UP variants, QUALIFY, ...), it consumes tokens up to the next ';' and
+ * wraps them in a single SQL_STATEMENT node, parsing any trailing SELECT/WITH for real. This keeps
+ * "run statement at caret" boundaries correct for statements the grammar cannot represent.
  *
- * Everything the MySQL grammar CAN parse (plain SELECT/INSERT/UPDATE/DDL) still falls through to
- * super for full structure + completion. Adapted from the StarRocks DataGrip plugin's approach
- * (ycyz97/starrocks-datagrip-plugin), which works the same StarRocks/Doris-lineage syntax.
+ * Everything else falls through to super for full structure + completion. Token-level Doris-isms
+ * (`* EXCEPT(...)`, INSERT OVERWRITE headers, Doris-only CAST targets, `REGEXP(...)`) are handled
+ * upstream in [DorisLexer], and the dialect's builtin-function map is MySQL's (see
+ * [DorisSqlDialect.createTokensHelper]) — both are prerequisites for the grammar to work at all.
+ * Adapted from the StarRocks DataGrip plugin's approach (ycyz97/starrocks-datagrip-plugin).
  *
- * Doris-accurate error reporting remains the fe-sql-parser annotator's job; this parser only fixes
- * statement scoping, so lenient statements intentionally carry no inner structure.
+ * Doris-accurate error reporting remains the fe-sql-parser annotator's job; lenient statements
+ * intentionally carry no inner structure beyond the parsed query tail.
  */
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
@@ -83,19 +85,16 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             statementContainsAny(builder, *DORIS_TABLE_CLAUSES)
 
     /**
-     * SELECT/WITH queries containing a clause/expression the MySQL parser mis-parses — `* EXCEPT(col)`
-     * column-exclusion, `QUALIFY`, a window function `OVER (...)`, or a reserved-word used as a
-     * function (`IF(...)`, `REGEXP(...)`) which the MySQL grammar treats specially and which splits
-     * the select list / statement boundary. All routed through [parseBoundedQuery], which parses for
-     * real (structure + completion preserved) and only forces the boundary to ';'. Any resulting
-     * parse-error element on the unknown construct is hidden by DorisHighlightErrorFilter.
+     * SELECT/WITH queries containing `QUALIFY` — the one query clause the MySQL grammar genuinely
+     * cannot parse. Routed through [parseBoundedQuery]: real parse (structure + completion), boundary
+     * forced to ';', the QUALIFY parse error hidden by DorisHighlightErrorFilter.
+     *
+     * Historical triggers now removed: window functions / IF() broke only because the dialect's
+     * builtin-function map was empty (fixed in DorisSqlDialect.createTokensHelper); `* EXCEPT(...)`
+     * and `REGEXP(...)` are handled upstream in DorisLexer, so the parser never sees them.
      */
     private fun isQueryWithDorisOnlyClause(builder: PsiBuilder): Boolean =
-        isQueryStart(builder) &&
-            (containsWindowFunction(builder) ||
-                containsExceptFollowedByParen(builder) ||
-                containsKeywordFunctionCall(builder, "IF", "REGEXP") ||
-                statementContainsAny(builder, "QUALIFY"))
+        isQueryStart(builder) && statementContainsAny(builder, "QUALIFY")
 
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
         return when (wordAt(builder, 0)) {
@@ -218,67 +217,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return found
     }
 
-    /** True if an `OVER` token is followed by `(` before the next ';' — a window function. Non-consuming. */
-    private fun containsWindowFunction(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var sawOver = false
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && text.isNotBlank()) {
-                if (sawOver && text == "(") { found = true; break }
-                sawOver = text.equals("OVER", ignoreCase = true)
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
 
-    /**
-     * True if any of [keywords] (uppercase) appears immediately followed by `(` before the next ';' —
-     * a reserved word used as a function (`IF(...)`, `REGEXP(...)`) that the MySQL grammar handles
-     * specially and mis-parses in a select list. Non-consuming.
-     */
-    private fun containsKeywordFunctionCall(builder: PsiBuilder, vararg keywords: String): Boolean {
-        val expected = keywords.toHashSet()
-        val marker = builder.mark()
-        var scanned = 0
-        var prev: String? = null
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && text.isNotBlank()) {
-                if (text == "(" && prev != null && expected.contains(prev)) { found = true; break }
-                prev = text.uppercase()
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
 
-    /** True if an `EXCEPT` token is immediately followed by `(` before the next ';'. Non-consuming. */
-    private fun containsExceptFollowedByParen(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var sawExcept = false
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && text.isNotBlank()) {
-                if (sawExcept && text == "(") { found = true; break }
-                sawExcept = text.equals("EXCEPT", ignoreCase = true)
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
 
     private fun createTableKeywordOffset(builder: PsiBuilder): Int? {
         if (wordAt(builder, 0) != "CREATE") return null

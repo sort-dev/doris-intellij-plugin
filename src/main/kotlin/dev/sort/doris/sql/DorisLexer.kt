@@ -57,6 +57,7 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
                 super.lookAhead(baseLexer)
             }
             isCastAs(baseLexer) -> handleCastAs(baseLexer)
+            isRegexpFunctionCall(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_IDENT)
             else -> super.lookAhead(baseLexer)
         }
     }
@@ -244,6 +245,20 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
             "BINARY", "CHAR", "NCHAR", "NATIONAL", "DATE", "DATETIME", "TIME", "YEAR",
             "DECIMAL", "DEC", "DOUBLE", "FLOAT", "REAL", "SIGNED", "UNSIGNED", "JSON"
         )
+    }
+
+    /**
+     * Doris `REGEXP(subject, pattern)` function form. In MySQL, REGEXP is only an operator keyword
+     * (`x REGEXP y`), so the function form mis-parses everywhere (select lists, view bodies, insert
+     * sources). Re-typing the keyword token as a plain identifier when directly followed by `(`
+     * makes it parse as a generic function call. The operator form (no paren) is untouched.
+     */
+    private fun isRegexpFunctionCall(base: Lexer): Boolean {
+        if (base.tokenType == null) return false
+        val seq = base.bufferSequence
+        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "REGEXP")) return false
+        val i = skipWhitespace(seq, base.tokenEnd)
+        return i < seq.length && seq[i] == '('
     }
 
     private fun regionEqualsIgnoreCase(seq: CharSequence, start: Int, end: Int, word: String): Boolean {
