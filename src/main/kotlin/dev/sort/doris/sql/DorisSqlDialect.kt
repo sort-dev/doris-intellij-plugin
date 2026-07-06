@@ -5,6 +5,8 @@ import com.intellij.database.dialects.DatabaseDialectEx
 import com.intellij.database.dialects.DatabaseDialects
 import com.intellij.sql.dialects.BuiltinFunction
 import com.intellij.sql.dialects.base.TokensHelper
+import com.intellij.sql.dialects.functions.SqlFunctionsUtil
+import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.sql.dialects.mysql.MysqlDialectBase
 import com.intellij.sql.dialects.mysql.MysqlTokens
 import dev.sort.doris.DorisDbms
@@ -27,7 +29,16 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
 
     // MySQL keyword tokens for the parser; Doris-specific keyword *coloring* is added separately by
     // DorisKeywordHighlighter (from the Doris keyword lists).
-    override fun createTokensHelper(): TokensHelper = createTokensHelper(MysqlTokens::class.java)
+    //
+    // CRITICAL: the builtin-function map must be MySQL's, loaded explicitly. The base
+    // createTokensHelper(Class) resolves `functions.xml` relative to the DIALECT'S OWN class package
+    // (dev/sort/doris/sql/ — which has none), yielding an EMPTY function map. Without it every
+    // special-form builtin (CAST(x AS type), TRIM(... FROM ...), EXTRACT, POSITION, ...) degrades to
+    // a generic call and `AS`/`FROM` inside becomes a hidden parse error — silently breaking type
+    // calc and resolution (e.g. "cannot resolve '*'"). Loading MysqlDialect's definitions at runtime
+    // keeps us in sync with the platform and avoids copying JetBrains resources.
+    override fun createTokensHelper(): TokensHelper =
+        TokensHelper(MysqlTokens::class.java, SqlFunctionsUtil.loadFunctionDefinition(MysqlDialect.INSTANCE))
 
     /** Register Doris data types on top of MySQL's so JSON/VARIANT/BITMAP/HLL/... are known. */
     override fun addTypes(types: MutableMap<String, BuiltinFunction.Type>) {

@@ -102,6 +102,42 @@ class DorisExceptParsingTest : BasePlatformTestCase() {
         println(tree)
     }
 
+    fun testCountStarWithDorisCasts() {
+        val tree = dump(
+            """
+            select count(*) from acme_import.events
+            where event_at >= '2026-06-29'
+              -- and user_connect_info['user_client'] = 'web'
+              AND INSTR(CAST(CAST(event_value AS JSON) AS STRING), 'ephemeral') > 0
+              -- AND CAST(event_value['video_type_id'] AS TINYINT)  = 2
+            limit 1000;
+            """.trimIndent()
+        )
+        println("=== count(*) with Doris casts ===")
+        println(tree)
+    }
+
+    fun testInsertOverwriteMapAccessCte() {
+        val tree = dump(
+            """
+            INSERT OVERWRITE TABLE acme_derived.user_watch_video  PARTITION(*)
+            WITH base AS (
+            select CAST(user_connect_info['user_client'] AS string) AS client,
+                event_type,
+                sum(if(user_id IS NULL OR user_id = 0, 0, 1)) AS with_known_users,
+                sum(if(event_value['provider_response_id'] IS NOT NULL, 1, 0)) AS has_provider_response_id
+            from acme_import.events
+            where event_at >= '2026-06-29'
+            )
+            SELECT * FROM base
+            group by 1, 2
+            order by 1;
+            """.trimIndent()
+        )
+        println("=== insert overwrite with map-access CTE ===")
+        println(tree)
+    }
+
     fun testExceptSetOperatorUntouched() {
         val tree = dump("select a from t EXCEPT select a from u;")
         println("=== EXCEPT set operator ===")

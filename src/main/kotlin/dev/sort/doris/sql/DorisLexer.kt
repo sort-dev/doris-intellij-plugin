@@ -29,13 +29,107 @@ import com.intellij.sql.psi.SqlTokens
  */
 class DorisLexer : LookAheadLexer(MysqlLexer()) {
 
+    // Cast-context tracking (parser feeds tokens strictly forward, so simple fields are safe):
+    // parenDepth counts all parens; castAsDepths holds, for each open CAST/TRY_CAST, the paren depth
+    // at which its `AS <type>` will appear.
+    private var parenDepth = 0
+    private val castAsDepths = ArrayDeque<Int>()
+
+    override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
+        parenDepth = 0
+        castAsDepths.clear()
+        super.start(buffer, startOffset, endOffset, initialState)
+    }
+
     override fun lookAhead(baseLexer: Lexer) {
         when {
             isExceptColumnExclusion(baseLexer) -> maskExceptColumnList(baseLexer)
             isInsertOverwrite(baseLexer) -> maskInsertOverwriteHeader(baseLexer)
             isPartitionStar(baseLexer) -> maskThroughRightParen(baseLexer)
+            isCastFunctionWord(baseLexer) -> {
+                castAsDepths.addLast(parenDepth + 1)
+                super.lookAhead(baseLexer)
+            }
+            baseLexer.tokenText == "(" -> { parenDepth++; super.lookAhead(baseLexer) }
+            baseLexer.tokenText == ")" -> {
+                parenDepth--
+                while (castAsDepths.isNotEmpty() && castAsDepths.last() > parenDepth) castAsDepths.removeLast()
+                super.lookAhead(baseLexer)
+            }
+            isCastAs(baseLexer) -> handleCastAs(baseLexer)
             else -> super.lookAhead(baseLexer)
         }
+    }
+
+    /**
+     * Doris cast targets the MySQL grammar rejects. The generated `valid_cast_type_element` rule
+     * accepts only MySQL's fixed cast-type tokens; Doris types (STRING, LARGEINT, VARIANT, BITMAP,
+     * ARRAY<...>, MAP<...,...>, ...) fail with "<valid cast type element> expected" — a hidden parse
+     * error that mangles the tree and breaks resolution (e.g. "cannot resolve '*'"). TRY_CAST is not
+     * a MySQL special form at all, so its `AS` always breaks. When the `AS <type>` of a CAST/TRY_CAST
+     * is not MySQL-valid we mask that tail as a comment: the call parses cleanly as a one-arg
+     * function (type unknown, but the tree — and everything resolving through it — stays intact).
+     * MySQL-valid targets (CHAR, JSON, SIGNED, DATETIME, ...) are left alone and keep full typing.
+     */
+    private fun isCastFunctionWord(base: Lexer): Boolean {
+        if (base.tokenType == null) return false
+        val seq = base.bufferSequence
+        val isCast = regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "CAST") ||
+            regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "TRY_CAST") ||
+            regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "CONVERT")
+        if (!isCast) return false
+        val i = skipWhitespace(seq, base.tokenEnd)
+        return i < seq.length && seq[i] == '('
+    }
+
+    private fun isCastAs(base: Lexer): Boolean {
+        if (castAsDepths.isEmpty() || castAsDepths.last() != parenDepth) return false
+        if (base.tokenType == null) return false
+        val seq = base.bufferSequence
+        return regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "AS")
+    }
+
+    private fun handleCastAs(base: Lexer) {
+        castAsDepths.removeLast() // one AS per cast context
+        val seq = base.bufferSequence
+        val typeStart = skipWhitespace(seq, base.tokenEnd)
+        val typeWord = readWord(seq, typeStart).uppercase()
+        if (typeWord in MYSQL_CAST_TYPES) {
+            super.lookAhead(base) // MySQL-valid target: emit AS normally, grammar handles the rest
+            return
+        }
+        // Mask `AS <type[<...>][(...)]>` as one comment.
+        var end = base.tokenEnd
+        base.advance() // past AS
+        // type word (plus optional keyword pair like DOUBLE PRECISION won't reach here — masked types only)
+        while (base.tokenType != null && base.tokenText.isBlank()) { end = base.tokenEnd; base.advance() }
+        if (base.tokenType != null) { end = base.tokenEnd; base.advance() } // the type word itself
+        // optional generic args ARRAY<...> / MAP<...,...> (balanced) and precision (...)
+        end = consumeBalancedIfNext(base, seq, end, '<', '>')
+        end = consumeBalancedIfNext(base, seq, end, '(', ')')
+        addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
+    }
+
+    /** If the next non-ws char is [open], consume through its balanced [close]; returns new end. */
+    private fun consumeBalancedIfNext(base: Lexer, seq: CharSequence, endSoFar: Int, open: Char, close: Char): Int {
+        var end = endSoFar
+        val i = skipWhitespace(seq, end)
+        if (i >= seq.length || seq[i] != open) return end
+        var depth = 0
+        while (base.tokenType != null) {
+            val t = base.tokenText
+            if (t.isNotBlank()) {
+                // tokens may be multi-char; count occurrences within the token text
+                for (c in t) {
+                    if (c == open) depth++
+                    else if (c == close) depth--
+                }
+            }
+            end = base.tokenEnd
+            base.advance()
+            if (depth <= 0 && end > i) break
+        }
+        return end
     }
 
     /**
@@ -142,6 +236,14 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
         var i = from
         while (i < seq.length && (seq[i].isLetterOrDigit() || seq[i] == '_')) i++
         return seq.subSequence(from, i).toString()
+    }
+
+    private companion object {
+        /** Cast targets DataGrip's MySQL grammar accepts (valid_cast_type_element). Anything else is masked. */
+        val MYSQL_CAST_TYPES = setOf(
+            "BINARY", "CHAR", "NCHAR", "NATIONAL", "DATE", "DATETIME", "TIME", "YEAR",
+            "DECIMAL", "DEC", "DOUBLE", "FLOAT", "REAL", "SIGNED", "UNSIGNED", "JSON"
+        )
     }
 
     private fun regionEqualsIgnoreCase(seq: CharSequence, start: Int, end: Int, word: String): Boolean {
