@@ -1,0 +1,387 @@
+SqlFile:corpus.sql
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    PsiComment(SQL_BLOCK_COMMENT)('OVERWRITE')
+    PsiWhiteSpace(' ')
+    PsiComment(SQL_BLOCK_COMMENT)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_derived')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_watch_video')
+      PsiWhiteSpace(' ')
+      PsiComment(SQL_BLOCK_COMMENT)('PARTITION(*)')
+      PsiWhiteSpace('\n')
+      SQL_WITH_QUERY_EXPRESSION
+        SQL_WITH_CLAUSE
+          PsiElement(WITH)('WITH')
+          PsiWhiteSpace(' ')
+          SQL_NAMED_QUERY_DEFINITION
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('dateRange')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            PsiElement(()('(')
+            PsiWhiteSpace('\n    ')
+            SQL_QUERY_EXPRESSION
+              SQL_SELECT_CLAUSE
+                PsiElement(SELECT)('SELECT')
+                PsiWhiteSpace(' ')
+                SQL_AS_EXPRESSION
+                  SQL_STRING_LITERAL
+                    PsiElement(SQL_STRING_TOKEN)(''2026-06-30'')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('_startRangeInclusive')
+                PsiElement(,)(',')
+                PsiWhiteSpace('\n           ')
+                SQL_AS_EXPRESSION
+                  SQL_STRING_LITERAL
+                    PsiElement(SQL_STRING_TOKEN)(''2026-07-05'')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('_endRangeExclusive')
+            PsiWhiteSpace('\n')
+            PsiElement())(')')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NAMED_QUERY_DEFINITION
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('sourced')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            PsiElement(()('(')
+            PsiWhiteSpace('\n    ')
+            SQL_QUERY_EXPRESSION
+              SQL_SELECT_CLAUSE
+                PsiElement(SELECT)('SELECT')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  PsiElement(*)('*')
+              PsiWhiteSpace('\n    ')
+              SQL_TABLE_EXPRESSION
+                SQL_FROM_CLAUSE
+                  PsiElement(FROM)('FROM')
+                  PsiWhiteSpace(' ')
+                  SQL_TABLE_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('acme_derived')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('events_watch_time_by_user_1h_mv')
+                PsiWhiteSpace('\n    ')
+                SQL_WHERE_CLAUSE
+                  PsiElement(WHERE)('where')
+                  PsiWhiteSpace(' ')
+                  SQL_BINARY_EXPRESSION
+                    SQL_BINARY_EXPRESSION
+                      SQL_COLUMN_REFERENCE
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('window_start_at')
+                      PsiWhiteSpace(' ')
+                      PsiElement(>=)('>=')
+                      PsiWhiteSpace(' ')
+                      SQL_BINARY_EXPRESSION
+                        SQL_PARENTHESIZED_QUERY_EXPRESSION
+                          PsiElement(()('(')
+                          SQL_QUERY_EXPRESSION
+                            SQL_SELECT_CLAUSE
+                              PsiElement(SELECT)('SELECT')
+                              PsiWhiteSpace(' ')
+                              SQL_COLUMN_REFERENCE
+                                SQL_IDENTIFIER
+                                  PsiElement(SQL_IDENT)('_startRangeInclusive')
+                            PsiWhiteSpace(' ')
+                            SQL_TABLE_EXPRESSION
+                              SQL_FROM_CLAUSE
+                                PsiElement(FROM)('FROM')
+                                PsiWhiteSpace(' ')
+                                SQL_TABLE_REFERENCE
+                                  SQL_IDENTIFIER
+                                    PsiElement(SQL_IDENT)('dateRange')
+                          PsiElement())(')')
+                        PsiWhiteSpace(' ')
+                        PsiElement(-)('-')
+                        PsiWhiteSpace(' ')
+                        SQL_INTERVAL_LITERAL
+                          PsiElement(INTERVAL)('INTERVAL')
+                          PsiWhiteSpace(' ')
+                          SQL_NUMERIC_LITERAL
+                            PsiElement(SQL_INTEGER_TOKEN)('1')
+                          PsiWhiteSpace(' ')
+                          PsiElement(DAY)('DAY')
+                    PsiWhiteSpace('\n      ')
+                    PsiElement(AND)('AND')
+                    PsiWhiteSpace(' ')
+                    SQL_BINARY_EXPRESSION
+                      SQL_COLUMN_REFERENCE
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('window_start_at')
+                      PsiWhiteSpace(' ')
+                      PsiElement(<)('<')
+                      PsiWhiteSpace(' ')
+                      SQL_BINARY_EXPRESSION
+                        SQL_PARENTHESIZED_QUERY_EXPRESSION
+                          PsiElement(()('(')
+                          SQL_QUERY_EXPRESSION
+                            SQL_SELECT_CLAUSE
+                              PsiElement(SELECT)('SELECT')
+                              PsiWhiteSpace(' ')
+                              SQL_COLUMN_REFERENCE
+                                SQL_IDENTIFIER
+                                  PsiElement(SQL_IDENT)('_endRangeExclusive')
+                            PsiWhiteSpace(' ')
+                            SQL_TABLE_EXPRESSION
+                              SQL_FROM_CLAUSE
+                                PsiElement(FROM)('FROM')
+                                PsiWhiteSpace(' ')
+                                SQL_TABLE_REFERENCE
+                                  SQL_IDENTIFIER
+                                    PsiElement(SQL_IDENT)('dateRange')
+                          PsiElement())(')')
+                        PsiWhiteSpace(' ')
+                        PsiElement(+)('+')
+                        PsiWhiteSpace(' ')
+                        SQL_INTERVAL_LITERAL
+                          PsiElement(INTERVAL)('INTERVAL')
+                          PsiWhiteSpace(' ')
+                          SQL_NUMERIC_LITERAL
+                            PsiElement(SQL_INTEGER_TOKEN)('1')
+                          PsiWhiteSpace(' ')
+                          PsiElement(DAY)('DAY')
+            PsiWhiteSpace('\n')
+            PsiElement())(')')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NAMED_QUERY_DEFINITION
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('withPrevEvent')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            PsiElement(()('(')
+            PsiWhiteSpace('\n    ')
+            SQL_QUERY_EXPRESSION
+              SQL_SELECT_CLAUSE
+                PsiElement(SELECT)('SELECT')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  PsiElement(*)('*')
+                PsiElement(,)(',')
+                PsiWhiteSpace('\n        ')
+                SQL_AS_EXPRESSION
+                  SQL_FUNCTION_CALL
+                    SQL_ANY_CALLABLE_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(LAG_IDENT)('LAG')
+                    PsiElement(()('(')
+                    SQL_ARGUMENT_LIST
+                      SQL_COLUMN_REFERENCE
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('earliest_event_at')
+                      INFO:[expr:any]
+                        <empty list>
+                      INFO:[0]
+                        <empty list>
+                    PsiElement())(')')
+                    PsiWhiteSpace(' ')
+                    SQL_ANALYTIC_CLAUSE
+                      PsiElement(OVER)('OVER')
+                      PsiWhiteSpace(' ')
+                      PsiElement(()('(')
+                      SQL_PARTITION_BY_CLAUSE
+                        PsiElement(PARTITION)('PARTITION')
+                        PsiWhiteSpace(' ')
+                        PsiElement(BY)('BY')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('watch_rollup_type')
+                        PsiElement(,)(',')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('watch_rollup_key')
+                        PsiElement(,)(',')
+                        PsiWhiteSpace('\n                                          ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('viewing_user_client_key')
+                        PsiElement(,)(',')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('video_id')
+                      PsiWhiteSpace('\n                             ')
+                      SQL_ORDER_BY_CLAUSE
+                        PsiElement(ORDER)('ORDER')
+                        PsiWhiteSpace(' ')
+                        PsiElement(BY)('BY')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('earliest_event_at')
+                        PsiElement(,)(',')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('latest_event_at')
+                        PsiElement(,)(',')
+                        PsiWhiteSpace(' ')
+                        SQL_COLUMN_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('event_key')
+                      PsiWhiteSpace('\n                            ')
+                      PsiElement())(')')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('_prev_event_at')
+              PsiWhiteSpace('\n    ')
+              SQL_TABLE_EXPRESSION
+                SQL_FROM_CLAUSE
+                  PsiElement(FROM)('FROM')
+                  PsiWhiteSpace(' ')
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('sourced')
+            PsiWhiteSpace('\n')
+            PsiElement())(')')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NAMED_QUERY_DEFINITION
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('sessionMarkPhase0')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            PsiElement(()('(')
+            PsiWhiteSpace('\n    ')
+            SQL_QUERY_EXPRESSION
+              SQL_SELECT_CLAUSE
+                PsiElement(SELECT)('SELECT')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  PsiElement(*)('*')
+                PsiElement(,)(',')
+                PsiWhiteSpace('\n        ')
+                SQL_AS_EXPRESSION
+                  SQL_CASE_EXPRESSION
+                    PsiElement(CASE)('CASE')
+                    PsiWhiteSpace('\n            ')
+                    SQL_CASE_WHEN_THEN_CLAUSE
+                      SQL_WHEN_CLAUSE
+                        PsiElement(WHEN)('WHEN')
+                        PsiWhiteSpace(' ')
+                        SQL_BINARY_EXPRESSION
+                          SQL_COLUMN_REFERENCE
+                            SQL_IDENTIFIER
+                              PsiElement(SQL_IDENT)('_prev_event_at')
+                          PsiWhiteSpace(' ')
+                          PsiElement(IS)('IS')
+                          PsiWhiteSpace(' ')
+                          SQL_SPECIAL_LITERAL
+                            PsiElement(NULL)('NULL')
+                      PsiWhiteSpace(' ')
+                      SQL_THEN_CLAUSE
+                        PsiElement(THEN)('THEN')
+                        PsiWhiteSpace(' ')
+                        SQL_NUMERIC_LITERAL
+                          PsiElement(SQL_INTEGER_TOKEN)('1')
+                    PsiWhiteSpace('\n            ')
+                    SQL_CASE_WHEN_THEN_CLAUSE
+                      SQL_WHEN_CLAUSE
+                        PsiElement(WHEN)('WHEN')
+                        PsiWhiteSpace(' ')
+                        SQL_BINARY_EXPRESSION
+                          SQL_FUNCTION_CALL
+                            SQL_ANY_CALLABLE_REFERENCE
+                              SQL_IDENTIFIER
+                                PsiElement(SQL_IDENT)('TIMESTAMPDIFF')
+                            PsiElement(()('(')
+                            SQL_ARGUMENT_LIST
+                              PsiElement(HOUR)('HOUR')
+                              INFO:[HOUR]
+                                <empty list>
+                              PsiElement(,)(',')
+                              PsiWhiteSpace(' ')
+                              SQL_COLUMN_REFERENCE
+                                SQL_IDENTIFIER
+                                  PsiElement(SQL_IDENT)('_prev_event_at')
+                              INFO:[datetime_expr1:datetime]
+                                <empty list>
+                              PsiElement(,)(',')
+                              PsiWhiteSpace(' ')
+                              SQL_COLUMN_REFERENCE
+                                SQL_IDENTIFIER
+                                  PsiElement(SQL_IDENT)('earliest_event_at')
+                              INFO:[datetime_expr2:datetime]
+                                <empty list>
+                              INFO:[0]
+                                <empty list>
+                            PsiElement())(')')
+                          PsiWhiteSpace(' ')
+                          PsiElement(>)('>')
+                          PsiWhiteSpace(' ')
+                          SQL_NUMERIC_LITERAL
+                            PsiElement(SQL_INTEGER_TOKEN)('4')
+                      PsiWhiteSpace(' ')
+                      SQL_THEN_CLAUSE
+                        PsiElement(THEN)('THEN')
+                        PsiWhiteSpace(' ')
+                        SQL_NUMERIC_LITERAL
+                          PsiElement(SQL_INTEGER_TOKEN)('1')
+                    PsiWhiteSpace('\n            ')
+                    SQL_ELSE_CLAUSE
+                      PsiElement(ELSE)('ELSE')
+                      PsiWhiteSpace(' ')
+                      SQL_NUMERIC_LITERAL
+                        PsiElement(SQL_INTEGER_TOKEN)('0')
+                    PsiWhiteSpace('\n        ')
+                    PsiElement(END)('END')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('_real_reset_flag')
+              PsiWhiteSpace('\n    ')
+              SQL_TABLE_EXPRESSION
+                SQL_FROM_CLAUSE
+                  PsiElement(FROM)('FROM')
+                  PsiWhiteSpace(' ')
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('withPrevEvent')
+            PsiWhiteSpace('\n')
+            PsiElement())(')')
+        PsiWhiteSpace('\n')
+        SQL_QUERY_EXPRESSION
+          SQL_SELECT_CLAUSE
+            PsiElement(SELECT)('SELECT')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_EXPRESSION
+            SQL_FROM_CLAUSE
+              PsiElement(FROM)('FROM')
+              PsiWhiteSpace(' ')
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('sessionMarkPhase0')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

@@ -1,0 +1,113 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('select')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(COUNT_IDENT)('count')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+            INFO:[expr:any*]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('from')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('acme_import')
+            PsiElement(.)('.')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('events')
+        PsiWhiteSpace('\n')
+        SQL_WHERE_CLAUSE
+          PsiElement(WHERE)('where')
+          PsiWhiteSpace(' ')
+          SQL_BINARY_EXPRESSION
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('event_at')
+              PsiWhiteSpace(' ')
+              PsiElement(>=)('>=')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''2026-06-29'')
+            PsiWhiteSpace('\n  ')
+            PsiElement(AND)('AND')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_FUNCTION_CALL
+                SQL_ANY_CALLABLE_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('INSTR')
+                PsiElement(()('(')
+                SQL_ARGUMENT_LIST
+                  SQL_FUNCTION_CALL
+                    SQL_ANY_CALLABLE_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('CAST')
+                    PsiElement(()('(')
+                    SQL_ARGUMENT_LIST
+                      SQL_FUNCTION_CALL
+                        SQL_ANY_CALLABLE_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('CAST')
+                        PsiElement(()('(')
+                        SQL_ARGUMENT_LIST
+                          SQL_COLUMN_REFERENCE
+                            SQL_IDENTIFIER
+                              PsiElement(SQL_IDENT)('event_value')
+                          PsiWhiteSpace(' ')
+                          INFO:[ANY:any]
+                            <empty list>
+                          PsiElement(AS)('AS')
+                          PsiWhiteSpace(' ')
+                          INFO:[AS]
+                            <empty list>
+                          SQL_BUILTIN_TYPE_ELEMENT
+                            PsiElement(JSON)('JSON')
+                          INFO:[datatype:cast_datatype]
+                            <empty list>
+                          INFO:[0]
+                            <empty list>
+                        PsiElement())(')')
+                      INFO:[ANY:any]
+                        <empty list>
+                    PsiWhiteSpace(' ')
+                    PsiComment(SQL_BLOCK_COMMENT)('AS STRING')
+                    PsiElement())(')')
+                  INFO:[str:varchar]
+                    <empty list>
+                  PsiElement(,)(',')
+                  PsiWhiteSpace(' ')
+                  SQL_STRING_LITERAL
+                    PsiElement(SQL_STRING_TOKEN)(''ephemeral'')
+                  INFO:[substr:varchar]
+                    <empty list>
+                  INFO:[0]
+                    <empty list>
+                PsiElement())(')')
+              PsiWhiteSpace(' ')
+              PsiElement(>)('>')
+              PsiWhiteSpace(' ')
+              SQL_NUMERIC_LITERAL
+                PsiElement(SQL_INTEGER_TOKEN)('0')
+      PsiWhiteSpace('\n')
+      SQL_LIMIT_OFFSET_CLAUSE
+        PsiElement(LIMIT)('limit')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('1000')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

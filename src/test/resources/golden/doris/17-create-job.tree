@@ -1,0 +1,98 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('JOB')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('backfill_2026_07_0b')
+    PsiWhiteSpace('\n')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(SCHEDULE)('SCHEDULE')
+    PsiWhiteSpace(' ')
+    PsiElement(AT)('AT')
+    PsiWhiteSpace(' ')
+    PsiElement(CURRENT_TIMESTAMP)('CURRENT_TIMESTAMP')
+    PsiWhiteSpace('\n')
+    PsiElement(DO)('DO')
+    PsiWhiteSpace('\n')
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    PsiElement(INTO)('INTO')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('acme_import')
+    PsiElement(.)('.')
+    PsiElement(SQL_IDENT)('events')
+    PsiWhiteSpace('\n')
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        PsiComment(SQL_BLOCK_COMMENT)('/*+ SET_VAR(query_timeout = 28800) */')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          PsiElement(*)('*')
+      PsiWhiteSpace(' ')
+      PsiComment(SQL_BLOCK_COMMENT)('EXCEPT(year,month,day)')
+      PsiWhiteSpace('\n')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace('  ')
+          SQL_TABLE_REFERENCE
+            SQL_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('acme_pipeline')
+            PsiElement(.)('.')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('pipe_ingest_event_at_landing')
+        PsiWhiteSpace('\n')
+        SQL_WHERE_CLAUSE
+          PsiElement(WHERE)('WHERE')
+          PsiWhiteSpace(' ')
+          SQL_BINARY_EXPRESSION
+            SQL_BINARY_EXPRESSION
+              SQL_BINARY_EXPRESSION
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(YEAR_IDENT)('year')
+                PsiWhiteSpace(' ')
+                PsiElement(=)('=')
+                PsiWhiteSpace(' ')
+                SQL_NUMERIC_LITERAL
+                  PsiElement(SQL_INTEGER_TOKEN)('2026')
+              PsiWhiteSpace(' ')
+              PsiElement(AND)('AND')
+              PsiWhiteSpace(' ')
+              SQL_BINARY_EXPRESSION
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(MONTH_IDENT)('month')
+                PsiWhiteSpace(' ')
+                PsiElement(=)('=')
+                PsiWhiteSpace(' ')
+                SQL_NUMERIC_LITERAL
+                  PsiElement(SQL_INTEGER_TOKEN)('7')
+            PsiWhiteSpace(' ')
+            PsiElement(AND)('AND')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(DAY_IDENT)('day')
+              PsiWhiteSpace(' ')
+              PsiElement(IN)('in')
+              PsiWhiteSpace(' ')
+              SQL_PARENTHESIZED_EXPRESSION
+                PsiElement(()('(')
+                SQL_NUMERIC_LITERAL
+                  PsiElement(SQL_INTEGER_TOKEN)('3')
+                PsiElement(,)(',')
+                SQL_NUMERIC_LITERAL
+                  PsiElement(SQL_INTEGER_TOKEN)('4')
+                PsiElement(,)(',')
+                SQL_NUMERIC_LITERAL
+                  PsiElement(SQL_INTEGER_TOKEN)('5')
+                PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

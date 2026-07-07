@@ -1,0 +1,27 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiErrorElement:<expression>, ALL, DISTINCT, DISTINCTROW, HIGH_PRIORITY, MAX_STATEMENT_TIME, SQL_BIG_RESULT, SQL_BUFFER_RESULT, SQL_CACHE, SQL_CALC_FOUND_ROWS, SQL_NO_CACHE, SQL_SMALL_RESULT or STRAIGHT_JOIN expected, got 'REGEXP'
+          <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(REGEXP)('REGEXP')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('user_agent')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_STRING_TOKEN)(''(?i)bot|crawler'')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(AS)('AS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('is_bot')
+    PsiWhiteSpace(' ')
+    PsiElement(FROM)('FROM')
+    PsiWhiteSpace(' ')
+    PsiElement(EVENTS)('events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

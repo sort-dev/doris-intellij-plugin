@@ -1,0 +1,50 @@
+SqlFile:corpus.sql
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      PsiElement(INTO)('INTO')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('a')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('b')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('c')
+          PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_UNION_EXPRESSION
+        SQL_QUERY_EXPRESSION
+          SQL_SELECT_CLAUSE
+            PsiElement(SELECT)('SELECT')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+        PsiWhiteSpace(' ')
+        PsiElement(EXCEPT)('EXCEPT')
+        SQL_PARENTHESIZED_QUERY_EXPRESSION
+          PsiElement(()('(')
+          PsiErrorElement:<query expression> expected, got 'z'
+            PsiElement(SQL_IDENT)('z')
+          PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:AS, EXCEPT, FOR, INTERSECT, LIMIT, LOCK, ON, ORDER or UNION expected, got 'FROM'
+      PsiElement(FROM)('FROM')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('s')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

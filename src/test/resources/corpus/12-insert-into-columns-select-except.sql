@@ -1,0 +1,1 @@
+INSERT INTO t (a, b, c) SELECT * EXCEPT(z) FROM s;

@@ -74,6 +74,14 @@ tasks {
         // The light test fixture doesn't enable the database plugin by default; without it our
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
         systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin")
+
+        // Gate 1 dual golden corpus (DorisGoldenCorpusTest): absolute paths to the SQL corpus and
+        // the recorded golden trees. Passing -Pgolden.record=true flips the test into record mode.
+        systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
+        systemProperty("golden.dir", layout.projectDirectory.dir("src/test/resources/golden").asFile.absolutePath)
+        if (providers.gradleProperty("golden.record").isPresent) {
+            systemProperty("golden.record", "true")
+        }
     }
 }
 

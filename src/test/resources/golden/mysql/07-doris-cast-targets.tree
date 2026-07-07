@@ -1,0 +1,156 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('v')
+            PsiWhiteSpace(' ')
+            INFO:[ANY:any]
+              <empty list>
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            INFO:[AS]
+              <empty list>
+            PsiErrorElement:<valid cast type element> expected, got 'STRING'
+              <empty list>
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(STRING_IDENT)('STRING')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('n')
+            PsiWhiteSpace(' ')
+            INFO:[ANY:any]
+              <empty list>
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            INFO:[AS]
+              <empty list>
+            PsiErrorElement:<valid cast type element> expected, got 'LARGEINT'
+              <empty list>
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('LARGEINT')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('j')
+            PsiWhiteSpace(' ')
+            INFO:[ANY:any]
+              <empty list>
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            INFO:[AS]
+              <empty list>
+            SQL_BUILTIN_TYPE_ELEMENT
+              PsiElement(JSON)('JSON')
+            INFO:[datatype:cast_datatype]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('c')
+            PsiWhiteSpace(' ')
+            INFO:[ANY:any]
+              <empty list>
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            INFO:[AS]
+              <empty list>
+            SQL_BUILTIN_TYPE_ELEMENT
+              PsiElement(CHAR)('CHAR')
+            INFO:[datatype:cast_datatype]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n       ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('TRY_CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('e')
+              PsiWhiteSpace(' ')
+              PsiErrorElement:'(' or '[' expected, got 'AS'
+                PsiElement(AS)('AS')
+              PsiWhiteSpace(' ')
+              PsiElement(SQL_IDENT)('ARRAY')
+              PsiElement(<)('<')
+              PsiElement(TEXT)('TEXT')
+              PsiElement(>)('>')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('TRY_CAST')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('m')
+              PsiWhiteSpace(' ')
+              PsiErrorElement:'(' or '[' expected, got 'AS'
+                PsiElement(AS)('AS')
+              PsiWhiteSpace(' ')
+              PsiElement(SQL_IDENT)('MAP')
+              PsiElement(<)('<')
+              PsiElement(STRING)('STRING')
+            PsiElement(,)(',')
+            PsiWhiteSpace(' ')
+            PsiErrorElement:<expression> expected, got 'INT'
+              PsiElement(INT)('INT')
+            PsiElement(>)('>')
+          PsiElement())(')')
+      PsiWhiteSpace('\n')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

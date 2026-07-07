@@ -1,0 +1,83 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('country')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(COUNT_IDENT)('COUNT')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+              INFO:[expr:any*]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('n')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('users')
+        PsiWhiteSpace(' ')
+        SQL_GROUP_BY_CLAUSE
+          PsiElement(GROUP)('GROUP')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('country')
+        PsiWhiteSpace(' ')
+        SQL_HAVING_CLAUSE
+          PsiElement(HAVING)('HAVING')
+          PsiWhiteSpace(' ')
+          SQL_BINARY_EXPRESSION
+            SQL_FUNCTION_CALL
+              SQL_ANY_CALLABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(COUNT_IDENT)('COUNT')
+              PsiElement(()('(')
+              SQL_ARGUMENT_LIST
+                SQL_COLUMN_REFERENCE
+                  PsiElement(*)('*')
+                INFO:[expr:any*]
+                  <empty list>
+                INFO:[0]
+                  <empty list>
+              PsiElement())(')')
+            PsiWhiteSpace(' ')
+            PsiElement(>)('>')
+            PsiWhiteSpace(' ')
+            SQL_NUMERIC_LITERAL
+              PsiElement(SQL_INTEGER_TOKEN)('10')
+      PsiWhiteSpace(' ')
+      SQL_ORDER_BY_CLAUSE
+        PsiElement(ORDER)('ORDER')
+        PsiWhiteSpace(' ')
+        PsiElement(BY)('BY')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('n')
+        PsiWhiteSpace(' ')
+        PsiElement(DESC)('DESC')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

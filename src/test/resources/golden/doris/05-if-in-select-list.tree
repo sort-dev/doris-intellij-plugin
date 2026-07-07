@@ -1,0 +1,271 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace('\n    ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('date_trunc')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('c')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('event_at')
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''hour'')
+            PsiElement())(')')
+          PsiWhiteSpace('                  ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('window_start_at')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('c')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('surface')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(IF_IDENT)('IF')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_BINARY_EXPRESSION
+                SQL_BINARY_EXPRESSION
+                  SQL_COLUMN_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('c')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('user_id')
+                  PsiWhiteSpace(' ')
+                  PsiElement(IS)('IS')
+                  PsiWhiteSpace(' ')
+                  SQL_SPECIAL_LITERAL
+                    PsiElement(NULL)('NULL')
+                PsiWhiteSpace(' ')
+                PsiElement(OR)('OR')
+                PsiWhiteSpace(' ')
+                SQL_BINARY_EXPRESSION
+                  SQL_COLUMN_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('c')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('user_id')
+                  PsiWhiteSpace(' ')
+                  PsiElement(=)('=')
+                  PsiWhiteSpace(' ')
+                  SQL_NUMERIC_LITERAL
+                    PsiElement(SQL_INTEGER_TOKEN)('0')
+              INFO:[expr1:any]
+                <empty list>
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''A'')
+              INFO:[expr2:any]
+                <empty list>
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''U'')
+              INFO:[expr3:any]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace('  ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_rollup_type')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('c')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_client_name')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_AS_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('c')
+            PsiElement(.)('.')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_is_premium')
+          PsiWhiteSpace('                                 ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('is_premium')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('re')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('engine')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n    ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(COUNT_IDENT)('COUNT')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+              INFO:[expr:any*]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace('                                          ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('click_count')
+      PsiWhiteSpace('\n')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_JOIN_EXPRESSION
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('acme_import')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('events_clicks_to_video')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('c')
+            PsiWhiteSpace('\n')
+            PsiElement(JOIN)('JOIN')
+            PsiWhiteSpace(' ')
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('acme_bi')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('recommender_engines')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('re')
+            PsiWhiteSpace('\n    ')
+            SQL_JOIN_CONDITION_CLAUSE
+              PsiElement(ON)('ON')
+              PsiWhiteSpace('  ')
+              SQL_FUNCTION_CALL
+                SQL_ANY_CALLABLE_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('array_contains')
+                PsiElement(()('(')
+                SQL_ARGUMENT_LIST
+                  SQL_COLUMN_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('c')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('experiments')
+                  PsiElement(,)(',')
+                  PsiWhiteSpace(' ')
+                  SQL_STRING_LITERAL
+                    PsiElement(SQL_STRING_TOKEN)(''src_v1_homepage-player-lineup'')
+                PsiElement())(')')
+        PsiWhiteSpace('\n')
+        SQL_WHERE_CLAUSE
+          PsiElement(WHERE)('WHERE')
+          PsiWhiteSpace(' ')
+          SQL_BINARY_EXPRESSION
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('c')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('possible_bot_user_agent')
+              PsiWhiteSpace(' ')
+              PsiElement(=)('=')
+              PsiWhiteSpace(' ')
+              SQL_NUMERIC_LITERAL
+                PsiElement(SQL_INTEGER_TOKEN)('0')
+            PsiWhiteSpace('\n  ')
+            PsiElement(AND)('AND')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('c')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('possible_bot_cidr')
+              PsiWhiteSpace(' ')
+              PsiElement(=)('=')
+              PsiWhiteSpace(' ')
+              SQL_NUMERIC_LITERAL
+                PsiElement(SQL_INTEGER_TOKEN)('0')
+        PsiWhiteSpace('\n')
+        SQL_GROUP_BY_CLAUSE
+          PsiElement(GROUP)('GROUP')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('1')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('2')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('3')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('4')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('5')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_POSITIONAL_REFERENCE
+            PsiElement(SQL_INTEGER_TOKEN)('6')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

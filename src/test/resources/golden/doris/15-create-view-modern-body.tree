@@ -1,0 +1,113 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(OR)('OR')
+    PsiWhiteSpace(' ')
+    PsiElement(REPLACE)('REPLACE')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('v_modern')
+    PsiWhiteSpace(' ')
+    PsiElement(AS)('AS')
+    PsiWhiteSpace('\n')
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          PsiElement(*)('*')
+        PsiWhiteSpace(' ')
+        PsiComment(SQL_BLOCK_COMMENT)('EXCEPT (raw_json)')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n       ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('REGEXP')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('user_agent')
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''(?i)bot|crawler'')
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('is_bot')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n       ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('FROM_SECOND')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('db_ts')
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('event_at')
+        PsiElement(,)(',')
+        PsiWhiteSpace('\n       ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('JSON_OBJECT')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''ip'')
+              INFO:[key:varchar]
+                <empty list>
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('user_ip')
+              INFO:[val:any]
+                <empty list>
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_STRING_LITERAL
+                PsiElement(SQL_STRING_TOKEN)(''os'')
+              INFO:[key:varchar]
+                <empty list>
+              PsiElement(,)(',')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('user_os')
+              INFO:[val:any]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('info')
+      PsiWhiteSpace('\n')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(EVENTS_IDENT)('events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
