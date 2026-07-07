@@ -578,16 +578,30 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
 
 **B. Create/refresh the Doris data source, then read the tree**
 
-1. Add an Apache Doris data source (host/port/user/password), test the connection.
+1. Add a **FRESH** Apache Doris data source (host/port/user/password), test the connection. (M2's
+   default-scope fix only applies to a data source whose introspection scope was never touched —
+   delete/recreate the data source rather than reusing one where you already picked schemas. An
+   existing explicit selection is deliberately never clobbered.)
 2. Right-click → Refresh (or expand the data source root).
-3. **Expected flag-ON tree:** `<data source>` → **catalog nodes** at the database level
-   (`internal`, `hive_archive`, …) → expand a catalog → **database** nodes (Doris databases) →
-   expand a database → **tables + views** → expand a table → **columns**.
-   The distinguishing win vs. shipped: catalogs other than `internal` are visible and expandable,
-   and `internal`'s databases sit under it rather than at the root.
-4. **Expected flag-OFF control tree (plain `runIde`):** unchanged shipped behaviour — schemas
-   (databases of the current/`internal` catalog) directly under the data source, no catalog level,
-   external catalogs invisible.
+3. **Expected flag-ON tree — with ZERO manual scope selection (M2):**
+   `<data source>` → all **catalog** nodes at the top level (`internal`, `hive_archive`, …; the
+   level is labelled **"catalogs"**, not "databases" — M2 terminology) → `internal` is
+   **deep-introspected by default**: expand it → its databases → tables/views → columns, no clicks
+   in the schemas pane needed. External catalogs are **enumerated but not deep-introspected**:
+   the catalog node is visible, `internal`'s content is there, but external contents load only
+   after you opt in (schemas pane → tick databases under that catalog) — deliberate, they can
+   front huge hive metastores. `internal` should carry the "current" highlight (bold).
+   Log marker: `DorisCatalogs: supplying default introspection scope: internal deep, external
+   catalogs enumerated` — its absence on a fresh data source means the scope was not empty (not
+   actually fresh) or the default-scope hook never ran.
+4. **Expected flag-OFF control tree (plain `runIde`) — issue #5 check:** single-level as shipped
+   (schemas directly under the data source, no catalog level, externals invisible), but a FRESH
+   data source now defaults to **the connection's current database** selected and populated
+   (parity with a genuine MySQL data source) instead of nothing. If the connection reports no
+   current database (no database in the URL), behaviour is unchanged from shipped (nothing
+   selected) — set a database in the URL/database field to see the default.
+   Log marker: `DorisCatalogs: supplying flag-off default introspection scope (current database:
+   <name-or-null>)`.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -637,3 +651,91 @@ flag defaults off, no shipped user is ever affected.
 6. **`MsScriptGenerator`/`MsPredicatesHelper` receive the DORIS `Dbms`** (not `MSSQL`) flag-on. Not
    exercised by the M1 tree feature; if DDL export / data-grid filtering misbehaves under the flag,
    that is the place to look. Out of M1 scope.
+
+---
+
+## Gate 1 log — M2 (default introspection scope + terminology)
+
+*Executed 2026-07-07, after the user's successful M1 runtime test (catalogs + contents visible; the
+three M1 runtime unknowns cleared). Fixes the two M1 UX findings: a fresh data source looked empty
+until scopes were hand-picked, and the top tree level said "databases" instead of "catalogs".*
+
+### 1. The default-scope mechanism (bytecode findings)
+
+**Where the default comes from — it is introspector-keyed, not dbms-, driver-, or model-keyed:**
+
+- `DatabaseIntrospectionSession.performTasksInTheConnectedSession` (database-plugin.jar): when
+  `LocalDataSource.getIntrospectionScope()` **isEmpty()** and the loader context allows changing DS
+  settings, it runs `introspectNamespaces()` then `updateDataSourceScope()`, which copies
+  **`DBIntrospector.getDefaultScope()`** into `LocalDataSource.setIntrospectionScope(...)`.
+  Because it fires *only on an empty scope*, a user's explicit selections are never clobbered —
+  exactly the "first-connect only" semantics M2 needs. Nothing in `doris-drivers.xml` or the dbms
+  registration participates.
+- Shipped defaults: `BaseSingleDatabaseIntrospector.getDefaultScope()` = `SINGLE_DB_SCOPE` — a
+  `TreePattern` selecting the SCHEMA named **`@`** (`DataSourceSchemaMapping.CURRENT_NAMESPACE_NAME`);
+  `BaseMultiDatabaseIntrospector` = `MULTI_DB_SCOPE` (`@` DATABASE → `@` SCHEMA).
+- **Why DORIS defaulted to nothing while MySQL works:** `@` is resolved at match time against
+  `BasicNamespace.isCurrent()` (`DataSourceSchemaMapping.match`, bytecode: `matchedChildren(...,
+  CURRENT_NAMESPACE_NAME, ...)` guarded by `BasicNamespace.isCurrent()`). Flag-ON, M1's
+  `DatabaseLister` inherited the base `isCurrent(index,row) = (index == 0)` — an *arbitrary* first
+  `SHOW CATALOGS` row — and no schema was ever marked current, so `@→@` matched nothing → empty
+  tree until manual selection. Flag-OFF (issue #5), Doris connections frequently report no current
+  database over the MySQL protocol, so no `MysqlBaseSchema` gets `isCurrent` → `@` matches nothing,
+  while genuine MySQL data sources resolve it fine.
+
+### 2. What was wired (both modes)
+
+| Mode | Class | Default scope now |
+|---|---|---|
+| flag ON | `DorisIntrospector.getDefaultScope()` → `DorisCatalogScopes.multiCatalogDefaultScope()` | **All catalogs enumerated at the database level; `internal` deep-introspected; externals enumerated-but-not-deep-introspected.** Pattern: DATABASE group with (a) positive node `internal` carrying a wildcard SCHEMA group (all its databases), and (b) a negative node (matches every catalog *except* `internal`) with **no** SCHEMA group — the catalog is in scope as a bare database node, none of its schemas selected. The platform's `TreePattern` vocabulary expresses "enumerate but don't introspect" directly (a scope node without child groups), so no gap to document. External deep-introspection stays per-catalog opt-in via the schemas pane. |
+| flag OFF (#5) | `DorisSingleDatabaseIntrospector` (a `MysqlBaseIntrospector` subclass, produced by the DORIS factory flag-off) overriding only `getDefaultScope()` → `DorisCatalogScopes.singleDatabaseDefaultScope(super.getDefaultScope(), getCurrentDatabase())` | The platform's own `@` pattern (exact MySQL parity when `isCurrent` lands) **union** the connection's reported current database **by name** (`getCurrentDatabase()` = jdba `ConnectionInfo.databaseName`), so the default resolves even when the `isCurrent` flag never does. No current database reported → base pattern returned untouched (unchanged, and identical to genuine MySQL in the same situation). |
+
+Also fixed flag-ON: the catalog lister now overrides `isCurrent(index,row)` to honor Doris's own
+`IsCurrent` column from `SHOW CATALOGS` (new nullable `CatalogRow.IsCurrent` field; `Yes/true/1`),
+falling back to `internal` when the column is absent — replacing the arbitrary first-row marking.
+This drives the tree's "current" highlight and any user-configured `@` patterns.
+
+**Dual-mode note (deliberate M1 exception):** flag-OFF is no longer literally byte-for-byte — the
+factory now returns `DorisSingleDatabaseIntrospector` instead of the stock `MysqlBaseIntrospector`.
+The subclass changes *only* `getDefaultScope()` (the #5 fix, per M2 tasking); it was made a
+**subclass, not a wrapper**, precisely so `instanceof MysqlBaseIntrospector` checks in platform code
+(`MysqlIntrospectorStatsProvider`) keep matching and every inherited behaviour stays identical.
+
+### 3. Terminology verdict: DONE flag-ON (cheap, per-dbms by design)
+
+Kind display names are produced by `ModelHelper.getName(kind, plural)` which consults the per-dbms
+**`ModelHelper.getCustomName(kind, plural)`** hook before falling back to the static `ObjectKind`
+bundle name. Verified consumers: `DvTreeModelLayer` (database-explorer family nodes),
+`DbPresentationCore` (object presentation), `DbNamespacesTree` (the schemas pane). This is exactly
+how Cassandra renames SCHEMA→"keyspace" (`CassModelHelper`). Implemented flag-ON as
+`DorisCatalogModelHelper : ModelHelper` (returned by `DorisModelFacade.getModelHelper()` flag-ON):
+`getCustomName(DATABASE)` → "catalog"/"catalogs". Flag-OFF keeps `MysqlBaseModelHelper` — labels
+unchanged.
+
+Two documented limitations: (a) `MsModelHelper` is `final`, so the flag-ON helper extends the
+generic `ModelHelper` base instead; the Ms-specific extras it loses (LOGIN/ROLE custom names, MSSQL
+grant controller, creation-template examples) concern object kinds the Doris introspector never
+populates. (b) Only kind-name-driven labels change; fixed platform bundle strings that hardcode the
+word "database(s)" outside the kind-name mechanism (if any surface) are out of this hook's reach.
+
+### 4. Tests (offline)
+
+`DorisCatalogScopesTest`: flag-ON pattern shape (internal matched + deep via wildcard SCHEMA group;
+externals matched + shallow with no SCHEMA group), flag-OFF composition (null/blank current → base
+returned *same instance*; named current → selectable by name, `@` preserved, unrelated names not
+selected), and terminology (`getName(DATABASE)` = catalog/catalogs; SCHEMA/TABLE not renamed).
+Full suite 63 tests / 0 failures; `buildPlugin` green.
+
+### 5. Residual risks
+
+- The `updateDataSourceScope` copy happens **once**: users who already made manual selections (the
+  M1 runtime tester included) keep them; the M2 defaults are only observable on a *fresh* data
+  source. The §5 runtime script step B now says so explicitly.
+- Whether the tree *renders* an in-scope-but-schemaless external catalog node on all tree-filter
+  settings ("Show all namespaces" off) is a runtime question; the catalogs are always enumerated
+  into the model by the lister, and the scope now explicitly includes them, which is the strongest
+  claim the scope machinery can express.
+- Flag-OFF's named-current union depends on jdba's `ConnectionInfo.databaseName` being filled for
+  Doris (Connector/J reports the URL database via `getCatalog()`); if Doris leaves it null the
+  behaviour degrades exactly to today's (issue #5 then needs the URL to include a database —
+  documented in the runtime script).

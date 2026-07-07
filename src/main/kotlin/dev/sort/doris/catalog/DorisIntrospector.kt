@@ -6,12 +6,16 @@ import com.intellij.database.dialects.base.introspector.BaseMultiDatabaseIntrosp
 import com.intellij.database.dialects.mssql.model.MsDatabase
 import com.intellij.database.dialects.mssql.model.MsRoot
 import com.intellij.database.dialects.mssql.model.MsSchema
+import com.intellij.database.dialects.mysqlbase.introspector.MysqlBaseIntrospector
+import com.intellij.database.dialects.mysqlbase.model.MysqlBaseRoot
+import com.intellij.database.dialects.mysqlbase.model.MysqlBaseSchema
 import com.intellij.database.introspection.DBIntrospectionContext
 import com.intellij.database.introspection.DBIntrospector
 import com.intellij.database.layoutedQueries.DBTransaction
 import com.intellij.database.model.ModelFactory
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.families.ModNamingFamily
+import com.intellij.database.util.TreePattern
 import dev.sort.doris.DorisCatalogs
 
 /**
@@ -70,6 +74,19 @@ class DorisIntrospector(
     modelFactory: ModelFactory,
 ) : BaseMultiDatabaseIntrospector<MsRoot, MsDatabase, MsSchema>(context, DorisNature, dbms, modelFactory) {
 
+    /**
+     * M2: the default introspection scope a **fresh** data source receives. The platform copies
+     * this into the data source on the first introspection that finds an *empty* scope
+     * (`DatabaseIntrospectionSession.updateDataSourceScope`) and never again after the user makes
+     * an explicit selection. The inherited `MULTI_DB_SCOPE` (`@` current-namespace pattern) can
+     * resolve to nothing on a fresh Doris data source; return an explicit Doris default instead:
+     * `internal` deep-introspected, external catalogs enumerated but not deep-introspected.
+     */
+    override fun getDefaultScope(): TreePattern {
+        DorisCatalogs.info("supplying default introspection scope: internal deep, external catalogs enumerated")
+        return DorisCatalogScopes.multiCatalogDefaultScope()
+    }
+
     /** Level 1: enumerate Doris catalogs as DATABASE nodes via `SHOW CATALOGS`. */
     override fun createDatabaseLister(): DatabaseLister<*, *> {
         return object : DatabaseLister<DorisCatalogQueries.CatalogRow, MsDatabase>() {
@@ -90,6 +107,23 @@ class DorisIntrospector(
             ): MsDatabase {
                 // renew(family, id, name): create-or-refresh the DATABASE node for this catalog.
                 return renew(family, row.CatalogId, row.CatalogName!!)
+            }
+
+            /**
+             * M2: mark the session's actual current catalog. The base class marks whichever row
+             * comes **first**, which is arbitrary for `SHOW CATALOGS`. Prefer Doris's own
+             * `IsCurrent` column; fall back to `internal` (the connect-time default catalog) when
+             * the column is absent. The current flag drives the tree's "current" highlight and any
+             * `@`-based scope pattern a user configures.
+             */
+            override fun isCurrent(index: Int, row: DorisCatalogQueries.CatalogRow): Boolean {
+                val flag = row.IsCurrent
+                if (flag != null) {
+                    return flag.equals("yes", ignoreCase = true) ||
+                        flag.equals("true", ignoreCase = true) ||
+                        flag == "1"
+                }
+                return row.CatalogName == DorisCatalogScopes.INTERNAL_CATALOG
             }
         }
     }
@@ -222,9 +256,10 @@ class DorisIntrospector(
     }
 
     /**
-     * `<introspector dbms="DORIS">` factory. **Dual-mode**: flag-off it is a transparent pass-through
-     * to the stock `MysqlBaseIntrospector.Factory` (byte-identical to today's `extensionFallback`
-     * behaviour — same single-database introspector, same capabilities); flag-on it produces
+     * `<introspector dbms="DORIS">` factory. **Dual-mode**: flag-off it produces
+     * [DorisSingleDatabaseIntrospector] — the stock `MysqlBaseIntrospector` behaviour with exactly
+     * one deliberate change, the M2 default-scope fix for GitHub issue #5 — and delegates all
+     * capability answers to the stock `MysqlBaseIntrospector.Factory`; flag-on it produces
      * [DorisIntrospector] and advertises multilevel introspection.
      */
     class DorisIntrospectorFactory private constructor(
@@ -242,7 +277,7 @@ class DorisIntrospector(
             return if (DorisCatalogs.enabled) {
                 DorisIntrospector(context, dbms, modelFactory)
             } else {
-                mysql.createIntrospector(context, dbms, modelFactory)
+                DorisSingleDatabaseIntrospector(context, dbms, modelFactory)
             }
         }
 
@@ -251,6 +286,41 @@ class DorisIntrospector(
 
         override fun isIncremental(): Boolean =
             if (DorisCatalogs.enabled) false else mysql.isIncremental()
+    }
+}
+
+/**
+ * Flag-OFF introspector (Gate 1 / M2, GitHub issue #5): the stock single-database
+ * [MysqlBaseIntrospector] with **only** [getDefaultScope] overridden.
+ *
+ * A fresh Doris data source used to default to *no* introspection scope selection: the inherited
+ * default is the `@` (current-namespace) pattern, which matches only a schema flagged
+ * `isCurrent()` — and Doris connections frequently end up with none (no current database reported
+ * over the MySQL protocol). Genuine MySQL data sources resolve `@` fine, hence the parity gap. The
+ * override keeps `@` (exact MySQL parity when it works) and **adds the connection's reported
+ * current database by name** ([getCurrentDatabase], jdba `ConnectionInfo.databaseName`) when there
+ * is one, so the default resolves even when the `isCurrent` flag never lands.
+ *
+ * Deliberately a **subclass** (not a delegating wrapper): platform code such as
+ * `MysqlIntrospectorStatsProvider` does `instanceof MysqlBaseIntrospector` checks that must keep
+ * matching flag-off; a wrapper would silently disable them. Everything except the default scope is
+ * inherited unchanged.
+ */
+class DorisSingleDatabaseIntrospector(
+    context: DBIntrospectionContext,
+    dbms: Dbms,
+    modelFactory: ModelFactory,
+) : MysqlBaseIntrospector<MysqlBaseRoot, MysqlBaseSchema>(context, dbms, modelFactory) {
+
+    override fun getDefaultScope(): TreePattern {
+        val current = try {
+            getCurrentDatabase()
+        } catch (t: Throwable) {
+            DorisCatalogs.warn("could not determine current database for default scope", t)
+            null
+        }
+        DorisCatalogs.info("supplying flag-off default introspection scope (current database: $current)")
+        return DorisCatalogScopes.singleDatabaseDefaultScope(super.getDefaultScope(), current)
     }
 }
 

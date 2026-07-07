@@ -29,8 +29,8 @@ import dev.sort.doris.DorisStringUtils
  * ## Row structs and jdba `structOf`
  *
  * `Layouts.structOf(C::class.java)` maps each result column to the public field of `C` with the same
- * name. Doris `SHOW CATALOGS` emits `CatalogId, CatalogName, Type, IsCurrent, ...`; only the two we
- * name below are bound, the rest ignored. Fields are plain public JVM fields (`@JvmField`).
+ * name. Doris `SHOW CATALOGS` emits `CatalogId, CatalogName, Type, IsCurrent, ...`; only the fields
+ * we name below are bound, the rest ignored. Fields are plain public JVM fields (`@JvmField`).
  */
 object DorisCatalogQueries {
 
@@ -38,6 +38,13 @@ object DorisCatalogQueries {
     class CatalogRow {
         @JvmField var CatalogId: Long = 0
         @JvmField var CatalogName: String? = null
+
+        /**
+         * Doris reports the session's current catalog in an `IsCurrent` column (`Yes`/`No`). Older
+         * builds may lack the column; jdba then leaves this null and the introspector falls back to
+         * treating `internal` as the current catalog.
+         */
+        @JvmField var IsCurrent: String? = null
     }
 
     /** One row of the per-schema `information_schema.tables` scan. */
