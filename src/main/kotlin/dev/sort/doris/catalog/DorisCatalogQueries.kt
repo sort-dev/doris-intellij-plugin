@@ -59,7 +59,16 @@ object DorisCatalogQueries {
     class ColumnRow {
         @JvmField var TABLE_NAME: String? = null
         @JvmField var COLUMN_NAME: String? = null
+
+        /** Bare type name (`varchar`, `variant`, ...). Fallback when [COLUMN_TYPE] is absent. */
         @JvmField var DATA_TYPE: String? = null
+
+        /**
+         * Full type spec (`varchar(65533)`, `decimal(27,9)`, `array<int>`, ...) — the MySQL-layout
+         * column Doris's FE-served `information_schema` fills; may be null/blank for some external
+         * catalogs, in which case [DATA_TYPE] is used.
+         */
+        @JvmField var COLUMN_TYPE: String? = null
         @JvmField var ORDINAL_POSITION: Long = 0
     }
 
@@ -72,7 +81,7 @@ object DorisCatalogQueries {
     private const val TABLES_SELECT = "SELECT TABLE_NAME, TABLE_TYPE FROM "
     private const val TABLES_WHERE = ".tables WHERE TABLE_SCHEMA = ?"
     private const val COLUMNS_SELECT =
-        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM "
+        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, ORDINAL_POSITION FROM "
     private const val COLUMNS_WHERE =
         ".columns WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION"
 
@@ -150,6 +159,43 @@ object DorisCatalogQueries {
             }
             ObjectKind.DATABASE -> "SWITCH " + quote(current.name)
             else -> null
+        }
+    }
+
+    // ---- Column data types (M5) --------------------------------------------------------------------
+
+    /**
+     * Builds the column's stored [DasType] from `information_schema.columns` data (M5, item 2).
+     *
+     * Uses the platform's own generic recipe (verified in `JdbcIntrospectorHelper` bytecode):
+     * **`DataTypeFactory.of(spec)` -> `DasUnresolvedTypeReference.of(dataType)`**. `DataTypeFactory`
+     * parses the full spec (`varchar(65533)`, `decimal(27,9)`) into a [com.intellij.database.model.DataType]
+     * with size/scale, and `DasUnresolvedTypeReference` resolves lazily against the dbms type
+     * system — a name the type system does not know (Doris exotics like `variant`, `bitmap`, `hll`,
+     * `largeint`, `agg_state`, generics like `array<int>` / `map<string,int>`, or hive-side strings
+     * from external catalogs) simply stays an unresolved reference **that preserves the type-name
+     * string**, so the UI shows `variant` instead of blank/unknown, and nothing throws.
+     *
+     * Prefers the full [ColumnRow.COLUMN_TYPE] spec; falls back to the bare [ColumnRow.DATA_TYPE];
+     * returns null (leave the column untyped) when neither is usable — never crashes introspection
+     * on a weird engine-specific string.
+     */
+    fun columnDasType(dataType: String?, columnType: String?): com.intellij.database.types.DasType? {
+        val spec = columnType?.takeUnless { it.isBlank() }
+            ?: dataType?.takeUnless { it.isBlank() }
+            ?: return null
+        return try {
+            com.intellij.database.types.DasUnresolvedTypeReference.of(
+                com.intellij.database.model.properties.DataTypeFactory.of(spec),
+            )
+        } catch (t: Throwable) {
+            // Even the lenient factory choked (pathological spec): preserve the raw string if the
+            // string-based factory accepts it, else leave the column untyped.
+            try {
+                com.intellij.database.types.DasUnresolvedTypeReference.of(spec)
+            } catch (t2: Throwable) {
+                null
+            }
         }
     }
 

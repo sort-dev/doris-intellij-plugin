@@ -39,6 +39,7 @@ class DorisCatalogQueriesTest : BasePlatformTestCase() {
         assertTrue(columns, columns.contains("FROM `hive_archive`.information_schema.columns"))
         assertTrue(columns.contains("TABLE_SCHEMA = ?"))
         assertTrue(columns.contains("COLUMN_NAME") && columns.contains("ORDINAL_POSITION"))
+        assertTrue("M5: must fetch the full type spec", columns.contains("COLUMN_TYPE"))
         assertFalse(columns.contains("SWITCH"))
 
         // Catalog identifier quoting must survive embedded backticks in the qualified form too.
@@ -80,6 +81,10 @@ class DorisCatalogQueriesTest : BasePlatformTestCase() {
         assertTrue(tableFields.containsAll(setOf("TABLE_NAME", "TABLE_TYPE")))
 
         val columnFields = DorisCatalogQueries.ColumnRow::class.java.fields.map { it.name }.toSet()
-        assertTrue(columnFields.containsAll(setOf("TABLE_NAME", "COLUMN_NAME", "DATA_TYPE", "ORDINAL_POSITION")))
+        assertTrue(
+            columnFields.containsAll(
+                setOf("TABLE_NAME", "COLUMN_NAME", "DATA_TYPE", "COLUMN_TYPE", "ORDINAL_POSITION"),
+            ),
+        )
     }
 }

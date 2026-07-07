@@ -3,6 +3,7 @@ package dev.sort.doris.catalog
 import com.intellij.database.Dbms
 import com.intellij.database.dialects.base.introspector.BaseIntrospector
 import com.intellij.database.dialects.base.introspector.BaseMultiDatabaseIntrospector
+import com.intellij.database.dialects.base.introspector.SchemaPortion
 import com.intellij.database.dialects.mssql.model.MsDatabase
 import com.intellij.database.dialects.mssql.model.MsRoot
 import com.intellij.database.dialects.mssql.model.MsSchema
@@ -167,51 +168,107 @@ class DorisIntrospector(
             ): Boolean = false
 
             override fun process() {
-                val catalog = schema.database?.name ?: return
-                val schemaName = schema.name
-                try {
-                    val tables = runCatalogScopedOrFallback(
-                        transaction, catalog, "information_schema.tables",
-                        primary = {
-                            it.query(DorisCatalogQueries.listTablesIn(catalog)).withParams(schemaName).run()
-                        },
-                        fallback = {
-                            it.query(DorisCatalogQueries.LIST_TABLES_CURRENT).withParams(schemaName).run()
-                        },
-                    ).orEmpty()
-                    val columnsByTable = runCatalogScopedOrFallback(
-                        transaction, catalog, "information_schema.columns",
-                        primary = {
-                            it.query(DorisCatalogQueries.listColumnsIn(catalog)).withParams(schemaName).run()
-                        },
-                        fallback = {
-                            it.query(DorisCatalogQueries.LIST_COLUMNS_CURRENT).withParams(schemaName).run()
-                        },
-                    ).orEmpty().groupBy { it.TABLE_NAME }
+                retrieveSchemaObjects(transaction, schema)
+            }
+        }
+    }
 
-                    var tableCount = 0
-                    var viewCount = 0
-                    for (t in tables) {
-                        val name = t.TABLE_NAME ?: continue
-                        if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-                            schema.views.createOrGet(name)
-                            viewCount++
-                        } else {
-                            val table = schema.tables.createOrGet(name)
-                            for (col in columnsByTable[name].orEmpty()) {
-                                val colName = col.COLUMN_NAME ?: continue
-                                table.columns.createOrGet(colName)
-                            }
-                            tableCount++
-                        }
-                    }
-                    DorisCatalogs.info(
-                        "catalog '$catalog' db '$schemaName' -> $tableCount tables, $viewCount views",
-                    )
-                } catch (t: Throwable) {
-                    DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
+    /**
+     * M5 item 1: the **portion** (level-one) retriever the platform requests when only a *subset*
+     * of schemas needs introspection — e.g. the schemas pane / console switcher triggering
+     * "Introspect the Portion of N schemas (full) on level 1". The [BaseNativeIntrospector] default
+     * throws "The introspector ... doesn't support the requested retriever"
+     * (`thisRetrieverIsNotSupported`, the SEVERE from the user's runtime pass); this is the **only**
+     * retriever-factory seam with a not-supported default — `MsIntrospector` fills the same seam
+     * with `MsLevelOneRetriever : BaseDatabaseSchemasRetriever`.
+     *
+     * Subset semantics: introspects **exactly** the portion's schemas, via the same stateless
+     * per-catalog queries as the deep path. Schemas outside the portion are not touched; the
+     * databases (catalog) level is never reset (no family-wide `markChildrenAsSyncPending`/`clear`).
+     * Per-schema failures log + skip that schema only. Our "level one" is the full
+     * table/view/column retrieve — the only surface defined so far; if the platform later asks for
+     * a deeper level on the same schema, the retrieval is idempotent (`createOrGet`).
+     */
+    override fun createLevelOneRetrieverForPortion(
+        transaction: DBTransaction,
+        portion: SchemaPortion<out MsDatabase, out MsSchema>,
+    ): AbstractDatabaseSchemasRetriever<out MsDatabase, out MsSchema> {
+        return object : BaseDatabaseSchemasRetriever<MsDatabase, MsSchema>(
+            transaction,
+            portion.database,
+            portion.schemas,
+        ) {
+            override fun process() {
+                DorisCatalogs.info(
+                    "portion introspection: ${portion.schemas.size} schema(s) of catalog " +
+                        "'${portion.database.name}' (mode ${portion.mode})",
+                )
+                for (schema in schemas) {
+                    retrieveSchemaObjects(transaction, schema)
                 }
             }
+        }
+    }
+
+    /**
+     * Retrieves one Doris database's tables/views/columns — including column stored types and
+     * positions (M5 item 2) — via the stateless catalog-qualified queries. Shared by the deep
+     * schema retriever and the portion retriever. A failure is logged with the `DorisCatalogs:`
+     * prefix and skips only this schema.
+     */
+    private fun retrieveSchemaObjects(transaction: DBTransaction, schema: MsSchema) {
+        val catalog = schema.database?.name ?: return
+        val schemaName = schema.name
+        try {
+            val tables = runCatalogScopedOrFallback(
+                transaction, catalog, "information_schema.tables",
+                primary = {
+                    it.query(DorisCatalogQueries.listTablesIn(catalog)).withParams(schemaName).run()
+                },
+                fallback = {
+                    it.query(DorisCatalogQueries.LIST_TABLES_CURRENT).withParams(schemaName).run()
+                },
+            ).orEmpty()
+            val columnsByTable = runCatalogScopedOrFallback(
+                transaction, catalog, "information_schema.columns",
+                primary = {
+                    it.query(DorisCatalogQueries.listColumnsIn(catalog)).withParams(schemaName).run()
+                },
+                fallback = {
+                    it.query(DorisCatalogQueries.LIST_COLUMNS_CURRENT).withParams(schemaName).run()
+                },
+            ).orEmpty().groupBy { it.TABLE_NAME }
+
+            var tableCount = 0
+            var viewCount = 0
+            for (t in tables) {
+                val name = t.TABLE_NAME ?: continue
+                if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
+                    schema.views.createOrGet(name)
+                    viewCount++
+                } else {
+                    val table = schema.tables.createOrGet(name)
+                    for (col in columnsByTable[name].orEmpty()) {
+                        val colName = col.COLUMN_NAME ?: continue
+                        val column = table.columns.createOrGet(colName)
+                        // M5 item 2: stored type from COLUMN_TYPE (full spec) / DATA_TYPE via the
+                        // platform's lenient factory; Doris exotics and hive-side strings stay
+                        // unresolved-but-named (UI shows 'variant' etc.), never throw.
+                        DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
+                            ?.let { dasType -> column.setStoredType(dasType) }
+                        val pos = col.ORDINAL_POSITION
+                        if (pos in 1..Short.MAX_VALUE.toLong()) {
+                            column.setPosition(pos.toShort())
+                        }
+                    }
+                    tableCount++
+                }
+            }
+            DorisCatalogs.info(
+                "catalog '$catalog' db '$schemaName' -> $tableCount tables, $viewCount views",
+            )
+        } catch (t: Throwable) {
+            DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
         }
     }
 

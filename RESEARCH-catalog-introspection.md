@@ -623,6 +623,19 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    the unquoted user-proven form (`"use " + catalog + "." + db`), or to two statements
    (``SWITCH `catalog` `` then ``use `db` ``), rebuild, retest. Report which form worked.
    Flag-OFF control: the switcher must look and behave exactly as shipped (flat list, MySQL `use`).
+7. **Portion introspection + column types, flag-ON (M5):** force a subset introspection — tick a
+   few schemas in the schemas pane (or let the console switcher trigger it). Expected: **no
+   SEVERE** ("doesn't support the requested retriever" is fixed); only the selected schemas load;
+   log marker `DorisCatalogs: portion introspection: N schema(s) of catalog '<c>' ...` followed by
+   the usual per-database `-> N tables, M views` lines. Untouched schemas/catalogs must keep their
+   previous state (nothing reset). Columns should now show **real types** in the tree and
+   completion — `varchar(65533)`, `decimal(27,9)`, and Doris exotics displayed by name (`variant`,
+   `bitmap`, `hll`, `array<int>`, ...) instead of blank/unknown; columns ordered by ordinal
+   position. In an external (hive) catalog, engine-specific type strings must display as-is, not
+   error. On failure grep `DorisCatalogs:` (portion marker present? per-schema skip warnings?) and
+   report a sample table with wrong/empty column types together with the console output of
+   `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE FROM <catalog>.information_schema.columns WHERE
+   TABLE_SCHEMA = '<db>' AND TABLE_NAME = '<table>'`.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -928,3 +941,80 @@ dot), and flag-OFF equivalence against a live `MysqlDialect` (same `searchPathOb
 - The `DbScStep` stepped popup enumerates databases/schemas from the das model; catalogs that are
   enumerated-but-not-introspected (M2 default) will show no databases beneath them until opted in —
   consistent with the tree behaviour.
+
+---
+
+## Gate 1 log — M5 (portion retriever + column types)
+
+*Executed 2026-07-07, after M4. Item 1 fixes the SEVERE from the user's runtime pass
+(`RuntimeException: The introspector DorisIntrospector doesn't support the requested retriever` at
+`BaseNativeIntrospector.createLevelOneRetrieverForPortion`, triggered by "Introspect the Portion of
+15 schemas (full) on level 1" from the schemas pane / console switcher). Item 2 replaces the
+name-only M1 columns with real stored types.*
+
+### 1. Item 1 — the portion (level-one) retriever seam
+
+**Which seams existed vs. which was missing (bytecode):** a sweep of
+`BaseNativeIntrospector.thisRetrieverIsNotSupported` call sites shows **exactly one**
+retriever-factory seam with a not-supported default: `createLevelOneRetrieverForPortion(tran,
+SchemaPortion)`. Every other factory the framework can request (`createDatabaseLister`,
+`createDatabaseRetriever`, `createSchemaRetriever`, `createNativeRetriever` — defaulted by
+`BaseMultiDatabaseIntrospector` — and `createServerObjectsRetriever` — defaulted to
+`BaseServerObjectsRetriever`) was already implemented or safely defaulted in M1. `MsIntrospector`
+fills the same seam with `MsLevelOneRetriever : BaseDatabaseSchemasRetriever<MsDatabase,MsSchema>`
+(ctor `(DBTransaction, D, List<S>)`, override `process()`; its L1 is a bulk names sweep —
+`retrieveAliases/retrieveMajorNames/retrieveMinorNames/finalizeLevel1`).
+
+**Implementation:** `DorisIntrospector.createLevelOneRetrieverForPortion` returns an anonymous
+`BaseDatabaseSchemasRetriever<MsDatabase, MsSchema>(transaction, portion.database, portion.schemas)`
+whose `process()` loops **exactly the portion's schemas** through the shared per-schema retrieval
+(extracted as `retrieveSchemaObjects`, also used by the deep `createSchemaRetriever`). Log marker:
+`DorisCatalogs: portion introspection: N schema(s) of catalog '<c>' (mode ...)`.
+
+**Portion semantics:** out-of-portion schemas are never touched (no family-wide
+`markChildrenAsSyncPending`/`clear`; only `createOrGet` on the requested schemas' own families);
+the databases (catalog) level is never reset. Per-schema failures log + skip that schema only.
+One honest simplification: our "level one" performs the full table/view/column retrieve — the only
+object surface defined so far — rather than Ms's names-only L1 sweep; if the platform later
+requests a deeper level for the same schema, the retrieval re-runs idempotently (`createOrGet`).
+Slightly more work per portion than a true L1, never less correct.
+
+### 2. Item 2 — column stored types
+
+**Parse path (the platform's own generic recipe, verified in `JdbcIntrospectorHelper` bytecode):**
+`DataTypeFactory.of(spec)` → `DasUnresolvedTypeReference.of(dataType)` →
+`BasicModTypedElement.setStoredType(dasType)`. `DataTypeFactory.of` parses full specs
+(`varchar(65533)`, `decimal(27,9)`) into a `DataType` with size/scale;
+`DasUnresolvedTypeReference` resolves lazily against the dbms type system, and a name the type
+system does not know stays an unresolved reference **that preserves the type-name string** — the
+exact guard the tasking requires: no parse crash, and the UI shows `variant` instead of unknown.
+(`MsIntrospector` itself uses an internal `makeDasType`; the `DataTypeFactory` path is the public
+equivalent used by the platform's generic JDBC introspection.)
+
+- Source columns: `information_schema.columns.COLUMN_TYPE` (full spec, MySQL layout — preferred)
+  with `DATA_TYPE` (bare name) as fallback; both now selected by the qualified and the SWITCH-
+  fallback query forms. Both null/blank → column stays untyped (never crashes).
+- Mapping table (offline-tested, `DorisColumnTypesTest`): MySQL-likes keep sizes
+  (`varchar(65533)`, `decimal(27,9)`); Doris exotics preserve names (`variant`, `bitmap`, `hll`,
+  `largeint`, `agg_state`, `json`, `ipv6`); generics and hive-side strings parse without crashing
+  (`array<int>`, `map<string,int>`, `struct<a:int,b:string>`, `decimal(38,18)`).
+- Bonus: `ORDINAL_POSITION` now populates `setPosition(short)` so columns order as in the table
+  definition instead of retrieval order.
+
+### 3. Tests / build
+
+`DorisColumnTypesTest` (type table above) + updated `DorisCatalogQueriesTest` (COLUMN_TYPE in both
+query texts and the row struct). Suite: 73 tests / 0 failures; `buildPlugin` green; flag-off
+untouched (all changes live inside the flag-ON-only introspector and the pure query object).
+
+### 4. Residual risks
+
+- The full-retrieve-as-L1 simplification (above): portions do more work than a names-only L1;
+  revisit only if portion introspection of large external schemas proves slow.
+- `COLUMN_TYPE` availability on external catalogs' FE-served `information_schema` is assumed but
+  unverified; the `DATA_TYPE` fallback covers absence, and blank values leave columns untyped
+  rather than failing.
+- Level bookkeeping relies on the framework's own marking around the retrievers (base
+  `markSchemaIntrospected` is a no-op; Ms's override is MSSQL-specific state, not required for
+  correctness). If the runtime pass shows schemas re-introspecting on every expand, this is the
+  knob to look at.
