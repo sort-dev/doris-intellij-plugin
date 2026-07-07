@@ -96,3 +96,12 @@ val runIdeWithPsiViewer by intellijPlatformTesting.runIde.registering {
         plugin("PsiViewer", "252.23892.248")
     }
 }
+
+// Gate 1 / Milestone 1 runtime testing: launch the sandbox IDE with the experimental multi-catalog
+// model enabled (see RESEARCH-catalog-introspection.md "Gate 1 log" -> runtime test script).
+// Usage: ./gradlew runIdeCatalogs   (flag ON). Plain ./gradlew runIde stays flag OFF = shipped.
+val runIdeCatalogs by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.catalogs.experimental=true")
+    }
+}

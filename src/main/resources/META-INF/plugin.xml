@@ -67,5 +67,17 @@
         <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>
         <extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
+
+        <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
+             `doris.catalogs.experimental` system property; see dev.sort.doris.DorisCatalogs).
+             All five registrations are DUAL-MODE: with the flag OFF each delegates to the exact
+             MySQL implementation the `extensionFallback DORIS -> MYSQL` above would have selected,
+             so flag-off behaviour is byte-for-byte unchanged. With the flag ON they switch to the
+             SQL Server (Ms*) multi-database model that exposes the catalog level. -->
+        <introspector dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisIntrospector$DorisIntrospectorFactory"/>
+        <sqlObjectBuilder dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisObjectBuilder"/>
+        <scriptGenerator dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisScriptGenerator"/>
+        <hookUpHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisHookUpHelper"/>
+        <predicatesHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisPredicatesHelper"/>
     </extensions>
 </idea-plugin>
