@@ -28,13 +28,25 @@ import dev.sort.doris.DorisCatalogs
  * | DataGrip level | Doris concept   | populated by |
  * |----------------|-----------------|--------------|
  * | DATABASE       | catalog         | [createDatabaseLister] via `SHOW CATALOGS` |
- * | SCHEMA         | database        | [createDatabaseRetriever] via `SWITCH` + `SHOW DATABASES` |
- * | TABLE / VIEW   | table / view    | [createSchemaRetriever] via `information_schema.tables` |
- * | COLUMN         | column          | [createSchemaRetriever] via `information_schema.columns` |
+ * | SCHEMA         | database        | [createDatabaseRetriever] via `SHOW DATABASES FROM <catalog>` |
+ * | TABLE / VIEW   | table / view    | [createSchemaRetriever] via `<catalog>.information_schema.tables` |
+ * | COLUMN         | column          | [createSchemaRetriever] via `<catalog>.information_schema.columns` |
  *
- * This mirrors SQL Server's own rhythm — **one JDBC connection, switch into each database to
- * introspect it** — which is mechanically what Doris `SWITCH <catalog>` does over the MySQL
- * protocol. All queries go through the platform's layouted-query facade ([DBTransaction.query] /
+ * ## Stateless-first (Gate 1 design revision, review feedback)
+ *
+ * The primary per-catalog path is **stateless**: `SHOW DATABASES FROM <catalog>` and
+ * catalog-qualified `information_schema` reads, which never mutate connection session state — safe
+ * on pooled/shared/keep-alive connections, no per-catalog phase ordering, half the round trips.
+ * `SWITCH <catalog>` + unqualified queries survive only as a **per-catalog fallback** for older
+ * Doris versions where the qualified forms fail (see [runCatalogScopedOrFallback]).
+ *
+ * Note on the Ms-family rationale in the Gate 1 log: SQL Server's `MsIntrospector` literally
+ * switches into each database (`USE`) before reading it. We still reuse the Ms family's *seam
+ * structure* (database lister / database retriever / schema retriever) and its model, but in our
+ * primary path the "switch into the database" step is a no-op — the queries carry the catalog
+ * qualification themselves. Only the fallback reproduces the switching rhythm literally.
+ *
+ * All queries go through the platform's layouted-query facade ([DBTransaction.query] /
  * [DBTransaction.command]); node creation uses the model's `createOrGet` / `renew` mutators.
  *
  * ## Resilience
@@ -47,9 +59,10 @@ import dev.sort.doris.DorisCatalogs
  *
  * The *mechanism* is proven offline (query text + layouts are unit-tested; the model/EP wiring
  * compiles and registers; flag-off is byte-identical). The *runtime correctness* against a live
- * Doris — that `SHOW CATALOGS` column labels bind, that `information_schema` reflects the switched
- * catalog, that the framework's level bookkeeping accepts eager `createOrGet` population — cannot be
- * asserted from this environment and is the subject of the runtime test script in the Gate 1 log.
+ * Doris — that `SHOW CATALOGS` column labels bind, that the catalog-qualified `information_schema`
+ * forms are supported by the target Doris version (probe-able up front, see the Gate 1 log §5
+ * pre-flight), that the framework's level bookkeeping accepts eager `createOrGet` population —
+ * cannot be asserted from this environment and is the subject of the runtime test script.
  */
 class DorisIntrospector(
     context: DBIntrospectionContext,
@@ -81,7 +94,7 @@ class DorisIntrospector(
         }
     }
 
-    /** Level 2: for a catalog, list its Doris databases as SCHEMA nodes via `SWITCH` + `SHOW DATABASES`. */
+    /** Level 2: for a catalog, list its Doris databases as SCHEMA nodes via `SHOW DATABASES FROM <c>`. */
     override fun createDatabaseRetriever(
         transaction: DBTransaction,
         database: MsDatabase,
@@ -90,9 +103,12 @@ class DorisIntrospector(
             override fun retrieveSchemas() {
                 val catalog = database.name
                 try {
-                    transaction.command(DorisCatalogQueries.switchCatalog(catalog)).run()
-                    val names = transaction.query(DorisCatalogQueries.LIST_DATABASES).run().orEmpty()
-                    DorisCatalogs.info("catalog '$catalog' SHOW DATABASES -> ${names.toList()}")
+                    val names = runCatalogScopedOrFallback(
+                        transaction, catalog, "SHOW DATABASES",
+                        primary = { it.query(DorisCatalogQueries.listDatabasesIn(catalog)).run() },
+                        fallback = { it.query(DorisCatalogQueries.LIST_DATABASES_CURRENT).run() },
+                    ).orEmpty()
+                    DorisCatalogs.info("catalog '$catalog' databases -> ${names.toList()}")
                     for (name in names) {
                         if (name.isNullOrBlank()) continue
                         database.schemas.createOrGet(name)
@@ -104,7 +120,7 @@ class DorisIntrospector(
         }
     }
 
-    /** Level 3: for a Doris database, populate its tables/views + columns from `information_schema`. */
+    /** Level 3: for a Doris database, populate tables/views + columns from `<catalog>.information_schema`. */
     override fun createSchemaRetriever(
         transaction: DBTransaction,
         schema: MsSchema,
@@ -120,13 +136,24 @@ class DorisIntrospector(
                 val catalog = schema.database?.name ?: return
                 val schemaName = schema.name
                 try {
-                    transaction.command(DorisCatalogQueries.switchCatalog(catalog)).run()
-
-                    val tables = transaction.query(DorisCatalogQueries.LIST_TABLES)
-                        .withParams(schemaName).run().orEmpty()
-                    val columnsByTable = transaction.query(DorisCatalogQueries.LIST_COLUMNS)
-                        .withParams(schemaName).run().orEmpty()
-                        .groupBy { it.TABLE_NAME }
+                    val tables = runCatalogScopedOrFallback(
+                        transaction, catalog, "information_schema.tables",
+                        primary = {
+                            it.query(DorisCatalogQueries.listTablesIn(catalog)).withParams(schemaName).run()
+                        },
+                        fallback = {
+                            it.query(DorisCatalogQueries.LIST_TABLES_CURRENT).withParams(schemaName).run()
+                        },
+                    ).orEmpty()
+                    val columnsByTable = runCatalogScopedOrFallback(
+                        transaction, catalog, "information_schema.columns",
+                        primary = {
+                            it.query(DorisCatalogQueries.listColumnsIn(catalog)).withParams(schemaName).run()
+                        },
+                        fallback = {
+                            it.query(DorisCatalogQueries.LIST_COLUMNS_CURRENT).withParams(schemaName).run()
+                        },
+                    ).orEmpty().groupBy { it.TABLE_NAME }
 
                     var tableCount = 0
                     var viewCount = 0
@@ -151,6 +178,34 @@ class DorisIntrospector(
                     DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
                 }
             }
+        }
+    }
+
+    /**
+     * Stateless-first execution: run the catalog-qualified [primary] query; if it throws (older
+     * Doris without `SHOW DATABASES FROM` / `<catalog>.information_schema` support), log a
+     * `DorisCatalogs:` warning and retry with `SWITCH <catalog>` + the unqualified [fallback].
+     * Only this fallback path mutates connection session state (the current catalog); the primary
+     * path never does. A failure of the fallback itself propagates to the per-catalog/per-schema
+     * catch, which logs and skips just that catalog/schema.
+     */
+    private fun <T> runCatalogScopedOrFallback(
+        transaction: DBTransaction,
+        catalog: String,
+        what: String,
+        primary: (DBTransaction) -> T,
+        fallback: (DBTransaction) -> T,
+    ): T {
+        return try {
+            primary(transaction)
+        } catch (t: Throwable) {
+            DorisCatalogs.warn(
+                "catalog '$catalog': qualified $what query failed; falling back to SWITCH + unqualified " +
+                    "(older Doris?)",
+                t,
+            )
+            transaction.command(DorisCatalogQueries.switchCatalog(catalog)).run()
+            fallback(transaction)
         }
     }
 

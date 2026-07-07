@@ -494,6 +494,20 @@ and that the introspector factory's advertised capabilities equal the stock MySQ
 
 ### 4. Introspector implementation status
 
+> **Design revision: stateless-first (review feedback).** The first cut of M1 used
+> `SWITCH <catalog>` before every per-catalog read. Review (user's catch) pointed out that `SWITCH`
+> mutates connection **session state** (the current catalog) — on pooled/shared/keep-alive
+> connections that is a heisenbug source, and it forces per-catalog phase ordering. The introspector
+> was refactored to **stateless catalog-qualified queries** as the primary path
+> (`SHOW DATABASES FROM <c>`, `<c>.information_schema.*`): no session mutation, half the round
+> trips, and per-catalog failures isolate naturally. `SWITCH` + unqualified queries survive only as
+> a per-catalog **fallback** for older Doris versions where the qualified forms fail
+> (`DorisIntrospector.runCatalogScopedOrFallback`). Coherence note for §1's "Ms rhythm" rationale:
+> what we reuse from SQL Server is the **seam structure** (database lister / database retriever /
+> schema retriever) and the public multi-database model; the Ms family's literal "switch into each
+> database" rhythm now applies only to the fallback path — in the primary path the switch step is a
+> no-op because each query carries its own catalog qualification.
+
 `dev.sort.doris.catalog.DorisIntrospector : BaseMultiDatabaseIntrospector<MsRoot,MsDatabase,MsSchema>`
 implements the full M1 object surface (catalogs, databases, tables, views, columns; routines/keys/
 triggers deliberately skipped) via the framework's own three seams, mirroring `MsIntrospector`:
@@ -501,11 +515,20 @@ triggers deliberately skipped) via the framework's own three seams, mirroring `M
 - **DATABASE level (`createDatabaseLister`)** — `SHOW CATALOGS` → one `MsDatabase` per catalog via the
   base `renew(family, CatalogId, CatalogName)`. This is the headline feature and uses the cleanest,
   best-understood seam.
-- **SCHEMA level (`createDatabaseRetriever().retrieveSchemas`)** — per catalog: `SWITCH <catalog>` then
-  `SHOW DATABASES` → `database.schemas.createOrGet(name)`.
-- **TABLE/VIEW/COLUMN level (`createSchemaRetriever().process`)** — per database: `SWITCH <catalog>`
-  then `information_schema.tables` / `information_schema.columns WHERE TABLE_SCHEMA = ?` →
+- **SCHEMA level (`createDatabaseRetriever().retrieveSchemas`)** — per catalog:
+  `SHOW DATABASES FROM <catalog>` (stateless) → `database.schemas.createOrGet(name)`.
+  *Fallback on failure:* `SWITCH <catalog>` + `SHOW DATABASES`.
+- **TABLE/VIEW/COLUMN level (`createSchemaRetriever().process`)** — per database (stateless):
+  `SELECT ... FROM <catalog>.information_schema.tables WHERE TABLE_SCHEMA = ?` and
+  `... <catalog>.information_schema.columns WHERE TABLE_SCHEMA = ?` →
   `schema.tables|views.createOrGet(...)` and `table.columns.createOrGet(...)`.
+  *Fallback on failure:* `SWITCH <catalog>` + the unqualified `information_schema` forms.
+
+Catalog names are backtick-quoted identifiers embedded in the query text (identifiers cannot be JDBC
+`?` parameters); schema names remain `?`-bound. The fallback triggers **per catalog and per query
+family**: any throw from a qualified query logs a `DorisCatalogs:` warning ("falling back to SWITCH +
+unqualified (older Doris?)") and retries that read via `SWITCH`; a failure of the fallback itself
+propagates to the per-catalog/per-schema catch, which logs and skips just that catalog/schema.
 
 Queries run through the platform layouted-query facade (`DBTransaction.query(SqlQuery).run()` /
 `.command(sql).run()`); `SqlQuery` + `Layouts` are public and construct from plugin code (the finding
@@ -514,20 +537,34 @@ that makes the introspector implementable at all). Column **data types are not s
 Gate 2 — columns render by name). Every per-catalog and per-database step is wrapped so a broken/slow
 external catalog is logged (`DorisCatalogs:`) and skipped, never aborting the whole introspection.
 
-**Verified offline:** compiles + registers; query text and row-struct field names
-(`DorisCatalogQueriesTest`); flag-off equivalence and the chosen model's catalog level
-(`DorisCatalogWiringTest`); `buildPlugin` green. **NOT verifiable without a live Doris:** that
-`SHOW CATALOGS` column labels actually bind to the structs, that `information_schema` reflects the
-switched catalog, and that the framework's per-schema *level bookkeeping* accepts eager `createOrGet`
-population without wiping nodes on expand. These are the runtime test's job (below). Per the honesty
-contract: the mechanism is proven present and the code is a coherent full-surface implementation, but
-its live correctness is unproven from this environment.
+**Verified offline:** compiles + registers; primary (qualified) and fallback query text and
+row-struct field names (`DorisCatalogQueriesTest`); flag-off equivalence and the chosen model's
+catalog level (`DorisCatalogWiringTest`); `buildPlugin` green. **NOT verifiable without a live
+Doris:** that `SHOW CATALOGS` column labels actually bind to the structs, that the target Doris
+version supports the qualified forms (pre-flight probes below make this a 30-second console check),
+and that the framework's per-schema *level bookkeeping* accepts eager `createOrGet` population
+without wiping nodes on expand. These are the runtime test's job (below). Per the honesty contract:
+the mechanism is proven present and the code is a coherent full-surface implementation, but its live
+correctness is unproven from this environment.
 
 ### 5. Runtime test script (user-facing)
 
 Prereq: a Doris FE reachable over the MySQL protocol (default port 9030), ideally with the built-in
 `internal` catalog **plus** at least one external catalog (e.g. a `hive` catalog) so the multi-catalog
 tree is exercised.
+
+**Pre-flight (30 seconds, any Doris console — BEFORE the sandbox test).** Confirm the target Doris
+version supports the stateless qualified forms the primary path uses (substitute your external
+catalog's name):
+
+```sql
+SHOW DATABASES FROM <external_catalog>;
+SELECT count(*) FROM <external_catalog>.information_schema.tables;
+```
+
+Both succeed → the primary path will be used throughout. Either fails → the introspector will log a
+`DorisCatalogs: ... falling back to SWITCH + unqualified (older Doris?)` warning per catalog/query
+and use the SWITCH fallback; the tree should still populate, just with the extra round trips.
 
 **A. Launch the sandbox with the flag ON**
 
@@ -560,10 +597,16 @@ Marker lines emitted, in order:
 - `DorisCatalogs: SHOW CATALOGS -> [internal, hive_archive, ...]` — catalog enumeration worked.
   *Absent / empty* → `SHOW CATALOGS` failed or column label `CatalogName` did not bind (check the
   same-line warning; the fix is the struct field name in `DorisCatalogQueries.CatalogRow`).
-- `DorisCatalogs: catalog '<c>' SHOW DATABASES -> [...]` — per-catalog database listing.
-- `DorisCatalogs: catalog '<c>' db '<d>' -> N tables, M views` — per-database object listing.
+- `DorisCatalogs: catalog '<c>' databases -> [...]` — per-catalog database listing (stateless
+  `SHOW DATABASES FROM <c>`).
+- `DorisCatalogs: catalog '<c>' db '<d>' -> N tables, M views` — per-database object listing
+  (stateless `<c>.information_schema`).
+- `DorisCatalogs: catalog '<c>': qualified <what> query failed; falling back to SWITCH + unqualified
+  (older Doris?)` — the qualified form is unsupported for that catalog; the SWITCH fallback ran.
+  Expected on older Doris (matches a failing pre-flight probe); on a current Doris this line is a bug
+  report in itself — capture the attached stack trace.
 - `DorisCatalogs: ... failed; skipping ...` (with stack trace) — a specific catalog/database was
-  broken/slow and was skipped; the rest should still populate.
+  broken/slow and was skipped (fallback included); the rest should still populate.
 Also capture any `ClassCastException` mentioning `Mysql*`/`Ms*` (would indicate an un-overridden
 casting helper) and the full stack of any introspection error.
 
@@ -577,8 +620,10 @@ flag defaults off, no shipped user is ever affected.
    Highest-risk unknowns, in order: (a) jdba `structOf` column-label binding for `SHOW CATALOGS`
    (case sensitivity of `CatalogName`); (b) whether the framework's per-schema level bookkeeping
    tolerates eager `createOrGet` in `createSchemaRetriever.process()` or clears children on expand;
-   (c) whether `information_schema` after `SWITCH` scopes to the switched catalog on all Doris
-   versions. All three surface immediately in the `DorisCatalogs:` log during the runtime test.
+   (c) which Doris versions support the qualified forms (`SHOW DATABASES FROM <c>`,
+   `<c>.information_schema.*`) — probe-able up front via the §5 pre-flight, and self-healing via the
+   per-catalog SWITCH fallback. All three surface immediately in the `DorisCatalogs:` log during the
+   runtime test.
 2. **Column data types not populated** in M1 (names only) — deferred to Gate 2 (`setStoredType`
    needs a `DasType` from the type system).
 3. **`getDatabaseDialect()` still returns MYSQL** — kept for parsing/scripting parity and flag-off
