@@ -162,6 +162,37 @@ object DorisCatalogQueries {
         }
     }
 
+    // ---- Console search-path read-back (M6) --------------------------------------------------------
+
+    /** Primary read-back probe for the session's current catalog (Doris built-in function). */
+    const val SELECT_CURRENT_CATALOG: String = "select current_catalog()"
+
+    /** Read-back probe for the session's current database (MySQL-identical). */
+    const val SELECT_CURRENT_DATABASE: String = "select database()"
+
+    /**
+     * Maps the read-back results onto the multi-catalog model's path shape (M6): the console's
+     * search path must be **two-level** — `DATABASE(catalog) -> SCHEMA(db)` — or it cannot bind to
+     * the Ms-model tree and the console loses its context after every statement (the observed
+     * "dropdown resets to `<database>`, completion dies" regression: MySQL's read-back produces a
+     * single-level bare `database()` path with no catalog parent).
+     *
+     * - catalog + database -> `catalog.db` (SCHEMA path with a DATABASE parent)
+     * - catalog only       -> `catalog` (DATABASE path; session has no current database)
+     * - catalog unknown    -> assume [DorisCatalogScopes.INTERNAL_CATALOG] (the connect-time
+     *   default) so the path still binds; the fallback probes should make this rare.
+     */
+    fun currentSearchPath(catalog: String?, database: String?): com.intellij.database.util.SearchPath {
+        val catalogName = catalog?.takeUnless { it.isBlank() } ?: DorisCatalogScopes.INTERNAL_CATALOG
+        val catalogPath = ObjectPath.create(catalogName, ObjectKind.DATABASE)
+        val current = if (database.isNullOrBlank()) {
+            catalogPath
+        } else {
+            catalogPath.append(database, ObjectKind.SCHEMA)
+        }
+        return com.intellij.database.util.SearchPath.of(current)
+    }
+
     // ---- Column data types (M5) --------------------------------------------------------------------
 
     /**

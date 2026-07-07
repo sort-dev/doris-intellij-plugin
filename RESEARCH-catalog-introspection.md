@@ -636,6 +636,25 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    report a sample table with wrong/empty column types together with the console output of
    `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE FROM <catalog>.information_schema.columns WHERE
    TABLE_SCHEMA = '<db>' AND TABLE_NAME = '<table>'`.
+8. **Console context stability, flag-ON (M6) — the read-back regression:** open a console and run
+   any statement (e.g. `SELECT 1;`). The namespace dropdown must **keep** showing
+   `<catalog>.<database>` afterwards — it must NOT reset to `<database>`, and completion must stay
+   table-scoped. Acceptance cases:
+   - `SWITCH extcat; USE somedb;` then run any statement → header reads **`extcat.somedb`** (NOT
+     `somedb.<database>` — the M6-fixed mis-binding where the bare database name was seated in the
+     catalog slot) and completion is scoped to that database.
+   - bare `SWITCH extcat;` only, then any statement → header reads **`extcat`** with the database
+     placeholder; completion scoped to the catalog.
+   - The switcher popup should now be the **stepped** catalog → database shape (M6 corrected the
+     M4 branch reading: the stepped popup needs `searchPathObjectKind == SCHEMA` + a composable
+     DATABASE-kind switch, both of which now hold).
+   Expected `DorisCatalogs:` trail: one `switcher popup inputs: searchPathObjectKind=SCHEMA,
+   DATABASE-probe sql=SWITCH ...` line per session; per execution a `search-path read-back:
+   catalog=<c> (via current_catalog()|SHOW CATALOGS IsCurrent|assumed default), database=<db> ->
+   <path>` line; per switcher pick a `console switch to ... -> use ...` line. On failure, collect
+   those lines — the `via <source>` tells which probe stage produced the catalog, and a wrong
+   header with a CORRECT read-back line would implicate the platform's path binding rather than
+   the loader.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -888,6 +907,9 @@ was a flat list of schema names across all catalogs with no catalog grouping.*
   database→schema popup** SQL Server users get, i.e. catalogs grouped); otherwise
   `supportsSearchPath()` → `SearchPathStep`; else `SingleScOrDbStep` — the flat single-level list
   the user saw (MySQL's default kind is `SCHEMA`, from `AbstractDatabaseDialect`).
+  **[CORRECTED IN M6: this reading was inverted — kind `DATABASE` jumps AWAY from `DbScStep`
+  (`if_acmpeq`), which is why the runtime pass still showed a flat list. See the M6 section for the
+  verified branch; M4's kind override is reverted there.]**
 
 Both bugs share one root: the dbms-keyed database dialect was MySQL's, whose search-path surface is
 single-component. The seam is the `<dialect dbms="DORIS">` EP.
@@ -1018,3 +1040,107 @@ untouched (all changes live inside the flag-ON-only introspector and the pure qu
   `markSchemaIntrospected` is a no-op; Ms's override is MSSQL-specific state, not required for
   correctness). If the runtime pass shows schemas re-introspecting on every expand, this is the
   knob to look at.
+
+---
+
+## Gate 1 log — M6 (console search-path read-back — the "console context lost" regression)
+
+*Executed 2026-07-07, after the user's M4/M5 runtime pass reported a badly degraded console
+flag-ON: (1) after any statement the namespace dropdown reset to `<database>` and completion
+degraded to keyword junk; (2) the switcher popup was still a flat mixed list. A follow-up
+screenshot pinned the exact failure: after `SWITCH extcat; USE somedb;` the header read
+`somedb.<database>` — the one-level MySQL read-back result seated in the CATALOG slot.*
+
+### 1. Verified popup branch (M4's reading was inverted)
+
+Full `ChooseSchemaAction.createInitialStep` bytecode (offsets):
+
+```
+14: kind = dialect.getSearchPathObjectKind()
+21: if (kind == DATABASE) goto 69                        // if_acmpeq — DATABASE *skips* DbScStep!
+24: // kind != DATABASE:
+31:   if (JdbcUrlParserUtil.isDatabaseBounded(target)) goto 55
+49:   if (dialect.sqlSetSearchPath(SearchPath.of(ObjectPath("test", DATABASE))) == null) goto 69
+55:   return DbScStep.create(console)                    // the stepped two-level popup
+69: if (dialect.supportsSearchPath()) return SearchPathStep
+87: return SingleScOrDbStep.create(console)              // the flat list
+```
+
+The stepped `DbScStep` popup engages only when **kind != DATABASE** and the dialect either has a
+database-bounded URL or **composes a switch for a DATABASE-kind path**. M4 set the kind to
+`DATABASE`, which routed straight to line 69; `MysqlBaseDialect.supportsSearchPath()` is `false`
+(bytecode: `iconst_0`), so the console fell to the flat `SingleScOrDbStep` — the observed flat
+mixed list. **The flat list was caused by M4's kind override, not by the read-back.** Fix: the kind
+returns to **SCHEMA** in both modes, and the stepped popup is enabled by our composer answering the
+DATABASE-kind probe with ``SWITCH `test` `` (M4 already implemented that part).
+
+### 2. The read-back (the actual context-loss root) — verified and fixed
+
+- **Machinery:** `JdbcEngine` (two call sites) re-reads the current namespace after execution via
+  `DatabaseDialectEx.tryToLoadSearchPath(connection)`, resolving the dialect through the dbms-keyed
+  EP (`DbImplUtilCore.getDatabaseDialect(connection.getDbms())`) — i.e. our `DorisDatabaseDialect`
+  on both sites. The returned `SearchPath` is passed through **as-is**; the path *shape* is
+  entirely loader-defined (there is no re-shaping), so returning a correct two-level path fixes the
+  seating at the source (coordinator point (c)): the observed `somedb.<database>` header was the
+  one-level `SearchPath.of(ObjectPath("somedb", SCHEMA))` from `MysqlBaseDialect.tryToLoadSearchPath`
+  (bytecode: `select database()` → single SCHEMA path) being bound positionally into the first
+  (catalog) slot of the two-level display.
+- **Fix (flag-ON only):** `DorisDatabaseDialect.tryToLoadSearchPath` now returns the **full
+  two-level path**, sources defensively chained:
+  1. `select current_catalog()` (Doris built-in) + `select database()` — both via the platform's
+     own `DbImplUtilCore.concatStringResults(connection, connection.dbms, sql, 1, NO_CONCAT)`
+     (byte-identical helper shape to MySQL's read-back);
+  2. catalog probe failed (older Doris without `current_catalog()`): `SHOW CATALOGS` → the
+     `IsCurrent` row (remote-statement iteration, same pattern as `DorisDefinitionProvider`);
+  3. still unknown: assume `internal` (connect-time default) so the path always binds.
+  Mapping (pure, unit-tested `DorisCatalogQueries.currentSearchPath`): catalog+db →
+  `DATABASE(catalog) -> SCHEMA(db)`; catalog only → `DATABASE(catalog)`; **never** a bare
+  database-name path that the platform would seat in the catalog slot. Flag-OFF: MySQL's read-back
+  untouched.
+- **Runtime log trail (`DorisCatalogs:`):** `switcher popup inputs: searchPathObjectKind=SCHEMA,
+  DATABASE-probe sql=SWITCH `test` ...` (once per session, at the popup decision input we control);
+  `console switch to '<path>' -> <sql>` (each switch composition); `read-back probe '<sql>' failed
+  (...); falling back` (probe chain); `search-path read-back: catalog=<c> (via <source>),
+  database=<db> -> <display-path>` (each post-execution re-sync).
+
+### 3. Addendum — flat-list dotted-item fallback: NOT reachable from plugin seams (evidence)
+
+`ChooseSchemaAction.getText(ObjectPath)` renders popup items via **`ObjectPath.getName()`** — the
+last path component only — hard-coded in the action (bytecode: `getName()` →
+`shortenTextWithEllipsis`; the only other branch is the "unnamed" bundle label using
+`ObjectKind.getPresentableName()`). No dialect, `ModelHelper` (kind names only), or presentation EP
+participates in the item text, and injecting dotted names into model node names would corrupt the
+model. A dotted `catalog.database` flat list is therefore sealed platform UI; the stepped popup
+(§1) remains the only viable shape — and with the branch fix it should engage.
+
+### 4. Console-path MySQL leftovers audit (coordinator item 3)
+
+Dialect methods the console/session machinery reads (verified callers), status:
+
+| Seam | Caller | Status |
+|---|---|---|
+| `tryToLoadSearchPath` | `JdbcEngine` ×2 (post-execution re-sync) | **fixed flag-ON (M6)** |
+| `sqlSetSearchPath` | `ChooseSchemaAction.switchSearchPath`, `DatabaseEditorHelper`, `DbImplUtil.canSwitchTo` | fixed flag-ON (M4); `canSwitchTo` = `sqlSetSearchPath(path) != null` → our non-null answers make catalog+schema entries switchable |
+| `getSearchPathObjectKind` | `ChooseSchemaAction.createInitialStep` (popup branch) | **reverted to SCHEMA (M6)** |
+| `supportsSearchPath` | `createInitialStep` line 69 | MySQL `false`, correct for Doris (no PG-style search path) — unchanged |
+| `sqlResetSearchPath` | `JdbcEngine` ×1 | MySQL returns `null` (no-op) — safe, unchanged |
+| `shouldSwitchThroughJdbc(kind)` | session switching | inherited default — untouched; if runtime shows JDBC-level setCatalog interference, this is the next knob |
+| `tryToLoadDatabaseList` / `supportsLoadDatabaseList` | data-source config UI | inherited MySQL — cosmetic surface, deferred |
+
+### 5. Tests / build
+
+`DorisDatabaseDialectTest` gains: two-level read-back path mapping (catalog+db / catalog-only /
+assumed-internal), probe SQL constants, and the popup-branch inputs (kind==SCHEMA in both modes +
+non-null DATABASE-kind composer answer — the two conditions line 21/49 check). Flag-off equivalence
+against a live `MysqlDialect` still pinned. Suite: 76 tests / 0 failures; `buildPlugin` green.
+
+### 6. Residual risks
+
+- `current_catalog()` availability by Doris version is unverified — covered by the SHOW CATALOGS
+  fallback and, last resort, the `internal` assumption (each stage logged).
+- The read-back runs up to two extra statements per execution re-sync (catalog probe + fallback);
+  negligible against console round-trips, noted for perf review.
+- `isDatabaseBounded(target)` (branch line 31) may also engage `DbScStep` on its own for URLs with
+  a database — either way the popup lands on the stepped shape; only the flat list would indicate a
+  regression (the once-per-session `switcher popup inputs` log line tells which inputs the platform
+  saw).
