@@ -310,3 +310,109 @@ protocol facts are in issue #2's analysis (`gh issue view 2 --repo sort-dev/dori
 introspector never asks," it is that asking requires the introspector's *matched two-level model*,
 and switching model families detonates the inherited MySQL editor casts (F7). That coupling is the
 finding issue #2 did not have.
+
+---
+
+## Gate 0 results
+
+*Executed 2026-07-07 on branch `freezeth-catalogs`. Bytecode audit against DB-261 jars (slim
+classpath = `plugins/DatabaseTools/lib/**/*.jar`), `javap` from JBR 17. Compile-proof built and run
+against the remote SDK. New code: `src/main/kotlin/dev/sort/doris/model/DorisMetaModel.kt` +
+`src/test/kotlin/dev/sort/doris/model/DorisMetaModelTest.kt`. Nothing registered in `plugin.xml`.*
+
+### VERDICT: **GO** for path (a) — with the reuse strategy, not a bespoke model.
+
+**The one decisive fact:** the inherited-MySQL cast minefield (F7) that gated the whole path is
+**bounded and fully overridable, not open-ended**. A complete audit of every EP DORIS inherits from
+MYSQL by fallback found **exactly 5** implementation classes that hard-cast model nodes to
+`MysqlBase*` types, and **all 5 are `dbms`-keyed `DbmsExtension` EPs** we can override with
+`dbms="DORIS"` (proven by shipped precedent: `<introspector dbms="VITESS">`, `<sqlObjectBuilder
+dbms="MEMSQL">`, and the TIDB/OCEANBASE/VITESS dbms-only `+ extensionFallback` pattern that mirrors
+DORIS exactly). The Gate-0 NO-GO trigger was "the override surface is open-ended" — it is not; it is
+a closed set of five. Combined with the compile-proof that a multi-database meta-model is
+constructible from public API, path (a) clears the gate.
+
+### How `extensionFallback` actually works (mechanism, so we know what it covers)
+
+`<extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>` is **not** per-EP. `DbmsExtension<T>`
+(the base class of *every* `com.intellij.database` dbms-keyed EP: `ModelFacade.EP`,
+`introspector`, `sqlObjectBuilder`, …) carries a single static `FALLBACK`
+`KeyedExtensionCollector<Dbms,Dbms>`; `extensionFallback` registers one `DORIS→MYSQL` edge into it,
+and every `DbmsExtension.forDbms(DORIS)` that finds no DORIS registration calls
+`copyFromFallback(DORIS)` → resolves the MYSQL implementation. So DORIS inherits **all** MYSQL
+dbms-keyed EPs at once, and each is **independently** overridable simply by registering a
+`dbms="DORIS"` bean for that EP (which pre-empts the fallback copy). Today DORIS overrides only
+`modelFacade`, `definitionProvider`, `errorHandler`; everything else is MYSQL by fallback.
+
+### Cast audit — every inherited EP, does it cast model nodes to `Mysql*`, is it overridable
+
+21 dbms-keyed EPs inherited by DORIS from MYSQL. Casting consumers = **5**; overridable = **5/5**.
+(`javap -p -c … | grep checkcast`, class + all inner classes, per class to avoid javap batch
+truncation.)
+
+| EP | inherited impl | casts model → `Mysql*`? | override for DORIS? |
+|---|---|---|---|
+| `introspector` | `MysqlBaseIntrospector` | **YES** — `MysqlBaseSchema`×25, `MysqlBaseTable`×17, `…TableColumn`×13, `…Routine`×11, `MysqlBaseRoot`×5, +14 more node types | **YES** — `<introspector dbms="DORIS">` (VITESS precedent). *Replaced wholesale anyway*: a single-database introspector cannot enumerate catalogs; path (a) supplies `DorisIntrospector : BaseMultiDatabaseIntrospector`, so these casts never execute. |
+| `sqlObjectBuilder` | `MysqlBaseObjectBuilder` | **YES — the real F7 minefield** — 23 casts: `MysqlBaseRoutine`×9, `…View`×5, `…Event`×5, `…TableColumn`×4, `…Table`×4, `…Trigger`×3, `…Index`×3 | **YES** — `<sqlObjectBuilder dbms="DORIS">` (MEMSQL precedent). Must map DorisSQL editor PSI → the reused family's node types (Gate 1 work). |
+| `scriptGenerator` | `MysqlBaseScriptGenerator` | **YES** — `MysqlBaseUser`×1 | **YES** — `<scriptGenerator dbms="DORIS">`. |
+| `hookUpHelper` | `MysqlBaseHookUpHelper` | **YES** — `MysqlBaseLikeColumn`×1 | **YES** — `<hookUpHelper dbms="DORIS">`. |
+| `predicatesHelper` | `MysqlBasePredicatesHelper` | **YES** — `MysqlBaseLikeTable`×1 | **YES** — `<predicatesHelper dbms="DORIS">`. |
+| `dialect`, `jdbcSourceLoader`, `jdbcMetadataWrapper`, `jdbcHelper`, `namingService`, `sqlEffectAnalyzer`, `dataImporter`, `executionEnvironmentHelper`, `geoHelper`, `dmlHelper`, `typeSystem`, `explainPlanProvider`, `domainRegistry`, `optionProvider`, `introspectorStatsProvider`, `routineExecutionHelper` (16 EPs) | (various `MysqlBase*`/`Generic*`) | **NO model-node casts** — safe to keep inheriting from MYSQL | n/a (`introspectorStatsProvider` casts only to the introspector *class*, not a model node) |
+
+Net override surface for path (a): **`sqlObjectBuilder` + `scriptGenerator` + `hookUpHelper` +
+`predicatesHelper`** (4 editor helpers) **plus the `introspector`** (which we replace regardless).
+F6 is confirmed (introspector casts `MysqlBaseRoot`/`MysqlBaseSchema`) but moot since it is replaced.
+F7 is confirmed and **bounded to 4 helpers**.
+
+### Model-construction findings (Q: reusable impls? sealed? bespoke feasible?)
+
+- **The live model is a monolithic, code-generated, sealed graph — a bespoke hand-authored Doris
+  model is NOT feasible.** `MysqlImplModel` is **package-private, `final`**, extends `BaseModel`,
+  and holds a deep nest of **package-private generated** node impls (`MysqlImplModel$Root/$Schema/
+  $Table/$TableColumn/$View`, plus `$LightRoot$LightSchema$LightTable$…` meta descriptors — 36
+  inner classes). Its `META : BasicMetaModel` is assembled in a `static{}` block wiring
+  `BasicMetaObject` references through the internal `MysqlGeneratedModelUtil.bind(...)`. There is
+  **no public generator, no public/instantiable node constructor**, and the generated nodes cannot
+  be reparented under a new database level. Hand-writing a node impl means reimplementing the
+  generated property-storage boilerplate over dozens of `BasicMod*` supertypes per kind — the exact
+  "moat = the generator + the DSL source, not access control" parallel to the parser doc.
+- **But the model *shape* is definable from public API, and an existing multi-database family is
+  reusable wholesale.** `BasicMetaObject` and `BasicMetaModel` have **public constructors**;
+  `BasicMetaModel.getChildKinds` reads only the `BasicMetaObject.children` graph (the ctor merely
+  DFS-indexes `kind → metaObjects`; it never invokes the node/model factories). And
+  `PgMetaModel.MODEL` / `MsMetaModel.MODEL` are **public** multi-database meta-models that already
+  expose ROOT → DATABASE → SCHEMA → TABLE. **Productionization = reuse one of them** as
+  `DorisModelFacade.getMetaModel()`, then override the 5 casting EPs above (so they cast to that
+  family's node types / reuse that family's helpers) while keeping the DorisSQL (MySQL-based)
+  parsing dialect. The disjunction in Gate 0's charter resolves cleanly: option (i) "nodes still
+  satisfy the `MysqlBase` casts" is **impossible** (a `MysqlBaseRoot` is by its own supertype
+  `BasicModMultiLevelSingleDatabaseRoot` single-database — it cannot also be multi-database); option
+  (ii) "all casting consumers overridable for DORIS" is **true** (5/5).
+
+### Compile-proof status: **PASS**
+
+`DorisMetaModel.buildMultiDatabaseSkeleton(dbms)` builds ROOT → DATABASE(catalog) → SCHEMA(doris db)
+→ TABLE → COLUMN via the public `BasicMetaObject`/`BasicMetaModel` constructors (node factories are
+deliberate stubs — the kind-walk never calls them, and the finding above is *why* they cannot be
+real). `DorisMetaModelTest` (2 tests, green) instantiates it and asserts the walkable kind chain,
+and — as a regression guard — asserts `MysqlMetaModel.MODEL` has **no** `DATABASE` child under
+`ROOT` (single-database, the root cause). This is the in-memory proof that a third-party plugin can
+stand up the two-level shape. Full suite: **50 tests, 0 failures** with the new code present.
+
+### Revised effort estimate for path (a)
+
+Unchanged in magnitude but **de-risked**: **4–6 weeks** (was 4–8). Gate 0 removed the largest
+unknown (bespoke model authoring, which is *off the table* — reuse Pg/Ms instead) and bounded the
+cast surface to 4 overridable editor helpers + 1 replaced introspector. Remaining Gate-1 work:
+(1) pick Pg vs Ms as the reused family and wire `modelFacade`/`introspector` for DORIS;
+(2) `DorisIntrospector : BaseMultiDatabaseIntrospector` populating that family's nodes from `SHOW
+CATALOGS` / per-catalog `SHOW DATABASES`; (3) the 4 editor-helper overrides mapping DorisSQL PSI to
+the reused node types; (4) `internal`-catalog parity. Risk now concentrated in (2)/(3)'s
+fit-and-finish, not in platform possibility.
+
+### Should fallback (c) be promoted?
+
+**No change to the phasing.** (c) remains the *ship-now* pattern (2–4 days, zero platform risk).
+Gate 0 does not make (a) shippable overnight — it makes it a **funded, de-risked build** rather than
+a spike that might hit an unoverridable wall. Ship (c); build (a) behind the gate with the concrete
+class plan above.
