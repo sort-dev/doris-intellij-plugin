@@ -416,3 +416,179 @@ fit-and-finish, not in platform possibility.
 Gate 0 does not make (a) shippable overnight — it makes it a **funded, de-risked build** rather than
 a spike that might hit an unoverridable wall. Ship (c); build (a) behind the gate with the concrete
 class plan above.
+
+---
+
+## Gate 1 log
+
+*Executed 2026-07-07 on branch `freezeth-catalogs` (worktree `wt-catalogs`). Implements Milestone 1:
+a sandbox-testable build where, behind an opt-in flag, a Doris data source's tree shows catalogs as
+the DATABASE level. Bytecode audited against DB-261 jars with `javap` (JBR 17); all new code compiles
+against the remote DataGrip 2026.1.3 SDK. Full suite green (59 tests), `buildPlugin` green.*
+
+### 1. Model family chosen: **SQL Server (`Ms*`)** — reused wholesale
+
+Gate 0 established a bespoke model is infeasible and the productionization path is to reuse an
+existing *public* multi-database meta-model. Gate 1 picks **SQL Server's `MsMetaModel.MODEL`** over
+Postgres. Evidence:
+
+| Criterion | SQL Server (`Ms*`) — CHOSEN | Postgres (`Pg*`) |
+|---|---|---|
+| **Introspection rhythm (decisive)** | `MsIntrospector extends BaseMultiDatabaseIntrospector` **directly**; introspects every database over **one JDBC connection by switching into it** (`USE`) — mechanically identical to Doris `SWITCH <catalog>` over the MySQL protocol. | `PgIntrospector extends PgGPlumBaseIntrospector` (an extra Greenplum layer) and uses a **separate connection per database** (Postgres cannot switch DB on a live connection). Does **not** match Doris's single MySQL-protocol connection. |
+| Base-class ergonomics | Cleanest possible `BaseMultiDatabaseIntrospector<MsRoot,MsDatabase,MsSchema>` subclass; abstract surface is 3 methods (`createDatabaseLister`, `createDatabaseRetriever`, `createSchemaRetriever`). | Extra intermediate base (`PgGPlumBase*`) adds Greenplum concerns irrelevant to Doris. |
+| Node-set baggage | `MsRoot→MsDatabase→MsSchema→MsTable→MsColumn` maps 1:1 to catalog→database→table→column. Extra kinds (synonyms, sequences, CLR types) are simply never populated. | Comparable shape but more irrelevant kinds (extensions, languages, operators, collations, FDW). |
+| Editor-helper reuse | `MsObjectBuilder` (public, no-arg), `MsScriptGenerator(Dbms)`, `MsPredicatesHelper(Dbms)` all **public + instantiable** (compile-verified on the plugin classpath). | Pg equivalents exist but are not needed once Ms is chosen. |
+| Compile-classpath availability | `MsMetaModel`, `MsModelHelper`, `MsObjectBuilder`, `MsScriptGenerator`, `MsPredicatesHelper`, `BaseMultiDatabaseIntrospector`, `Layouts` all **resolve at compile time** (probed with a throwaway `compileKotlin` — Gate 0 had used a String ref precisely to avoid depending on this; it is now confirmed present). | Also present, but moot. |
+
+**Two-sentence rationale:** SQL Server is the only shipped multi-database family whose introspection
+rhythm — one connection, switch into each database to read it — is mechanically what Doris
+`SWITCH <catalog>` does over the MySQL protocol; Postgres uses a connection-per-database model that
+does not fit. It is also the direct `BaseMultiDatabaseIntrospector` subclass (Postgres adds a
+Greenplum layer), and its editor-helper impls are public and instantiable for the DORIS overrides.
+
+### 2. Opt-in flag
+
+- **System property `doris.catalogs.experimental`** (constant in `dev.sort.doris.DorisCatalogs`),
+  read **once per JVM session** into `DorisCatalogs.enabled` (a `val`). Default **false** =
+  bit-for-bit today's behaviour. Set `-Ddoris.catalogs.experimental=true` to opt in.
+- Read-once is deliberate: `plugin.xml` extension beans are static, so every `dbms="DORIS"` bean is
+  instantiated regardless of the flag. A single session-constant value guarantees every extension
+  makes the **same** routing decision, with no per-call cost and no way for the two modes to
+  interleave within a session.
+- All experimental-path log lines are prefixed `DorisCatalogs:` for `grep`-ability in `idea.log`.
+
+### 3. Wiring + dual-mode EP overrides (the hard requirement)
+
+Because EP registrations are static XML, a `dbms="DORIS"` bean is live flag-off too. Each of the five
+overrides is therefore **dual-mode**: it reproduces today's MySQL behaviour flag-off and is `Ms*`-safe
+flag-on. Registered in `plugin.xml` (`com.intellij.database` ns):
+
+| EP | DORIS impl | flag OFF delegate (= today) | flag ON delegate |
+|---|---|---|---|
+| `modelFacade` | `DorisModelFacade` | `MysqlMetaModel.MODEL` + `MysqlBaseModelHelper` | `MsMetaModel.MODEL` + `MsModelHelper` |
+| `introspector` | `DorisIntrospector$DorisIntrospectorFactory` | pass-through to `MysqlBaseIntrospector.Factory` (Kotlin `by` delegation) → stock `MysqlBaseIntrospector` | constructs `DorisIntrospector`; `supportsMultilevelIntrospection=true` |
+| `sqlObjectBuilder` | `DorisObjectBuilder` | `MysqlBaseObjectBuilder` | `MsObjectBuilder` |
+| `scriptGenerator` | `DorisScriptGenerator(dbms)` | `MysqlBaseScriptGenerator(dbms)` | `MsScriptGenerator(dbms)` |
+| `predicatesHelper` | `DorisPredicatesHelper(dbms)` | `MysqlBasePredicatesHelper(dbms)` | `MsPredicatesHelper(dbms)` |
+| `hookUpHelper` | `DorisHookUpHelper(dbms)` | `MysqlBaseHookUpHelper(dbms)` | **also** `MysqlBaseHookUpHelper(dbms)` (see below) |
+
+**Design mechanics.**
+- The four editor helpers use **Kotlin interface delegation whose delegate is chosen once from
+  `DorisCatalogs.enabled`** (`class DorisObjectBuilder : SqlObjectBuilder by (if (enabled) MsObjectBuilder() else MysqlBaseObjectBuilder())`).
+  Flag-off this is a *pure* `MysqlBase*` instance — byte-for-byte what `extensionFallback DORIS→MYSQL`
+  produces. The injected `Dbms` we forward is the same `DORIS` value the fallback passes: verified
+  that `DbmsExtension.copyFromFallback(DORIS)` calls `doGetInstance(class, aload_1)` where `aload_1`
+  is the **original** dbms, not the fallback's `MYSQL`.
+- The introspector factory uses the same delegation for its capability methods and only overrides
+  `createIntrospector` / `supportsMultilevelIntrospection` / `isIncremental` to branch on the flag.
+- **`hookUpHelper` is intentionally MySQL in both modes.** SQL Server ships no `MsHookUpHelper`, and
+  `MysqlBaseHookUpHelper`'s only model cast (`getAttributes`) is **guarded** by
+  `instanceof MysqlBaseLikeColumn` (verified in bytecode) — so it does *not* `ClassCastException` on
+  an `Ms*` column, it just returns default attributes. Keeping it also preserves the MySQL-flavoured
+  filter/sort language, which is correct for Doris's MySQL wire protocol. (This is the one Gate-0
+  "F7" helper that turned out to be already `Ms*`-safe.)
+
+**Why this is safe flag-off:** `DorisCatalogWiringTest` asserts, with the flag at its default off,
+that `DorisModelFacade` returns the *same* `MysqlMetaModel.MODEL` instance and a `MysqlBaseModelHelper`,
+and that the introspector factory's advertised capabilities equal the stock MySQL factory's.
+
+### 4. Introspector implementation status
+
+`dev.sort.doris.catalog.DorisIntrospector : BaseMultiDatabaseIntrospector<MsRoot,MsDatabase,MsSchema>`
+implements the full M1 object surface (catalogs, databases, tables, views, columns; routines/keys/
+triggers deliberately skipped) via the framework's own three seams, mirroring `MsIntrospector`:
+
+- **DATABASE level (`createDatabaseLister`)** — `SHOW CATALOGS` → one `MsDatabase` per catalog via the
+  base `renew(family, CatalogId, CatalogName)`. This is the headline feature and uses the cleanest,
+  best-understood seam.
+- **SCHEMA level (`createDatabaseRetriever().retrieveSchemas`)** — per catalog: `SWITCH <catalog>` then
+  `SHOW DATABASES` → `database.schemas.createOrGet(name)`.
+- **TABLE/VIEW/COLUMN level (`createSchemaRetriever().process`)** — per database: `SWITCH <catalog>`
+  then `information_schema.tables` / `information_schema.columns WHERE TABLE_SCHEMA = ?` →
+  `schema.tables|views.createOrGet(...)` and `table.columns.createOrGet(...)`.
+
+Queries run through the platform layouted-query facade (`DBTransaction.query(SqlQuery).run()` /
+`.command(sql).run()`); `SqlQuery` + `Layouts` are public and construct from plugin code (the finding
+that makes the introspector implementable at all). Column **data types are not set** in M1
+(`BasicModTypedElement.setStoredType(DasType)` needs a type-system-built `DasType`; deferred to
+Gate 2 — columns render by name). Every per-catalog and per-database step is wrapped so a broken/slow
+external catalog is logged (`DorisCatalogs:`) and skipped, never aborting the whole introspection.
+
+**Verified offline:** compiles + registers; query text and row-struct field names
+(`DorisCatalogQueriesTest`); flag-off equivalence and the chosen model's catalog level
+(`DorisCatalogWiringTest`); `buildPlugin` green. **NOT verifiable without a live Doris:** that
+`SHOW CATALOGS` column labels actually bind to the structs, that `information_schema` reflects the
+switched catalog, and that the framework's per-schema *level bookkeeping* accepts eager `createOrGet`
+population without wiping nodes on expand. These are the runtime test's job (below). Per the honesty
+contract: the mechanism is proven present and the code is a coherent full-surface implementation, but
+its live correctness is unproven from this environment.
+
+### 5. Runtime test script (user-facing)
+
+Prereq: a Doris FE reachable over the MySQL protocol (default port 9030), ideally with the built-in
+`internal` catalog **plus** at least one external catalog (e.g. a `hive` catalog) so the multi-catalog
+tree is exercised.
+
+**A. Launch the sandbox with the flag ON**
+
+```
+cd wt-catalogs
+./gradlew runIdeCatalogs        # == runIde + -Ddoris.catalogs.experimental=true
+```
+(Plain `./gradlew runIde` launches flag-OFF and must behave exactly as the shipped plugin — run it
+first as the control.) For an **installed** plugin instead of the sandbox, add the VM option via
+Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then restart.
+
+**B. Create/refresh the Doris data source, then read the tree**
+
+1. Add an Apache Doris data source (host/port/user/password), test the connection.
+2. Right-click → Refresh (or expand the data source root).
+3. **Expected flag-ON tree:** `<data source>` → **catalog nodes** at the database level
+   (`internal`, `hive_archive`, …) → expand a catalog → **database** nodes (Doris databases) →
+   expand a database → **tables + views** → expand a table → **columns**.
+   The distinguishing win vs. shipped: catalogs other than `internal` are visible and expandable,
+   and `internal`'s databases sit under it rather than at the root.
+4. **Expected flag-OFF control tree (plain `runIde`):** unchanged shipped behaviour — schemas
+   (databases of the current/`internal` catalog) directly under the data source, no catalog level,
+   external catalogs invisible.
+
+**C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
+```
+grep 'DorisCatalogs:' idea.log
+```
+Marker lines emitted, in order:
+- `DorisCatalogs: SHOW CATALOGS -> [internal, hive_archive, ...]` — catalog enumeration worked.
+  *Absent / empty* → `SHOW CATALOGS` failed or column label `CatalogName` did not bind (check the
+  same-line warning; the fix is the struct field name in `DorisCatalogQueries.CatalogRow`).
+- `DorisCatalogs: catalog '<c>' SHOW DATABASES -> [...]` — per-catalog database listing.
+- `DorisCatalogs: catalog '<c>' db '<d>' -> N tables, M views` — per-database object listing.
+- `DorisCatalogs: ... failed; skipping ...` (with stack trace) — a specific catalog/database was
+  broken/slow and was skipped; the rest should still populate.
+Also capture any `ClassCastException` mentioning `Mysql*`/`Ms*` (would indicate an un-overridden
+casting helper) and the full stack of any introspection error.
+
+**D. Rollback** — remove `-Ddoris.catalogs.experimental=true` (or just run plain `./gradlew runIde`)
+and Refresh. The tree returns to shipped single-database behaviour with zero code changes. Because the
+flag defaults off, no shipped user is ever affected.
+
+### 6. Deviations / risks for review
+
+1. **Live-introspection correctness is unverified** (no Doris available in the build environment).
+   Highest-risk unknowns, in order: (a) jdba `structOf` column-label binding for `SHOW CATALOGS`
+   (case sensitivity of `CatalogName`); (b) whether the framework's per-schema level bookkeeping
+   tolerates eager `createOrGet` in `createSchemaRetriever.process()` or clears children on expand;
+   (c) whether `information_schema` after `SWITCH` scopes to the switched catalog on all Doris
+   versions. All three surface immediately in the `DorisCatalogs:` log during the runtime test.
+2. **Column data types not populated** in M1 (names only) — deferred to Gate 2 (`setStoredType`
+   needs a `DasType` from the type system).
+3. **`getDatabaseDialect()` still returns MYSQL** — kept for parsing/scripting parity and flag-off
+   safety; harmless flag-on because the introspector is now DORIS-keyed, not selected via the
+   metadata dialect. Left unchanged.
+4. **`hookUpHelper` stays MySQL flag-on** (no Ms sibling; its cast is guarded-safe) — a deliberate,
+   documented exception to the "route to Ms flag-on" pattern.
+5. **`verifyPlugin` (IntelliJ Plugin Verifier) is not wired** in this project (no verifier IDE
+   configured — pre-existing), so structural verification relied on `buildPlugin` + a class-name/EP
+   cross-check + the compile probe, not the verifier.
+6. **`MsScriptGenerator`/`MsPredicatesHelper` receive the DORIS `Dbms`** (not `MSSQL`) flag-on. Not
+   exercised by the M1 tree feature; if DDL export / data-grid filtering misbehaves under the flag,
+   that is the place to look. Out of M1 scope.
