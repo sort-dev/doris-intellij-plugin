@@ -13,9 +13,15 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_JOIN_CONDITION_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_JOIN_EXPRESSION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_LIMIT_OFFSET_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_NUMERIC_LITERAL
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_AS_QUERY_CLAUSE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_CREATE_TABLE_STATEMENT
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_CREATE_VIEW_STATEMENT
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_ORDER_BY_CLAUSE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_QUALIFY_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_QUERY_EXPRESSION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_REFERENCE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_VIEW_REFERENCE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_REFERENCE_LIST
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_OPTION
@@ -52,6 +58,40 @@ internal object ReplayMapping {
         // SELECT statement wrapper; the `query` rule inside it is the query expression. Both span the
         // whole statement text (minus the trailing ';', which the framework keeps as our sibling).
         "StatementDefaultContext" to SQL_SELECT_STATEMENT,
+
+        // Doris STATEMENT-LEAD families (Route B unparked, RESEARCH-when-hell-freezes-over Route B).
+        // The authoritative Doris grammar wraps each family in a distinctly-labelled statementBase
+        // alternative; those context classes are the top materialised node of the replayed statement.
+        //  - CREATE [OR REPLACE] VIEW ... AS <query>  -> SQL_CREATE_VIEW_STATEMENT (shared shape, mirrors
+        //    the platform MySQL CREATE VIEW: SQL_VIEW_REFERENCE name + SQL_AS_QUERY_CLAUSE over the query).
+        //  - CREATE MATERIALIZED VIEW ... AS <query>  -> SQL_CREATE_VIEW_STATEMENT is the BEST-FIT shared
+        //    kind (the platform has no MTMV element type); the Doris-only options (BUILD/REFRESH/DISTRIBUTED)
+        //    stay as plain token runs inside the typed statement, the AS-query is replayed in full.
+        //  - CREATE TABLE (Doris)                     -> SQL_CREATE_TABLE_STATEMENT (see CstReplayer's
+        //    column-def / data-type-delegation handling; Doris clauses are deliberate token runs).
+        //  - REFRESH / WARM UP / SWITCH               -> no platform statement kind fits, so they stay a
+        //    generic SQL_STATEMENT (boundary-preserving, same top kind as the lenient path) but now carry
+        //    MATERIALISED inner references (table refs / identifiers) for navigation & completion context.
+        "CreateViewContext" to SQL_CREATE_VIEW_STATEMENT,
+        "CreateMTMVContext" to SQL_CREATE_VIEW_STATEMENT,
+        "CreateTableContext" to SQL_CREATE_TABLE_STATEMENT,
+        "RefreshTableContext" to SQL_STATEMENT,
+        "WarmUpClusterContext" to SQL_STATEMENT,
+        "SwitchCatalogContext" to SQL_STATEMENT,
+
+        // CREATE TABLE column definitions: each `columnDef` is a real SQL_COLUMN_DEFINITION whose name
+        // materialises as SQL_IDENTIFIER (via the strictIdentifier mapping). The column DATA TYPE is left
+        // as a plain token run inside the definition — the platform's SQL_BUILTIN_TYPE_ELEMENT is produced
+        // by parseDataType (a *protected* SqlParser method the replay bridge cannot call cross-class), and
+        // Doris DDL adds type spellings (LARGEINT, agg-model modifiers like `INT SUM`) the MySQL data-type
+        // parser would reject anyway. So the column name is typed & navigable; the type stays a stable span.
+        "ColumnDefContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_DEFINITION,
+
+        // QUALIFY: the one query clause the MySQL grammar cannot parse, but the platform DOES own a shared
+        // SQL_QUALIFY_CLAUSE element type. The replayer materialises it as a sibling of the synthetic
+        // SQL_TABLE_EXPRESSION (like ORDER BY / LIMIT), and DELEGATES its boolean expression to the platform
+        // value-expression parser (window functions et al. come out exact). Replaces the bounded-parse path.
+        "QualifyClauseContext" to SQL_QUALIFY_CLAUSE,
         // NB: QueryContext / SetOperationContext / QueryPrimaryDefaultContext are resolved in
         // [CstReplayer.collect] because their type depends on whether the query is a UNION (flat
         // SQL_UNION_EXPRESSION with per-branch SQL_QUERY_EXPRESSION) or a plain SQL_QUERY_EXPRESSION.
@@ -121,7 +161,11 @@ internal object ReplayMapping {
     fun resolveContextual(nodeClass: String, parentClass: String?, hasNonEmptyChildRule: (String) -> Boolean): IElementType? =
         when (nodeClass) {
             "ColumnReferenceContext" -> if (parentClass == "DereferenceContext") SQL_REFERENCE else SQL_COLUMN_REFERENCE
-            "MultipartIdentifierContext" -> if (parentClass == "TableNameContext") SQL_TABLE_REFERENCE else null
+            // A multipart identifier `p1.p2.…` is a REFERENCE whose kind depends on the enclosing construct:
+            // a table name in a relation / DDL / REFRESH / WARM UP is a table ref; the object name of a
+            // CREATE VIEW / MTMV is a view ref (mirrors the platform MySQL CREATE VIEW shape). The qualifier
+            // parts nest as SQL_REFERENCE via CstReplayer.emitMultipartQualifiers (gated on the same set).
+            "MultipartIdentifierContext" -> REFERENCE_PARENTS[parentClass]
             // NB: the tableAlias child is always PRESENT but EMPTY when unaliased, so probe non-empty.
             "TableNameContext" -> if (hasNonEmptyChildRule(TABLE_ALIAS_RULE)) SQL_AS_EXPRESSION else null
             // JoinCriteria: `ON <expr>` is the join condition; `USING (cols)` is the using clause.
@@ -133,6 +177,27 @@ internal object ReplayMapping {
             // nested SQL_JOIN_EXPRESSION per join, which a single flat-map entry cannot express.
             else -> null
         }
+
+    /**
+     * ANTLR parent-context class -> the reference element type its `multipartIdentifier` child maps to.
+     * Also the gate for [CstReplayer.emitMultipartQualifiers]: a multipart name whose parent is a key here
+     * gets its qualifier prefixes nested as SQL_REFERENCE. Anything not listed leaves the multipart
+     * transparent (its inner identifier leaf still materialises through the strictIdentifier mapping).
+     */
+    val REFERENCE_PARENTS: Map<String, IElementType> = mapOf(
+        "TableNameContext" to SQL_TABLE_REFERENCE,     // relationPrimary # tableName (FROM / JOIN)
+        "CreateViewContext" to SQL_VIEW_REFERENCE,     // CREATE [OR REPLACE] VIEW <name>
+        "CreateMTMVContext" to SQL_VIEW_REFERENCE,     // CREATE MATERIALIZED VIEW <name>
+        "CreateTableContext" to SQL_TABLE_REFERENCE,   // CREATE TABLE <name>
+        "RefreshTableContext" to SQL_TABLE_REFERENCE,  // REFRESH TABLE <name>
+        "WarmUpItemContext" to SQL_TABLE_REFERENCE,    // WARM UP ... WITH TABLE <name>
+    )
+
+    /** SQL_AS_QUERY_CLAUSE: the synthetic `AS <query>` wrapper of a CREATE [MATERIALIZED] VIEW (MySQL shape). */
+    val AS_QUERY_CLAUSE: IElementType = SQL_AS_QUERY_CLAUSE
+
+    /** Context classes of the CREATE-VIEW family; host the synthetic SQL_AS_QUERY_CLAUSE. */
+    val AS_QUERY_PARENTS: Set<String> = setOf("CreateViewContext", "CreateMTMVContext")
 
     const val TABLE_ALIAS_RULE: String = "tableAlias"
     private const val IDENTIFIER_LIST_RULE = "identifierList"

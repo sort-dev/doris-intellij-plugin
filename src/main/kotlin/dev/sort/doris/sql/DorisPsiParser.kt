@@ -34,12 +34,14 @@ import dev.sort.doris.sql.replay.CstReplayer
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
-        // Route B PoC (Gate 2, RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly
-        // enabled: replay the authoritative Doris ANTLR CST onto the platform token stream for simple
-        // SELECTs. On any ANTLR error or boundary misalignment the replayer consumes nothing and we
-        // fall through to the unchanged logic below, so behaviour with the flag unset is identical.
-        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wordAt(builder, 0) in REPLAY_QUERY_LEADS) {
-            if (CstReplayer(builder, this).tryReplaySelectStatement()) return true
+        // Route B (RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly enabled: replay
+        // the authoritative Doris ANTLR CST onto the platform token stream, producing REAL typed PSI for
+        // the query family (SELECT / WITH / QUALIFY) and Doris statement leads (CREATE [MATERIALIZED] VIEW,
+        // Doris CREATE TABLE, REFRESH / WARM UP / SWITCH). On ANY ANTLR error, boundary misalignment, or
+        // greed mismatch the replayer rolls back and consumes nothing, so we fall through to the unchanged
+        // lenient/delegation logic below — behaviour with the flag unset is byte-for-byte identical.
+        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wantsReplay(builder)) {
+            if (CstReplayer(builder, this).tryReplayStatement()) return true
         }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
             isCreateJob(builder)) {
@@ -52,6 +54,18 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             return parseBoundedQuery(builder)
         }
         return super.parseSqlStatement(builder, level)
+    }
+
+    /**
+     * True iff the statement at the cursor is one the Route B replayer attempts. A superset gate: the
+     * replayer itself is the real arbiter (it rolls back cleanly on anything it cannot shape), so this
+     * only needs to avoid waking it for statements it never handles. Query leads (SELECT / WITH, incl.
+     * QUALIFY queries) plus the Doris statement leads with a CST->PSI mapping today.
+     */
+    private fun wantsReplay(builder: PsiBuilder): Boolean {
+        if (wordAt(builder, 0) in REPLAY_QUERY_LEADS) return true
+        if (wordAt(builder, 0) in REPLAY_STATEMENT_LEADS) return true
+        return isCreateView(builder) || isCreateMaterializedView(builder) || isDorisCreateTable(builder)
     }
 
     // --- dispatch predicates (bounded, non-consuming; all use mark/rollback) ---
@@ -249,6 +263,9 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // Statement leads the Route B replayer attempts: a query (SELECT / WITH cte / a parenthesised
         // `(SELECT ...)`, whose first letter-word is still SELECT). wordAt skips the leading '('.
         val REPLAY_QUERY_LEADS = setOf("SELECT", "WITH")
+        // Pure-Doris statement leads the replayer types (structure/inner refs materialised). WARM(UP),
+        // REFRESH, SWITCH — the CREATE families are gated by their own predicates in wantsReplay.
+        val REPLAY_STATEMENT_LEADS = setOf("REFRESH", "WARM", "SWITCH")
         val CREATE_TABLE_MODIFIERS = setOf("TEMPORARY", "EXTERNAL")
         // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
         // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,

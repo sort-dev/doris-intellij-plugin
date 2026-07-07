@@ -245,6 +245,70 @@ Route B always carried — `MysqlExpressionParsing.value_expression` is an inter
 it is the *narrowest possible* dependency on it, caught immediately by the golden corpus on any platform
 bump.
 
+### Route B UNPARKED — statement-lead replay (2026-07-07)
+
+Gates 2 / 2.5 proved replay for the *query* family. This step extends the same
+statement-structure-by-replay ⊕ expressions-by-delegation engine past `SELECT`/`WITH` to Doris
+**statement leads**, replacing structureless lenient blobs with REAL typed platform PSI. Behind the same
+`doris.replay.poc` flag; **flag-off is byte-identical** (`DorisGoldenCorpusTest`/`DorisRegressionTest`
+untouched and green). New independent pin: `golden/replay/doris/*.tree`, recorded by the
+`DorisReplayPocTest` **doris-statements manifest** (`testDorisStatementReplayShapes`), which additionally
+asserts the honesty invariants per corpus file — **zero `PsiErrorElement`s**, expected top-level element
+type(s), preserved statement count.
+
+**Statement families now TYPED via replay** (all zero-error, boundary-preserving):
+
+| Family | ANTLR context | Top PSI node | Inner structure materialised |
+|---|---|---|---|
+| `CREATE [OR REPLACE] VIEW … AS <q>` | `CreateViewContext` | `SQL_CREATE_VIEW_STATEMENT` | `SQL_VIEW_REFERENCE` name (+`SQL_REFERENCE` qualifier) · `SQL_AS_QUERY_CLAUSE` over the **full replayed query** (incl. lateral-view FROM, masked `* EXCEPT(...)` bodies) |
+| `CREATE MATERIALIZED VIEW … AS <q>` | `CreateMTMVContext` | `SQL_CREATE_VIEW_STATEMENT` (best-fit) | as above; Doris options `BUILD/REFRESH/DISTRIBUTED` = token runs |
+| Doris `CREATE TABLE` | `CreateTableContext` | `SQL_CREATE_TABLE_STATEMENT` | `SQL_TABLE_REFERENCE` name · `SQL_COLUMN_DEFINITION` per column (typed name) · `DISTRIBUTED BY HASH(cols)` → `SQL_REFERENCE_LIST`/`SQL_COLUMN_SHORT_REFERENCE` |
+| `REFRESH TABLE <name>` | `RefreshTableContext` | `SQL_STATEMENT` (no platform kind fits) | `SQL_TABLE_REFERENCE` (nested `SQL_REFERENCE` for 3-part names) |
+| `WARM UP … WITH TABLE <n> …` | `WarmUpClusterContext` | `SQL_STATEMENT` | `SQL_IDENTIFIER` compute group + one `SQL_TABLE_REFERENCE` per `WITH TABLE` item |
+| `SWITCH <catalog>` | `SwitchCatalogContext` | `SQL_STATEMENT` | catalog `SQL_IDENTIFIER` |
+| `SELECT … QUALIFY <cond>` | `QualifyClauseContext` | `SQL_SELECT_STATEMENT` | real `SQL_QUALIFY_CLAUSE` (sibling of the table-expr, like ORDER BY); its boolean/window expr **delegated** to `parseValueExpression`. Replaces the old bounded-parse path. |
+
+**Deliberately-DEFINED Doris-only shapes** (no MySQL golden exists; documented in `ReplayMapping`): the
+CREATE-VIEW family reuses the platform's own MySQL CREATE VIEW skeleton (`SQL_VIEW_REFERENCE` +
+`SQL_AS_QUERY_CLAUSE`) verified against a live MySQL-dialect dump; MTMV borrows it as best-fit since the
+platform ships no MTMV element type. Doris CREATE TABLE **clauses** (`DISTRIBUTED BY`/`BUCKETS`/
+`PROPERTIES`/key-model) are left as **plain token runs inside the typed statement** (no error elements);
+column **data types** stay token runs too — `parseDataType` is a *protected* `SqlParser` method the
+cross-class replay bridge cannot call, and Doris DDL type spellings (`LARGEINT`, agg-model `INT SUM`)
+would be rejected by the MySQL data-type parser anyway, so the column *name* is typed/navigable while the
+*type* is a stable span. REFRESH/WARM UP/SWITCH keep the generic `SQL_STATEMENT` top kind (boundary
+identical to the lenient path) but now carry navigable inner references.
+
+**Still LENIENT (with reasons):**
+
+- **`CREATE JOB … DO <insert>`** — the DO-body `INSERT … SELECT` should become a real
+  `SQL_INSERT_DML_INSTRUCTION`, but INSERT is **DML, not in the replay machinery** (the replayer types
+  queries + statement skeletons; it has no insert-target/column-list/values path), and the platform's DML
+  parser isn't reachable mid-replay without re-entrant `parseSqlStatement`. Left lenient; the existing
+  path already types the trailing SELECT as `SQL_QUERY_EXPRESSION`. Next increment: a replay rule for
+  `InsertTableContext` (target `SQL_TABLE_REFERENCE` + replayed query) — the CST is clean (`supportedDmlStatement`).
+- **`CANCEL` / `ADMIN` / most `SHOW` variants** — the grammar parses them (`SupportedCancel/Show/Other`
+  contexts) but each has a distinct labelled context and no obviously-fitting shared statement kind; mapping
+  the long tail is open-ended. They fall back cleanly to lenient (`SQL_STATEMENT`, boundary preserved).
+- **`CREATE DATABASE … PROPERTIES`, routine load, resource/catalog DDL** — lenient; no shared element
+  type and low navigation value today.
+
+**Safety contract under statement replay:** unchanged and extended — any ANTLR parse error, boundary
+misalignment, greed mismatch (QUALIFY/select-item expression delegation), or empty node set rolls the
+builder back and returns `false`, so dispatch falls through to the existing lenient/delegation path. The
+`wantsReplay` gate is a *superset* filter (query leads + REFRESH/WARM/SWITCH + the CREATE-family predicates);
+the replayer itself is the real arbiter. Bring-up hit **zero** rollbacks on the corpus (all listed families
+replay clean), so the fallback is a guard, not a load-bearing path here.
+
+**Distance to flag graduation (turn replay on by default):** what I'd demand first — (1) **completion &
+resolution dogfooding** inside these new shapes in a live IDE (the golden pins *tree shape*, not that
+resolve/complete behave well on `SQL_VIEW_REFERENCE`/`SQL_QUALIFY_CLAUSE`/token-run DDL clauses); (2)
+**half-typed / error-recovery** behavior — replay bails to lenient on ANTLR error, so completion *while
+typing* a Doris statement still rides the weaker lenient path; measure it; (3) **CREATE JOB inner INSERT**
+typed (the one family that regressed to lenient-parity); (4) a **platform-bump rehearsal** — re-record
+`golden/mysql` + `golden/replay` against the next DataGrip and confirm the diff is reviewable; (5)
+performance: double-parse (ANTLR + PsiBuilder) per statement is unmeasured at file scale.
+
 ## 5. Route C — incremental mini-rules (already underway, keep going)
 
 What this plugin already does, named honestly: hand-rolled PsiBuilder rules grafted onto MySQL

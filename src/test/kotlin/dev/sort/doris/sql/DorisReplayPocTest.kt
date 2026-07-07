@@ -102,6 +102,93 @@ class DorisReplayPocTest : BasePlatformTestCase() {
         "mysql-core/28-named-window-clause",
     )
 
+    /**
+     * ## Route B unparked — Doris STATEMENT replay manifest
+     *
+     * Beyond the query family (above), the replayer now types Doris STATEMENT leads: CREATE [MATERIALIZED]
+     * VIEW, Doris CREATE TABLE, REFRESH / WARM UP / SWITCH, and QUALIFY queries. These have NO byte-for-byte
+     * MySQL golden (MySQL either can't parse them or shapes them differently), so unlike the query manifest
+     * they are pinned against their OWN recorded trees under golden/replay/doris/ (record mode:
+     * -Pgolden.record=true), independent of the delegation goldens. Each case additionally asserts the
+     * honesty invariants: ZERO PsiErrorElements, the expected top-level statement element type(s), and
+     * boundary preservation (statement count) — the same contract DorisRegressionTest enforces flag-off.
+     *
+     * Statement families NEWLY typed by replay here (vs. the structureless lenient blob flag-off):
+     *  - 12 / 13: CREATE [OR REPLACE] VIEW  -> SQL_CREATE_VIEW_STATEMENT (name + AS-query replayed in full,
+     *    including a lateral-view FROM and the masked `* EXCEPT(...)` body).
+     *  - 15: REFRESH (+table ref), WARM UP (+table refs), CREATE DATABASE (still lenient), Doris CREATE TABLE
+     *    -> SQL_CREATE_TABLE_STATEMENT (column definitions + DISTRIBUTED reference-list; Doris clauses = runs).
+     *  - 16: QUALIFY query -> SQL_SELECT_STATEMENT with a real SQL_QUALIFY_CLAUSE (delegated window expr).
+     *  - 19: SWITCH catalog -> SQL_STATEMENT + catalog identifier.
+     *  - 21 / 22: multi-statement boundary preservation across replayed + delegated statements.
+     */
+    private data class StmtCase(val rel: String, val statements: Int, val tops: List<String>)
+
+    private val dorisStatements = listOf(
+        StmtCase("doris/12-create-view-modern-body", 1, listOf("SQL_CREATE_VIEW_STATEMENT")),
+        StmtCase("doris/13-create-view-lateral-view", 1, listOf("SQL_CREATE_VIEW_STATEMENT")),
+        StmtCase(
+            "doris/15-doris-admin-statements", 4,
+            listOf("SQL_STATEMENT", "SQL_STATEMENT", "SQL_STATEMENT", "SQL_CREATE_TABLE_STATEMENT"),
+        ),
+        StmtCase("doris/16-qualify-clause", 1, listOf("SQL_SELECT_STATEMENT")),
+        StmtCase("doris/19-switch-catalog", 2, listOf("SQL_STATEMENT", "SQL_SELECT_STATEMENT")),
+        StmtCase(
+            "doris/21-five-statement-boundaries", 5,
+            listOf(
+                "SQL_CREATE_VIEW_STATEMENT", "SQL_SELECT_STATEMENT", "SQL_CREATE_VIEW_STATEMENT",
+                "SQL_INSERT_STATEMENT", "SQL_SELECT_STATEMENT",
+            ),
+        ),
+        StmtCase(
+            "doris/22-lenient-statement-no-eat-next", 4,
+            listOf("SQL_STATEMENT", "SQL_SELECT_STATEMENT", "SQL_STATEMENT", "SQL_SELECT_STATEMENT"),
+        ),
+    )
+
+    private val recordMode: Boolean get() = System.getProperty("golden.record") == "true"
+
+    /**
+     * The Doris statement-replay contract. Record mode writes each replayed tree to golden/replay/<rel>.tree;
+     * verify mode diffs against it AND checks the zero-error / top-type / statement-count invariants.
+     */
+    fun testDorisStatementReplayShapes() {
+        val mismatches = StringBuilder()
+        for (case in dorisStatements) {
+            val sql = norm(corpusFile("${case.rel}.sql").readText())
+            val actual = tree(dorisLang(), sql)
+
+            val errors = Regex("PsiErrorElement").findAll(actual).count()
+            if (errors != 0) mismatches.append("  - ${case.rel}: $errors PsiErrorElement(s) under replay\n")
+
+            val tops = Regex("^  (SQL_[A-Z_]+)", RegexOption.MULTILINE).findAll(actual).map { it.groupValues[1] }.toList()
+            val stmtCount = tops.count { it.endsWith("STATEMENT") }
+            if (stmtCount != case.statements) {
+                mismatches.append("  - ${case.rel}: statement count ${stmtCount} != expected ${case.statements}\n")
+            }
+            val expectedTops = case.tops
+            if (tops != expectedTops) {
+                mismatches.append("  - ${case.rel}: top-level nodes $tops != expected $expectedTops\n")
+            }
+
+            val golden = replayGoldenFile("${case.rel}.tree")
+            if (recordMode) {
+                golden.parentFile.mkdirs()
+                golden.writeText(actual)
+            } else if (!golden.exists()) {
+                mismatches.append("  - ${case.rel}: MISSING replay golden ${golden.path}\n")
+            } else if (norm(golden.readText()) != actual) {
+                mismatches.append("  - ${case.rel}: replayed tree differs from golden/replay/${case.rel}.tree\n")
+            }
+        }
+        if (mismatches.isNotEmpty()) {
+            fail(
+                "Doris statement-replay contract failed:\n$mismatches" +
+                    "Re-record with -Pgolden.record=true after reviewing (git diff src/test/resources/golden/replay)."
+            )
+        }
+    }
+
     /** Headline Gate-2 criterion: the entire manifest replays byte-identical to the MySQL goldens. */
     fun testManifestIsByteIdenticalToMysqlGoldens() {
         val mismatches = StringBuilder()
@@ -150,6 +237,10 @@ class DorisReplayPocTest : BasePlatformTestCase() {
 
     private fun goldenFile(rel: String): File =
         File(System.getProperty("golden.dir") ?: error("golden.dir system property not set"), rel)
+
+    /** Replay-shape golden for a Doris statement case: golden/replay/<rel>.tree (record-mode owned). */
+    private fun replayGoldenFile(rel: String): File =
+        File(System.getProperty("golden.dir") ?: error("golden.dir system property not set"), "replay/$rel")
 
     private fun norm(s: String): String = s.replace("\r\n", "\n").replace("\r", "\n")
 

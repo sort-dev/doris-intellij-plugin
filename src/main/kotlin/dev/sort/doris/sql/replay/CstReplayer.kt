@@ -64,11 +64,14 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
     private val delegations = HashMap<Int, Int>()
 
     /**
-     * Attempt to replay the statement at the builder's current position as a Doris SELECT.
-     * Returns true iff a byte-faithful PSI tree was produced (builder advanced to the statement's
-     * end, exclusive of the terminating ';'); false with the builder untouched/rolled-back otherwise.
+     * Attempt to replay the statement at the builder's current position onto typed platform PSI.
+     * Covers the query family (SELECT / WITH / QUALIFY) and the Doris statement-lead families the
+     * mapping table understands (CREATE [MATERIALIZED] VIEW, CREATE TABLE, REFRESH, WARM UP, SWITCH).
+     * Returns true iff a coherent PSI tree was produced (builder advanced to the statement's end,
+     * exclusive of the terminating ';'); false with the builder untouched/rolled-back otherwise, so
+     * the caller falls through to the existing lenient/delegation path unchanged.
      */
-    fun tryReplaySelectStatement(): Boolean {
+    fun tryReplayStatement(): Boolean {
         val statementStart = builder.currentOffset
         val statementText = extractStatementText(statementStart) ?: return false
 
@@ -184,11 +187,18 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // SQL_AS_EXPRESSION > SQL_PARENTHESIZED_QUERY_EXPRESSION ( ( <query> ) ) + AS + alias (golden 24).
         if (cls == "AliasedQueryContext") emitDerivedTable(ctx, ruleNames, absStart, out, seq)
 
-        // Qualified table name `db.tbl` (multipartIdentifier under a tableName): the platform nests the
-        // qualifier parts in SQL_REFERENCE, leaving the final part a bare SQL_IDENTIFIER (golden 02).
-        if (cls == "MultipartIdentifierContext" && parentClass == "TableNameContext") {
+        // Qualified name `db.tbl` (multipartIdentifier under a reference-bearing parent — a table name,
+        // a CREATE VIEW/TABLE object name, REFRESH/WARM UP table): the platform nests the qualifier parts
+        // in SQL_REFERENCE, leaving the final part a bare SQL_IDENTIFIER (golden 02, MySQL CREATE VIEW shape).
+        if (cls == "MultipartIdentifierContext" && parentClass in ReplayMapping.REFERENCE_PARENTS) {
             emitMultipartQualifiers(ctx, ruleNames, absStart, out, seq)
         }
+
+        // CREATE [MATERIALIZED] VIEW ... AS <query>: the platform wraps `AS <query>` in a single
+        // SQL_AS_QUERY_CLAUSE (MySQL CREATE VIEW shape). The Doris CST has the AS terminal and the query as
+        // bare siblings under the create-view context, so we SYNTHESISE the wrapper spanning [AS, query-end].
+        // Emit BEFORE descending so it opens ahead of the query expression it contains.
+        if (cls in ReplayMapping.AS_QUERY_PARENTS) emitAsQueryClause(ctx, absStart, out, seq)
 
         // Synthetic SQL_TABLE_EXPRESSION: the platform groups the query BODY (FROM + WHERE + GROUP BY +
         // HAVING) into one node the flat ANTLR grammar lacks. It stops before the queryOrganization
@@ -289,6 +299,15 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         return null
     }
 
+    /** Start offset of the first direct terminal child whose text equals [text] case-insensitively. */
+    private fun firstTerminalCi(ctx: ParserRuleContext, text: String): Int? {
+        for (i in 0 until ctx.childCount) {
+            val t = ctx.getChild(i) as? TerminalNode ?: continue
+            if (t.text.equals(text, ignoreCase = true)) return t.symbol.startIndex
+        }
+        return null
+    }
+
     private fun lastTerminal(ctx: ParserRuleContext, text: String): Int? {
         for (i in ctx.childCount - 1 downTo 0) {
             val t = ctx.getChild(i) as? TerminalNode ?: continue
@@ -310,7 +329,21 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         "JoinCriteriaContext" -> childRule == "booleanExpression"      // JOIN ... ON condition
         "ExpressionWithOrderContext" -> childRule == "expression"      // GROUP BY item
         "SortItemContext" -> childRule == "expression"                 // ORDER BY sort key
+        "QualifyClauseContext" -> childRule == "booleanExpression"     // QUALIFY condition
         else -> false
+    }
+
+    /**
+     * Synthesise the SQL_AS_QUERY_CLAUSE of a CREATE [MATERIALIZED] VIEW: it spans from the `AS` terminal
+     * to the stop of the view's defining `query`. The `AS` keyword and the query replay INSIDE it (the
+     * query via the normal query machinery). Nothing emitted if either landmark is missing (defensive —
+     * the statement then rolls back cleanly rather than producing a malformed wrapper).
+     */
+    private fun emitAsQueryClause(ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val asStart = firstTerminalCi(ctx, "AS") ?: return
+        val query = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { it.javaClass.simpleName == "QueryContext" && hasTokens(it) } ?: return
+        out.add(Node(absStart + asStart, absStart + query.stop.stopIndex, ReplayMapping.AS_QUERY_CLAUSE, seq[0]++))
     }
 
     /**
