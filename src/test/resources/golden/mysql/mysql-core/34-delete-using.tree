@@ -1,0 +1,66 @@
+SqlFile:corpus.sql
+  SQL_DELETE_STATEMENT
+    PsiElement(DELETE)('DELETE')
+    PsiWhiteSpace(' ')
+    SQL_DELETE_DML_INSTRUCTION
+      SQL_CLAUSE
+        PsiElement(FROM)('FROM')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+      PsiWhiteSpace(' ')
+      SQL_FROM_CLAUSE
+        PsiElement(USING)('USING')
+        PsiWhiteSpace(' ')
+        SQL_JOIN_EXPRESSION
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+          PsiWhiteSpace(' ')
+          PsiElement(JOIN)('JOIN')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('u')
+          PsiWhiteSpace(' ')
+          SQL_JOIN_CONDITION_CLAUSE
+            PsiElement(ON)('ON')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('t')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('k')
+              PsiWhiteSpace(' ')
+              PsiElement(=)('=')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                SQL_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('u')
+                PsiElement(.)('.')
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('k')
+      PsiWhiteSpace(' ')
+      SQL_WHERE_CLAUSE
+        PsiElement(WHERE)('WHERE')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('u')
+            PsiElement(.)('.')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('flag')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

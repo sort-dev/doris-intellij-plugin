@@ -1,0 +1,22 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('t')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('id')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+      PsiElement(,)(',')
+      PsiErrorElement:<constraint>, <identifier>, <index definition> or PERIOD expected
+        <empty list>
+  PsiWhiteSpace('\n')

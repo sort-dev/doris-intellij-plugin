@@ -1,0 +1,1 @@
+SELECT CASE WHEN a > 1 THEN 'x' WHEN a < 0 THEN 'y' ELSE 'z' END FROM t;

@@ -9,10 +9,18 @@ import java.io.File
 
 /**
  * Dual golden-tree corpus (Gate 1 of RESEARCH-when-hell-freezes-over-parser.md, "The golden-corpus
- * method"). For every SQL construct file under src/test/resources/corpus we pin TWO PSI trees:
+ * method"). For every SQL construct file under src/test/resources/corpus we pin TWO PSI trees.
  *
- *  - golden/doris/<name>.tree — the tree our DorisSQL dialect produces (the shape our plugin ships).
- *  - golden/mysql/<name>.tree — the tree the RAW platform MySQL dialect produces for the same SQL.
+ * The corpus is organized into category subdirectories:
+ *  - corpus/mysql-core/ — constructs both dialects share (Route B's target-shape spec / drift alarm)
+ *  - corpus/doris/      — Doris-specific constructs (masks fire; trees deliberately diverge)
+ *  - corpus/edge/       — mask near-misses + broken-SQL recovery shapes
+ *
+ * We walk the corpus RECURSIVELY and mirror each file's relative path under both golden roots:
+ *  - golden/doris/<rel>.tree — the tree our DorisSQL dialect produces (the shape our plugin ships).
+ *  - golden/mysql/<rel>.tree — the tree the RAW platform MySQL dialect produces for the same SQL.
+ * e.g. corpus/mysql-core/01-select-with-lag-toplevel.sql pins
+ * golden/doris/mysql-core/01-select-with-lag-toplevel.tree and the mysql/ mirror.
  *
  * The MySQL goldens are an upstream-drift alarm: when a future DataGrip version reshapes MySQL's
  * trees, [testMysqlGoldenTrees] fails loudly, telling us exactly which constructs moved so we can
@@ -37,10 +45,19 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
     private val recordMode: Boolean
         get() = System.getProperty("golden.record") == "true"
 
-    /** Deterministic, sorted iteration so goldens and diffs are stable across machines. */
+    /**
+     * Deterministic, sorted, RECURSIVE iteration over every *.sql file under corpus/ (any depth of
+     * category subdirs). Sorted by relative path so goldens and diffs are stable across machines.
+     */
     private fun corpusFiles(): List<File> =
-        (corpusDir.listFiles { f -> f.isFile && f.name.endsWith(".sql") } ?: emptyArray())
-            .sortedBy { it.name }
+        corpusDir.walkTopDown()
+            .filter { it.isFile && it.name.endsWith(".sql") }
+            .sortedBy { relPath(it) }
+            .toList()
+
+    /** Path of a corpus file relative to corpusDir, with '/' separators (stable across platforms). */
+    private fun relPath(f: File): String =
+        f.relativeTo(corpusDir).path.replace(File.separatorChar, '/')
 
     /** Trees are pure text; normalize line endings so goldens compare byte-stable across platforms. */
     private fun norm(s: String): String = s.replace("\r\n", "\n").replace("\r", "\n")
@@ -70,26 +87,32 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
         assertTrue("no corpus *.sql files found in $corpusDir", files.isNotEmpty())
         val outDir = File(goldenDir, dialectName)
 
+        // Golden file for a corpus file mirrors its relative path, swapping .sql -> .tree.
+        fun goldenFor(f: File): File =
+            File(outDir, relPath(f).removeSuffix(".sql") + ".tree")
+
         if (recordMode) {
-            outDir.mkdirs()
             for (f in files) {
                 val actual = tree(lang, norm(f.readText()))
-                File(outDir, f.nameWithoutExtension + ".tree").writeText(actual)
+                val goldenFile = goldenFor(f)
+                goldenFile.parentFile.mkdirs()
+                goldenFile.writeText(actual)
             }
             return
         }
 
         val mismatches = StringBuilder()
         for (f in files) {
+            val rel = relPath(f)
             val actual = tree(lang, norm(f.readText()))
-            val goldenFile = File(outDir, f.nameWithoutExtension + ".tree")
+            val goldenFile = goldenFor(f)
             if (!goldenFile.exists()) {
-                mismatches.append("  - ${f.name} [$dialectName]: MISSING golden ${goldenFile.path}\n")
+                mismatches.append("  - $rel [$dialectName]: MISSING golden ${goldenFile.path}\n")
                 continue
             }
             val golden = norm(goldenFile.readText())
             if (golden != actual) {
-                mismatches.append("  - ${f.name} [$dialectName]: PSI tree differs from golden\n")
+                mismatches.append("  - $rel [$dialectName]: PSI tree differs from golden\n")
             }
         }
 

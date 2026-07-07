@@ -1,0 +1,60 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('SUM')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('x')
+            INFO:[expr:decimal]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+          PsiWhiteSpace(' ')
+          SQL_ANALYTIC_CLAUSE
+            PsiElement(OVER)('OVER')
+            PsiWhiteSpace(' ')
+            PsiElement(()('(')
+            SQL_ORDER_BY_CLAUSE
+              PsiElement(ORDER)('ORDER')
+              PsiWhiteSpace(' ')
+              PsiElement(BY)('BY')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('y')
+            PsiWhiteSpace(' ')
+            SQL_CLAUSE
+              PsiElement(ROWS)('ROWS')
+              PsiWhiteSpace(' ')
+              PsiElement(BETWEEN)('BETWEEN')
+              PsiWhiteSpace(' ')
+              SQL_NUMERIC_LITERAL
+                PsiElement(SQL_INTEGER_TOKEN)('1')
+              PsiWhiteSpace(' ')
+              PsiElement(PRECEDING)('PRECEDING')
+              PsiWhiteSpace(' ')
+              PsiElement(AND)('AND')
+              PsiWhiteSpace(' ')
+              PsiElement(CURRENT)('CURRENT')
+              PsiWhiteSpace(' ')
+              PsiElement(ROW)('ROW')
+            PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

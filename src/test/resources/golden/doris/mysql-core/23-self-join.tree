@@ -1,0 +1,69 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('a')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('b')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('id')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_JOIN_EXPRESSION
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('t')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('a')
+            PsiWhiteSpace(' ')
+            PsiElement(JOIN)('JOIN')
+            PsiWhiteSpace(' ')
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('t')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('b')
+            PsiWhiteSpace(' ')
+            SQL_JOIN_CONDITION_CLAUSE
+              PsiElement(ON)('ON')
+              PsiWhiteSpace(' ')
+              SQL_BINARY_EXPRESSION
+                SQL_COLUMN_REFERENCE
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('a')
+                  PsiElement(.)('.')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('parent_id')
+                PsiWhiteSpace(' ')
+                PsiElement(=)('=')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('b')
+                  PsiElement(.)('.')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('id')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

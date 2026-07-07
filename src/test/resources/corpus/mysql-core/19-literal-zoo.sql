@@ -1,0 +1,1 @@
+SELECT 0xFF, 3.14, 1.5e10, 'it\'s', NULL, TRUE, FALSE FROM t;

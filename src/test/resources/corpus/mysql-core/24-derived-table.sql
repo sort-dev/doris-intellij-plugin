@@ -1,0 +1,1 @@
+SELECT d.x FROM (SELECT x FROM t) AS d;

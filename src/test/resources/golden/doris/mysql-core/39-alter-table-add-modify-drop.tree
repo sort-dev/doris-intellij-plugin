@@ -1,0 +1,50 @@
+SqlFile:corpus.sql
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('t')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(ADD)('ADD')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('c')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+    PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(MODIFY)('MODIFY')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(NAME_IDENT)('name')
+      PsiWhiteSpace(' ')
+      SQL_BUILTIN_TYPE_ELEMENT
+        PsiElement(VARCHAR)('VARCHAR')
+        PsiElement(()('(')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('128')
+        PsiElement())(')')
+    PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(DROP)('DROP')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('created_at')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
