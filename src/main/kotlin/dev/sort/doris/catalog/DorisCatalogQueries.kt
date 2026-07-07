@@ -1,8 +1,10 @@
 package dev.sort.doris.catalog
 
+import com.intellij.database.model.ObjectKind
 import com.intellij.database.remote.jdba.core.Layouts
 import com.intellij.database.remote.jdba.core.ResultLayout
 import com.intellij.database.remote.jdba.sql.SqlQuery
+import com.intellij.database.util.ObjectPath
 import dev.sort.doris.DorisStringUtils
 
 /**
@@ -117,6 +119,39 @@ object DorisCatalogQueries {
     /** Fallback for [listColumnsIn]: unqualified `information_schema` after `SWITCH`. `?` = schema. */
     val LIST_COLUMNS_CURRENT: SqlQuery<List<ColumnRow>> =
         SqlQuery(COLUMNS_SELECT + "information_schema" + COLUMNS_WHERE, COLUMNS_LAYOUT)
+
+    // ---- Console namespace switcher (M4) -----------------------------------------------------------
+
+    /**
+     * The SQL the console's namespace switcher runs when the user picks an entry (M4, BUG A).
+     *
+     * The inherited MySQL composer (`MysqlBaseDialect.sqlSetSearchPath`) renders
+     * `ObjectPath.getDisplayName()` — the full dotted path — and quotes it as **one** identifier,
+     * producing ``use `catalog.schema` `` under the multi-catalog model, which Doris rejects
+     * ("Unknown database"). Compose per path shape instead, quoting **each part separately**:
+     *
+     * - SCHEMA with a DATABASE parent -> ``use `catalog`.`db` ``  (Doris `USE [catalog.]db`)
+     * - SCHEMA without a parent       -> ``use `db` ``            (MySQL-identical)
+     * - DATABASE (catalog only)       -> ``SWITCH `catalog` ``    (Doris cannot `USE` a bare catalog)
+     *
+     * Deliberately one small function so the quoting strategy is a one-line swap if a live Doris
+     * rejects the per-part-quoted form (fallbacks, in order: unquoted `use catalog.db`; two
+     * statements ``SWITCH `catalog` `` then ``use `db` ``). See the Gate 1 log §5 runtime script.
+     */
+    fun sqlSwitchSearchPath(current: ObjectPath): String? {
+        return when (current.kind) {
+            ObjectKind.SCHEMA -> {
+                val parent = current.parent
+                if (parent != null && parent.kind == ObjectKind.DATABASE) {
+                    "use " + quote(parent.name) + "." + quote(current.name)
+                } else {
+                    "use " + quote(current.name)
+                }
+            }
+            ObjectKind.DATABASE -> "SWITCH " + quote(current.name)
+            else -> null
+        }
+    }
 
     // ------------------------------------------------------------------------------------------------
 

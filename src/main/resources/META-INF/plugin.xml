@@ -79,5 +79,10 @@
         <scriptGenerator dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisScriptGenerator"/>
         <hookUpHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisHookUpHelper"/>
         <predicatesHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisPredicatesHelper"/>
+        <!-- M4: dbms-keyed database dialect. Dual-mode like the rest: flag-off it replicates the
+             fallback MysqlDialect exactly (MysqlBaseDialect subclass, same getDbms/getDisplayName);
+             flag-on it fixes the console namespace switcher: per-part-quoted USE `catalog`.`db`
+             composition (BUG A) and the two-level catalog->database stepped popup (BUG B). -->
+        <dialect dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisDatabaseDialect"/>
     </extensions>
 </idea-plugin>

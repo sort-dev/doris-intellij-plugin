@@ -613,6 +613,16 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    whether toggling "Suggest all objects" in SQL completion settings changes anything (it bypasses
    the import gate M3 fixed — a difference implicates `DorisSqlDialect.getBaseImports`); and the
    schemas-pane state of the external catalog.
+6. **Console namespace switcher, flag-ON (M4):** the console's top-right namespace dropdown should
+   now be a **two-level stepped popup** — pick a catalog, then one of its databases (no more flat
+   cross-catalog schema list). Picking `extcat` → `somedb` must run ``use `extcat`.`somedb` ``
+   (per-part backtick-quoted — visible in the console output) and succeed; picking under
+   `internal` likewise. Log marker: `DorisCatalogs: console switch to '<catalog.db>' -> use ...`.
+   **Quoting fallback:** if Doris rejects the per-part-quoted form (older versions), the composer
+   is the single function `DorisCatalogQueries.sqlSwitchSearchPath` — swap its SCHEMA branch to
+   the unquoted user-proven form (`"use " + catalog + "." + db`), or to two statements
+   (``SWITCH `catalog` `` then ``use `db` ``), rebuild, retest. Report which form worked.
+   Flag-OFF control: the switcher must look and behave exactly as shipped (flat list, MySQL `use`).
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -834,3 +844,87 @@ level; DATABASE group matches any catalog name incl. `internal`/`extcat`; no sch
 `testMetadataDatabaseDialectStaysMysql` (wire-facing dialect pinned to MYSQL). Live resolution
 itself requires a das model + console and is left to the runtime pass, per tasking. Suite: 65
 tests / 0 failures; `buildPlugin` green.
+
+---
+
+## Gate 1 log — M4 (console namespace switcher)
+
+*Executed 2026-07-07, after the user's M3 runtime pass. Two switcher bugs flag-ON: (A) selecting any
+entry ran ``use `catalog.schema` `` — the whole dotted path quoted as ONE identifier — which Doris
+rejects ("Unknown database"); manually typing unquoted `use catalog.schema` works. (B) the dropdown
+was a flat list of schema names across all catalogs with no catalog grouping.*
+
+### 1. The switcher machinery (bytecode findings)
+
+- **UI + composition entry point:** `com.intellij.database.run.actions.ChooseSchemaAction`. It gets
+  the database dialect via `DbImplUtil.getDatabaseDialect(JdbcConsoleBase)` — resolving through the
+  **dbms-keyed `<dialect>` EP** (DORIS → `extensionFallback` → the final
+  `com.intellij.database.dialects.mysql.MysqlDialect`). *Not* through
+  `SqlLanguageDialect.getDatabaseDialect()` (the M3-pinned editor-side accessor) — the two are
+  independent seams.
+- **BUG A — the composer:** `ChooseSchemaAction.switchSearchPath` →
+  `DatabaseDialectEx.sqlSetSearchPath(SearchPath)`. `MysqlBaseDialect`'s implementation takes
+  `SearchPath.getCurrent()` (an `ObjectPath`), renders **`ObjectPath.getDisplayName()`** — the full
+  dotted path, two components under the flag-ON Ms model — and quotes that single string via
+  `NamingService.catToScript(name, kind, quotesPriority)`, then `format("use %s", ...)`. One name in,
+  one pair of backticks out: ``use `catalog.schema` ``. (Reference: SQL Server's
+  `AbstractTsqlDialect.sqlSetSearchPath` composes only the DATABASE component for `use`, and its
+  `getSearchPathObjectKind()` returns `DATABASE`.)
+- **BUG B — the popup selector:** `ChooseSchemaAction.createInitialStep` branches on
+  `dialect.getSearchPathObjectKind()`: `DATABASE` → `DbScStep` (the **two-level stepped
+  database→schema popup** SQL Server users get, i.e. catalogs grouped); otherwise
+  `supportsSearchPath()` → `SearchPathStep`; else `SingleScOrDbStep` — the flat single-level list
+  the user saw (MySQL's default kind is `SCHEMA`, from `AbstractDatabaseDialect`).
+
+Both bugs share one root: the dbms-keyed database dialect was MySQL's, whose search-path surface is
+single-component. The seam is the `<dialect dbms="DORIS">` EP.
+
+### 2. The fix — `DorisDatabaseDialect` (`<dialect dbms="DORIS">`, dual-mode)
+
+`dev.sort.doris.catalog.DorisDatabaseDialect : MysqlBaseDialect` (the fallback's `MysqlDialect` is
+`final`, but it only adds `getDbms`/`getDisplayName` over the public base — replicated, so flag-OFF
+behaviour is identical; bytecode-audited: no platform code casts to the final `MysqlDialect` class).
+
+- **Flag-OFF:** everything inherited from `MysqlBaseDialect` unchanged; `getDisplayName()` stays
+  "MySQL"; `getSearchPathObjectKind()`/`sqlSetSearchPath` delegate to super. The suite's
+  `DorisDatabaseDialectTest.testFlagOffDialectMatchesMysql` pins output equality with a real
+  `MysqlDialect` instance.
+- **Flag-ON:**
+  - `getSearchPathObjectKind()` → `DATABASE` → the console shows the stepped catalog→database
+    popup (**fixes BUG B** — no platform UI work needed; the grouping UI already ships for the
+    DATABASE kind).
+  - `sqlSetSearchPath` → `DorisCatalogQueries.sqlSwitchSearchPath(current)`, per path shape,
+    **each part quoted separately**:
+
+    | Selected path | Composed SQL |
+    |---|---|
+    | catalog + database (SCHEMA with DATABASE parent) | ``use `catalog`.`db` `` |
+    | bare database (SCHEMA, no parent) | ``use `db` `` (MySQL-identical) |
+    | bare catalog (DATABASE) | ``SWITCH `catalog` `` |
+    | anything else | null (not composable) |
+
+    Composition logs `DorisCatalogs: console switch to '<path>' -> <sql>`.
+- **Quoting fallback (one-line swap):** the composer is the single small function
+  `DorisCatalogQueries.sqlSwitchSearchPath`. If a live Doris rejects the per-part-quoted form,
+  change that function to (in order of preference) unquoted `use catalog.db`, or two statements
+  ``SWITCH `catalog` `` + ``use `db` ``. The user-proven form is unquoted `use catalog.db`;
+  per-part backtick quoting is standard Doris identifier quoting and expected to pass.
+
+### 3. Tests
+
+`DorisDatabaseDialectTest`: composed SQL per path shape (catalog-qualified, bare schema, bare
+catalog, non-namespace kind → null; embedded backticks doubled per part, never fused across the
+dot), and flag-OFF equivalence against a live `MysqlDialect` (same `searchPathObjectKind`, same
+`sqlSetSearchPath` output, "MySQL" display name, injected DORIS dbms preserved). Suite: 68 tests /
+0 failures; `buildPlugin` green.
+
+### 4. Residual risks
+
+- Whether Doris accepts ``use `catalog`.`db` `` (per-part quoted) on all supported versions is the
+  one runtime unknown — mitigated by the documented one-line fallback swap.
+- `tryToLoadSearchPath` (reading the CURRENT namespace back from the connection) stays MySQL's
+  (`SELECT DATABASE()`-based): flag-ON it reports the database name without its catalog, so the
+  switcher's *displayed current* entry may show unqualified. Cosmetic; deferred.
+- The `DbScStep` stepped popup enumerates databases/schemas from the das model; catalogs that are
+  enumerated-but-not-introspected (M2 default) will show no databases beneath them until opted in —
+  consistent with the tree behaviour.
