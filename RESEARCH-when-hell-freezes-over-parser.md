@@ -195,6 +195,56 @@ empty-list marker nodes from the MySQL *generated* parser — not derivable from
 BETWEEN / subquery / UNION / star-projection families (unmapped element types). Full suite green with
 the flag both on and off.
 
+### Gate 2.5 — PASSED ✅ (2026-07-07): mid-replay delegation (statement structure ⊕ expression handoff)
+
+The Gate-2 wall was **function calls**: the platform renders `COUNT(*)` as `SQL_FUNCTION_CALL` carrying
+platform-internal frame nodes (`INFO:[expr:any*]`, `INFO:[0]`) that are artifacts of the MySQL
+*generated* parser's argument machinery — **not derivable from the ANTLR CST**. Synthesising them is
+guesswork.
+
+**The fix — stop synthesising expressions; delegate them.** The replayer runs inside `DorisPsiParser`
+(a `MysqlParser`/`SqlParser` subclass), so it can call the platform's own
+`parseValueExpression(builder, level, …)` → `MysqlExpressionParsing.value_expression` mid-replay. The
+architecture splits cleanly:
+
+- **Statement structure by replay.** The CST still drives clauses, joins, unions, CTEs, table refs and
+  the synthetic table-expression — all shared PSI vocabulary.
+- **Expressions by delegation.** At each **delegation point** — the OUTERMOST expression of a
+  select-list item (`namedExpression`), WHERE / HAVING / JOIN-ON condition, GROUP BY item, or ORDER BY
+  sort key — the replayer hands the builder to `parseValueExpression`, then **verifies greed**: the
+  builder must advance to exactly the delegation span's end (skipping only whitespace), else the whole
+  statement replay rolls back to delegation. Because that call *is* the platform code that emitted the
+  golden, the function-call frames, operator nesting, CASE/BETWEEN/IN, scalar subqueries, INTERVAL
+  arithmetic and window subtrees come out **byte-identical for free**.
+
+Aliases and stars were derived from the goldens: an aliased select item wraps in `SQL_AS_EXPRESSION`
+(delegated expr + bare `AS` + `SQL_IDENTIFIER` alias — *not* `SQL_COLUMN_ALIAS_DEFINITION`); a bare
+`*` is modelled as `SQL_COLUMN_REFERENCE` (not a value expression), so it is emitted as structure
+rather than delegated. New structural rules added to reach the whole query family: nested
+`SQL_JOIN_EXPRESSION` per chained join, flat `SQL_UNION_EXPRESSION` (the ANTLR left-nested
+`setOperation` collapses to one node spanning the whole `query`, so a union-level ORDER BY/LIMIT lands
+inside it), `SQL_PARENTHESIZED_QUERY_EXPRESSION` for subquery/derived-table branches,
+`SQL_WITH_QUERY_EXPRESSION`/`SQL_WITH_CLAUSE`/`SQL_NAMED_QUERY_DEFINITION` for CTEs, `SQL_USING_CLAUSE`
++ `SQL_REFERENCE_LIST`, and nested `SQL_REFERENCE` qualifiers for `db.tbl` table names.
+
+**Coverage: 6 → 32 byte-identical files** — the *entire* query family of `mysql-core` (01–32), including
+every file previously listed as blocked (06/32 group-by/having, 21 star+chained-joins, 08/09 CASE, 10
+BETWEEN/IN/LIKE, 11–13 subqueries, 24 derived table, 25/26 UNION, 03/20 INTERVAL, 19 literal-zoo,
+27/28 window, 01/02/29 CTE, 14–18 builtins, 22 USING). Greed-verification mismatches encountered during
+bring-up: **zero** — delegation points are maximal expressions bounded by commas/clause keywords, so the
+platform parser's greed matches the span every time. Out of replay scope (unchanged): DML/DDL
+(mysql-core 33–44, non-query leads) and the error-recovery edge suite (ANTLR errors → delegation). Full
+`./gradlew clean test` green with the flag on and off.
+
+**Read on the architecture:** the *statement-structure-by-replay ⊕ expressions-by-delegation* split is
+a strong candidate for the production Route B shape. Expressions are where the platform's undocumented
+generated-parser frames live and where a hand-authored shape would be most fragile; delegating them to
+`parseValueExpression` makes that surface exact-by-construction and maintenance-free, while the CST
+drives only the statement skeleton (stable shared PSI vocabulary). The residual risk is the same one
+Route B always carried — `MysqlExpressionParsing.value_expression` is an internal static, not API — but
+it is the *narrowest possible* dependency on it, caught immediately by the golden corpus on any platform
+bump.
+
 ## 5. Route C — incremental mini-rules (already underway, keep going)
 
 What this plugin already does, named honestly: hand-rolled PsiBuilder rules grafted onto MySQL

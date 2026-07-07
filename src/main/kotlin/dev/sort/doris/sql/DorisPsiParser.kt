@@ -38,8 +38,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // enabled: replay the authoritative Doris ANTLR CST onto the platform token stream for simple
         // SELECTs. On any ANTLR error or boundary misalignment the replayer consumes nothing and we
         // fall through to the unchanged logic below, so behaviour with the flag unset is identical.
-        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wordAt(builder, 0) == "SELECT") {
-            if (CstReplayer(builder).tryReplaySelectStatement()) return true
+        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wordAt(builder, 0) in REPLAY_QUERY_LEADS) {
+            if (CstReplayer(builder, this).tryReplaySelectStatement()) return true
         }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
             isCreateJob(builder)) {
@@ -246,6 +246,9 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     private companion object {
         const val MAX_LOOKAHEAD = 512
+        // Statement leads the Route B replayer attempts: a query (SELECT / WITH cte / a parenthesised
+        // `(SELECT ...)`, whose first letter-word is still SELECT). wordAt skips the leading '('.
+        val REPLAY_QUERY_LEADS = setOf("SELECT", "WITH")
         val CREATE_TABLE_MODIFIERS = setOf("TEMPORARY", "EXTERNAL")
         // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
         // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,

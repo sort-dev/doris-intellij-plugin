@@ -4,6 +4,7 @@ import com.intellij.psi.tree.IElementType
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_AS_EXPRESSION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_BINARY_EXPRESSION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_REFERENCE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_SHORT_REFERENCE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_FROM_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_GROUP_BY_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_HAVING_CLAUSE
@@ -15,10 +16,12 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_NUMERIC_LITERAL
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_ORDER_BY_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_QUERY_EXPRESSION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_REFERENCE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_REFERENCE_LIST
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_OPTION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_STATEMENT
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_TABLE_REFERENCE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_USING_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_WHERE_CLAUSE
 
 /**
@@ -49,7 +52,9 @@ internal object ReplayMapping {
         // SELECT statement wrapper; the `query` rule inside it is the query expression. Both span the
         // whole statement text (minus the trailing ';', which the framework keeps as our sibling).
         "StatementDefaultContext" to SQL_SELECT_STATEMENT,
-        "QueryContext" to SQL_QUERY_EXPRESSION,
+        // NB: QueryContext / SetOperationContext / QueryPrimaryDefaultContext are resolved in
+        // [CstReplayer.collect] because their type depends on whether the query is a UNION (flat
+        // SQL_UNION_EXPRESSION with per-branch SQL_QUERY_EXPRESSION) or a plain SQL_QUERY_EXPRESSION.
 
         // SELECT ... : the select clause. The identifier leaf is the
         // `strictIdentifier # unquotedIdentifier` wrapper. A qualified column `a.b` is a
@@ -63,9 +68,15 @@ internal object ReplayMapping {
 
         // WHERE ... / JOIN ON ... : comparison predicate and the join's ON criteria.
         "WhereClauseContext" to SQL_WHERE_CLAUSE,
+        // NB: ComparisonContext / NumericLiteralContext (and the arithmetic/logical/column/dereference
+        // expression classes below) are UNREACHABLE under Gate 2.5 — every expression is delegated to
+        // the platform value-expression parser, so the replayer never descends into an expression
+        // subtree. They remain only as a documented fallback for a hypothetical expression that appears
+        // outside a delegating clause; delete when the delegation surface is proven exhaustive.
         "ComparisonContext" to SQL_BINARY_EXPRESSION,
         "NumericLiteralContext" to SQL_NUMERIC_LITERAL,
-        "JoinCriteriaContext" to SQL_JOIN_CONDITION_CLAUSE,
+        // JOIN ... USING (cols): the id list is a reference list of short column references (golden 22).
+        "IdentifierListContext" to SQL_REFERENCE_LIST,
 
         // Expression nesting (golden/mysql/mysql-core/07-operator-precedence-chain.tree). ANTLR's
         // left-recursive `valueExpression` rule emits a distinct labeled subclass per binary form —
@@ -113,12 +124,18 @@ internal object ReplayMapping {
             "MultipartIdentifierContext" -> if (parentClass == "TableNameContext") SQL_TABLE_REFERENCE else null
             // NB: the tableAlias child is always PRESENT but EMPTY when unaliased, so probe non-empty.
             "TableNameContext" -> if (hasNonEmptyChildRule(TABLE_ALIAS_RULE)) SQL_AS_EXPRESSION else null
-            "RelationContext" -> if (hasNonEmptyChildRule(JOIN_RELATION_RULE)) SQL_JOIN_EXPRESSION else null
+            // JoinCriteria: `ON <expr>` is the join condition; `USING (cols)` is the using clause.
+            "JoinCriteriaContext" -> if (hasNonEmptyChildRule(IDENTIFIER_LIST_RULE)) SQL_USING_CLAUSE else SQL_JOIN_CONDITION_CLAUSE
+            // A column name inside a USING id list is a short (unqualified) column reference (golden 22).
+            // The list element is an `errorCapturingIdentifier` directly under `identifierSeq`.
+            "ErrorCapturingIdentifierContext" -> if (parentClass == "IdentifierSeqContext") SQL_COLUMN_SHORT_REFERENCE else null
+            // RelationContext (chained joins) is handled by CstReplayer.emitNestedJoins — it needs one
+            // nested SQL_JOIN_EXPRESSION per join, which a single flat-map entry cannot express.
             else -> null
         }
 
-    private const val TABLE_ALIAS_RULE = "tableAlias"
-    private const val JOIN_RELATION_RULE = "joinRelation"
+    const val TABLE_ALIAS_RULE: String = "tableAlias"
+    private const val IDENTIFIER_LIST_RULE = "identifierList"
 
     /**
      * Context class of the SELECT body (`querySpecification # regularQuerySpecification`). The platform
@@ -144,6 +161,46 @@ internal object ReplayMapping {
 
     /** Context class of the SELECT clause; hosts the synthetic SQL_SELECT_OPTION (DISTINCT) wrapper. */
     const val SELECT_CLAUSE_CLASS: String = "SelectClauseContext"
+
+    /**
+     * Context class of a select-list item (`namedExpression`). When it carries an alias (an
+     * `identifierOrText` child) the platform wraps the whole item in SQL_AS_EXPRESSION (golden 06);
+     * see [CstReplayer]'s alias handling.
+     */
+    const val NAMED_EXPRESSION_CLASS: String = "NamedExpressionContext"
+
+    /** Rule name of the select-item alias (`namedExpression`'s trailing `AS? identifierOrText`). */
+    const val ALIAS_TEXT_RULE: String = "identifierOrText"
+
+    /** SQL_AS_EXPRESSION wraps an aliased select item (delegated expression + alias identifier). */
+    val AS_EXPRESSION: IElementType = SQL_AS_EXPRESSION
+
+    /** SQL_QUERY_EXPRESSION: a (non-union) query, or a single branch of a union. */
+    val QUERY_EXPRESSION: IElementType = SQL_QUERY_EXPRESSION
+
+    /** SQL_UNION_EXPRESSION: the flat set-operation node holding all union branches (golden 25). */
+    val UNION_EXPRESSION: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_UNION_EXPRESSION
+
+    /** SQL_JOIN_EXPRESSION: one per join in a chained `relation` (golden 21). */
+    val JOIN_EXPRESSION: IElementType = SQL_JOIN_EXPRESSION
+
+    /** SQL_PARENTHESIZED_QUERY_EXPRESSION: the `( query )` of a derived table (golden 24). */
+    val PARENTHESIZED_QUERY_EXPRESSION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_PARENTHESIZED_QUERY_EXPRESSION
+
+    /** SQL_WITH_QUERY_EXPRESSION: a `WITH ... <body>` query (golden 01). */
+    val WITH_QUERY_EXPRESSION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_WITH_QUERY_EXPRESSION
+
+    /** SQL_WITH_CLAUSE: the `WITH [RECURSIVE] <named queries>` clause (golden 01/29). */
+    val WITH_CLAUSE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_WITH_CLAUSE
+
+    /** SQL_NAMED_QUERY_DEFINITION: a single CTE definition `name AS ( query )` (golden 01). */
+    val NAMED_QUERY_DEFINITION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_NAMED_QUERY_DEFINITION
+
+    /** SQL_REFERENCE: a qualifier part of a multi-part table name `db.tbl` (golden 02). */
+    val REFERENCE: IElementType = SQL_REFERENCE
 
     /** Context class of the LIMIT clause; hosts synthetic SQL_NUMERIC_LITERAL wrappers per integer. */
     const val LIMIT_CLAUSE_CLASS: String = "LimitClauseContext"
