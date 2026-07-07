@@ -98,7 +98,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
         return when (wordAt(builder, 0)) {
-            "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM" -> true
+            "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true

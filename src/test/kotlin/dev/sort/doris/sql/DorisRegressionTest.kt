@@ -262,6 +262,27 @@ class DorisRegressionTest : BasePlatformTestCase() {
         """.trimIndent()
     )
 
+    // --- external catalogs: 3-part names + catalog statements ---
+
+    fun testThreePartCatalogNames() {
+        assertClean("SELECT * FROM hive_archive.acme_archive.events WHERE dt = '2026-01-01';")
+        assertClean(
+            "SELECT e.a, i.b FROM hive_archive.acme_archive.events e " +
+            "JOIN internal.acme_import.events i ON e.k = i.k;"
+        )
+        assertClean("INSERT INTO hive_archive.acme_archive.events SELECT * FROM s;")
+    }
+
+    fun testSwitchCatalogBoundary() = assertOneStatement(
+        "SWITCH hive_archive;\nSELECT 1;",
+        statements = 2
+    )
+
+    fun testUseCatalogDotDb() = assertClean(
+        "USE hive_archive.acme_archive;\nSELECT 1;",
+        statements = 2
+    )
+
     // --- multi-statement boundaries: nothing splits, nothing gets swallowed ---
 
     fun testFiveStatementBoundaries() = assertOneStatement(
