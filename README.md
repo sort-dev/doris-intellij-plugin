@@ -49,6 +49,37 @@ Until it is on the JetBrains Marketplace (see [Status](#status)), install from d
 2. In your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the zip, and restart.
 3. Add a data source from the **Apache Doris** template and connect.
 
+## Experimental: external catalogs (multi-catalog tree)
+
+Doris multi-catalog support (external catalogs — Hive, Iceberg, JDBC, ... — as a real level in the
+database tree) is under active development on the `freezeth-catalogs` branch, gated behind an
+opt-in flag:
+
+```
+-Ddoris.catalogs.experimental=true      # VM option; default OFF = shipped single-level behavior
+```
+
+With the flag on:
+
+- The tree gains a **catalogs** level: every catalog from `SHOW CATALOGS` appears; the `internal`
+  catalog is deep-introspected by default, while **external catalogs are enumerated but lazy** —
+  opt each one into introspection in the schemas pane before its contents (and editor
+  completion/resolution for it) light up. This default protects you from accidentally scanning a
+  huge external metastore on first connect.
+- **Fully-qualified references work in the editor**: `catalog.database.table` completes and
+  resolves at every segment (once the catalog is introspected).
+- The **console namespace picker is a two-step drill-down**: hover a catalog and use the `›`
+  chevron to expand its databases. Selecting a database issues `` USE `catalog`.`db` ``; selecting
+  just the catalog issues `` SWITCH `catalog` ``. This is deliberate — every switch names its
+  catalog explicitly, which prevents the classic wrong-catalog `use` mistake.
+- Introspection is **stateless** (catalog-qualified queries; no session `SWITCH` under the hood),
+  so shared connections are never left pointing at an unexpected catalog.
+
+Known limitations while experimental: relative 2-part `db.table` references may not resolve in the
+editor until you `USE` into that catalog+database (execution is unaffected); catalog entries in
+flat completion lists are intentional; the current-namespace label may briefly show a placeholder
+segment.
+
 ## Building from source
 
 ```bash
