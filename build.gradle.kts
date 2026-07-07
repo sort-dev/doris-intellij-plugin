@@ -91,6 +91,13 @@ kotlin {
     }
 }
 
+// Usage: ./gradlew runIdeReplay   (Route B replay ON). Plain ./gradlew runIde stays flag OFF = shipped.
+val runIdeReplay by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.replay.poc=true")
+    }
+}
+
 val runIdeWithPsiViewer by intellijPlatformTesting.runIde.registering {
     plugins {
         plugin("PsiViewer", "252.23892.248")
