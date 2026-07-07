@@ -79,6 +79,16 @@ internal object ReplayMapping {
         "WarmUpClusterContext" to SQL_STATEMENT,
         "SwitchCatalogContext" to SQL_STATEMENT,
 
+        // CREATE JOB <name> ON SCHEDULE ... DO <insert>: no platform statement kind fits the job wrapper,
+        // so it stays a generic SQL_STATEMENT (boundary identical to lenient) with the header (name,
+        // ON SCHEDULE ...) as a token run — but its DO-body INSERT becomes REAL insert PSI via
+        // [CstReplayer.emitInsertSkeleton]. Golden evidence for nesting a full insert statement inside
+        // another statement: the platform's own MySQL `CREATE EVENT ... DO INSERT ...` renders exactly
+        // SQL_INSERT_STATEMENT > SQL_INSERT_DML_INSTRUCTION > SQL_TABLE_COLUMN_LIST > SQL_TABLE_REFERENCE
+        // nested inside MYSQL_CREATE_EVENT_STATEMENT (live-dumped 2026-07-07; CREATE EVENT is the direct
+        // analog of CREATE JOB's DO-body).
+        "CreateScheduledJobContext" to SQL_STATEMENT,
+
         // CREATE TABLE column definitions: each `columnDef` is a real SQL_COLUMN_DEFINITION whose name
         // materialises as SQL_IDENTIFIER (via the strictIdentifier mapping). The column DATA TYPE is left
         // as a plain token run inside the definition — the platform's SQL_BUILTIN_TYPE_ELEMENT is produced
@@ -191,7 +201,21 @@ internal object ReplayMapping {
         "CreateTableContext" to SQL_TABLE_REFERENCE,   // CREATE TABLE <name>
         "RefreshTableContext" to SQL_TABLE_REFERENCE,  // REFRESH TABLE <name>
         "WarmUpItemContext" to SQL_TABLE_REFERENCE,    // WARM UP ... WITH TABLE <name>
+        "InsertTableContext" to SQL_TABLE_REFERENCE,   // INSERT INTO <target> (CREATE JOB DO-body)
     )
+
+    /** SQL_INSERT_STATEMENT: the DO-body insert of a CREATE JOB (MySQL CREATE EVENT analog shape). */
+    val INSERT_STATEMENT: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INSERT_STATEMENT
+
+    /** SQL_INSERT_DML_INSTRUCTION: `INTO <target> <query>` — the shape INSERT completion consults. */
+    val INSERT_DML_INSTRUCTION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INSERT_DML_INSTRUCTION
+
+    /**
+     * SQL_TABLE_COLUMNS_LIST: wraps the insert target reference (+ column list when present). NB the
+     * constant is ..._COLUMNS_LIST while its DEBUG name (what golden trees show) is SQL_TABLE_COLUMN_LIST.
+     */
+    val TABLE_COLUMN_LIST: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_TABLE_COLUMNS_LIST
 
     /** SQL_AS_QUERY_CLAUSE: the synthetic `AS <query>` wrapper of a CREATE [MATERIALIZED] VIEW (MySQL shape). */
     val AS_QUERY_CLAUSE: IElementType = SQL_AS_QUERY_CLAUSE

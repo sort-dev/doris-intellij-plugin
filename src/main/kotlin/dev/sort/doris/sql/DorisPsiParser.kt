@@ -65,7 +65,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     private fun wantsReplay(builder: PsiBuilder): Boolean {
         if (wordAt(builder, 0) in REPLAY_QUERY_LEADS) return true
         if (wordAt(builder, 0) in REPLAY_STATEMENT_LEADS) return true
-        return isCreateView(builder) || isCreateMaterializedView(builder) || isDorisCreateTable(builder)
+        return isCreateView(builder) || isCreateMaterializedView(builder) || isDorisCreateTable(builder) ||
+            isCreateJob(builder)
     }
 
     // --- dispatch predicates (bounded, non-consuming; all use mark/rollback) ---

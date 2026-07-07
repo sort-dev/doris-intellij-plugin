@@ -200,6 +200,11 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // Emit BEFORE descending so it opens ahead of the query expression it contains.
         if (cls in ReplayMapping.AS_QUERY_PARENTS) emitAsQueryClause(ctx, absStart, out, seq)
 
+        // CREATE JOB's DO-body INSERT (`supportedDmlStatement # insertTable`): synthesise the platform's
+        // insert PSI around the target reference and the replayed query. Emit BEFORE descending so the
+        // wrappers open ahead of the table reference / query expression they contain.
+        if (cls == "InsertTableContext") emitInsertSkeleton(ctx, absStart, out, seq)
+
         // Synthetic SQL_TABLE_EXPRESSION: the platform groups the query BODY (FROM + WHERE + GROUP BY +
         // HAVING) into one node the flat ANTLR grammar lacks. It stops before the queryOrganization
         // (ORDER BY / LIMIT), which the platform keeps as a sibling. Emit its open BEFORE descending so
@@ -344,6 +349,41 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         val query = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
             .firstOrNull { it.javaClass.simpleName == "QueryContext" && hasTokens(it) } ?: return
         out.add(Node(absStart + asStart, absStart + query.stop.stopIndex, ReplayMapping.AS_QUERY_CLAUSE, seq[0]++))
+    }
+
+    /**
+     * Synthesise the platform insert PSI for a CREATE JOB DO-body `insertTable`. Target shape (dumped
+     * live from the platform's own MySQL `CREATE EVENT ... DO INSERT INTO db.t SELECT ...` — the direct
+     * analog of a DO-body insert, and identical to the delegation-rendered inserts in
+     * golden/doris/doris/09/11):
+     *
+     *   SQL_INSERT_STATEMENT            [INSERT .. query-end]
+     *     SQL_INSERT_DML_INSTRUCTION    [INTO .. query-end]     <- the shape INSERT completion consults
+     *       SQL_TABLE_COLUMN_LIST       [target span]
+     *         SQL_TABLE_REFERENCE       (via the InsertTableContext entry in REFERENCE_PARENTS)
+     *       SQL_QUERY_EXPRESSION        (normal query replay)
+     *
+     * VARIANT GATE: only the plain `INSERT INTO <multipartIdentifier> <query>` form is shaped — the form
+     * CREATE JOB bodies use in practice (corpus doris/14). The grammar's other insertTable variants
+     * (INSERT OVERWRITE TABLE, PARTITION spec, WITH LABEL, explicit column list, per-insert hints, CTE)
+     * are DEFERRED: for those the skeleton is not emitted and the insert stays a token run inside the
+     * job SQL_STATEMENT with its query still replayed (lenient-parity, zero error elements) — never a
+     * half-right typed shape.
+     */
+    private fun emitInsertSkeleton(ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val intoStart = firstTerminalCi(ctx, "INTO") ?: return // OVERWRITE-form etc.: no INTO -> stay a run
+        val ruleKids = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .filter { hasTokens(it) }
+        // Plain form only: exactly the target multipart + the source query, in that order.
+        if (ruleKids.size != 2) return
+        val target = ruleKids[0].takeIf { it.javaClass.simpleName == "MultipartIdentifierContext" } ?: return
+        val query = ruleKids[1].takeIf { it.javaClass.simpleName == "QueryContext" } ?: return
+        val end = ctx.stop?.stopIndex ?: return
+        if (query.stop.stopIndex != end) return // trailing grammar tail we don't model -> stay a run
+        addNode(ctx, absStart, ReplayMapping.INSERT_STATEMENT, out, seq)
+        out.add(Node(absStart + intoStart, absStart + end, ReplayMapping.INSERT_DML_INSTRUCTION, seq[0]++))
+        out.add(Node(absStart + target.start.startIndex, absStart + target.stop.stopIndex,
+            ReplayMapping.TABLE_COLUMN_LIST, seq[0]++))
     }
 
     /**

@@ -122,7 +122,17 @@ class DorisReplayPocTest : BasePlatformTestCase() {
      *  - 19: SWITCH catalog -> SQL_STATEMENT + catalog identifier.
      *  - 21 / 22: multi-statement boundary preservation across replayed + delegated statements.
      */
-    private data class StmtCase(val rel: String, val statements: Int, val tops: List<String>)
+    /**
+     * [contains]: node names that MUST appear somewhere in the replayed tree — used where the top-level
+     * type alone cannot distinguish a successful replay from the lenient fallback (both SQL_STATEMENT),
+     * so a silent fallback cannot be re-recorded as a passing golden.
+     */
+    private data class StmtCase(
+        val rel: String,
+        val statements: Int,
+        val tops: List<String>,
+        val contains: List<String> = emptyList(),
+    )
 
     private val dorisStatements = listOf(
         StmtCase("doris/12-create-view-modern-body", 1, listOf("SQL_CREATE_VIEW_STATEMENT")),
@@ -130,6 +140,14 @@ class DorisReplayPocTest : BasePlatformTestCase() {
         StmtCase(
             "doris/15-doris-admin-statements", 4,
             listOf("SQL_STATEMENT", "SQL_STATEMENT", "SQL_STATEMENT", "SQL_CREATE_TABLE_STATEMENT"),
+        ),
+        // CREATE JOB: the job wrapper stays SQL_STATEMENT (header = token run) but the DO-body INSERT is
+        // REAL nested insert PSI — SQL_INSERT_STATEMENT > SQL_INSERT_DML_INSTRUCTION > SQL_TABLE_COLUMN_LIST
+        // > SQL_TABLE_REFERENCE + the replayed query (shape mirrors the platform's own MySQL CREATE EVENT
+        // ... DO INSERT; pinned by the golden). Top-level type list only sees the outer SQL_STATEMENT.
+        StmtCase(
+            "doris/14-create-job", 1, listOf("SQL_STATEMENT"),
+            contains = listOf("SQL_INSERT_STATEMENT", "SQL_INSERT_DML_INSTRUCTION", "SQL_TABLE_COLUMN_LIST"),
         ),
         StmtCase("doris/16-qualify-clause", 1, listOf("SQL_SELECT_STATEMENT")),
         StmtCase("doris/19-switch-catalog", 2, listOf("SQL_STATEMENT", "SQL_SELECT_STATEMENT")),
@@ -169,6 +187,11 @@ class DorisReplayPocTest : BasePlatformTestCase() {
             val expectedTops = case.tops
             if (tops != expectedTops) {
                 mismatches.append("  - ${case.rel}: top-level nodes $tops != expected $expectedTops\n")
+            }
+            for (needle in case.contains) {
+                if (!actual.contains(needle)) {
+                    mismatches.append("  - ${case.rel}: expected node $needle absent (replay fell back?)\n")
+                }
             }
 
             val golden = replayGoldenFile("${case.rel}.tree")

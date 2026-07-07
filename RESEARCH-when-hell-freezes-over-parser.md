@@ -267,6 +267,7 @@ type(s), preserved statement count.
 | `WARM UP … WITH TABLE <n> …` | `WarmUpClusterContext` | `SQL_STATEMENT` | `SQL_IDENTIFIER` compute group + one `SQL_TABLE_REFERENCE` per `WITH TABLE` item |
 | `SWITCH <catalog>` | `SwitchCatalogContext` | `SQL_STATEMENT` | catalog `SQL_IDENTIFIER` |
 | `SELECT … QUALIFY <cond>` | `QualifyClauseContext` | `SQL_SELECT_STATEMENT` | real `SQL_QUALIFY_CLAUSE` (sibling of the table-expr, like ORDER BY); its boolean/window expr **delegated** to `parseValueExpression`. Replaces the old bounded-parse path. |
+| `CREATE JOB … DO <insert>` *(follow-up, 2026-07-07)* | `CreateScheduledJobContext` + `InsertTableContext` | `SQL_STATEMENT` (job wrapper; header `name ON SCHEDULE …` = token run) | DO-body insert is **REAL nested insert PSI**: `SQL_INSERT_STATEMENT` › `SQL_INSERT_DML_INSTRUCTION` › `SQL_TABLE_COLUMN_LIST` › qualified `SQL_TABLE_REFERENCE` + the source query replayed in full (`/*+ SET_VAR */` hint and masked `* EXCEPT(...)` come out as comments, exactly like the delegation goldens 09/11). Shape evidence: live dump of the platform's own MySQL `CREATE EVENT … DO INSERT` — the platform itself nests a full insert statement inside another statement. NB the constant is `SQL_TABLE_COLUMNS_LIST`; its tree debug name is `SQL_TABLE_COLUMN_LIST`. |
 
 **Deliberately-DEFINED Doris-only shapes** (no MySQL golden exists; documented in `ReplayMapping`): the
 CREATE-VIEW family reuses the platform's own MySQL CREATE VIEW skeleton (`SQL_VIEW_REFERENCE` +
@@ -281,12 +282,13 @@ identical to the lenient path) but now carry navigable inner references.
 
 **Still LENIENT (with reasons):**
 
-- **`CREATE JOB … DO <insert>`** — the DO-body `INSERT … SELECT` should become a real
-  `SQL_INSERT_DML_INSTRUCTION`, but INSERT is **DML, not in the replay machinery** (the replayer types
-  queries + statement skeletons; it has no insert-target/column-list/values path), and the platform's DML
-  parser isn't reachable mid-replay without re-entrant `parseSqlStatement`. Left lenient; the existing
-  path already types the trailing SELECT as `SQL_QUERY_EXPRESSION`. Next increment: a replay rule for
-  `InsertTableContext` (target `SQL_TABLE_REFERENCE` + replayed query) — the CST is clean (`supportedDmlStatement`).
+- **`CREATE JOB` non-plain insert bodies** — the CREATE JOB family itself is now typed (see table), but
+  only the plain `INSERT INTO <name> <query>` DO-body gets the insert skeleton. The grammar's other
+  `insertTable` variants (INSERT OVERWRITE TABLE, `PARTITION(...)`, `WITH LABEL`, explicit column list,
+  per-insert hints, CTE-headed body) are DEFERRED behind an explicit variant gate in
+  `CstReplayer.emitInsertSkeleton`: they keep the token-run body *with the query still replayed*
+  (lenient-parity, zero errors) instead of a half-right typed shape. Verified: OVERWRITE-form and
+  column-list-form jobs replay error-free through the gate's fallback.
 - **`CANCEL` / `ADMIN` / most `SHOW` variants** — the grammar parses them (`SupportedCancel/Show/Other`
   contexts) but each has a distinct labelled context and no obviously-fitting shared statement kind; mapping
   the long tail is open-ended. They fall back cleanly to lenient (`SQL_STATEMENT`, boundary preserved).
@@ -304,8 +306,9 @@ replay clean), so the fallback is a guard, not a load-bearing path here.
 resolution dogfooding** inside these new shapes in a live IDE (the golden pins *tree shape*, not that
 resolve/complete behave well on `SQL_VIEW_REFERENCE`/`SQL_QUALIFY_CLAUSE`/token-run DDL clauses); (2)
 **half-typed / error-recovery** behavior — replay bails to lenient on ANTLR error, so completion *while
-typing* a Doris statement still rides the weaker lenient path; measure it; (3) **CREATE JOB inner INSERT**
-typed (the one family that regressed to lenient-parity); (4) a **platform-bump rehearsal** — re-record
+typing* a Doris statement still rides the weaker lenient path; measure it; (3) ~~CREATE JOB inner
+INSERT~~ — **done** (follow-up 2026-07-07, plain-form DO-body; non-plain insertTable variants remain
+gated-off and would want covering before graduation); (4) a **platform-bump rehearsal** — re-record
 `golden/mysql` + `golden/replay` against the next DataGrip and confirm the diff is reviewable; (5)
 performance: double-parse (ANTLR + PsiBuilder) per statement is unmeasured at file scale.
 
