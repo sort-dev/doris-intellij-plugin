@@ -239,9 +239,12 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     private companion object {
         const val MAX_LOOKAHEAD = 512
         val CREATE_TABLE_MODIFIERS = setOf("TEMPORARY", "EXTERNAL")
+        // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
+        // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,
+        // ENGINE=InnoDB, PARTITION BY ...) down the lenient path, losing its typed PSI (caught by the
+        // golden corpus: mysql-core/38-create-table-plain diverged between dialects).
         val DORIS_TABLE_CLAUSES = arrayOf(
-            "DISTRIBUTED", "BUCKETS", "PROPERTIES", "DUPLICATE", "AGGREGATE", "UNIQUE", "PRIMARY",
-            "PARTITION", "ROLLUP", "ENGINE", "RANDOM", "AUTO"
+            "DISTRIBUTED", "BUCKETS", "PROPERTIES", "DUPLICATE", "AGGREGATE", "ROLLUP"
         )
     }
 }
