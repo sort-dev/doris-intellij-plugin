@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>dev.sort.doris-intellij-plugin</id>
-    <name>Apache Doris Driver Integration</name>
+    <name>SQL Dialect for Apache Doris</name>
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
 
     <description><![CDATA[
@@ -33,7 +33,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>0.2.2</b> — first public release.
+        <b>0.2.3</b> — first public release.
         <ul>
             <li>DorisSQL dialect on the MySQL foundation with correct statement/run-block boundaries
                 for Doris-specific syntax</li>
