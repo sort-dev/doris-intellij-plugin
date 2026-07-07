@@ -186,6 +186,45 @@ golden tree tells us the expected shape.
 - Ceiling: expressions and query internals stay MySQL's; Doris-only *semantic* modeling
   (catalogs, `* EXCEPT` projection subtraction) stays out of reach — same ceiling as today.
 
+## 5.5 Decision matrix: fastest vs. best vs. most maintainable
+
+*(Added after review discussion, 2026-07-07.)*
+
+Key reframing that settles the route choice:
+
+- **Doris drift is opt-in for B.** fe-sql-parser is vendored at a pinned SHA; upstream grammar
+  churn touches us only when we choose to re-vendor. B converts "Doris moves fast" from a risk
+  into scheduled maintenance — and new Doris syntax *parses for free* on re-vendor (only mapping
+  entries for genuinely new statement shapes are needed).
+- **Platform drift is loud for every route, given the corpus.** A dual golden corpus (trees
+  recorded from the RAW MySQL dialect = upstream drift alarm; trees from DorisSQL = our
+  regressions) turns shape drift into failing tests, and static-call drift into compile errors.
+  Combined with the `since/until = 261.*` pin (we rebuild per platform generation anyway), all
+  drift lands in a controlled upgrade window. Detection is solved; the differentiators are
+  recurring costs and ceiling.
+
+| | B (replay bridge) | A-hybrid | A-full (native GK) |
+|---|---|---|---|
+| Platform-drift surface | `SqlTokens` + 354 shared element types + PsiBuilder — the most stable trio in the SQL plugin (all JetBrains dialects sit on them) | **Worst:** MySQL generated statics (no API guarantee) plus everything B touches | GK externals + element types + shapes |
+| Cost per platform bump | rerecord goldens, fix diffs (hours) | re-bind statics + shapes (days) | externals + shapes (hours–days) |
+| Cost per Doris release | re-vendor + remap deltas; new syntax parses free | author new grammar rules | author new grammar rules, forever |
+| Quality ceiling | Doris-exact parsing; weaker recovery/half-typed completion (mitigated by per-statement fallback to delegation) | transition state only | **highest:** GK completion-aware recovery, single parse |
+| Time to step-change | ~3–6 weeks | ~4–8 weeks | 2–4 months |
+
+**Conclusions:**
+
+- *Fastest* and *most maintainable* **converge on B** — smallest dependency diet (no statics, no
+  grammar authorship; grammar upkeep is outsourced to the Doris project permanently), biggest
+  quality jump per unit work, per-statement fallback guarantees "never worse than today".
+- *Best* (highest ceiling) is **A-full**, kept as a door with explicit entry triggers:
+  (1) replay error-recovery/completion quality proves insufficient in real dogfooding,
+  (2) fe-sql-parser stalls or diverges upstream, or (3) adoption justifies the ceiling.
+- **A-hybrid is demoted to bridge-only.** It has the worst drift exposure (MySQL statics) and is
+  never a destination — enter it only as the on-ramp to A-full, if and when A's triggers fire.
+- **Nothing is thrown away on the B path:** the corpus is shared infrastructure for all routes,
+  and B's rule→element-type mapping table *is* the documented shape contract that a future
+  `Doris.bnf` would have to satisfy — B's artifacts are A's spec.
+
 ## 6. Recommended sequencing & gates
 
 ```
