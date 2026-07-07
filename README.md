@@ -75,9 +75,11 @@ With the flag on:
 - Introspection is **stateless** (catalog-qualified queries; no session `SWITCH` under the hood),
   so shared connections are never left pointing at an unexpected catalog.
 
-Known limitations while experimental: relative 2-part `db.table` references may not resolve in the
-editor until you `USE` into that catalog+database (execution is unaffected); catalog entries in
-flat completion lists are intentional; the current-namespace label may briefly show a placeholder
+Note on relative references: a 2-part `db.table` reference resolves against the console's
+**current catalog** — switch catalogs and previously written relative lines will (correctly) stop
+resolving until you switch back or qualify them fully. Fully-qualified `catalog.db.table` is
+immune to context switches. Known limitations while experimental: catalog entries in flat
+completion lists are intentional; the current-namespace label may briefly show a placeholder
 segment.
 
 ## Building from source
