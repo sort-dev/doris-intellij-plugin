@@ -9,6 +9,7 @@ import org.antlr.v4.runtime.DefaultErrorStrategy
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.tree.TerminalNode
 import org.apache.doris.nereids.DorisParser
 import org.apache.doris.sqlparser.DorisSqlParser
 
@@ -96,7 +97,7 @@ internal class CstReplayer(private val builder: PsiBuilder) {
 
     // --- CST walk ------------------------------------------------------------------------------
 
-    /** Pre-order DFS; emit a Node for each mapped context, plus the synthetic table-expression. */
+    /** Pre-order DFS; emit a Node for each mapped context, plus the synthetic wrapper nodes. */
     private fun collect(ctx: ParserRuleContext, ruleNames: Array<String>, absStart: Int, out: MutableList<Node>, seq: IntArray) {
         val cls = ctx.javaClass.simpleName
         val type = ReplayMapping.BY_CONTEXT_CLASS[cls]
@@ -105,17 +106,19 @@ internal class CstReplayer(private val builder: PsiBuilder) {
             }
         if (type != null) addNode(ctx, absStart, type, out, seq)
 
-        // Synthetic SQL_TABLE_EXPRESSION: the platform groups FROM + WHERE (+ GROUP BY / HAVING) into
-        // one node the flat ANTLR grammar lacks. Span it from the FROM clause start to the end of the
-        // query specification. Emit its open BEFORE descending so its seq precedes the FROM clause's.
-        if (ruleNameOf(ctx, ruleNames) == ReplayMapping.QUERY_SPECIFICATION_RULE) {
-            val from = ctx.children?.firstOrNull {
-                it is ParserRuleContext && ruleNameOf(it, ruleNames) == ReplayMapping.FROM_CLAUSE_RULE
-            } as? ParserRuleContext
-            val stop = ctx.stop
-            if (from?.start != null && stop != null && from.start.startIndex <= stop.stopIndex) {
-                out.add(Node(absStart + from.start.startIndex, absStart + stop.stopIndex, ReplayMapping.TABLE_EXPRESSION, seq[0]++))
-            }
+        // Synthetic SQL_TABLE_EXPRESSION: the platform groups the query BODY (FROM + WHERE + GROUP BY +
+        // HAVING) into one node the flat ANTLR grammar lacks. It stops before the queryOrganization
+        // (ORDER BY / LIMIT), which the platform keeps as a sibling. Emit its open BEFORE descending so
+        // its seq precedes the FROM clause's.
+        if (cls == ReplayMapping.QUERY_SPECIFICATION_CLASS) emitTableExpression(ctx, absStart, out, seq)
+
+        // Synthetic leaf wrappers around bare terminals the CST does NOT wrap in a rule node but the
+        // platform PSI does: DISTINCT -> SQL_SELECT_OPTION; each LIMIT integer -> SQL_NUMERIC_LITERAL.
+        when (cls) {
+            ReplayMapping.SELECT_CLAUSE_CLASS ->
+                emitTerminalWrappers(ctx, absStart, out, seq, ReplayMapping.SELECT_OPTION) { it.equals("DISTINCT", ignoreCase = true) }
+            ReplayMapping.LIMIT_CLAUSE_CLASS ->
+                emitTerminalWrappers(ctx, absStart, out, seq, ReplayMapping.NUMERIC_LITERAL) { t -> t.isNotEmpty() && t.all(Char::isDigit) }
         }
 
         val n = ctx.childCount
@@ -123,6 +126,41 @@ internal class CstReplayer(private val builder: PsiBuilder) {
             val child = ctx.getChild(i)
             if (child is ParserRuleContext) collect(child, ruleNames, absStart, out, seq)
         }
+    }
+
+    /**
+     * Emit the synthetic SQL_TABLE_EXPRESSION for a query specification: spans from the FROM clause to
+     * the stop of the LAST body clause (FROM / WHERE / GROUP BY / HAVING). Nothing emitted if there is
+     * no FROM (bare `SELECT 1` has no table expression).
+     */
+    private fun emitTableExpression(ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val body = ArrayList<ParserRuleContext>()
+        for (i in 0 until ctx.childCount) {
+            val child = ctx.getChild(i) as? ParserRuleContext ?: continue
+            if (child.javaClass.simpleName in ReplayMapping.BODY_CLAUSE_CLASSES && hasTokens(child)) body.add(child)
+        }
+        val from = body.firstOrNull { it.javaClass.simpleName == ReplayMapping.FROM_CLAUSE_CLASS } ?: return
+        val bodyEnd = body.maxOf { it.stop.stopIndex }
+        out.add(Node(absStart + from.start.startIndex, absStart + bodyEnd, ReplayMapping.TABLE_EXPRESSION, seq[0]++))
+    }
+
+    /** Emit a synthetic wrapper [type] around each direct terminal child of [ctx] whose text [matches]. */
+    private fun emitTerminalWrappers(
+        ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray,
+        type: IElementType, matches: (String) -> Boolean,
+    ) {
+        for (i in 0 until ctx.childCount) {
+            val term = ctx.getChild(i) as? TerminalNode ?: continue
+            val tok = term.symbol ?: continue
+            if (tok.startIndex > tok.stopIndex) continue
+            if (matches(term.text)) out.add(Node(absStart + tok.startIndex, absStart + tok.stopIndex, type, seq[0]++))
+        }
+    }
+
+    private fun hasTokens(ctx: ParserRuleContext): Boolean {
+        val s = ctx.start ?: return false
+        val e = ctx.stop ?: return false
+        return s.startIndex <= e.stopIndex
     }
 
     private fun addNode(ctx: ParserRuleContext, absStart: Int, type: IElementType, out: MutableList<Node>, seq: IntArray) {
