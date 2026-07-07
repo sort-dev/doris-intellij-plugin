@@ -81,4 +81,42 @@ class DorisCatalogScopesTest : BasePlatformTestCase() {
         assertNull(helper.getCustomName(ObjectKind.SCHEMA, true))
         assertNull(helper.getCustomName(ObjectKind.TABLE, true))
     }
+
+    fun testAllCatalogsImportPatternShape() {
+        // M3: the SQL-editor import pattern that lets qualified reference heads resolve to catalogs.
+        val dsName = ObjectName.plain("doris-ds")
+        val pattern = DorisCatalogScopes.allCatalogsImportPattern(arrayOf(dsName))
+
+        // Root group: data sources, containing our data source by name.
+        val dsGroup = pattern.root.getGroup(com.intellij.sql.dialects.SqlImportUtil.DATA_SOURCE)
+        assertNotNull("import pattern must be rooted at the data-source level", dsGroup)
+        val dsNodes = dsGroup!!.children.orEmpty().filter { it.naming.matches(dsName, Casing.EXACT) }
+        assertEquals("exactly one node for the data source", 1, dsNodes.size)
+
+        // Under the data source: a DATABASE (catalog) group whose node matches ANY catalog name...
+        val catalogGroup = dsNodes[0].getGroup(ObjectKind.DATABASE)
+        assertNotNull("catalog (DATABASE) level must be importable", catalogGroup)
+        val internal = ObjectName.plain(DorisCatalogScopes.INTERNAL_CATALOG)
+        val external = ObjectName.plain("extcat")
+        assertTrue(catalogGroup!!.children.orEmpty().any { it.naming.matches(internal, Casing.EXACT) })
+        assertTrue(catalogGroup.children.orEmpty().any { it.naming.matches(external, Casing.EXACT) })
+
+        // ...with NO schema children: catalogs become qualifier heads, but their contents are not
+        // swept into the unqualified scope.
+        assertTrue(
+            "catalog import nodes must not auto-import schemas",
+            catalogGroup.children.orEmpty().all { it.getGroup(ObjectKind.SCHEMA) == null },
+        )
+    }
+
+    fun testMetadataDatabaseDialectStaysMysql() {
+        // M3 audit outcome: getDatabaseDialect() is the WIRE-FACING dialect (grid paging SQL,
+        // extractors, console engine — 86 consumer classes). It must stay MYSQL in both flag
+        // modes; qualification depth is fixed at the meta-model + SqlLanguageDialect-imports
+        // layer instead (getBaseImports).
+        assertEquals(
+            com.intellij.database.Dbms.MYSQL,
+            dev.sort.doris.sql.DorisSqlDialect.INSTANCE.databaseDialect.dbms,
+        )
+    }
 }

@@ -6,6 +6,7 @@ import com.intellij.database.util.SmartPredicate
 import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternNode
 import com.intellij.database.util.TreePatternUtils
+import com.intellij.sql.dialects.SqlImportUtil
 
 /**
  * Default introspection scopes for Doris data sources (Gate 1 / M2).
@@ -78,5 +79,33 @@ object DorisCatalogScopes {
             TreePatternUtils.create(ObjectName.plain(currentDatabase), ObjectKind.SCHEMA),
         )
         return TreePatternUtils.union(base, named)
+    }
+
+    /**
+     * Flag-ON **SQL-editor import pattern** (Gate 1 / M3): every Doris catalog importable at the
+     * DATABASE level of the given data sources — `dataSources(names) -> DATABASE(wildcard)`, no
+     * schema children.
+     *
+     * ## Why (the head-segment gate, bytecode findings)
+     *
+     * Resolution of a qualified chain (`extcat.somedb.sometable`) resolves the **head** segment
+     * through the unqualified machinery: `SqlFileImpl.processDeclarationsImpl` feeds data-source
+     * namespaces filtered by `importedCondition`, whose lambda accepts a DATABASE/SCHEMA node only
+     * if `SqlDialectImplUtilCore.checkImports(importState, ...)` passes (bypassed only by
+     * completion's include-all mode, and even then only for nodes with children). The import state
+     * is seeded by the SQL dialect's `getBaseImports` — and the inherited MySQL implementation can
+     * only express schema-level imports, so a catalog (DATABASE) node **never** passes and the
+     * head segment never resolves. Once the head resolves, the rest of the chain is walked via
+     * `SqlImplUtil.processQualifierImpl` -> `DasObject.getDasChildren(kind)` — **no import gate** —
+     * so catalog-level import coverage is sufficient for the whole 3-part chain.
+     *
+     * The wildcard DATABASE node deliberately carries **no schema group**: catalogs become
+     * resolvable/completable as qualifiers without auto-importing every catalog's schemas into the
+     * unqualified scope (which would flood completion and resolution with every external table).
+     */
+    fun allCatalogsImportPattern(dataSourceNames: Array<ObjectName>): TreePattern {
+        val anyCatalog = TreePatternNode(TreePatternNode.NegativeNaming.WILDCARD, TreePatternNode.NO_GROUPS)
+        val catalogGroup = TreePatternNode.Group(ObjectKind.DATABASE, arrayOf(anyCatalog))
+        return TreePattern(SqlImportUtil.createDataSources(dataSourceNames, catalogGroup))
     }
 }

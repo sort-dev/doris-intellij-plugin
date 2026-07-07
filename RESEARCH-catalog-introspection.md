@@ -602,6 +602,17 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    selected) — set a database in the URL/database field to see the default.
    Log marker: `DorisCatalogs: supplying flag-off default introspection scope (current database:
    <name-or-null>)`.
+5. **SQL editor, flag-ON (M3) — 3-part references:** open a console on the data source and type
+   `SELECT * FROM <extcat>.<db>.<table>`. Expected: catalog names complete at qualifier position 1,
+   that catalog's databases at position 2, tables at position 3, and the full reference resolves
+   (no red on any segment; Cmd+B on each segment navigates). 2-part references into the current
+   catalog must keep working. Precondition: the external catalog's contents must be introspected
+   (opt into it in the schemas pane first — M2's default leaves externals enumerated-only, and a
+   catalog with no introspected children can neither complete nor resolve its contents).
+   On failure collect: whether the FIRST segment alone resolves (caret on the catalog name, Cmd+B);
+   whether toggling "Suggest all objects" in SQL completion settings changes anything (it bypasses
+   the import gate M3 fixed — a difference implicates `DorisSqlDialect.getBaseImports`); and the
+   schemas-pane state of the external catalog.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -739,3 +750,87 @@ Full suite 63 tests / 0 failures; `buildPlugin` green.
   Doris (Connector/J reports the URL database via `getCatalog()`); if Doris leaves it null the
   behaviour degrades exactly to today's (issue #5 then needs the URL to include a database —
   documented in the runtime script).
+
+---
+
+## Gate 1 log — M3 (3-part resolution & completion in the SQL editor)
+
+*Executed 2026-07-07, after the user's successful M2 runtime test. Gap: flag-ON,
+`SELECT * FROM extcat.somedb.sometable` neither resolves nor completes past level 2, while the tree
+has all three levels. 2-part references into the current catalog work.*
+
+### 1. Where qualification depth actually lives (bytecode evidence)
+
+The M1 deviation list suspected `DorisSqlDialect.getDatabaseDialect()` (still MYSQL). The audit
+shows depth does **not** live there. Three mechanisms participate; two were already correct:
+
+| Mechanism | Class/method | Depth source | Flag-ON status |
+|---|---|---|---|
+| Expected kinds per qualifier position | `SqlImplUtil.getParentTypes` → `SqlLanguageDialectEx.getParentDbTypes` | **`DbImplUtilCore.getMetaModel(dialect.getDbms())`** = `ModelFacade.forDbms(DORIS).getMetaModel()` → `metaModel.getParentKinds(kind)` — *our own facade*, so SCHEMA's parent already includes DATABASE flag-ON | already correct |
+| Qualified-chain walking | `SqlImplUtil.processQualifierImpl` | resolves the qualifier, then feeds `DasObject.getDasChildren(kind)` directly — **no import/dialect gate** | already correct |
+| **Head-segment namespace gate (the blocker)** | `SqlFileImpl.processDeclarationsImpl` → `importedCondition` lambda: a DATABASE/SCHEMA node is fed to resolution only if `SqlDialectImplUtilCore.checkImports(importState, ds, node)` passes (bypass: only completion's include-all mode — `SqlCompletionScopeProcessor.shouldIncludeAllNamespaces` = "suggest all objects" setting or 3rd completion invocation — and even that requires `hasChildren`) | import state seeded by the **SQL dialect's `getBaseImports`**; `MysqlDialectBase.getBaseImports` = default-namespace anchoring + `getSchemaBaseImports` — **schema-level only, cannot express a DATABASE level** | **broken — fixed in M3** |
+
+Failure chain, precisely: the head segment `extcat` of a qualified chain resolves through the
+*unqualified* machinery; `extcat` is a DATABASE-kind node; the Mysql-built import state has no
+DATABASE groups; `checkImports` fails; the head never resolves; every downstream segment shows
+unresolved and completion cannot advance. Why 2-part into the current catalog still worked: Mysql's
+`getBaseImports` first branch anchors at the data source's **default namespace das object**
+(`SqlDialectImplUtilCore.createObjectPattern(names, defNs)` builds its real path — which under the
+Ms model *includes* its catalog), so the current catalog + current schema pass the gate; everything
+outside doesn't.
+
+### 2. The `getDatabaseDialect()` consumer audit → do NOT flip it
+
+86 classes reference `getDatabaseDialect` (bytecode scan across database-plugin + modules). The
+depth-relevant resolve path uses it only for search-path **sorting** (`SqlReferenceImpl.
+sortBySearchPath`) and presentation. The heavyweight consumers are **wire-facing SQL generation**:
+`DatabaseTableGridDataHookUp`/`DataBusGridDataHookUp` (data-grid paging SQL), `BaseSelectGenerator`/
+`BaseInsertRowsGenerator` (DML generation), `DbScriptDataExtractor`/`DbObjectFormatter` (extractors),
+`JdbcEngine`/`JdbcEngineUtils`/`SearchPathStorage` (console execution + schema switching),
+`DatabaseDialectEx.qualifiedIdentifier`/`catToScript` (DDL qualification/quoting). Flipping DORIS's
+metadata dialect to MSSQL would emit **T-SQL** (bracket quoting, TOP/OFFSET-FETCH paging, T-SQL
+switching) at a MySQL-protocol server. `getDatabaseDialect()` therefore stays **MYSQL in both
+modes** (flag-off additionally for the historic dialect/model/introspector-agreement constraint);
+the fix belongs on the `SqlLanguageDialect` layer, which the tasking anticipated ("if depth is keyed
+elsewhere, implement there and document").
+
+### 3. What changed (flag-ON only)
+
+`DorisSqlDialect.getBaseImports(dataSource, names)` now returns
+`union(super.getBaseImports(...), DorisCatalogScopes.allCatalogsImportPattern(names))`:
+
+- `super` (MySQL) part unchanged — keeps the default-namespace anchoring that made current-catalog
+  references work.
+- `allCatalogsImportPattern`: `dataSources(names) → DATABASE(wildcard)` — every catalog becomes an
+  importable, resolvable, completable **qualifier head**. The wildcard node deliberately carries
+  **no schema group**, so no external catalog's contents are swept into the unqualified scope
+  (completion noise / cross-catalog table flooding). Once the head resolves, levels 2 and 3 are
+  supplied by the gate-free `getDasChildren` walk.
+- Flag-OFF: `getBaseImports` returns the `super` result untouched (asserted by construction; suite
+  green with the flag off).
+
+Completion at qualifier position 1 (catalog names) needs nothing extra: imported namespaces are
+offered by the standard completion path once they pass the same `checkImports` gate.
+
+### 4. Expected editor behaviour (next runtime pass, flag-ON)
+
+- `extcat.` → catalog names complete at position 1; `extcat.somedb.` → that catalog's databases
+  complete; `extcat.somedb.sometable` → tables complete and the full reference resolves (no red).
+- 2-part `internal_db.sometable` (current catalog) — unchanged, still resolves.
+- Constraint: the external catalog's databases/tables must be **in the das model** (M2 default
+  enumerates external catalogs but does not deep-introspect them; a catalog with zero introspected
+  children cannot offer or resolve children — `hasChildren` guard. Opt into the catalog in the
+  schemas pane first, as M2 documents).
+- On failure grep `idea.log` for `DorisCatalogs:` (introspection side) and capture: whether the
+  head segment alone (`SELECT * FROM extcat.x.y`, caret on `extcat`) resolves (Cmd+B), whether
+  "Settings → ... → Code Completion → SQL: Suggest all objects" changes completion behaviour (it
+  toggles the include-all bypass — if things only work with it ON, the import fix regressed), and a
+  screenshot of the schemas pane showing the external catalog's introspection state.
+
+### 5. Tests
+
+`DorisCatalogScopesTest.testAllCatalogsImportPatternShape` (pattern rooted at the data-source
+level; DATABASE group matches any catalog name incl. `internal`/`extcat`; no schema children) and
+`testMetadataDatabaseDialectStaysMysql` (wire-facing dialect pinned to MYSQL). Live resolution
+itself requires a das model + console and is left to the runtime pass, per tasking. Suite: 65
+tests / 0 failures; `buildPlugin` green.
