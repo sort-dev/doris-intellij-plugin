@@ -217,9 +217,14 @@ class DorisIntrospector(
                         fallback = { it.query(DorisCatalogQueries.LIST_DATABASES_CURRENT).run() },
                     ).orEmpty()
                     DorisCatalogs.info("catalog '$catalog' databases -> ${names.toList()}")
-                    for (name in names) {
-                        if (name.isNullOrBlank()) continue
-                        database.schemas.createOrGet(name)
+                    // Queries above run OUTSIDE the model lock; family mutations run inside the
+                    // sanctioned write context (0.4.0 P1 `Session not started` fix, see
+                    // [DorisModelWrite] for the bytecode trail).
+                    DorisModelWrite.write(model) {
+                        for (name in names) {
+                            if (name.isNullOrBlank()) continue
+                            database.schemas.createOrGet(name)
+                        }
                     }
                 } catch (t: Throwable) {
                     DorisCatalogs.warn("catalog '$catalog' schema listing failed; skipping catalog", t)
@@ -314,19 +319,24 @@ class DorisIntrospector(
 
             var tableCount = 0
             var viewCount = 0
-            for (t in tables) {
-                val name = t.TABLE_NAME ?: continue
-                if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-                    // M10 Part A: views get their columns attached exactly like tables. Doris
-                    // serves view columns in information_schema.columns (live-verified), and the
-                    // Ms model's MsViewColumn shares the table column surface
-                    // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
-                    // with the column rows, which killed completion on every view.
-                    attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
-                    viewCount++
-                } else {
-                    attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
-                    tableCount++
+            // Queries above run OUTSIDE the model lock; table/view/column family mutations run
+            // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
+            // [DorisModelWrite] for the bytecode trail).
+            DorisModelWrite.write(model) {
+                for (t in tables) {
+                    val name = t.TABLE_NAME ?: continue
+                    if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
+                        // M10 Part A: views get their columns attached exactly like tables. Doris
+                        // serves view columns in information_schema.columns (live-verified), and the
+                        // Ms model's MsViewColumn shares the table column surface
+                        // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
+                        // with the column rows, which killed completion on every view.
+                        attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
+                        viewCount++
+                    } else {
+                        attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
+                        tableCount++
+                    }
                 }
             }
             DorisCatalogs.info(

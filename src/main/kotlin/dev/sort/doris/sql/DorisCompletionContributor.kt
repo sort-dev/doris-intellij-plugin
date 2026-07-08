@@ -15,6 +15,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlBinaryExpression
 import com.intellij.sql.psi.SqlFunctionCallExpression
+import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.util.ProcessingContext
 
 /**
@@ -41,6 +42,13 @@ class DorisCompletionContributor : CompletionContributor() {
             result: CompletionResultSet
         ) {
             if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
+            // Dogfood 2026-07-08 P2 (0.4.0): never offer functions after a qualifier. At
+            // `v.<caret>` the caret's reference expression has `v` as its qualifier, and only
+            // MEMBERS of the qualified relation apply there — Doris scalar/table functions are
+            // never schema- or alias-qualified, so offering `mid` (accepting yields `v.mid()`)
+            // is always wrong. Bare positions (`SELECT <caret>`) keep the full function list.
+            val ref = PsiTreeUtil.getParentOfType(parameters.position, SqlReferenceExpression::class.java, false)
+            if (ref?.qualifierExpression != null) return
             // Doris function names are case-insensitive, so match regardless of the IDE's
             // "Match case" setting (otherwise typing AB... won't complete a lowercase 'abs').
             val sink = result.caseInsensitive()
