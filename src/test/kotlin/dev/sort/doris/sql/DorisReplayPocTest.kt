@@ -184,6 +184,14 @@ class DorisReplayPocTest : BasePlatformTestCase() {
             "doris/25-refresh-materialized-view-complete", 1, listOf("SQL_STATEMENT"),
             contains = listOf("SQL_TABLE_REFERENCE"),
         ),
+        // REFRESH MATERIALIZED VIEW ... PARTITION(p) / PARTITIONS(p_a, p_b) / AUTO (dogfood find):
+        // the partition-spec/AUTO tails must not break the typed statement lead — same SQL_STATEMENT +
+        // navigable SQL_TABLE_REFERENCE as the COMPLETE form, tails as token runs.
+        StmtCase(
+            "doris/26-refresh-mv-partition", 3,
+            listOf("SQL_STATEMENT", "SQL_STATEMENT", "SQL_STATEMENT"),
+            contains = listOf("SQL_TABLE_REFERENCE"),
+        ),
     )
 
     private val recordMode: Boolean get() = System.getProperty("golden.record") == "true"

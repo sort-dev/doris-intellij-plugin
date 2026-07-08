@@ -1,0 +1,72 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_derived')
+      PsiElement(.)('.')
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('events_rollup_mv')
+    PsiWhiteSpace(' ')
+    PsiElement(PARTITION)('PARTITION')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('p_20260617000000_20260618000000')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_STATEMENT
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_derived')
+      PsiElement(.)('.')
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('events_rollup_mv')
+    PsiWhiteSpace(' ')
+    PsiElement(PARTITIONS)('PARTITIONS')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('p_a')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('p_b')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_STATEMENT
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_derived')
+      PsiElement(.)('.')
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('events_rollup_mv')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('AUTO')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

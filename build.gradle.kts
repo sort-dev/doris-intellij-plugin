@@ -106,6 +106,14 @@ val runIdeWithPsiViewer by intellijPlatformTesting.runIde.registering {
 
 // Gate 1 / Milestone 1 runtime testing: launch the sandbox IDE with the experimental multi-catalog
 // model enabled (see RESEARCH-catalog-introspection.md "Gate 1 log" -> runtime test script).
+// Usage: ./gradlew runIdeFrozeOver   (BOTH experimental flags ON: Route B replay + multi-catalog).
+// The froze-over integration config — what v0.3 dogfooding runs. Plain ./gradlew runIde stays shipped.
+val runIdeFrozeOver by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.replay.poc=true", "-Ddoris.catalogs.experimental=true")
+    }
+}
+
 // Usage: ./gradlew runIdeCatalogs   (flag ON). Plain ./gradlew runIde stays flag OFF = shipped.
 val runIdeCatalogs by intellijPlatformTesting.runIde.registering {
     task {
