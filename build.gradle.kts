@@ -47,10 +47,24 @@ intellijPlatform {
 
     pluginConfiguration {
         ideaVersion {
-            // Compiled against build 261; the 252<->261 SQL API break means it must not load on other
-            // generations. Pin to the 261 line so it never silently half-loads and leaves dead shells.
+            // Compiled against build 261; the 252<->261 SQL API break means it must not load on 252
+            // or earlier (it silently half-loads and leaves dead data-source shells). The old 261.*
+            // pin existed for that break; 262 is now bridged in-code (DorisMetaCompat for the
+            // BasicMetaModel/BasicMetaObject ctor change, BasePredicatesHelper for the
+            // ObjectFormatterMode move — see COMPAT-262.md), verified against both generations via
+            // ./gradlew verifyPlugin, so one artifact serves 261 and 262.
             sinceBuild = "261"
-            untilBuild = "261.*"
+            untilBuild = "262.*"
+        }
+    }
+    pluginVerification {
+        ides {
+            // BOTH supported generations — the compat acceptance gate is zero compatibility
+            // problems on each (COMPAT-262.md):
+            // 261 (current line, what we compile against):
+            ide("DB", "2026.1.3")
+            // 262 (2026.2 EAP that enumerated the breakages):
+            ide("IU", "262.8665.81")
         }
     }
     publishing {

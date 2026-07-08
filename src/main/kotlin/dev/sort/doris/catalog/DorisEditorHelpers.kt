@@ -1,8 +1,12 @@
 package dev.sort.doris.catalog
 
 import com.intellij.database.Dbms
+import com.intellij.database.data.types.ColumnRef
+import com.intellij.database.data.types.OperandType
+import com.intellij.database.data.types.PredicateSpec
 import com.intellij.database.data.types.PredicatesHelper
 import com.intellij.database.datagrid.HookUpHelper
+import com.intellij.database.dialects.base.BasePredicatesHelper
 import com.intellij.database.dialects.mssql.MsObjectBuilder
 import com.intellij.database.dialects.mssql.MsPredicatesHelper
 import com.intellij.database.dialects.mssql.generator.MsScriptGenerator
@@ -57,11 +61,36 @@ class DorisScriptGenerator(dbms: Dbms) :
         if (DorisCatalogs.enabled) MsScriptGenerator(dbms) else MysqlBaseScriptGenerator(dbms)
     )
 
-/** `predicatesHelper dbms="DORIS"` — data-grid filter predicate producers. */
-class DorisPredicatesHelper(dbms: Dbms) :
-    PredicatesHelper by (
+/**
+ * `predicatesHelper dbms="DORIS"` — data-grid filter predicate producers.
+ *
+ * Deliberately NOT `PredicatesHelper by delegate` like its siblings: interface delegation makes the
+ * Kotlin compiler emit a `getMode(): ObjectFormatterMode` override, and `ObjectFormatterMode` moved
+ * from DatabaseTools to the grid-core plugin's `intellij.grid.core.impl` module in platform 262
+ * (COMPAT-262.md item 1), which made that generated descriptor unresolvable there. Extending
+ * [BasePredicatesHelper] (present in `intellij.database.dialects.base` in BOTH 261 and 262) and
+ * forwarding only the two mode-agnostic members keeps `ObjectFormatterMode` out of our bytecode
+ * entirely. Behavior is unchanged in both flag modes: neither [MysqlBasePredicatesHelper] nor
+ * [MsPredicatesHelper] overrides `getMode()` — both inherit [BasePredicatesHelper]'s (verified in
+ * 2026.1.3 bytecode), which is exactly what we now inherit too.
+ */
+class DorisPredicatesHelper(dbms: Dbms) : BasePredicatesHelper(dbms) {
+
+    private val delegate: PredicatesHelper =
         if (DorisCatalogs.enabled) MsPredicatesHelper(dbms) else MysqlBasePredicatesHelper(dbms)
-    )
+
+    override val supportsInOperator: Boolean
+        get() = delegate.supportsInOperator
+
+    override fun getPredicateProducers(
+        specs: List<PredicateSpec>,
+        types: List<OperandType>,
+        alias: String?,
+        version: com.intellij.database.util.Version?,
+        inUpdate: Boolean,
+    ): Map<ColumnRef, List<PredicatesHelper.PredicateProducer>> =
+        delegate.getPredicateProducers(specs, types, alias, version, inUpdate)
+}
 
 /**
  * `hookUpHelper dbms="DORIS"` — data-grid filter/sort language + column attributes. Delegates to

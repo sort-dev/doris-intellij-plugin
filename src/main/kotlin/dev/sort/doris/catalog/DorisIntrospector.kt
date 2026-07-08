@@ -451,6 +451,15 @@ class DorisIntrospector(
      * one deliberate change, the M2 default-scope fix for GitHub issue #5 — and delegates all
      * capability answers to the stock `MysqlBaseIntrospector.Factory`; flag-on it produces
      * [DorisIntrospector] and advertises multilevel introspection.
+     *
+     * 262-compat note (COMPAT-262.md): the delegation `by mysql` emits an `isSupported(Version)`
+     * override, which platform 262 deprecates in favour of a NEW default overload
+     * `isSupported(Version, DatabaseConnectionPoint, Project)`. That successor does not exist on
+     * 261 (where the 1-arg form is still *abstract*, so it must be implemented), meaning a single
+     * artifact compiled against 261 cannot override the successor. Verdict: keep the delegated
+     * 1-arg implementation; on 262 the new default overload routes into it, so behaviour is
+     * identical there and the verifier cost is one deprecation *warning* (not a compatibility
+     * problem). Revisit when 261 support is dropped.
      */
     class DorisIntrospectorFactory private constructor(
         private val mysql: MsqlFactory,

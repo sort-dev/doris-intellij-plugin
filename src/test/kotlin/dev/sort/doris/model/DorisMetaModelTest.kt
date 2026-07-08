@@ -67,4 +67,53 @@ class DorisMetaModelTest : BasePlatformTestCase() {
         assertEquals(ObjectKind.DATABASE, DorisMetaModel.CATALOG_KIND)
         assertEquals(ObjectKind.SCHEMA, DorisMetaModel.SCHEMA_KIND)
     }
+
+    /**
+     * COMPAT-262.md: the skeleton is now constructed through [DorisMetaCompat] because the
+     * `BasicMetaModel`/`BasicMetaObject` constructor descriptors changed between platform 261 and
+     * 262 (`com.intellij.util.Function` -> `java.util.function.Function` in the factory slot).
+     * This test proves the reflective resolution finds the constructors on the CURRENT platform
+     * (the 261 path in CI today; the same selection logic — arity + leading param types — matches
+     * the 262 descriptors) and that objects built through the compat layer are real, walkable
+     * platform meta objects.
+     */
+    fun testMetaCompatConstructsRealMetaObjectsOnCurrentPlatform() {
+        // Direct compat-layer construction: a one-node BasicMetaObject and a model around it.
+        val column = DorisMetaCompat.newMetaObject(
+            ObjectKind.COLUMN,
+            com.intellij.database.model.basic.BasicModTableColumn::class.java,
+            com.intellij.util.Function { error("dataFactory must not be invoked by construction") },
+            java.util.function.BiConsumer { _, _ -> },
+            arrayOf(),
+            arrayOf(),
+            arrayOf(),
+        )
+        assertEquals(ObjectKind.COLUMN, column.kind)
+
+        val table = DorisMetaCompat.newMetaObject(
+            ObjectKind.TABLE,
+            com.intellij.database.model.basic.BasicModTable::class.java,
+            com.intellij.util.Function { error("dataFactory must not be invoked by construction") },
+            java.util.function.BiConsumer { _, _ -> },
+            arrayOf(),
+            arrayOf(),
+            arrayOf(column),
+        )
+        val model = DorisMetaCompat.newMetaModel(
+            DorisDbms.DORIS,
+            table,
+            com.intellij.database.model.basic.BasicModModel::class.java,
+            com.intellij.util.Function { error("modelFactory must not be invoked by construction") },
+        )
+        // The ctor indexed the kind graph: the compat-built objects are genuine platform meta objects.
+        assertTrue(
+            "Compat-constructed BasicMetaModel must expose the TABLE -> COLUMN kind edge.",
+            model.getChildKinds(ObjectKind.TABLE).toList().contains(ObjectKind.COLUMN),
+        )
+
+        // And the production path (buildMultiDatabaseSkeleton) still routes through the same layer:
+        // resolving + invoking twice must keep yielding the full multi-database shape (cached ctors).
+        val skeleton = DorisMetaModel.buildMultiDatabaseSkeleton(DorisDbms.DORIS)
+        assertTrue(skeleton.getChildKinds(ObjectKind.ROOT).toList().contains(ObjectKind.DATABASE))
+    }
 }

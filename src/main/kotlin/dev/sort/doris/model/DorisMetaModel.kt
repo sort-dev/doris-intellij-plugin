@@ -81,7 +81,9 @@ object DorisMetaModel {
                     "productionize by reusing PgMetaModel.MODEL / MsMetaModel.MODEL (see class KDoc)."
             )
         }
-        return BasicMetaModel(dbms, root, BasicModModel::class.java, modelFactory)
+        // Constructed via DorisMetaCompat (not the ctor directly): the ctor's Function param type
+        // differs between platform 261 and 262 — see COMPAT-262.md.
+        return DorisMetaCompat.newMetaModel(dbms, root, BasicModModel::class.java, modelFactory)
     }
 
     /**
@@ -105,7 +107,9 @@ object DorisMetaModel {
         val deserializer = BiConsumer<BasicElement, NameValueGetter<String>> { _, _ -> }
         val noProps = arrayOf<BasicMetaProperty<BasicElement, *>>()
         val noRefs = arrayOf<BasicMetaProperty<BasicElement, *>>()
-        return BasicMetaObject(kind, api, dataFactory, deserializer, noProps, noRefs, children)
+        // Constructed via DorisMetaCompat (not the ctor directly): the ctor's Function param type
+        // differs between platform 261 and 262 — see COMPAT-262.md.
+        return DorisMetaCompat.newMetaObject(kind, api, dataFactory, deserializer, noProps, noRefs, children)
     }
 
     private fun noChildren(): Array<BasicMetaObject<*>> = arrayOf()
