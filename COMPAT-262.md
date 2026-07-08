@@ -1,4 +1,13 @@
-# 2026.2 (build 262) compatibility homework
+# 2026.2 (build 262) compatibility — RESOLVED in 0.4.0
+
+**Status: bridged.** `DorisMetaCompat` resolves the meta-model constructors reflectively (both
+generations); `DorisPredicatesHelper` re-based onto `BasePredicatesHelper` (no ObjectFormatterMode
+reference remains); `untilBuild = 262.*`; verifyPlugin = zero compatibility problems on both
+DB-261.24374.56 and IU-262.8665.81. Remaining known-fine: deprecated `isSupported(Version)` (262's
+3-arg successor routes into it; switch when 261 support drops), 11 internal-API usages (justified,
+see the JetBrains thread). Original homework below for history.
+
+# Original notes (2026-07-08, pre-fix)
 
 Verified locally (plugin verifier vs IU-262.8665.81, 2026-07-08; `./gradlew verifyPlugin`).
 0.3.0 is fenced by `untilBuild = "261.*"` — nobody on 262 gets the plugin. Fix before the

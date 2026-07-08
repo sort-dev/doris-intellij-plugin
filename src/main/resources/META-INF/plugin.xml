@@ -33,6 +33,18 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.4.0</b> — 2026.2-ready, plus introspection and editor fixes.
+        <ul>
+            <li><b>Compatible with the upcoming 2026.2 IDE line</b> (one artifact spans 2026.1 and
+                2026.2; compatibility range raised accordingly).</li>
+            <li>Fixed an IDE-internal error ("Session not started") that could appear during
+                multi-catalog introspection.</li>
+            <li><code>SELECT * EXCEPT(...)</code>: two more false-error cases silenced — UNION
+                operand-count mismatches and "ambiguous column" when the column is in the EXCEPT
+                list. Genuine errors still flagged.</li>
+            <li>Completion after a table alias (<code>v.</code>) now offers only that relation's
+                columns — no more stray function suggestions.</li>
+        </ul>
         <b>0.3.0</b> — catalogs, table-valued functions, and a much quieter editor.
         <ul>
             <li><b>Multi-catalog support (on by default):</b> Doris external catalogs (Hive, Iceberg,
