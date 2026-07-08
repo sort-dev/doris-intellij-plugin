@@ -200,6 +200,11 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // Emit BEFORE descending so it opens ahead of the query expression it contains.
         if (cls in ReplayMapping.AS_QUERY_PARENTS) emitAsQueryClause(ctx, absStart, out, seq)
 
+        // CREATE TABLE inline index (`indexDef`): the IndexDefContext itself maps to SQL_INDEX_DEFINITION
+        // (BY_CONTEXT_CLASS); here we wrap its NAME identifier in SQL_INDEX_REFERENCE so the index name is
+        // a typed, navigable reference (MySQL inline-index shape) rather than a bare SQL_IDENTIFIER.
+        if (cls == "IndexDefContext") emitIndexReference(ctx, ruleNames, absStart, out, seq)
+
         // CREATE JOB's DO-body INSERT (`supportedDmlStatement # insertTable`): synthesise the platform's
         // insert PSI around the target reference and the replayed query. Emit BEFORE descending so the
         // wrappers open ahead of the table reference / query expression they contain.
@@ -296,6 +301,18 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         }
     }
 
+    /**
+     * Wrap the NAME of a CREATE TABLE inline `indexDef` in SQL_INDEX_REFERENCE. The name is the first
+     * direct `identifier` child (`INDEX <name> (cols) ...`); its inner strictIdentifier still materialises
+     * SQL_IDENTIFIER, nesting inside the reference (MySQL SQL_INDEX_DEFINITION > SQL_INDEX_REFERENCE shape).
+     * Nothing emitted if the index is unnamed (defensive — the definition then holds just its column list).
+     */
+    private fun emitIndexReference(ctx: ParserRuleContext, ruleNames: Array<String>, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val name = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { ruleNameOf(it, ruleNames) == "identifier" && hasTokens(it) } ?: return
+        out.add(Node(absStart + name.start.startIndex, absStart + name.stop.stopIndex, ReplayMapping.INDEX_REFERENCE, seq[0]++))
+    }
+
     private fun firstTerminal(ctx: ParserRuleContext, text: String): Int? {
         for (i in 0 until ctx.childCount) {
             val t = ctx.getChild(i) as? TerminalNode ?: continue
@@ -335,6 +352,15 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         "ExpressionWithOrderContext" -> childRule == "expression"      // GROUP BY item
         "SortItemContext" -> childRule == "expression"                 // ORDER BY sort key
         "QualifyClauseContext" -> childRule == "booleanExpression"     // QUALIFY condition
+        // DDL partition expressions (Task 1c): the column/function key inside a PARTITION BY clause. Each
+        // hands off to the platform value-expression parser so `date_trunc(col, 'day')` comes out a real
+        // SQL_FUNCTION_CALL (and a bare `col` a SQL_COLUMN_REFERENCE) rather than a loose identifier +
+        // column-ref + string-literal token run. Covers both the CREATE TABLE `PARTITION BY [RANGE|LIST]
+        // (k, ...)` list (identityOrFunction per key) and the CREATE MATERIALIZED VIEW `PARTITION BY (k)`
+        // (mvPartition). DISTRIBUTED BY HASH / DUPLICATE KEY take an identifierList, not expressions, so
+        // they keep their SQL_REFERENCE_LIST shape and are not delegated here.
+        "IdentityOrFunctionListContext" -> childRule == "identityOrFunction"
+        "CreateMTMVContext" -> childRule == "mvPartition"
         else -> false
     }
 

@@ -162,6 +162,28 @@ class DorisReplayPocTest : BasePlatformTestCase() {
             "doris/22-lenient-statement-no-eat-next", 4,
             listOf("SQL_STATEMENT", "SQL_SELECT_STATEMENT", "SQL_STATEMENT", "SQL_SELECT_STATEMENT"),
         ),
+        // DDL clause-internals typing (Task 1): CREATE MATERIALIZED VIEW with a column list (each a real
+        // SQL_COLUMN_DEFINITION), a PARTITION BY (date_trunc(...)) whose key delegates to a real
+        // SQL_FUNCTION_CALL, DUPLICATE KEY / DISTRIBUTED BY HASH reference-lists, PROPERTIES, and an
+        // AS-query. `contains` pins the delegated function call + typed column def so a silent fallback to
+        // loose tokens can't be re-recorded as passing.
+        StmtCase(
+            "doris/23-create-mtmv-partition-expr", 1, listOf("SQL_CREATE_VIEW_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_FUNCTION_CALL", "SQL_REFERENCE_LIST"),
+        ),
+        // CREATE TABLE with inline `INDEX ... USING INVERTED` (SQL_INDEX_DEFINITION > SQL_INDEX_REFERENCE),
+        // AUTO PARTITION BY RANGE(date_trunc(...)) delegated to SQL_FUNCTION_CALL, DISTRIBUTED ... BUCKETS,
+        // PROPERTIES. `contains` pins the index definition + reference + delegated partition call.
+        StmtCase(
+            "doris/24-create-table-inverted-index-auto-partition", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_INDEX_DEFINITION", "SQL_INDEX_REFERENCE", "SQL_FUNCTION_CALL"),
+        ),
+        // REFRESH MATERIALIZED VIEW <name> COMPLETE (Task 2): typed SQL_STATEMENT lead with a navigable
+        // SQL_TABLE_REFERENCE for the MV name (mirrors REFRESH TABLE). Was loose tokens with no wrapper.
+        StmtCase(
+            "doris/25-refresh-materialized-view-complete", 1, listOf("SQL_STATEMENT"),
+            contains = listOf("SQL_TABLE_REFERENCE"),
+        ),
     )
 
     private val recordMode: Boolean get() = System.getProperty("golden.record") == "true"

@@ -76,6 +76,11 @@ internal object ReplayMapping {
         "CreateMTMVContext" to SQL_CREATE_VIEW_STATEMENT,
         "CreateTableContext" to SQL_CREATE_TABLE_STATEMENT,
         "RefreshTableContext" to SQL_STATEMENT,
+        // REFRESH MATERIALIZED VIEW <name> [COMPLETE] (materializedViewStatement # refreshMTMV): mirrors
+        // REFRESH TABLE — no platform statement kind fits, so it stays a generic SQL_STATEMENT (boundary
+        // identical to lenient) but carries a MATERIALISED SQL_TABLE_REFERENCE for the MV name (navigable
+        // via Cmd+B; MVs introspect as tables under the MySQL fallback). The trailing COMPLETE stays a run.
+        "RefreshMTMVContext" to SQL_STATEMENT,
         "WarmUpClusterContext" to SQL_STATEMENT,
         "SwitchCatalogContext" to SQL_STATEMENT,
 
@@ -96,6 +101,19 @@ internal object ReplayMapping {
         // Doris DDL adds type spellings (LARGEINT, agg-model modifiers like `INT SUM`) the MySQL data-type
         // parser would reject anyway. So the column name is typed & navigable; the type stays a stable span.
         "ColumnDefContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_DEFINITION,
+
+        // CREATE MATERIALIZED VIEW column list `(a, b, c)`: each `simpleColumnDef` is a real
+        // SQL_COLUMN_DEFINITION whose name materialises as SQL_IDENTIFIER — the same shape as a
+        // CREATE TABLE columnDef name, so the MV column names are typed/navigable rather than bare
+        // identifiers floating in the statement.
+        "SimpleColumnDefContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_DEFINITION,
+
+        // CREATE TABLE inline index `INDEX idx(col) USING INVERTED` (indexDefs # indexDef): the platform's
+        // shared SQL_INDEX_DEFINITION (the exact node MySQL emits for a table-level INDEX/KEY). The index
+        // NAME is wrapped in SQL_INDEX_REFERENCE via [CstReplayer.emitIndexReference]; the column list is
+        // the normal identifierList -> SQL_REFERENCE_LIST of short refs. The Doris-only `USING INVERTED`
+        // tail stays a bare token run inside the definition (no MySQL analog) — a deliberate stable shape.
+        "IndexDefContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INDEX_DEFINITION,
 
         // QUALIFY: the one query clause the MySQL grammar cannot parse, but the platform DOES own a shared
         // SQL_QUALIFY_CLAUSE element type. The replayer materialises it as a sibling of the synthetic
@@ -200,6 +218,7 @@ internal object ReplayMapping {
         "CreateMTMVContext" to SQL_VIEW_REFERENCE,     // CREATE MATERIALIZED VIEW <name>
         "CreateTableContext" to SQL_TABLE_REFERENCE,   // CREATE TABLE <name>
         "RefreshTableContext" to SQL_TABLE_REFERENCE,  // REFRESH TABLE <name>
+        "RefreshMTMVContext" to SQL_TABLE_REFERENCE,   // REFRESH MATERIALIZED VIEW <name> [COMPLETE]
         "WarmUpItemContext" to SQL_TABLE_REFERENCE,    // WARM UP ... WITH TABLE <name>
         "InsertTableContext" to SQL_TABLE_REFERENCE,   // INSERT INTO <target> (CREATE JOB DO-body)
     )
@@ -290,6 +309,9 @@ internal object ReplayMapping {
 
     /** SQL_REFERENCE: a qualifier part of a multi-part table name `db.tbl` (golden 02). */
     val REFERENCE: IElementType = SQL_REFERENCE
+
+    /** SQL_INDEX_REFERENCE: the NAME of a CREATE TABLE inline index (`INDEX <name> ...`; MySQL shape). */
+    val INDEX_REFERENCE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INDEX_REFERENCE
 
     /** Context class of the LIMIT clause; hosts synthetic SQL_NUMERIC_LITERAL wrappers per integer. */
     const val LIMIT_CLAUSE_CLASS: String = "LimitClauseContext"

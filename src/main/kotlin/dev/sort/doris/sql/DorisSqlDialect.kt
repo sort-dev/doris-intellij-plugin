@@ -37,6 +37,12 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
     // a generic call and `AS`/`FROM` inside becomes a hidden parse error — silently breaking type
     // calc and resolution (e.g. "cannot resolve '*'"). Loading MysqlDialect's definitions at runtime
     // keeps us in sync with the platform and avoids copying JetBrains resources.
+    // TODO(far-future): version-gated function completion. We inherit the FULL Doris (here: MySQL-loaded)
+    // builtin-function set for completion regardless of the connected server's version, so completion can
+    // offer functions a given Doris FE doesn't yet have. A future enhancement would gate each function by a
+    // per-function `since`-version map and filter completion to the connected server version. No such
+    // `since` map exists today (Doris doesn't publish one), and the connected version is only readable
+    // out-of-process (see the version-gating dead-end note), so this is a deliberate non-goal for now.
     override fun createTokensHelper(): TokensHelper =
         TokensHelper(MysqlTokens::class.java, SqlFunctionsUtil.loadFunctionDefinition(MysqlDialect.INSTANCE))
 

@@ -1,0 +1,203 @@
+SqlFile:corpus.sql
+  SQL_CREATE_VIEW_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_VIEW_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_watch_time_daily_mv')
+    PsiWhiteSpace('\n')
+    PsiElement(()('(')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('user_id')
+    PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('watch_day')
+    PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('watch_seconds')
+    PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('BUILD')
+    PsiWhiteSpace(' ')
+    PsiElement(IMMEDIATE)('IMMEDIATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('AUTO')
+    PsiWhiteSpace(' ')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(MANUAL)('MANUAL')
+    PsiWhiteSpace('\n')
+    PsiElement(DUPLICATE)('DUPLICATE')
+    PsiWhiteSpace(' ')
+    PsiElement(KEY)('KEY')
+    PsiWhiteSpace(' ')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('user_id')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('watch_day')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(PARTITION)('PARTITION')
+    PsiWhiteSpace(' ')
+    PsiElement(BY)('BY')
+    PsiWhiteSpace(' ')
+    PsiElement(()('(')
+    SQL_FUNCTION_CALL
+      SQL_ANY_CALLABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('date_trunc')
+      PsiElement(()('(')
+      SQL_ARGUMENT_LIST
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('watch_day')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_STRING_LITERAL
+          PsiElement(SQL_STRING_TOKEN)(''day'')
+      PsiElement())(')')
+    PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('DISTRIBUTED')
+    PsiWhiteSpace(' ')
+    PsiElement(BY)('BY')
+    PsiWhiteSpace(' ')
+    PsiElement(HASH)('HASH')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('user_id')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('watch_day')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(BUCKETS)('BUCKETS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('8')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(()('(')
+    PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+    PsiWhiteSpace(' ')
+    PsiElement(=)('=')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT_DELIMITED)('"1"')
+    PsiElement())(')')
+    PsiWhiteSpace('\n')
+    SQL_AS_QUERY_CLAUSE
+      PsiElement(AS)('AS')
+      PsiWhiteSpace('\n')
+      SQL_QUERY_EXPRESSION
+        SQL_SELECT_CLAUSE
+          PsiElement(SELECT)('SELECT')
+          PsiWhiteSpace('\n    ')
+          SQL_AS_EXPRESSION
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('user_id')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_id')
+          PsiElement(,)(',')
+          PsiWhiteSpace('\n    ')
+          SQL_AS_EXPRESSION
+            SQL_FUNCTION_CALL
+              SQL_ANY_CALLABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('date_trunc')
+              PsiElement(()('(')
+              SQL_ARGUMENT_LIST
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('event_ts')
+                PsiElement(,)(',')
+                PsiWhiteSpace(' ')
+                SQL_STRING_LITERAL
+                  PsiElement(SQL_STRING_TOKEN)(''day'')
+              PsiElement())(')')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('watch_day')
+          PsiElement(,)(',')
+          PsiWhiteSpace('\n    ')
+          SQL_AS_EXPRESSION
+            SQL_FUNCTION_CALL
+              SQL_ANY_CALLABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('sum')
+              PsiElement(()('(')
+              SQL_ARGUMENT_LIST
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('watch_seconds')
+                INFO:[expr:decimal]
+                  <empty list>
+                INFO:[0]
+                  <empty list>
+              PsiElement())(')')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('watch_seconds')
+        PsiWhiteSpace('\n')
+        SQL_TABLE_EXPRESSION
+          SQL_FROM_CLAUSE
+            PsiElement(FROM)('FROM')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('acme_events')
+          PsiWhiteSpace('\n')
+          SQL_GROUP_BY_CLAUSE
+            PsiElement(GROUP)('GROUP')
+            PsiWhiteSpace(' ')
+            PsiElement(BY)('BY')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('user_id')
+            PsiElement(,)(',')
+            PsiWhiteSpace(' ')
+            SQL_FUNCTION_CALL
+              SQL_ANY_CALLABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('date_trunc')
+              PsiElement(()('(')
+              SQL_ARGUMENT_LIST
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('event_ts')
+                PsiElement(,)(',')
+                PsiWhiteSpace(' ')
+                SQL_STRING_LITERAL
+                  PsiElement(SQL_STRING_TOKEN)(''day'')
+              PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

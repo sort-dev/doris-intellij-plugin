@@ -1,0 +1,1 @@
+REFRESH MATERIALIZED VIEW acme_derived.acme_watch_time_daily_mv COMPLETE;

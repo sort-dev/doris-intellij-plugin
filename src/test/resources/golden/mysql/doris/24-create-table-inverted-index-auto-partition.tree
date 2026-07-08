@@ -1,0 +1,155 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('user_id')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(BIGINT)('BIGINT')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('event_ts')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(DATETIME)('DATETIME')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('tags')
+        PsiErrorElement:<type> expected, got 'STRING'
+          <empty list>
+        PsiWhiteSpace(' ')
+        PsiElement(STRING)('STRING')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_INDEX_DEFINITION
+        PsiElement(INDEX)('INDEX')
+        PsiWhiteSpace(' ')
+        SQL_INDEX_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('idx_tags')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_SHORT_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('tags')
+          PsiElement())(')')
+        PsiWhiteSpace(' ')
+        SQL_GENERIC_SETTINGS_CLAUSE
+          PsiElement(USING)('USING')
+          PsiErrorElement:BTREE or HASH expected, got 'INVERTED'
+            <empty list>
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('INVERTED')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_INDEX_DEFINITION
+        PsiElement(INDEX)('INDEX')
+        PsiWhiteSpace(' ')
+        SQL_INDEX_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('idx_user')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_SHORT_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_id')
+          PsiElement())(')')
+        PsiWhiteSpace(' ')
+        SQL_GENERIC_SETTINGS_CLAUSE
+          PsiElement(USING)('USING')
+          PsiErrorElement:BTREE or HASH expected, got 'INVERTED'
+            <empty list>
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('INVERTED')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:<as query clause>, <default charset option>, <default collate option>, <engine clause>, <other table option>, COMMENT or PARTITION expected, got 'DUPLICATE'
+      PsiElement(DUPLICATE)('DUPLICATE')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(KEY)('KEY')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('event_ts')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('AUTO')
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+      PsiWhiteSpace(' ')
+      PsiElement(BY)('BY')
+      PsiWhiteSpace(' ')
+      PsiElement(RANGE)('RANGE')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('date_trunc')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(()('(')
+        PsiElement(DUMMY_BLOCK)
+          PsiElement(SQL_IDENT)('event_ts')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          PsiElement(SQL_STRING_TOKEN)(''day'')
+        PsiElement())(')')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('DISTRIBUTED')
+      PsiWhiteSpace(' ')
+      PsiElement(BY)('BY')
+      PsiWhiteSpace(' ')
+      PsiElement(HASH)('HASH')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('event_ts')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(BUCKETS)('BUCKETS')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_INTEGER_TOKEN)('8')
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+        PsiWhiteSpace(' ')
+        PsiElement(=)('=')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"1"')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
