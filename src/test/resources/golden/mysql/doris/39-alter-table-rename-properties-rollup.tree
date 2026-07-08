@@ -1,0 +1,92 @@
+SqlFile:corpus.sql
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_RENAME_TO_CLAUSE
+      PsiElement(RENAME)('RENAME')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_events_v2')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiErrorElement:<alter table instruction> or PARTITION expected, got 'SET'
+      <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(SET)('SET')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"dynamic_partition.enable"')
+        PsiWhiteSpace(' ')
+        PsiElement(=)('=')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"false"')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(ADD)('ADD')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(ROLLUP_IDENT)('ROLLUP')
+        PsiErrorElement:<type> expected, got 'r_user'
+          <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('r_user')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('event_ts')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(DROP)('DROP')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(ROLLUP_IDENT)('ROLLUP')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:',' or PARTITION expected, got 'r_user'
+      PsiElement(SQL_IDENT)('r_user')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

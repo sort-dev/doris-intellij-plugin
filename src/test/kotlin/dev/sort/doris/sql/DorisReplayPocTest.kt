@@ -51,11 +51,12 @@ class DorisReplayPocTest : BasePlatformTestCase() {
      * subqueries, INTERVAL arithmetic, window functions, etc. byte-for-byte — because it is literally
      * the code that emitted the golden. See the Route B / Gate 2.5 note in the research doc.
      *
-     * NOT in scope for the replayer (it only fires for a SELECT/WITH/parenthesised query lead): the
-     * DML/DDL statements (mysql-core 33–44: UPDATE/DELETE/INSERT/REPLACE/CREATE/ALTER/TRUNCATE/EXPLAIN/
-     * SET/transaction). Those keep their existing delegation/lenient handling; add a query-vs-statement
-     * dispatcher before extending replay to them. Error-recovery corpora (the edge suite) intentionally
-     * fail the ANTLR parse and fall through to delegation.
+     * Statement long-tail (Part 2): UPDATE and DELETE now replay for the forms whose platform shape is
+     * pinned (single-table UPDATE, DELETE [USING]); every other variant declines inside CstReplayer
+     * (see updateDeleteReplayable). Still NOT in scope: INSERT/REPLACE/CREATE(MySQL-shaped)/ALTER/
+     * TRUNCATE/EXPLAIN/SET/transaction (mysql-core 35–44) — those keep their existing delegation/
+     * lenient handling. Error-recovery corpora (the edge suite) intentionally fail the ANTLR parse and
+     * fall through to delegation.
      */
     private val manifest = listOf(
         // WITH / CTE queries (SQL_WITH_QUERY_EXPRESSION / SQL_WITH_CLAUSE / SQL_NAMED_QUERY_DEFINITION),
@@ -100,6 +101,14 @@ class DorisReplayPocTest : BasePlatformTestCase() {
         // Window functions (OVER frame + named WINDOW clause) — analytic subtree delegated.
         "mysql-core/27-window-frame-rows",
         "mysql-core/28-named-window-clause",
+        // Statement long-tail (Part 2): DELETE ... USING replays byte-identical (DeleteContext +
+        // synthetic SQL_DELETE_DML_INSTRUCTION / SQL_CLAUSE / SQL_FROM_CLAUSE; relations reuse the
+        // query join machinery). UPDATE ... JOIN ... SET (MySQL's multi-table form) is NOT in the
+        // Doris grammar, so it lands here via the honest ANTLR-reject bail -> delegation — pinned to
+        // prove the new UPDATE lead can never make it worse. The single-table UPDATE that DOES replay
+        // is pinned by the lenient-parity manifest below (doris/51 flag-on == typed flag-off golden).
+        "mysql-core/33-update-with-join",
+        "mysql-core/34-delete-using",
     )
 
     /**
@@ -192,7 +201,114 @@ class DorisReplayPocTest : BasePlatformTestCase() {
             listOf("SQL_STATEMENT", "SQL_STATEMENT", "SQL_STATEMENT"),
             contains = listOf("SQL_TABLE_REFERENCE"),
         ),
+        // --- Phase 2 harvest: CREATE TABLE model variants. All type SQL_CREATE_TABLE_STATEMENT with
+        // real SQL_COLUMN_DEFINITIONs; Doris model clauses (UNIQUE/AGGREGATE KEY, DISTRIBUTED BY)
+        // carry SQL_REFERENCE_LIST key columns that resolve against the sibling definitions; property
+        // bags stay token runs. `contains` pins the typed shape so a lenient fallback can't re-record.
+        StmtCase(
+            "doris/28-create-table-unique-key-sequence", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_REFERENCE_LIST"),
+        ),
+        // Aggregate model: per-column agg types (SUM/MAX/MIN/REPLACE/BITMAP_UNION/HLL_UNION) stay
+        // token runs INSIDE each typed SQL_COLUMN_DEFINITION.
+        StmtCase(
+            "doris/29-create-table-aggregate-key", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_REFERENCE_LIST"),
+        ),
+        StmtCase(
+            "doris/30-create-table-colocate-bloom", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_REFERENCE_LIST"),
+        ),
+        // PARTITION BY RANGE(col) with a BARE column key: the identityOrFunction delegation renders a
+        // SQL_COLUMN_REFERENCE that resolves against the statement's own column definitions.
+        StmtCase(
+            "doris/31-create-table-dynamic-partition", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_COLUMN_REFERENCE"),
+        ),
+        // LIST partitioning: per-partition VALUES IN ((...)) tuples stay token runs inside the typed
+        // statement; the LIST(region, city) keys delegate as column references.
+        StmtCase(
+            "doris/32-create-table-list-partition", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION", "SQL_COLUMN_REFERENCE"),
+        ),
+        // Multi-column RANGE with the half-open interval form (`VALUES [(...), (...))`) — the bracket
+        // tokens replay as runs; boundary and zero-error invariants are the point.
+        StmtCase(
+            "doris/33-create-table-range-multi-column", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION"),
+        ),
+        // Generated column (`c INT AS (a + b)`): the expression materialises through the CST mappings
+        // (SQL_BINARY_EXPRESSION over column references) inside the typed column definition.
+        StmtCase(
+            "doris/36-create-table-generated-column", 1, listOf("SQL_CREATE_TABLE_STATEMENT"),
+            contains = listOf("SQL_COLUMN_DEFINITION"),
+        ),
+        // CREATE MATERIALIZED VIEW refresh strategies: BUILD IMMEDIATE/DEFERRED, REFRESH COMPLETE/AUTO,
+        // ON SCHEDULE EVERY ... STARTS / ON COMMIT — all header token runs inside the typed
+        // SQL_CREATE_VIEW_STATEMENT; the AS-query replays in full under SQL_AS_QUERY_CLAUSE.
+        StmtCase(
+            "doris/40-create-mtmv-refresh-strategies", 2,
+            listOf("SQL_CREATE_VIEW_STATEMENT", "SQL_CREATE_VIEW_STATEMENT"),
+            contains = listOf("SQL_AS_QUERY_CLAUSE"),
+        ),
+        // MTMV with a BARE-COLUMN `PARTITION BY (event_date)` + workload_group property: the partition
+        // column deliberately does NOT delegate (no resolvable scope -> would red-flag); it stays an
+        // identifier leaf. The function form (corpus 23) keeps its delegated SQL_FUNCTION_CALL.
+        StmtCase(
+            "doris/41-create-mtmv-partition-column-workload", 1, listOf("SQL_CREATE_VIEW_STATEMENT"),
+            contains = listOf("SQL_AS_QUERY_CLAUSE"),
+        ),
+        // CREATE JOB schedule variants (EVERY n MINUTE / EVERY n DAY STARTS..ENDS / one-time AT): job
+        // wrapper stays SQL_STATEMENT, each DO-body INSERT gets the real insert skeleton (corpus 14 shape).
+        StmtCase(
+            "doris/42-create-job-schedule-variants", 3,
+            listOf("SQL_STATEMENT", "SQL_STATEMENT", "SQL_STATEMENT"),
+            contains = listOf("SQL_INSERT_STATEMENT", "SQL_INSERT_DML_INSTRUCTION"),
+        ),
     )
+
+    /**
+     * Lenient-parity manifest: corpus files whose flag-ON tree must equal the recorded flag-off
+     * (delegation/lenient) golden BYTE-FOR-BYTE — either because the replayer DECLINES them
+     * (CREATE TABLE LIKE: grammar-accepted but unmapped statement lead; CTAS: reference lists with no
+     * column definitions to resolve against) or because their leads never route to replay at all
+     * (ALTER / EXPORT / BACKUP / GRANT / CREATE USER / CATALOG / RESOURCE / ROUTINE LOAD / DML).
+     * Guards the "accepted-but-noisy" failure mode: if replay ever starts consuming one of these and
+     * reshapes it, this diff screams before a user sees it.
+     */
+    private val lenientParity = listOf(
+        "doris/34-create-table-like",
+        "doris/35-ctas-variants",
+        "doris/37-alter-table-columns",
+        "doris/38-alter-table-partitions",
+        "doris/39-alter-table-rename-properties-rollup",
+        "doris/43-create-routine-load-kafka",
+        "doris/44-export-table",
+        "doris/45-backup-restore",
+        "doris/46-grant-revoke",
+        "doris/47-create-user-role",
+        "doris/48-create-catalog-property-bags",
+        "doris/49-create-resource-workload-group",
+        "doris/50-delete-from-partition",
+        "doris/51-update-set",
+        "doris/52-truncate-partition",
+        "doris/53-insert-variants",
+    )
+
+    /** Flag-ON must not reshape statements replay declines / never attempts (see [lenientParity]). */
+    fun testLenientParityFamiliesUnchangedByReplayFlag() {
+        val mismatches = StringBuilder()
+        for (rel in lenientParity) {
+            val sql = norm(corpusFile("$rel.sql").readText())
+            val expected = norm(goldenFile("doris/$rel.tree").readText())
+            if (expected != tree(dorisLang(), sql)) {
+                mismatches.append("  - $rel: flag-on tree diverged from the flag-off golden\n")
+            }
+        }
+        if (mismatches.isNotEmpty()) {
+            fail("Replay flag reshaped statements it must decline/skip:\n$mismatches")
+        }
+    }
 
     private val recordMode: Boolean get() = System.getProperty("golden.record") == "true"
 

@@ -1,0 +1,167 @@
+SqlFile:corpus.sql
+  PsiElement(CREATE)('CREATE')
+  PsiWhiteSpace(' ')
+  PsiErrorElement:AGGREGATE, ALGORITHM, DATABASE, DEFINER, EVENT, FULLTEXT, FUNCTION, INDEX, LOGFILE, OR, PROCEDURE, ROLE, SCHEMA, SERVER, SPATIAL, SQL, TABLE, TABLESPACE, TEMPORARY, TRIGGER, UNDO, UNIQUE, USER or VIEW expected, got 'MATERIALIZED'
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+  PsiElement(DUMMY_BLOCK)
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('acme_daily_rollup_mv')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('BUILD')
+    PsiWhiteSpace(' ')
+    PsiElement(IMMEDIATE)('IMMEDIATE')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('COMPLETE')
+    PsiWhiteSpace('\n')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(SCHEDULE)('SCHEDULE')
+    PsiWhiteSpace(' ')
+    PsiElement(EVERY)('EVERY')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(DUMMY_BLOCK)
+    PsiWhiteSpace(' ')
+    PsiElement(HOUR)('HOUR')
+    PsiWhiteSpace(' ')
+    PsiElement(STARTS)('STARTS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_STRING_TOKEN)(''2026-07-08 00:00:00'')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('DISTRIBUTED')
+    PsiWhiteSpace(' ')
+    PsiElement(BY)('BY')
+    PsiWhiteSpace(' ')
+    PsiElement(HASH)('HASH')
+  PsiElement(DUMMY_BLOCK)
+    PsiElement(()('(')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(SQL_IDENT)('user_id')
+    PsiElement())(')')
+  PsiElement(DUMMY_BLOCK)
+    PsiWhiteSpace(' ')
+    PsiElement(BUCKETS)('BUCKETS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('4')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('PROPERTIES')
+  PsiWhiteSpace(' ')
+  PsiElement(DUMMY_BLOCK)
+    PsiElement(()('(')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+      PsiWhiteSpace(' ')
+      PsiElement(=)('=')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT_DELIMITED)('"1"')
+    PsiElement())(')')
+  PsiWhiteSpace('\n')
+  PsiElement(AS)('AS')
+  PsiWhiteSpace(' ')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(COUNT_IDENT)('COUNT')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+              INFO:[expr:any*]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('cnt')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_events')
+        PsiWhiteSpace(' ')
+        SQL_GROUP_BY_CLAUSE
+          PsiElement(GROUP)('GROUP')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_id')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  PsiElement(CREATE)('CREATE')
+  PsiWhiteSpace(' ')
+  PsiErrorElement:AGGREGATE, ALGORITHM, DATABASE, DEFINER, EVENT, FULLTEXT, FUNCTION, INDEX, LOGFILE, OR, PROCEDURE, ROLE, SCHEMA, SERVER, SPATIAL, SQL, TABLE, TABLESPACE, TEMPORARY, TRIGGER, UNDO, UNIQUE, USER or VIEW expected, got 'MATERIALIZED'
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+  PsiWhiteSpace(' ')
+  PsiElement(VIEW)('VIEW')
+  PsiWhiteSpace(' ')
+  PsiElement(SQL_IDENT)('acme_commit_mv')
+  PsiWhiteSpace('\n')
+  PsiElement(SQL_IDENT)('BUILD')
+  PsiWhiteSpace(' ')
+  PsiElement(SQL_IDENT)('DEFERRED')
+  PsiWhiteSpace('\n')
+  PsiElement(SQL_IDENT)('REFRESH')
+  PsiWhiteSpace(' ')
+  PsiElement(SQL_IDENT)('AUTO')
+  PsiWhiteSpace('\n')
+  PsiElement(ON)('ON')
+  PsiWhiteSpace(' ')
+  SQL_COMMIT_STATEMENT
+    PsiElement(COMMIT)('COMMIT')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:AND, NO, RELEASE or WORK expected, got 'DISTRIBUTED'
+      PsiElement(SQL_IDENT)('DISTRIBUTED')
+    PsiWhiteSpace(' ')
+    PsiElement(BY)('BY')
+    PsiWhiteSpace(' ')
+    PsiElement(RANDOM)('RANDOM')
+    PsiWhiteSpace(' ')
+    PsiElement(BUCKETS)('BUCKETS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('AUTO')
+    PsiWhiteSpace('\n')
+    PsiElement(AS)('AS')
+  PsiErrorElement:';' expected, got 'SELECT'
+    <empty list>
+  PsiWhiteSpace(' ')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_id')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

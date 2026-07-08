@@ -1,0 +1,86 @@
+SqlFile:corpus.sql
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(ADD)('ADD')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('category')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(VARCHAR)('VARCHAR')
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('32')
+          PsiElement())(')')
+        PsiWhiteSpace(' ')
+        SQL_DEFAULT_CONSTRAINT_DEFINITION
+          PsiElement(DEFAULT)('DEFAULT')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT_DELIMITED)('"unknown"')
+      PsiWhiteSpace(' ')
+      SQL_CLAUSE
+        PsiElement(AFTER)('AFTER')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_SHORT_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('tags')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(MODIFY)('MODIFY')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('tags')
+      PsiWhiteSpace(' ')
+      SQL_BUILTIN_TYPE_ELEMENT
+        PsiElement(VARCHAR)('VARCHAR')
+        PsiElement(()('(')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('256')
+        PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(DROP)('DROP')
+      PsiWhiteSpace(' ')
+      PsiElement(COLUMN)('COLUMN')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('category')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

@@ -65,8 +65,10 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
 
     /**
      * Attempt to replay the statement at the builder's current position onto typed platform PSI.
-     * Covers the query family (SELECT / WITH / QUALIFY) and the Doris statement-lead families the
-     * mapping table understands (CREATE [MATERIALIZED] VIEW, CREATE TABLE, REFRESH, WARM UP, SWITCH).
+     * Covers the query family (SELECT / WITH / QUALIFY), the Doris statement-lead families the
+     * mapping table understands (CREATE [MATERIALIZED] VIEW, CREATE TABLE, REFRESH, WARM UP, SWITCH,
+     * CREATE JOB), and the DML long-tail forms with pinned platform shapes (single-table UPDATE,
+     * DELETE [USING] — see [updateDeleteReplayable]).
      * Returns true iff a coherent PSI tree was produced (builder advanced to the statement's end,
      * exclusive of the terminating ';'); false with the builder untouched/rolled-back otherwise, so
      * the caller falls through to the existing lenient/delegation path unchanged.
@@ -87,13 +89,87 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // column typing, and completion (dogfood 2026-07-08: tasks()/jobs()/S3() red in file editors).
         if (containsContext(root, "TableValuedFunctionContext")) return false
 
+        // CTAS (`CREATE TABLE ... AS <query>`) — DECLINE, consume nothing (dogfood 2026-07-08: CTAS
+        // key/order columns red). A CTAS defines its columns FROM the query, so there are no
+        // columnDef PSI nodes for the ctasCols / DUPLICATE KEY / DISTRIBUTED identifier lists to
+        // resolve against; replaying them as SQL_REFERENCE_LIST column references red-flags every
+        // name. The lenient path (statement run + real query tail) is strictly better today.
+        if (containsCtas(root)) return false
+
+        // UPDATE / DELETE variant gate: only the forms whose platform shape is pinned replay (plain
+        // single-table UPDATE; DELETE with/without USING). Doris-only tails DECLINE to delegation.
+        if (!updateDeleteReplayable(root)) return false
+
         val nodes = ArrayList<Node>()
         val seq = intArrayOf(0)
         collect(root, parse.ruleNames, statementStart, nodes, seq, null, false)
         if (nodes.isEmpty()) return false
 
+        // Honesty guard: the FIRST materialised node (pre-order => the outermost) must be a known
+        // top-level statement kind spanning the entire statement. A statement family the grammar
+        // ACCEPTS but the mapping table has no statement-lead entry for (CREATE TABLE LIKE, and any
+        // future family that sneaks past wantsReplay) would otherwise replay as loose tokens + inner
+        // identifier leaves with NO statement wrapper — breaking run-block boundaries. Decline instead:
+        // never an accepted-but-shapeless statement.
         val statementEndOffset = statementStart + rootStop.stopIndex // absolute, inclusive
+        val top = nodes.first()
+        if (top.startOffset != statementStart || top.endOffset != statementEndOffset ||
+            top.type !in ReplayMapping.TOP_STATEMENT_TYPES) return false
+
         return replay(nodes, statementEndOffset)
+    }
+
+    /** True iff the statement is a CTAS: a CreateTableContext with a direct `query` child. */
+    private fun containsCtas(ctx: ParserRuleContext): Boolean {
+        if (ctx.javaClass.simpleName == "CreateTableContext" && hasChildClass(ctx, "QueryContext")) return true
+        for (i in 0 until ctx.childCount) {
+            val child = ctx.getChild(i)
+            if (child is ParserRuleContext && containsCtas(child)) return true
+        }
+        return false
+    }
+
+    /**
+     * UPDATE / DELETE variant gate (Part 2, statement long-tail). Replay covers exactly the forms whose
+     * platform PSI shape is pinned by a golden:
+     *  - UPDATE <tbl> SET ... [WHERE]           (golden 51 — single-table, no alias, no FROM tail)
+     *  - DELETE FROM <tbl> [USING rels] [WHERE] (goldens 34/50 — no PARTITION spec, no alias)
+     * Everything else DECLINES so the existing delegation/lenient path keeps handling it:
+     *  - UPDATE ... FROM <rels> (Doris-only): no platform shape to reproduce; the FROM relations would
+     *    end up loose runs inside a typed statement platform inspections may prod.
+     *  - a target `tableAlias`: the platform wraps aliased targets differently (unpinned) — decline
+     *    rather than guess.
+     *  - DELETE ... PARTITION/PARTITIONS (...): MySQL's typed partition clause (singular form) is
+     *    richer than a replayed token run — delegation is strictly better; the plural form is lenient
+     *    by dispatch. Partition names are also not column refs (the REFRESH-MV dogfood class).
+     * Statements that are neither UPDATE nor DELETE pass through untouched.
+     */
+    private fun updateDeleteReplayable(root: ParserRuleContext): Boolean {
+        val stmt = findContext(root, "UpdateContext") ?: findContext(root, "DeleteContext") ?: return true
+        if (hasNonEmptyChildOfClass(stmt, "TableAliasContext")) return false
+        return when (stmt.javaClass.simpleName) {
+            "UpdateContext" -> !hasNonEmptyChildOfClass(stmt, "FromClauseContext")
+            else -> !hasNonEmptyChildOfClass(stmt, "PartitionSpecContext")
+        }
+    }
+
+    /** First context of the given simpleName in the subtree (inclusive), or null. */
+    private fun findContext(ctx: ParserRuleContext, simpleName: String): ParserRuleContext? {
+        if (ctx.javaClass.simpleName == simpleName) return ctx
+        for (i in 0 until ctx.childCount) {
+            val child = ctx.getChild(i)
+            if (child is ParserRuleContext) findContext(child, simpleName)?.let { return it }
+        }
+        return null
+    }
+
+    /** True iff [ctx] has a direct child context of [simpleName] that actually spans tokens. */
+    private fun hasNonEmptyChildOfClass(ctx: ParserRuleContext, simpleName: String): Boolean {
+        for (i in 0 until ctx.childCount) {
+            val child = ctx.getChild(i) as? ParserRuleContext ?: continue
+            if (child.javaClass.simpleName == simpleName && hasTokens(child)) return true
+        }
+        return false
     }
 
     // --- ANTLR parse ---------------------------------------------------------------------------
@@ -141,7 +217,15 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         val cls = ctx.javaClass.simpleName
 
         // Delegation-point detection: is this the outermost expression of a delegating clause/item?
-        if (isDelegationExpr(parentClass, ruleNameOf(ctx, ruleNames)) && hasTokens(ctx)) {
+        // MvPartition carve-out: only its FUNCTION form (`PARTITION BY (date_trunc(dt, 'day'))`)
+        // delegates — the platform renders a real SQL_FUNCTION_CALL that resolves as a builtin. The
+        // bare-COLUMN form (`PARTITION BY (event_date)`) must NOT delegate: the platform would shape
+        // it as a SQL_COLUMN_REFERENCE, which resolve-checks against a scope the CREATE MATERIALIZED
+        // VIEW statement does not provide (the dogfood class of red bare identifiers). Skipping the
+        // delegation lets normal descent materialise a bare SQL_IDENTIFIER leaf instead — stable, quiet.
+        val mvPartitionBareColumn =
+            cls == "MvPartitionContext" && !containsContext(ctx, "FunctionCallExpressionContext")
+        if (isDelegationExpr(parentClass, ruleNameOf(ctx, ruleNames)) && hasTokens(ctx) && !mvPartitionBareColumn) {
             val bareStar = bareStarOf(ctx)
             if (bareStar != null) {
                 // Bare `*` / `t.*` are select-all, which the platform models as SQL_COLUMN_REFERENCE
@@ -222,6 +306,12 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // insert PSI around the target reference and the replayed query. Emit BEFORE descending so the
         // wrappers open ahead of the table reference / query expression they contain.
         if (cls == "InsertTableContext") emitInsertSkeleton(ctx, absStart, out, seq)
+
+        // UPDATE / DELETE (Part 2): synthesise the platform DML-instruction wrappers around the
+        // target/relations the CST provides as bare siblings. Emit BEFORE descending so the wrappers
+        // open ahead of the table reference / assignments they contain.
+        if (cls == "UpdateContext") emitUpdateSkeleton(ctx, absStart, out, seq)
+        if (cls == "DeleteContext") emitDeleteSkeleton(ctx, absStart, out, seq)
 
         // Synthetic SQL_TABLE_EXPRESSION: the platform groups the query BODY (FROM + WHERE + GROUP BY +
         // HAVING) into one node the flat ANTLR grammar lacks. It stops before the queryOrganization
@@ -384,6 +474,9 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // they keep their SQL_REFERENCE_LIST shape and are not delegated here.
         "IdentityOrFunctionListContext" -> childRule == "identityOrFunction"
         "CreateMTMVContext" -> childRule == "mvPartition"
+        // UPDATE ... SET col = <expr>: the RHS of each assignment (the LHS is a multipartIdentifier,
+        // shaped as SQL_COLUMN_REFERENCE via REFERENCE_PARENTS — golden 51).
+        "UpdateAssignmentContext" -> childRule == "expression"
         else -> false
     }
 
@@ -433,6 +526,56 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         out.add(Node(absStart + intoStart, absStart + end, ReplayMapping.INSERT_DML_INSTRUCTION, seq[0]++))
         out.add(Node(absStart + target.start.startIndex, absStart + target.stop.stopIndex,
             ReplayMapping.TABLE_COLUMN_LIST, seq[0]++))
+    }
+
+    /**
+     * Synthesise the platform's UPDATE body wrappers (golden 51 / golden/mysql/mysql-core/33):
+     *
+     *   SQL_UPDATE_STATEMENT           (UpdateContext via BY_CONTEXT_CLASS)
+     *     SQL_UPDATE_DML_INSTRUCTION   [target .. statement-end]
+     *       SQL_TABLE_REFERENCE        (target multipart via REFERENCE_PARENTS)
+     *       SQL_SET_CLAUSE             [SET .. last assignment]
+     *         SQL_SET_ASSIGNMENT ...   (UpdateAssignmentContext; RHS delegated)
+     *       SQL_WHERE_CLAUSE           (normal whereClause mapping)
+     *
+     * Landmarks are guaranteed by [updateDeleteReplayable] + the grammar (UPDATE always has a target,
+     * SET, and at least one assignment); missing ones emit nothing and the statement then fails the
+     * top-level guard or replays without the wrapper — caught by the pinned goldens, never silent.
+     */
+    private fun emitUpdateSkeleton(ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val end = ctx.stop?.stopIndex ?: return
+        val target = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { it.javaClass.simpleName == "MultipartIdentifierContext" && hasTokens(it) } ?: return
+        val setStart = firstTerminalCi(ctx, "SET") ?: return
+        val assignments = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { it.javaClass.simpleName == "UpdateAssignmentSeqContext" && hasTokens(it) } ?: return
+        out.add(Node(absStart + target.start.startIndex, absStart + end, ReplayMapping.UPDATE_DML_INSTRUCTION, seq[0]++))
+        out.add(Node(absStart + setStart, absStart + assignments.stop.stopIndex, ReplayMapping.SET_CLAUSE, seq[0]++))
+    }
+
+    /**
+     * Synthesise the platform's DELETE body wrappers. Two pinned shapes:
+     *  - plain:  SQL_DELETE_DML_INSTRUCTION [FROM .. end] > SQL_FROM_CLAUSE [FROM .. target] + WHERE
+     *    (golden/doris/doris/50, third statement)
+     *  - USING:  SQL_DELETE_DML_INSTRUCTION [FROM .. end] > SQL_CLAUSE [FROM .. target] +
+     *    SQL_FROM_CLAUSE [USING .. relations-end] + WHERE (golden/mysql/mysql-core/34)
+     * The USING relations reuse the query FROM machinery (nested joins, table refs, ON delegation).
+     */
+    private fun emitDeleteSkeleton(ctx: ParserRuleContext, absStart: Int, out: MutableList<Node>, seq: IntArray) {
+        val end = ctx.stop?.stopIndex ?: return
+        val fromStart = firstTerminalCi(ctx, "FROM") ?: return
+        val target = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { it.javaClass.simpleName == "MultipartIdentifierContext" && hasTokens(it) } ?: return
+        val usingStart = firstTerminalCi(ctx, "USING")
+        val relations = (0 until ctx.childCount).mapNotNull { ctx.getChild(it) as? ParserRuleContext }
+            .firstOrNull { it.javaClass.simpleName == "RelationsContext" && hasTokens(it) }
+        out.add(Node(absStart + fromStart, absStart + end, ReplayMapping.DELETE_DML_INSTRUCTION, seq[0]++))
+        if (usingStart != null && relations != null) {
+            out.add(Node(absStart + fromStart, absStart + target.stop.stopIndex, ReplayMapping.GENERIC_CLAUSE, seq[0]++))
+            out.add(Node(absStart + usingStart, absStart + relations.stop.stopIndex, ReplayMapping.FROM_CLAUSE, seq[0]++))
+        } else {
+            out.add(Node(absStart + fromStart, absStart + target.stop.stopIndex, ReplayMapping.FROM_CLAUSE, seq[0]++))
+        }
     }
 
     /**

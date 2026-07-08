@@ -1,0 +1,167 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_site_visits')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('site_id')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('dt')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(DATE)('DATE')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('city')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(VARCHAR)('VARCHAR')
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('32')
+          PsiElement())(')')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('pv')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(BIGINT)('BIGINT')
+        PsiWhiteSpace(' ')
+        PsiErrorElement:'(', <column generated clause>, <constraint>, AUTO_INCREMENT, COLLATE, COLUMN_FORMAT, COMMENT, DEFAULT, INVISIBLE, ON, SERIAL, SIGNED, SRID, STORAGE, UNSIGNED or ZEROFILL expected, got 'SUM'
+          PsiElement(SQL_IDENT)('SUM')
+        PsiWhiteSpace(' ')
+        PsiElement(DEFAULT)('DEFAULT')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"0"')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('max_latency')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+        PsiWhiteSpace(' ')
+        PsiErrorElement:'(', <column generated clause>, <constraint>, AUTO_INCREMENT, COLLATE, COLUMN_FORMAT, COMMENT, DEFAULT, INVISIBLE, ON, SERIAL, SIGNED, SRID, STORAGE, UNSIGNED or ZEROFILL expected, got 'MAX'
+          PsiElement(SQL_IDENT)('MAX')
+        PsiWhiteSpace(' ')
+        PsiElement(DEFAULT)('DEFAULT')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"0"')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('min_latency')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+        PsiWhiteSpace(' ')
+        PsiErrorElement:'(', <column generated clause>, <constraint>, AUTO_INCREMENT, COLLATE, COLUMN_FORMAT, COMMENT, DEFAULT, INVISIBLE, ON, SERIAL, SIGNED, SRID, STORAGE, UNSIGNED or ZEROFILL expected, got 'MIN'
+          PsiElement(SQL_IDENT)('MIN')
+        PsiWhiteSpace(' ')
+        PsiElement(DEFAULT)('DEFAULT')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"999999"')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('last_visit')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(DATETIME)('DATETIME')
+        PsiWhiteSpace(' ')
+        PsiErrorElement:'(', <column generated clause>, <constraint>, AUTO_INCREMENT, COLLATE, COLUMN_FORMAT, COMMENT, DEFAULT, INVISIBLE, ON, SRID or STORAGE expected, got 'REPLACE'
+          PsiElement(REPLACE)('REPLACE')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('uv')
+        PsiErrorElement:<type> expected, got 'BITMAP'
+          <empty list>
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('BITMAP')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('BITMAP_UNION')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('uniq_users')
+        PsiErrorElement:<type> expected, got 'HLL'
+          <empty list>
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('HLL')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('HLL_UNION')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:<as query clause>, <default charset option>, <default collate option>, <engine clause>, <other table option>, COMMENT or PARTITION expected, got 'AGGREGATE'
+      PsiElement(AGGREGATE)('AGGREGATE')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(KEY)('KEY')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('site_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('dt')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('city')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('DISTRIBUTED')
+      PsiWhiteSpace(' ')
+      PsiElement(BY)('BY')
+      PsiWhiteSpace(' ')
+      PsiElement(HASH)('HASH')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('site_id')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(BUCKETS)('BUCKETS')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_INTEGER_TOKEN)('10')
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+        PsiWhiteSpace(' ')
+        PsiElement(=)('=')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"1"')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

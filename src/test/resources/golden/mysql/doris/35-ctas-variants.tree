@@ -1,0 +1,180 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_summary')
+    PsiErrorElement:'(', <as query clause>, <default charset option>, <default collate option>, <engine clause>, <like table clause>, <other table option>, COMMENT or PARTITION expected, got 'PROPERTIES'
+      <empty list>
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('PROPERTIES')
+  PsiErrorElement:';' expected, got '('
+    <empty list>
+  PsiWhiteSpace(' ')
+  SQL_SELECT_STATEMENT
+    SQL_PARENTHESIZED_QUERY_EXPRESSION
+      PsiElement(()('(')
+      PsiErrorElement:<query expression> expected, got '"replication_num"'
+        PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+      PsiWhiteSpace(' ')
+      PsiElement(=)('=')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT_DELIMITED)('"1"')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:EXCEPT, FOR, INTERSECT, INTO, LIMIT, LOCK, ORDER, PROCEDURE or UNION expected, got 'AS'
+      PsiElement(AS)('AS')
+  PsiWhiteSpace(' ')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_AS_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(COUNT_IDENT)('COUNT')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+              INFO:[expr:any*]
+                <empty list>
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('cnt')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_events')
+        PsiWhiteSpace(' ')
+        SQL_GROUP_BY_CLAUSE
+          PsiElement(GROUP)('GROUP')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_id')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_summary2')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('uid')
+        PsiErrorElement:<type> expected, got ','
+          <empty list>
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('total')
+        PsiErrorElement:<type> expected, got ')'
+          <empty list>
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:<as query clause>, <default charset option>, <default collate option>, <engine clause>, <other table option>, COMMENT or PARTITION expected, got 'DISTRIBUTED'
+      PsiElement(SQL_IDENT)('DISTRIBUTED')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(BY)('BY')
+      PsiWhiteSpace(' ')
+      PsiElement(HASH)('HASH')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('uid')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(BUCKETS)('BUCKETS')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_INTEGER_TOKEN)('4')
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+        PsiWhiteSpace(' ')
+        PsiElement(=)('=')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"1"')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(AS)('AS')
+  PsiErrorElement:';' expected, got 'SELECT'
+    <empty list>
+  PsiWhiteSpace(' ')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('user_id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('SUM')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('amount')
+            INFO:[expr:decimal]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_orders')
+        PsiWhiteSpace(' ')
+        SQL_GROUP_BY_CLAUSE
+          PsiElement(GROUP)('GROUP')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('user_id')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

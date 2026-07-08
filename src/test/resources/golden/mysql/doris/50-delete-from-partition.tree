@@ -1,0 +1,94 @@
+SqlFile:corpus.sql
+  SQL_DELETE_STATEMENT
+    PsiElement(DELETE)('DELETE')
+    PsiWhiteSpace(' ')
+    SQL_DELETE_DML_INSTRUCTION
+      SQL_FROM_CLAUSE
+        PsiElement(FROM)('FROM')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('acme_events')
+      PsiWhiteSpace(' ')
+      SQL_CLAUSE
+        PsiElement(PARTITION)('PARTITION')
+        PsiWhiteSpace(' ')
+        PsiElement(()('(')
+        SQL_PARTITION_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('p20260701')
+        PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_WHERE_CLAUSE
+        PsiElement(WHERE)('WHERE')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('event_ts')
+          PsiWhiteSpace(' ')
+          PsiElement(<)('<')
+          PsiWhiteSpace(' ')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)(''2026-07-01 00:00:00'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_DELETE_STATEMENT
+    PsiElement(DELETE)('DELETE')
+    PsiWhiteSpace(' ')
+    SQL_DELETE_DML_INSTRUCTION
+      SQL_FROM_CLAUSE
+        PsiElement(FROM)('FROM')
+        PsiWhiteSpace(' ')
+        SQL_AS_EXPRESSION
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_events_daily')
+          PsiWhiteSpace(' ')
+          SQL_IDENTIFIER
+            PsiElement(PARTITIONS_IDENT)('PARTITIONS')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiErrorElement:FOR, LIMIT, LOCK, ORDER, PARTITION or WHERE expected, got '('
+        PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('p20260601')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('p20260602')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(WHERE)('WHERE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('event_id')
+    PsiWhiteSpace(' ')
+    PsiElement(>)('>')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('0')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_DELETE_STATEMENT
+    PsiElement(DELETE)('DELETE')
+    PsiWhiteSpace(' ')
+    SQL_DELETE_DML_INSTRUCTION
+      SQL_FROM_CLAUSE
+        PsiElement(FROM)('FROM')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('acme_orders')
+      PsiWhiteSpace(' ')
+      SQL_WHERE_CLAUSE
+        PsiElement(WHERE)('WHERE')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('order_status')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)(''CANCELLED'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

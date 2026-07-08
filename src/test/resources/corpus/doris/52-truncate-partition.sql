@@ -1,0 +1,2 @@
+TRUNCATE TABLE acme_events;
+TRUNCATE TABLE acme_events_daily PARTITION (p20260601, p20260602);

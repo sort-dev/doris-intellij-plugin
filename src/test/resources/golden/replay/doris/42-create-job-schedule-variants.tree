@@ -1,0 +1,165 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('JOB')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('acme_minutely_job')
+    PsiWhiteSpace('\n')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(SCHEDULE)('SCHEDULE')
+    PsiWhiteSpace(' ')
+    PsiElement(EVERY)('EVERY')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('1')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(MINUTE_IDENT)('MINUTE')
+    PsiWhiteSpace('\n')
+    PsiElement(DO)('DO')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_STATEMENT
+      PsiElement(INSERT)('INSERT')
+      PsiWhiteSpace(' ')
+      SQL_INSERT_DML_INSTRUCTION
+        PsiElement(INTO)('INTO')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_COLUMN_LIST
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_stage')
+        PsiWhiteSpace(' ')
+        SQL_QUERY_EXPRESSION
+          SQL_SELECT_CLAUSE
+            PsiElement(SELECT)('SELECT')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_EXPRESSION
+            SQL_FROM_CLAUSE
+              PsiElement(FROM)('FROM')
+              PsiWhiteSpace(' ')
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('acme_landing')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('JOB')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('acme_daily_job')
+    PsiWhiteSpace('\n')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(SCHEDULE)('SCHEDULE')
+    PsiWhiteSpace(' ')
+    PsiElement(EVERY)('EVERY')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('1')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(DAY_IDENT)('DAY')
+    PsiWhiteSpace(' ')
+    PsiElement(STARTS)('STARTS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_STRING_TOKEN)(''2026-07-09 03:00:00'')
+    PsiWhiteSpace(' ')
+    PsiElement(ENDS)('ENDS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_STRING_TOKEN)(''2026-12-31 03:00:00'')
+    PsiWhiteSpace('\n')
+    PsiElement(DO)('DO')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_STATEMENT
+      PsiElement(INSERT)('INSERT')
+      PsiWhiteSpace(' ')
+      SQL_INSERT_DML_INSTRUCTION
+        PsiElement(INTO)('INTO')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_COLUMN_LIST
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_archive')
+        PsiWhiteSpace(' ')
+        SQL_QUERY_EXPRESSION
+          SQL_SELECT_CLAUSE
+            PsiElement(SELECT)('SELECT')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_EXPRESSION
+            SQL_FROM_CLAUSE
+              PsiElement(FROM)('FROM')
+              PsiWhiteSpace(' ')
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('acme_events')
+            PsiWhiteSpace(' ')
+            SQL_WHERE_CLAUSE
+              PsiElement(WHERE)('WHERE')
+              PsiWhiteSpace(' ')
+              SQL_BINARY_EXPRESSION
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('event_ts')
+                PsiWhiteSpace(' ')
+                PsiElement(<)('<')
+                PsiWhiteSpace(' ')
+                SQL_FUNCTION_CALL
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(CURRENT_DATE_IDENT)('CURRENT_DATE')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('JOB')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('acme_once_job')
+    PsiWhiteSpace('\n')
+    PsiElement(ON)('ON')
+    PsiWhiteSpace(' ')
+    PsiElement(SCHEDULE)('SCHEDULE')
+    PsiWhiteSpace(' ')
+    PsiElement(AT)('AT')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_STRING_TOKEN)(''2026-07-10 00:00:00'')
+    PsiWhiteSpace('\n')
+    PsiElement(DO)('DO')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_STATEMENT
+      PsiElement(INSERT)('INSERT')
+      PsiWhiteSpace(' ')
+      SQL_INSERT_DML_INSTRUCTION
+        PsiElement(INTO)('INTO')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_COLUMN_LIST
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('acme_snapshot')
+        PsiWhiteSpace(' ')
+        SQL_QUERY_EXPRESSION
+          SQL_SELECT_CLAUSE
+            PsiElement(SELECT)('SELECT')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              PsiElement(*)('*')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_EXPRESSION
+            SQL_FROM_CLAUSE
+              PsiElement(FROM)('FROM')
+              PsiWhiteSpace(' ')
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('acme_events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
