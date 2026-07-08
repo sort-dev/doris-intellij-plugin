@@ -1,0 +1,19 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(SQL_IDENT)('REFRESH')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('MATERIALIZED')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_derived')
+      PsiElement(.)('.')
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_watch_time_daily_mv')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('COMPLETE')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

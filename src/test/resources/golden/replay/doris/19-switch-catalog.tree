@@ -1,0 +1,17 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(SQL_IDENT)('SWITCH')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('hive_archive')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

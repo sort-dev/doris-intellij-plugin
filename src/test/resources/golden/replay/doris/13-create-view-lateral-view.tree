@@ -1,0 +1,142 @@
+SqlFile:corpus.sql
+  SQL_CREATE_VIEW_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(OR)('OR')
+    PsiWhiteSpace(' ')
+    PsiElement(REPLACE)('REPLACE')
+    PsiWhiteSpace(' ')
+    PsiElement(VIEW)('VIEW')
+    PsiWhiteSpace(' ')
+    SQL_VIEW_REFERENCE
+      SQL_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_bi')
+      PsiElement(.)('.')
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('unique_experiments')
+    PsiWhiteSpace(' ')
+    SQL_AS_QUERY_CLAUSE
+      PsiElement(AS)('AS')
+      PsiWhiteSpace('\n')
+      SQL_QUERY_EXPRESSION
+        SQL_SELECT_CLAUSE
+          PsiElement(SELECT)('SELECT')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('tag')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_AS_EXPRESSION
+            SQL_FUNCTION_CALL
+              SQL_ANY_CALLABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(COUNT_IDENT)('COUNT')
+              PsiElement(()('(')
+              SQL_ARGUMENT_LIST
+                SQL_COLUMN_REFERENCE
+                  PsiElement(*)('*')
+                INFO:[expr:any*]
+                  <empty list>
+                INFO:[0]
+                  <empty list>
+              PsiElement())(')')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(ROW_COUNT_IDENT)('row_count')
+        PsiWhiteSpace('\n')
+        SQL_TABLE_EXPRESSION
+          SQL_FROM_CLAUSE
+            PsiElement(FROM)('FROM')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_REFERENCE
+              SQL_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('acme_derived')
+              PsiElement(.)('.')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('events_watch_time_window_1d')
+            PsiWhiteSpace('\n')
+            PsiElement(LATERAL)('LATERAL')
+            PsiWhiteSpace(' ')
+            PsiElement(VIEW)('VIEW')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('EXPLODE')
+            PsiElement(()('(')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('experiments')
+            PsiElement())(')')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('e')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('tag')
+          PsiWhiteSpace('\n')
+          SQL_WHERE_CLAUSE
+            PsiElement(WHERE)('WHERE')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('window_start_at')
+              PsiWhiteSpace(' ')
+              PsiElement(>=)('>=')
+              PsiWhiteSpace(' ')
+              SQL_BINARY_EXPRESSION
+                SQL_FUNCTION_CALL
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(CURRENT_TIMESTAMP_IDENT)('CURRENT_TIMESTAMP')
+                PsiWhiteSpace(' ')
+                PsiElement(-)('-')
+                PsiWhiteSpace(' ')
+                SQL_INTERVAL_LITERAL
+                  PsiElement(INTERVAL)('interval')
+                  PsiWhiteSpace(' ')
+                  SQL_NUMERIC_LITERAL
+                    PsiElement(SQL_INTEGER_TOKEN)('6')
+                  PsiWhiteSpace(' ')
+                  PsiElement(MONTH)('month')
+          PsiWhiteSpace('\n')
+          SQL_GROUP_BY_CLAUSE
+            PsiElement(GROUP)('GROUP')
+            PsiWhiteSpace(' ')
+            PsiElement(BY)('BY')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('tag')
+          PsiWhiteSpace('\n')
+          SQL_HAVING_CLAUSE
+            PsiElement(HAVING)('HAVING')
+            PsiWhiteSpace(' ')
+            SQL_BINARY_EXPRESSION
+              SQL_COLUMN_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(ROW_COUNT_IDENT)('row_count')
+              PsiWhiteSpace(' ')
+              PsiElement(>)('>')
+              PsiWhiteSpace(' ')
+              SQL_NUMERIC_LITERAL
+                PsiElement(SQL_INTEGER_TOKEN)('1000')
+        PsiWhiteSpace('\n')
+        SQL_ORDER_BY_CLAUSE
+          PsiElement(ORDER)('ORDER')
+          PsiWhiteSpace(' ')
+          PsiElement(BY)('BY')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(ROW_COUNT_IDENT)('row_count')
+          PsiWhiteSpace(' ')
+          PsiElement(DESC)('DESC')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
