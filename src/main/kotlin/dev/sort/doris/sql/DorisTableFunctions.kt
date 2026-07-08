@@ -322,6 +322,31 @@ object DorisTableFunctions {
 
     val allNames: List<String> get() = SPECS.map { it.name }
 
+    /**
+     * The innermost enclosing REGISTERED TVF call whose argument parens contain [offset], walking
+     * up from [position] (a PSI leaf/element at the caret). Shared between
+     * [DorisCompletionContributor] (property-key/value completion) and
+     * [DorisTvfAutoPopupConfidence] (don't skip autopopup inside the quoted property strings) so
+     * the two always agree on what counts as "inside a TVF's parens". With empty parens the caret
+     * leaf can be the ')' or an error element whose parent is the call itself, so the gate is
+     * "after the '('" rather than the argument-list element's range.
+     */
+    fun callWithCaretInArgs(
+        position: com.intellij.psi.PsiElement,
+        offset: Int,
+    ): com.intellij.sql.psi.SqlFunctionCallExpression? {
+        var call = com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+            position, com.intellij.sql.psi.SqlFunctionCallExpression::class.java, false)
+        while (call != null) {
+            val parenIndex = call.text.indexOf('(')
+            val insideParens = parenIndex >= 0 && offset > call.textRange.startOffset + parenIndex
+            if (insideParens && byName(call.nameElement?.name) != null) return call
+            call = com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+                call, com.intellij.sql.psi.SqlFunctionCallExpression::class.java)
+        }
+        return null
+    }
+
     // -- BuiltinFunction registration -----------------------------------------------------------
 
     /**

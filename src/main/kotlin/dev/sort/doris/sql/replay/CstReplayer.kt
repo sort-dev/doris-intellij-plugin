@@ -297,6 +297,20 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         // Emit BEFORE descending so it opens ahead of the query expression it contains.
         if (cls in ReplayMapping.AS_QUERY_PARENTS) emitAsQueryClause(ctx, absStart, out, seq)
 
+        // NB (dogfood 2026-07-08 item 7, investigated and DECLINED): the one structural delta between
+        // the replayed Doris CREATE TABLE and the platform MySQL shape is the missing
+        // SQL_TABLE_ELEMENT_LIST wrapper around the parenthesised definitions. It CANNOT be
+        // synthesised like the SQL_TABLE_EXPRESSION one: SqlCompositeElementTypes.SQL_TABLE_ELEMENT_LIST
+        // is a SqlLazyElementType (IReparseableElementType chameleon) that the platform only ever
+        // creates COLLAPSED (its PSI is SqlLazyParseablePsiElement, built by the AST factory from
+        // text). A replay marker.done(type) with children hits the hard AssertionError in
+        // SqlElementFactory.createCompositeElement (MysqlElementFactory has no PSI mapping for it),
+        // and marker.collapse(type) would surrender the span to a LAZY REPARSE by the generated
+        // MySQL DDL grammar — reintroducing exactly the Doris mis-parses replay exists to avoid
+        // (golden/mysql/doris/24: "<type> expected, got 'STRING'", "BTREE or HASH expected, got
+        // 'INVERTED'") and violating the pinned zero-PsiErrorElement replay contract. The replayed
+        // definitions therefore deliberately stay direct children of the statement.
+
         // CREATE TABLE inline index (`indexDef`): the IndexDefContext itself maps to SQL_INDEX_DEFINITION
         // (BY_CONTEXT_CLASS); here we wrap its NAME identifier in SQL_INDEX_REFERENCE so the index name is
         // a typed, navigable reference (MySQL inline-index shape) rather than a bare SQL_IDENTIFIER.

@@ -18,7 +18,9 @@ import com.intellij.sql.psi.stubs.elementTypes.SqlFileElementType
 class DorisParserDefinition : SqlParserDefinitionBase() {
     override fun createElementFactory(): SqlElementFactoryBase = MysqlElementFactory()
     // DorisLexer wraps MysqlLexer to mask `* EXCEPT(cols)` before the generated grammar mis-reads
-    // EXCEPT as a set operator. Parser-only; the editor highlighter uses its own MysqlLexer.
+    // EXCEPT as a set operator. NB this lexer also drives editor syntax coloring (the platform's
+    // SqlSyntaxHighlighter takes its lexer from this ParserDefinition), so masked spans lex as
+    // comments in the editor too — DorisMaskedSpanRecolorAnnotator paints them back.
     override fun createLexer(project: Project): Lexer = DorisLexer()
     override fun createParser(project: Project): PsiParser = DorisPsiParser()
     override fun getFileNodeType(): IFileElementType = FILE

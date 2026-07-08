@@ -53,7 +53,9 @@ class DorisKeywordHighlighter(private val base: SyntaxHighlighter) : SyntaxHighl
             for (kw in DorisOptionalKeywords.OPTIONAL_KEYWORDS) add(kw.uppercase(Locale.ROOT))
         }
 
-        private fun isDorisKeyword(text: CharSequence): Boolean =
+        // Internal: also consulted by DorisMaskedSpanRecolorAnnotator to color words inside
+        // lexer-masked spans the way this highlighter would color them as free-standing tokens.
+        internal fun isDorisKeyword(text: CharSequence): Boolean =
             KEYWORDS.contains(text.toString().uppercase(Locale.ROOT))
     }
 }

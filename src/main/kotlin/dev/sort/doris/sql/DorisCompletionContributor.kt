@@ -92,22 +92,10 @@ class DorisCompletionContributor : CompletionContributor() {
             val position = parameters.position
             val offset = parameters.offset
 
-            // Enclosing registered TVF call with the caret inside its argument parens. Walk up
-            // from the caret leaf; with empty parens the leaf can be the ')' token or an error
-            // element whose parent is the call itself, so gate on "after the '('" rather than on
-            // the argument-list element's range.
-            var call = PsiTreeUtil.getParentOfType(position, SqlFunctionCallExpression::class.java, false)
-            var tvf: DorisTableFunctions.Tvf? = null
-            while (call != null) {
-                val parenIndex = call.text.indexOf('(')
-                val insideParens = parenIndex >= 0 && offset > call.textRange.startOffset + parenIndex
-                if (insideParens) {
-                    tvf = DorisTableFunctions.byName(call.nameElement?.name)
-                    if (tvf != null) break
-                }
-                call = PsiTreeUtil.getParentOfType(call, SqlFunctionCallExpression::class.java)
-            }
-            if (tvf == null || call == null) return
+            // Enclosing registered TVF call with the caret inside its argument parens (shared with
+            // DorisTvfAutoPopupConfidence so autopopup and the provider agree on the context).
+            val call = DorisTableFunctions.callWithCaretInArgs(position, offset) ?: return
+            val tvf = DorisTableFunctions.byName(call.nameElement?.name) ?: return
 
             // Value position = caret inside/after the right operand of a `lhs = rhs` argument.
             val binary = PsiTreeUtil.getParentOfType(position, SqlBinaryExpression::class.java)

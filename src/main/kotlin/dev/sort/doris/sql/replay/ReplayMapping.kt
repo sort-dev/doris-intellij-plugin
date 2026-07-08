@@ -371,6 +371,8 @@ internal object ReplayMapping {
 
     /** SQL_INDEX_REFERENCE: the NAME of a CREATE TABLE inline index (`INDEX <name> ...`; MySQL shape). */
     val INDEX_REFERENCE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INDEX_REFERENCE
+    // NB: no SQL_TABLE_ELEMENT_LIST mapping on purpose — it is a reparseable CHAMELEON the replay
+    // bridge cannot emit; see the DECLINED note in [CstReplayer.collect] (dogfood item 7).
 
     /** Context class of the LIMIT clause; hosts synthetic SQL_NUMERIC_LITERAL wrappers per integer. */
     const val LIMIT_CLAUSE_CLASS: String = "LimitClauseContext"

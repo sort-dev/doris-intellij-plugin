@@ -183,12 +183,23 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
      *     against the AS-query's projection, which the platform never computes for the replayed
      *     Doris shape. Gated on the statement really being a CTAS (no declared columns + AS query);
      *     a CREATE TABLE with real column definitions keeps key-column validation.
+     *
+     *  5. [isLateralViewRelic] — `LATERAL VIEW [POS]EXPLODE(expr) tv AS a[, b]` (P3, dogfood
+     *     2026-07-08). The construct has no platform PSI shape: the replayed tree materialises the
+     *     table/column aliases as bare identifier leaves inside the FROM clause and the generator's
+     *     argument as a column reference in a scope that cannot see the FROM tables; the lenient
+     *     (flag-off) tree mangles it further. Nothing can resolve: references NAMED like a
+     *     lateral-view alias of the same statement, and references physically INSIDE a lateral-view
+     *     span, are dropped. Textual gate like the EXCEPT ones (works identically for both parse
+     *     shapes); a name matching no alias — outside every lateral-view span — keeps its error.
+     *     Real resolution needs the platform to model lateral-view output columns (type-calc relic).
      */
     private fun isDorisUnresolvedFalsePositive(element: PsiElement): Boolean =
         isSessionVariableTarget(element) ||
             isBareTokenRunIdentifier(element) ||
             isSelectAliasInGroupBy(element) ||
-            isCtasKeyColumn(element)
+            isCtasKeyColumn(element) ||
+            isLateralViewRelic(element)
 
     private fun isSessionVariableTarget(element: PsiElement): Boolean =
         PsiTreeUtil.getParentOfType(element, SqlSetAssignment::class.java) != null
@@ -206,6 +217,113 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         // DIRECT select items only — an alias inside a nested subquery must not vouch for the outer query.
         return select.children.filterIsInstance<SqlAsExpression>()
             .any { it.nameElement?.name?.equals(name, ignoreCase = true) == true }
+    }
+
+    /**
+     * True iff [element] is an unresolved reference the LATERAL VIEW relic explains: its name is a
+     * lateral-view table/column alias declared in the same statement, OR it sits inside a
+     * lateral-view clause span (the generator's argument columns). See rule 5 above.
+     */
+    private fun isLateralViewRelic(element: PsiElement): Boolean {
+        val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false) ?: return false
+        val text = statement.text
+        if (!LATERAL_VIEW.containsMatchIn(text)) return false
+        val views = parseLateralViews(text)
+        if (views.isEmpty()) return false
+
+        // (2) physically inside a lateral-view span (LATERAL .. end of alias list)
+        val rel = element.textRange.startOffset - statement.textRange.startOffset
+        if (views.any { rel in it.span }) return true
+
+        // (1) named like a declared lateral-view alias
+        val name = PsiTreeUtil.getParentOfType(element, SqlIdentifier::class.java, false)
+            ?.name?.trim('`')?.takeIf { it.isNotBlank() } ?: return false
+        return views.any { v -> v.aliases.any { it.equals(name, ignoreCase = true) } }
+    }
+
+    private class LateralViewDecl(val span: IntRange, val aliases: Set<String>)
+
+    /**
+     * Tiny quote-/paren-aware scanner for every `LATERAL VIEW [OUTER] fn(args) tv [AS c1, c2, ...]`
+     * in [text]: returns each construct's span (offset range relative to [text]) and its declared
+     * names (the table alias plus the AS column aliases). Malformed constructs yield nothing —
+     * suppression then simply doesn't apply, never the other way around.
+     */
+    private fun parseLateralViews(text: String): List<LateralViewDecl> {
+        val out = ArrayList<LateralViewDecl>()
+        for (m in LATERAL_VIEW.findAll(text)) {
+            var i = skipWs(text, m.range.last + 1)
+            var word = readIdent(text, i)
+            if (word.equals("OUTER", ignoreCase = true)) { // Hive-style modifier, tolerated
+                i = skipWs(text, i + word.length)
+                word = readIdent(text, i)
+            }
+            if (word.isEmpty()) continue // no generator function name
+            i = skipWs(text, i + word.length)
+            if (i >= text.length || text[i] != '(') continue
+            i = skipBalancedParens(text, i)
+            i = skipWs(text, i)
+            val viewAlias = readIdent(text, i)
+            if (viewAlias.isEmpty()) continue
+            val names = HashSet<String>()
+            names.add(viewAlias.trim('`'))
+            i += viewAlias.length
+            var end = i
+            var j = skipWs(text, i)
+            val asWord = readIdent(text, j)
+            if (asWord.equals("AS", ignoreCase = true)) {
+                j = skipWs(text, j + asWord.length)
+                while (true) {
+                    val col = readIdent(text, j)
+                    if (col.isEmpty()) break
+                    names.add(col.trim('`'))
+                    j += col.length
+                    end = j
+                    val k = skipWs(text, j)
+                    if (k < text.length && text[k] == ',') j = skipWs(text, k + 1) else break
+                }
+            }
+            out.add(LateralViewDecl(m.range.first..end, names))
+        }
+        return out
+    }
+
+    private fun skipWs(text: String, from: Int): Int {
+        var i = from
+        while (i < text.length && text[i].isWhitespace()) i++
+        return i
+    }
+
+    /** A bare identifier ([A-Za-z_0-9]+ starting with letter/_) or a backtick-quoted one, or "". */
+    private fun readIdent(text: String, from: Int): String {
+        if (from >= text.length) return ""
+        if (text[from] == '`') {
+            var i = from + 1
+            while (i < text.length && text[i] != '`') i++
+            return if (i < text.length) text.substring(from, i + 1) else ""
+        }
+        if (!(text[from].isLetter() || text[from] == '_')) return ""
+        var i = from
+        while (i < text.length && (text[i].isLetterOrDigit() || text[i] == '_')) i++
+        return text.substring(from, i)
+    }
+
+    /** [from] is at '('; returns the index just past its matching ')', skipping quoted strings. */
+    private fun skipBalancedParens(text: String, from: Int): Int {
+        var i = from
+        var depth = 0
+        while (i < text.length) {
+            when (val c = text[i]) {
+                '(' -> depth++
+                ')' -> { depth--; if (depth == 0) return i + 1 }
+                '\'', '"', '`' -> {
+                    i++
+                    while (i < text.length && text[i] != c) i++
+                }
+            }
+            i++
+        }
+        return i
     }
 
     private fun isCtasKeyColumn(element: PsiElement): Boolean {
@@ -316,6 +434,10 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             """\*\s*EXCEPT\s*\(\s*(?!(?:SELECT|WITH|VALUES|TABLE)\b)[`_\p{L}]""",
             RegexOption.IGNORE_CASE,
         )
+
+        // The Doris/Hive `LATERAL VIEW` generator clause — cheap pre-gate + scan anchor for
+        // [parseLateralViews]. Word-bounded so identifiers merely containing the words don't match.
+        private val LATERAL_VIEW = Regex("""\bLATERAL\s+VIEW\b""", RegexOption.IGNORE_CASE)
 
         // Same discrimination, but CAPTURING the exclusion list so the ambiguity gate can check
         // membership of the ambiguous name (EXCEPT lists are flat comma-separated column names —

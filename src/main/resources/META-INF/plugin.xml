@@ -58,7 +58,15 @@
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
+        <!-- Re-colors DorisLexer-masked spans (CAST targets, EXCEPT lists, ...) that the SQL
+             highlighter would otherwise paint as comments — the highlighting lexer IS the parser
+             lexer on this platform. TextAttributes only; no PSI or parser impact. -->
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisMaskedSpanRecolorAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
+             pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
+        <completion.confidence language="DorisSQL" order="first"
+                               implementationClass="dev.sort.doris.sql.DorisTvfAutoPopupConfidence"/>
 
         <!-- Clean Doris cancel, connect-time half (gated by the `doris.cancel.experimental`
              system property, default ON; see dev.sort.doris.cancel.DorisCancel). Guarded to
