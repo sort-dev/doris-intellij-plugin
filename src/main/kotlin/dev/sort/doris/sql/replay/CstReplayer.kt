@@ -173,7 +173,12 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
             "CteContext" -> ReplayMapping.WITH_CLAUSE
             "AliasQueryContext" -> ReplayMapping.NAMED_QUERY_DEFINITION
             else -> ReplayMapping.BY_CONTEXT_CLASS[cls]
-                ?: ReplayMapping.resolveContextual(cls, parentClass) { rule -> hasNonEmptyChildRule(ctx, ruleNames, rule) }
+                ?: ReplayMapping.resolveContextual(
+                    cls, parentClass,
+                    hasAncestorClass = { name ->
+                        generateSequence(ctx.parent) { it.parent }.any { it.javaClass.simpleName == name }
+                    },
+                ) { rule -> hasNonEmptyChildRule(ctx, ruleNames, rule) }
         }
         if (type != null) addNode(ctx, absStart, type, out, seq)
 

@@ -15,12 +15,10 @@ SqlFile:corpus.sql
         PsiElement(SQL_IDENT)('events_rollup_mv')
     PsiWhiteSpace(' ')
     PsiElement(PARTITION)('PARTITION')
-    SQL_REFERENCE_LIST
-      PsiElement(()('(')
-      SQL_COLUMN_SHORT_REFERENCE
-        SQL_IDENTIFIER
-          PsiElement(SQL_IDENT)('p_20260617000000_20260618000000')
-      PsiElement())(')')
+    PsiElement(()('(')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('p_20260617000000_20260618000000')
+    PsiElement())(')')
   PsiElement(;)(';')
   PsiWhiteSpace('\n')
   SQL_STATEMENT
@@ -39,17 +37,14 @@ SqlFile:corpus.sql
         PsiElement(SQL_IDENT)('events_rollup_mv')
     PsiWhiteSpace(' ')
     PsiElement(PARTITIONS)('PARTITIONS')
-    SQL_REFERENCE_LIST
-      PsiElement(()('(')
-      SQL_COLUMN_SHORT_REFERENCE
-        SQL_IDENTIFIER
-          PsiElement(SQL_IDENT)('p_a')
-      PsiElement(,)(',')
-      PsiWhiteSpace(' ')
-      SQL_COLUMN_SHORT_REFERENCE
-        SQL_IDENTIFIER
-          PsiElement(SQL_IDENT)('p_b')
-      PsiElement())(')')
+    PsiElement(()('(')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('p_a')
+    PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    SQL_IDENTIFIER
+      PsiElement(SQL_IDENT)('p_b')
+    PsiElement())(')')
   PsiElement(;)(';')
   PsiWhiteSpace('\n')
   SQL_STATEMENT

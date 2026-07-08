@@ -143,8 +143,10 @@ internal object ReplayMapping {
         // outside a delegating clause; delete when the delegation surface is proven exhaustive.
         "ComparisonContext" to SQL_BINARY_EXPRESSION,
         "NumericLiteralContext" to SQL_NUMERIC_LITERAL,
-        // JOIN ... USING (cols): the id list is a reference list of short column references (golden 22).
-        "IdentifierListContext" to SQL_REFERENCE_LIST,
+        // NB: IdentifierListContext is resolved in [resolveContextual] — a JOIN USING / index-def id
+        // list is a SQL_REFERENCE_LIST of short column refs (golden 22), but the same rule under a
+        // partitionSpec (REFRESH MV ... PARTITION(p_x)) must stay a bare token run: partition names
+        // are NOT columns, and a column-shaped reference there red-flags as unresolvable.
 
         // Expression nesting (golden/mysql/mysql-core/07-operator-precedence-chain.tree). ANTLR's
         // left-recursive `valueExpression` rule emits a distinct labeled subclass per binary form —
@@ -186,7 +188,12 @@ internal object ReplayMapping {
      *  - RelationContext: a relation that carries a `joinRelation` child is a join
      *    (SQL_JOIN_EXPRESSION); a plain single relation is transparent.
      */
-    fun resolveContextual(nodeClass: String, parentClass: String?, hasNonEmptyChildRule: (String) -> Boolean): IElementType? =
+    fun resolveContextual(
+        nodeClass: String,
+        parentClass: String?,
+        hasAncestorClass: (String) -> Boolean,
+        hasNonEmptyChildRule: (String) -> Boolean,
+    ): IElementType? =
         when (nodeClass) {
             "ColumnReferenceContext" -> if (parentClass == "DereferenceContext") SQL_REFERENCE else SQL_COLUMN_REFERENCE
             // A multipart identifier `p1.p2.…` is a REFERENCE whose kind depends on the enclosing construct:
@@ -198,9 +205,14 @@ internal object ReplayMapping {
             "TableNameContext" -> if (hasNonEmptyChildRule(TABLE_ALIAS_RULE)) SQL_AS_EXPRESSION else null
             // JoinCriteria: `ON <expr>` is the join condition; `USING (cols)` is the using clause.
             "JoinCriteriaContext" -> if (hasNonEmptyChildRule(IDENTIFIER_LIST_RULE)) SQL_USING_CLAUSE else SQL_JOIN_CONDITION_CLAUSE
+            // JOIN USING / index-def id list -> SQL_REFERENCE_LIST (golden 22); under a partitionSpec
+            // (REFRESH MV ... PARTITION(p_x)) it stays transparent — partition names are not columns.
+            "IdentifierListContext" -> if (parentClass == "PartitionSpecContext") null else SQL_REFERENCE_LIST
             // A column name inside a USING id list is a short (unqualified) column reference (golden 22).
-            // The list element is an `errorCapturingIdentifier` directly under `identifierSeq`.
-            "ErrorCapturingIdentifierContext" -> if (parentClass == "IdentifierSeqContext") SQL_COLUMN_SHORT_REFERENCE else null
+            // The list element is an `errorCapturingIdentifier` directly under `identifierSeq` — except
+            // inside a partitionSpec, where a column-shaped ref would red-flag as unresolvable.
+            "ErrorCapturingIdentifierContext" ->
+                if (parentClass == "IdentifierSeqContext" && !hasAncestorClass("PartitionSpecContext")) SQL_COLUMN_SHORT_REFERENCE else null
             // RelationContext (chained joins) is handled by CstReplayer.emitNestedJoins — it needs one
             // nested SQL_JOIN_EXPRESSION per join, which a single flat-map entry cannot express.
             else -> null
