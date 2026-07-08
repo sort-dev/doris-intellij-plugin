@@ -88,6 +88,33 @@ immune to context switches. Known limitations while experimental: catalog entrie
 completion lists are intentional; the current-namespace label may briefly show a placeholder
 segment.
 
+## Reliable query cancel — on by default since 0.5.0
+
+The IDE's stock Stop button relies on the MySQL driver, which opens a *second* connection to the
+JDBC URL and issues `KILL QUERY <connection-id>`. Behind a load balancer (e.g. a Kubernetes
+Service in front of several FEs) that second connection can land on a different frontend, where
+that connection id either doesn't exist (the cancel silently does nothing and your query keeps
+burning cluster resources) or — because Doris frontends number connections independently —
+belongs to a *different session of the same user*, silently killing the wrong query.
+
+The plugin replaces this: at connect time each Doris connection is tagged with a unique trace id
+(`SET session_context = 'trace_id:dg-...'`, also visible as `DorisTraceId=dg-...` in
+`SHOW PROCESSLIST` `Info`). Pressing Stop still interrupts the client-side statement exactly as
+before, and additionally issues `KILL QUERY "dg-..."` from a short-lived helper connection — on
+Doris 4.0+ the frontends forward that kill among themselves until the owner is found, killing
+exactly your statement (the session stays alive). On older servers (2.1/3.x) the plugin falls
+back to locating your query in the all-frontends processlist by its trace marker and killing it
+by query id. Everything is logged under the `DorisCancel:` prefix in `idea.log`.
+
+The escape hatch back to the stock (driver-only) cancel:
+
+```
+-Ddoris.cancel.experimental=false       # VM option; default (unset) = plugin cancel ON
+```
+
+Tip: prefer Doris' own `query_timeout` session/global variable over the data source's JDBC
+"query timeout" option — the JDBC timeout uses the same broken second-connection kill.
+
 ## Building from source
 
 ```bash

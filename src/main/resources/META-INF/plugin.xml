@@ -59,6 +59,14 @@
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+
+        <!-- Clean Doris cancel, connect-time half (gated by the `doris.cancel.experimental`
+             system property, default ON; see dev.sort.doris.cancel.DorisCancel). Guarded to
+             dbms=DORIS inside interceptConnection — non-Doris data sources are never touched
+             (the interceptor stays inactive, handleConnected is not called). On each Doris
+             connection: mints a per-connection trace id, binds it via SET session_context,
+             mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
+        <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
@@ -100,4 +108,23 @@
         <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
                   topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
     </applicationListeners>
+
+    <!-- Clean Doris cancel, cancel-time half: replaces the stock stop-button action
+         (database-plugin.xml registers Console.Jdbc.Cancel; there is no dialect-level cancel
+         seam — the JDBC chain ends in the MySQL driver's broken second-connection
+         KILL QUERY <conn-id>, see RESEARCH-query-cancel.md). The replacement subclasses the
+         stock action and delegates to it verbatim for non-Doris sessions and when
+         -Ddoris.cancel.experimental=false; for Doris sessions the stock (client-side) cancel
+         still runs first and a server-side KILL QUERY "<trace-id>" follows on a pooled thread.
+         Text/description/icon replicate the stock registration (the platform reads them from
+         the declaring plugin, i.e. us, after the override). -->
+    <actions>
+        <action id="Console.Jdbc.Cancel"
+                class="dev.sort.doris.cancel.DorisCancelRunningStatementsAction"
+                overrides="true"
+                text="Cancel Running Statements"
+                description="Cancel running and queued statements"
+                use-shortcut-of="Stop"
+                icon="AllIcons.Actions.Suspend"/>
+    </actions>
 </idea-plugin>
