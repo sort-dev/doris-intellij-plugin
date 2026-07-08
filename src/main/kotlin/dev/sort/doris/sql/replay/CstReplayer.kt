@@ -79,6 +79,14 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         val root = parse.root
         val rootStop = root.stop ?: return false
 
+        // Table-valued function in FROM (`FROM tasks(...)`, `FROM s3(...)`) — bail, consume nothing.
+        // The whole TVF stack (DorisTableFunctions builtin overlay, DorisTypeSystem static schemas,
+        // DorisHighlightInfoFilter's property-bag/open-relation rules) keys on the platform's
+        // SqlFunctionCallExpression, which only MySQL delegation produces; the replayer has no mapping
+        // for the call and would flatten it to a bare identifier + token run, losing name resolution,
+        // column typing, and completion (dogfood 2026-07-08: tasks()/jobs()/S3() red in file editors).
+        if (containsContext(root, "TableValuedFunctionContext")) return false
+
         val nodes = ArrayList<Node>()
         val seq = intArrayOf(0)
         collect(root, parse.ruleNames, statementStart, nodes, seq, null, false)
@@ -248,6 +256,16 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
             val child = ctx.getChild(i)
             if (child is ParserRuleContext) collect(child, ruleNames, absStart, out, seq, cls, childBranchFlag)
         }
+    }
+
+    /** True iff any node in [ctx]'s subtree (inclusive) is a context of the given simpleName. */
+    private fun containsContext(ctx: ParserRuleContext, simpleName: String): Boolean {
+        if (ctx.javaClass.simpleName == simpleName) return true
+        for (i in 0 until ctx.childCount) {
+            val child = ctx.getChild(i)
+            if (child is ParserRuleContext && containsContext(child, simpleName)) return true
+        }
+        return false
     }
 
     /** First direct child of [ctx] that is a rule context, or null. */

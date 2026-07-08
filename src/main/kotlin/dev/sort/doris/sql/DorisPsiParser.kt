@@ -123,6 +123,11 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return when (wordAt(builder, 0)) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
+            // Doris compute/workload-group USE (`USE @etl`, `USE db@etl`): MySQL reads the '@...' as
+            // a user-variable reference inside its USE statement, which then red-flags as an
+            // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
+            // (console schema switching depends on it); only the '@' forms go lenient.
+            "USE" -> statementContainsTokenPrefix(builder, '@')
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             "CREATE" -> isDorisCreateStatement(builder)
@@ -240,8 +245,19 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return found
     }
 
-
-
+    /** True if any token before the next ';' STARTS with [prefix] within the look-ahead window. Non-consuming. */
+    private fun statementContainsTokenPrefix(builder: PsiBuilder, prefix: Char): Boolean {
+        val marker = builder.mark()
+        var scanned = 0
+        var found = false
+        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
+            if (builder.tokenText?.firstOrNull() == prefix) { found = true; break }
+            builder.advanceLexer()
+            scanned++
+        }
+        marker.rollbackTo()
+        return found
+    }
 
     private fun createTableKeywordOffset(builder: PsiBuilder): Int? {
         if (wordAt(builder, 0) != "CREATE") return null

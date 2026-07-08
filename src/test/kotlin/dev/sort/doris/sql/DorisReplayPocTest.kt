@@ -257,6 +257,22 @@ class DorisReplayPocTest : BasePlatformTestCase() {
     }
 
     /**
+     * TVF-in-FROM bail-out (dogfood 2026-07-08, item 9): a query whose FROM holds a table-valued
+     * function must NOT be replayed — the replayer has no mapping for the call and would flatten it
+     * to a bare identifier, losing the SqlFunctionCallExpression the whole TVF stack (builtin
+     * overlay, DorisTypeSystem static schemas, property-bag suppression) keys on. With the flag ON
+     * the tree must therefore equal the recorded flag-off (delegation) golden byte-for-byte.
+     */
+    fun testTvfQueryBailsToDelegation() {
+        val rel = "doris/17-table-function"
+        val sql = norm(corpusFile("$rel.sql").readText())
+        val expected = norm(goldenFile("doris/$rel.tree").readText())
+        val actual = tree(dorisLang(), sql)
+        assertEquals("TVF query must bail replay and match the delegation golden", expected, actual)
+        assertTrue("TVF call must stay a real function call", actual.contains("SQL_FUNCTION_CALL"))
+    }
+
+    /**
      * Sanity guard: with the flag OFF the DorisSQL dialect must produce its normal tree (which for a
      * plain SELECT already equals the MySQL golden via delegation). Proves the replay path is the
      * thing under test, not delegation.
