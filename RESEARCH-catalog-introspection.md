@@ -681,6 +681,23 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    extcat=EXPLICIT_WITH_SCHEMAS|ENUMERATED_DEFAULT, ...}` showing the effective per-catalog
    decision. On failure collect both lines plus the serialized patterns — they state exactly which
    pattern node classified each catalog and what the expansion produced.
+11. **Out-of-scope references degrade quietly, flag-ON (M9 Part A):** in a console, reference a
+   table inside an external catalog you have NOT introspected (`extcat.somedb.sometable` where
+   `extcat` is enumerated-only). Expected: the un-introspected segments and the query's column
+   references are **quiet** (no red error) — the reference simply doesn't resolve until you opt the
+   catalog in (M8's tick). Negative controls that must STAY red: a nonexistent catalog name
+   (`nosuchcat.x.y`), and a nonexistent table under an INTROSPECTED database
+   (`internal.somedb.no_such_table`). No log marker is emitted for suppression (it runs in the
+   highlighting hot path); if reds still flood, capture which segment is red and whether the
+   catalog node in the tree is childless.
+12. **Flag-toggle model migration, BOTH directions (M9 Part B):** introspect a Doris data source
+   flag-ON (catalogs shape persisted), then restart the IDE flag-OFF and open the project.
+   Expected: **no** "family not in parent" error in idea.log, exactly one
+   `DorisCatalogs: stale model shape CATALOGS for flag=false, cleared for silent rebuild (data
+   source '<name>')` line, and the data source's tree starts **empty until refresh/connect** (the
+   normal new-data-source experience — that emptiness is the honest cost of the shape swap). Then
+   introspect flag-OFF and restart flag-ON: same, with `stale model shape FLAT for flag=true`.
+   Restarting with the SAME flag state must emit no `cleared` line and keep the tree populated.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -1379,3 +1396,76 @@ report. No replay files touched.
   → init → expansion), so the normal flow is covered. If a runtime path hits `changeScope` directly,
   naked explicit nodes would behave un-expanded for that session only.
 - Expansion rebuilds only the DATABASE group; other root groups are preserved as-is.
+
+---
+
+## Gate 1 log — M9 (out-of-scope degrade + model-shape migration)
+
+*Executed 2026-07-08 on `froze-over`. Two merge-gate items.*
+
+### Part A — OUT-OF-SCOPE references degrade quietly (flag-ON)
+
+The degrade half of the "Future feature — Introspect this?" sketch above. **Seam chosen: extend
+`DorisHighlightInfoFilter`** (the existing `HighlightInfoFilter` from the TVF work) rather than an
+inspection-suppression seam: the filter already carries the Doris-file language gate and two
+narrowly-scoped suppression rules with exactly the same shape (match the stable message prefix,
+then verify the PSI/model context), so the out-of-scope rule is a third sibling branch instead of a
+new EP. Consequence of the seam: the platform's `HighlightInfoFilter` can only *drop* an info, not
+re-emit it at lower severity — so OUT-OF-SCOPE references get **no-highlight** (one of the two
+sanctioned outcomes; a weak-warning would need an extra annotator pass and is not nearly-free).
+The "Introspect this?" intention itself is NOT implemented (not nearly-free for the same reason);
+the detection lives in `dev.sort.doris.catalog.DorisOutOfScope` ready for it.
+
+Classification matrix (`DorisOutOfScope.classify`, unit-tested):
+
+| Parent of the failing segment | Verdict | Editor result |
+|---|---|---|
+| resolves to DATABASE/SCHEMA node, **childless** (enumerated, never introspected) | OUT_OF_SCOPE | quiet (highlight dropped) |
+| resolves to DATABASE/SCHEMA node **with children** (introspected — e.g. `internal`) | NONEXISTENT | stays red |
+| does not resolve (nonexistent catalog) or non-namespace | NOT_APPLICABLE | stays red |
+
+Filter integration (flag-ON only, message prefix `Unable to resolve`): (1) a qualified segment
+whose immediate qualifier resolves to an OUT_OF_SCOPE namespace is suppressed; (2) unresolved
+COLUMNS in a query whose FROM contains an out-of-scope table reference are suppressed too (without
+the table's columns every column reference is noise — the exact mirror of the TVF open-relation
+rule, and structurally the same walk). Known false-quiet (documented in the class KDoc): a
+genuinely *empty* introspected database is model-indistinguishable from a never-visited one.
+
+### Part B — model-shape migration listener (always-on, both flag states)
+
+Implements RESEARCH-model-migration.md §5 (b) verbatim: `DorisModelMigrationListener` registered
+under `<applicationListeners>` on `DataSourceModelStorage$Listener`. `started(Project)` — fired
+synchronously **before** any model file read (`DataSourceModelStorageImpl.readStateHeavy`, §5
+evidence) — iterates the project's data sources, filters `dbms == DORIS`, computes
+`DataSourceStorage.getStorageDir(project)/<uniqueId>.xml`, sniffs the shape, and on a flag mismatch
+deletes the `.xml` plus the `<uniqueId>/entities` directory, logging one line:
+`DorisCatalogs: stale model shape <CATALOGS|FLAT> for flag=<true|false>, cleared for silent rebuild
+(data source '<name>')`. All other listener methods no-op; any internal failure is caught and
+logged (the platform's corruption handling stays the net).
+
+Sniffer (`DorisModelShape.sniff`, pure, unit-tested): first element matching
+`<(database|schema)\b[^>]*parent="1"` in the first 8 KB — `database` under the root (`id="1"`) =
+catalogs shape, `schema` = flat. Validated against on-disk ground truth
+(`.idea/dataSources/<id>.xml`: `<root id="1">` then `<database id="2" parent="1" ...>` for a
+multi-database dbms). Missing file, truncated head, or garbage sniffs to null and is left alone.
+The closing-quote in the regex prevents `parent="12"` false matches (tested).
+
+### Tests / build
+
+`DorisOutOfScopeTest` (classification matrix: childless external DATABASE/SCHEMA → OUT_OF_SCOPE;
+introspected → NONEXISTENT; unresolved/non-namespace parents → NOT_APPLICABLE) and
+`DorisModelShapeTest` (catalogs shape, flat shape, garbage/missing/no-node/deep-parent snippets,
+first-root-child precedence). Genuine fresh suite: see report. TVF files untouched except the
+filter extension (sibling branch; TVF rules unchanged).
+
+### Residual risks
+
+- Filter interaction with the TVF branches: ordering is sequential and independent — TVF rules run
+  first and are scoped to function-call contexts, the M9 rule to qualified references/FROM tables;
+  a TVF call is not a `SqlReferenceExpression` qualifier target, so no overlap. Both use the same
+  message-prefix style.
+- The M9 rule calls `qualifier.reference?.resolve()` inside the highlight filter; resolution at
+  this point is cached (the inspection just resolved the same references), so the cost is a lookup,
+  not a fresh resolve — flag-ON only, and only for `Unable to resolve` infos.
+- Part B deletes files only under `<storageDir>` for DORIS-dbms data sources with a *successfully
+  sniffed, mismatched* shape — never on sniff-null. The one-line log is the audit trail.

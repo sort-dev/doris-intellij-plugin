@@ -89,4 +89,15 @@
              composition (BUG A) and the two-level catalog->database stepped popup (BUG B). -->
         <dialect dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisDatabaseDialect"/>
     </extensions>
+
+    <!-- M9: persisted-model shape migration across the catalogs flag (RESEARCH-model-migration.md
+         §5(b)). started(Project) fires SYNCHRONOUSLY before the platform reads any model file;
+         mismatched-shape Doris model files are deleted for a silent empty-tree rebuild. This is
+         the one deliberate always-on catalog-side behavior: it must clear catalogs-shaped files
+         when the flag is OFF too (otherwise the flat loader hits them and logs
+         "family not in parent" errors / drops nodes). -->
+    <applicationListeners>
+        <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
+                  topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
+    </applicationListeners>
 </idea-plugin>
