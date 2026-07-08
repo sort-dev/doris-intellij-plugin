@@ -225,3 +225,26 @@ Future project direction: a **shim or Doris-side plugin adding manageability** �
 - **Doris FE (master `c09ebd73c13`)**: `fe/fe-core/.../commands/utils/KillUtils.java`; `commands/KillQueryCommand.java`, `KillConnectionCommand.java`; `qe/ConnectScheduler.java:59,84`; `qe/ConnectPoolMgr.java:103-121`; `qe/ConnectContext.java:1046-1071,1338-1375` (ThreadInfo.toRow); `catalog/SchemaTable.java:498,538-556`; `qe/VariableVarCallbacks.java` (session_context trace_id); `qe/SessionVariable.java:790,3253` (fetch_all_fe_for_system_table default true); `httpv2/rest/manager/QueryProfileAction.java:521-540`; `mysql/MysqlHandshakePacket.java:55`; `fe-sql-parser DorisParser.g4:530-531`; `common/proc/FrontendsProcNode.java:110-116`. History: `4f1aa7db923` (#50791, 4.0.0-rc01+, not in branch-2.1/3.0); branch-3.0 `StmtExecutor.handleKill` (BE broadcast); `fb406cc1885` (#30907 show_all_fe_connection); `8ce0d2642f9` (#55700 rename, default true); `2917124ebd7` (FE column); `af68d8b5077` (#51400 TraceId column); `55727c312ea` (#40739 last_query_id).
 - **Docs (doris-website checkout, 2026-07-06)**: `versioned_docs/version-{2.1,3.x,4.x}/sql-manual/sql-statements/session/quer{y,ies}/KILL-QUERY.md`, `SHOW-PROCESSLIST.md`, `.../system-functions/last-query-id.md`.
 - **Plugin**: `/Users/jminard/DEV/brikk/repos/doris-intellij/wt-froze-over/src/main/kotlin/dev/sort/doris/catalog/DorisDatabaseDialect.kt`; `/Users/jminard/DEV/brikk/repos/doris-intellij/wt-froze-over/src/main/resources/config/doris-drivers.xml` (Connector/J rolling artifact).
+
+---
+
+## LIVE VERIFICATION — Doris 4.1.2 (podman, 2026-07-08)
+
+Every load-bearing claim above was validated against a real `doris-4.1.2-rc01` FE+BE cluster
+(apache/doris:fe-4.1.2 / be-4.1.2 images; FE heap patched 8g→2g and BE mem_limit 2G to fit an 8 GB
+VM — conf recipe preserved in the session scratchpad `doris-cluster/`):
+
+| Claim | Result |
+|---|---|
+| `SHOW PROCESSLIST` columns incl. `QueryId`, `TraceId`, `FE`, `CurrentConnected` | **VERIFIED** — exact column set as researched |
+| `SET session_context='trace_id:dg-…'` binds our chosen id; visible in `TraceId` | **VERIFIED** |
+| `KILL QUERY "dg-…"` (trace id) from a *different* connection kills the running query | **VERIFIED** — `SELECT SLEEP(300)` died in ~2 s: `cancel query by user from <addr>`; killer got OK |
+| Kill by `QueryId` string | **VERIFIED** — same clean cancellation |
+| Kill by *wrong connection id* | **VERIFIED LOUD** — `Unknown thread id: 99999` (error 1105/2). The server is loud; DataGrip's `runWithoutReporting` is what makes the stock path *feel* silent |
+| Kill by unknown trace/query id | **VERIFIED** — `Unknown query id: dg-neverexists` → plugin should treat as "nothing running, success" |
+| Driver-style `/* … DorisTraceId=dg-… */` comment visible in processlist `Info` | **VERIFIED** — marker survives, greppable |
+| Cross-FE forwarding | **NOT tested live** (single-FE sandbox; 8 GB VM can't fit two 2 GB FEs + BE). Source-verified only (`KillUtils.killQueryByQueryId` FE fan-out). Validate on the user's real multi-FE cluster: `KILL QUERY "<trace>"` issued via the k8s LB |
+
+Conclusion: the recommended recipe (connect-time trace id + `KILL QUERY "<trace>"` at cancel) is
+**implementation-ready**; the only remaining unknown is multi-FE forwarding, which the user's
+production cluster can confirm in one console command.
