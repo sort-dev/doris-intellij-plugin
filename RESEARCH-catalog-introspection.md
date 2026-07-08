@@ -1250,3 +1250,31 @@ data source pinpoints it:
   loads them (would implicate scope→introspection wiring, not the default seam).
 - **`no 'internal' catalog ...` warning present** → the server genuinely has no `internal`; not a
   plugin bug.
+
+---
+
+## Future feature — "Introspect this?" intention on out-of-scope references
+
+*TODO (froze-over era; the UX half of the lazy-catalog degrade story). Not a merge-gate item, but
+closely coupled to it.*
+
+The lazy-external default (enumerate catalogs, introspect only `internal`) is the right cost
+default, but it leaves a discoverability hole: a reference into a known-but-not-introspected
+catalog (`extcat.somedb.sometable`) just fails at the un-introspected segment, and the user has no
+in-editor clue that the fix is one schemas-pane tick away (observed live: catalog and database
+segments complete, then the table segment dies — reads like a bug, is actually scope).
+
+Design sketch:
+- **Detection.** When resolution fails at a segment whose PARENT path resolves to a model node that
+  is enumerated-but-childless (an external catalog, or a database inside one, that introspection
+  has never visited), classify the failure as OUT-OF-SCOPE rather than UNRESOLVED.
+- **Affordance.** Register an intention/quick-fix on that reference: *"'<db>' is in catalog
+  '<extcat>', which is not introspected. Introspect it?"* — accepting opts that catalog (or just
+  that database) into the data source's introspection scope and triggers the incremental
+  introspection, then re-resolution turns the reference green.
+- **Degrade tie-in.** The same OUT-OF-SCOPE classification is where unresolved-error severity gets
+  downgraded (weak-warning/no-highlight instead of red) — detection is shared; the intention and
+  the severity change are one feature with two outputs.
+- **Consistency.** Like TVF "Preview" (RESEARCH-tvf-completion.md §7): the affordance IS the
+  permission gate — explicit, user-initiated, per-target; introspection cost is never spent on
+  typing or background resolve.
