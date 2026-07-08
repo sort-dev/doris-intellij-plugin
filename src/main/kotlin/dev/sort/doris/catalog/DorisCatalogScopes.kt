@@ -108,4 +108,109 @@ object DorisCatalogScopes {
         val catalogGroup = TreePatternNode.Group(ObjectKind.DATABASE, arrayOf(anyCatalog))
         return TreePattern(SqlImportUtil.createDataSources(dataSourceNames, catalogGroup))
     }
+
+    // ---- Scope interpretation: explicit selection vs. enumerate-only default (M8) ------------------
+
+    /**
+     * How a catalog stands relative to the data source's introspection scope (M8). Ordinal order is
+     * specificity — when several pattern nodes match one catalog, the most specific wins.
+     */
+    enum class CatalogScopeClass {
+        /** No pattern node names or matches the catalog. */
+        NOT_IN_SCOPE,
+
+        /**
+         * Matched only by the M2 default's enumerate-only node — a *negative* naming **with
+         * exception names** (`NegativeNaming(all(), [internal])`), a shape **no schemas-pane
+         * gesture produces** (the pane writes positive names for real nodes and the bare
+         * [TreePatternNode.NegativeNaming.WILDCARD] for its "*" pseudo-entries — verified in
+         * `DbNamespacesTree.createNaming` bytecode). Visible in the tree, not deep-introspected.
+         */
+        ENUMERATED_DEFAULT,
+
+        /**
+         * Explicitly selected — a positive-named node (a catalog tick in the schemas pane whose
+         * databases were not loaded serializes as exactly this: named node, **no** schema children;
+         * `DbNamespacesTree.build` includes checked nodes only) or the pane's bare "all" wildcard —
+         * but with no schema children. **Platform `matches()` semantics would introspect nothing
+         * under it** (a schema only matches through a SCHEMA group); the M8 fix expands this to
+         * all-schemas, mirroring what ticking a parent means everywhere else in DataGrip.
+         */
+        EXPLICIT_DEEP,
+
+        /** Explicitly selected with its own SCHEMA group — the pattern already says which schemas. */
+        EXPLICIT_WITH_SCHEMAS,
+    }
+
+    /** Classifies [catalogName] against [scope]'s DATABASE group (most specific match wins). */
+    fun classifyCatalog(scope: TreePattern, catalogName: String): CatalogScopeClass {
+        val group = scope.root?.getGroup(ObjectKind.DATABASE) ?: return CatalogScopeClass.NOT_IN_SCOPE
+        val name = ObjectName.plain(catalogName)
+        var result = CatalogScopeClass.NOT_IN_SCOPE
+        for (node in group.children.orEmpty()) {
+            if (node == null || !node.naming.matches(name, com.intellij.database.util.Casing.EXACT)) continue
+            val cls = when {
+                node.getGroup(ObjectKind.SCHEMA) != null -> CatalogScopeClass.EXPLICIT_WITH_SCHEMAS
+                isExplicitSelection(node.naming) -> CatalogScopeClass.EXPLICIT_DEEP
+                else -> CatalogScopeClass.ENUMERATED_DEFAULT
+            }
+            if (cls.ordinal > result.ordinal) result = cls
+        }
+        return result
+    }
+
+    /**
+     * M8 fix: rewrites [scope] so every **explicitly selected** catalog node that has no SCHEMA
+     * children gains a wildcard SCHEMA group — "ticking a catalog means everything under it", the
+     * user-visible contract of the schemas pane. Nodes left untouched:
+     *
+     * - explicit nodes that already carry a SCHEMA group (the pattern says which schemas);
+     * - the M2 default's enumerate-only negative-with-exceptions node (so genuinely unselected
+     *   external catalogs stay visible-but-shallow — the default is a **fixed point** of this
+     *   function, asserted by tests);
+     * - non-DATABASE groups and everything else in the pattern.
+     *
+     * Returns the same instance when nothing needed expansion (cheap identity check for callers).
+     */
+    fun expandExplicitCatalogSelections(scope: TreePattern): TreePattern {
+        val root = scope.root ?: return scope
+        val dbGroup = root.getGroup(ObjectKind.DATABASE) ?: return scope
+        var changed = false
+        val newNodes = dbGroup.children.orEmpty().map { node ->
+            if (node != null &&
+                node.getGroup(ObjectKind.SCHEMA) == null &&
+                isExplicitSelection(node.naming)
+            ) {
+                changed = true
+                val allSchemas = TreePatternNode(TreePatternNode.NegativeNaming.WILDCARD, TreePatternNode.NO_GROUPS)
+                val schemaGroup = TreePatternNode.Group(ObjectKind.SCHEMA, arrayOf(allSchemas))
+                TreePatternNode(node.naming, node.groups.orEmpty().filterNotNull().toTypedArray() + schemaGroup)
+            } else {
+                node
+            }
+        }
+        if (!changed) return scope
+        val newGroups = root.groups.orEmpty().map { g ->
+            if (g != null && g.kind == ObjectKind.DATABASE) {
+                TreePatternNode.Group(ObjectKind.DATABASE, newNodes.filterNotNull().toTypedArray())
+            } else {
+                g
+            }
+        }.filterNotNull().toTypedArray()
+        return TreePattern(TreePatternNode(root.naming, newGroups))
+    }
+
+    /**
+     * A naming that only a deliberate selection produces: positive names (`DbNamespacesTree.build`
+     * serializes checked real nodes as `PositiveNaming(name)`) or the pane's bare "all" wildcard
+     * (`NegativeNaming` with an **empty** exception list). The M2 default's enumerate-only node is
+     * `NegativeNaming` **with** exception names and is deliberately excluded.
+     */
+    private fun isExplicitSelection(naming: TreePatternNode.BaseNaming): Boolean {
+        if (naming is TreePatternNode.NegativeNaming) {
+            val names = naming.names
+            return names == null || names.isEmpty()
+        }
+        return true // PositiveNaming (named tick or the '@' current pseudo-entry)
+    }
 }

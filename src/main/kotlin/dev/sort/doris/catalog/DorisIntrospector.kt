@@ -113,6 +113,37 @@ class DorisIntrospector(
         return scope
     }
 
+    /**
+     * M8: scope-interpretation fix. Called by `BaseIntrospector.init` **after** the effective scope
+     * is assigned (bytecode: `putfield introspectionScope` at offset 405, `initSpecificThings` at
+     * 442), so this is the one seam where the scope every downstream consumer reads — the schema
+     * filter of `introspectAutomaticallyLevelByLevel`, the portion machinery, the tree's
+     * `listNamespacesToShow` — can be normalized in one place.
+     *
+     * An **explicitly selected** catalog with no schema children (the exact shape the schemas pane
+     * writes when a catalog is ticked whose databases were never loaded — `DbNamespacesTree.build`
+     * serializes checked nodes positively, children only if checked) is expanded to
+     * catalog -> all-schemas, because platform `matches()` semantics never imply children from a
+     * naked parent node (a schema matches only through a SCHEMA group). The M2 enumerate-only
+     * default (negative-with-exceptions node) is a fixed point of the expansion and stays shallow.
+     */
+    override fun initSpecificThings(
+        model: com.intellij.database.model.basic.BasicModModel,
+        config: com.intellij.database.dataSource.DataSourceBriefConfig,
+    ) {
+        super.initSpecificThings(model, config)
+        val scope = introspectionScope ?: return
+        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
+        if (expanded !== scope) {
+            DorisCatalogs.info(
+                "scope expansion (explicitly selected catalogs imply all their databases): " +
+                    com.intellij.database.util.TreePatternUtils.serialize(scope) + " -> " +
+                    com.intellij.database.util.TreePatternUtils.serialize(expanded),
+            )
+            introspectionScope = expanded
+        }
+    }
+
     /** Level 1: enumerate Doris catalogs as DATABASE nodes via `SHOW CATALOGS`. */
     override fun createDatabaseLister(): DatabaseLister<*, *> {
         return object : DatabaseLister<DorisCatalogQueries.CatalogRow, MsDatabase>() {
@@ -125,6 +156,12 @@ class DorisIntrospector(
                 }
                 val names = rows.mapNotNull { it.CatalogName }
                 DorisCatalogs.info("SHOW CATALOGS -> $names")
+                // M8: definitive per-catalog trail — how the (already expanded) scope classifies
+                // each catalog. EXPLICIT_* deep-introspects; ENUMERATED_DEFAULT stays shallow.
+                introspectionScope?.let { scope ->
+                    val classes = names.associateWith { DorisCatalogScopes.classifyCatalog(scope, it) }
+                    DorisCatalogs.info("catalog scope classification: $classes")
+                }
                 // M7: the default scope deep-introspects `internal`; if the server reports no such
                 // catalog, the fresh-connection tree will look empty until the user opts into a
                 // catalog — surface that as a warning so an empty tree is self-explaining in the log.

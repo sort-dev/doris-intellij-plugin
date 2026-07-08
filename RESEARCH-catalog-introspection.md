@@ -669,6 +669,18 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    of the "default introspection scope" line means the seam did not run (data source not actually
    fresh, or the flag is off); a `no 'internal' catalog ...` warning means the server has no
    `internal`.
+10. **Explicit catalog selection, flag-ON (M8):** open the data source settings' schemas pane and
+   tick ONE external catalog (just the catalog node — do not open it or tick databases), then OK.
+   Expected: **everything under that catalog loads** — its databases appear in the tree with
+   tables/columns, and 3-part editor references into any of them resolve; no more childless
+   unexpandable catalog. Catalogs you did NOT tick keep the old behavior (visible, shallow,
+   opt-in). Ticking a catalog plus ONE specific database must introspect exactly that database
+   (unchanged). Log markers: `DorisCatalogs: scope expansion (explicitly selected catalogs imply
+   all their databases): <before> -> <after>` at introspection start (absent = nothing needed
+   expanding), and `catalog scope classification: {internal=EXPLICIT_WITH_SCHEMAS,
+   extcat=EXPLICIT_WITH_SCHEMAS|ENUMERATED_DEFAULT, ...}` showing the effective per-catalog
+   decision. On failure collect both lines plus the serialized patterns — they state exactly which
+   pattern node classified each catalog and what the expansion produced.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -1278,3 +1290,92 @@ Design sketch:
 - **Consistency.** Like TVF "Preview" (RESEARCH-tvf-completion.md §7): the affordance IS the
   permission gate — explicit, user-initiated, per-target; introspection cost is never spent on
   typing or background resolve.
+
+---
+
+## Gate 1 log — M8 (scope interpretation: explicit catalog selection must mean deep)
+
+*Executed 2026-07-08 on `froze-over` (integration branch). User repro, live Doris flag-ON: external
+catalogs showed TICKED in the schemas pane, yet their tree nodes stayed childless and unexpandable;
+ticking ONE database (`goodio`-equivalent) explicitly made that database introspect and a 3-part
+editor reference into it resolve.*
+
+### 1. The pattern shapes (bytecode evidence)
+
+- **What a tick writes** (`DbNamespacesTree.build` / `createNaming` / `buildPattern`): the pane
+  serializes **checked nodes only**, recursively; a real (named) node gets
+  `PositiveNaming(name)`; the "*" pseudo-entries get the bare `NegativeNaming.WILDCARD` (no
+  exception names); the "current" pseudo-entry gets `PositiveNaming(@)`. **A ticked catalog whose
+  databases were never loaded therefore serializes as a positive DATABASE node with NO schema
+  children** — exactly the same *shape* as a database-with-nothing-under-it. A ticked database
+  under a catalog writes `PositiveNaming(catalog)` with a SCHEMA group naming that database — the
+  user's second gesture, which worked.
+- **Why the ticked catalog introspected nothing**: platform `matches()` semantics
+  (`DataSourceSchemaMapping.match` → `TreePatternNode.getGroup(kind)` per level) **never imply
+  children from a naked parent node** — a schema can only match through a SCHEMA group. The schema
+  filter of `BaseMultiDatabaseIntrospector.introspectAutomaticallyLevelByLevel` (and the tree's
+  `DvTreeModelLayer.listNamespacesToShow`, and the portion machinery) all run on `matches()`, so a
+  naked catalog node = database visible, zero schemas selected. There is no Ms-special-cased
+  parent-implies-children anywhere in the introspector bases; for MSSQL the pane normally loads
+  children/wildcards so the ambiguity rarely surfaces there.
+- **Why the pane showed externals ticked in the first place**: the pane's `recheck` marks nodes
+  checked when they match the current pattern — and the M2 default's enumerate-only externals node
+  (`NegativeNaming(all(), [internal])`, no SCHEMA group) matches every external catalog. The user's
+  "selected" catalogs were largely the default *rendered as ticks*.
+
+### 2. Divergence from expectations + the fix
+
+The divergence is not Ms-vs-us introspector code — it is that our M2 default deliberately used the
+"naked DATABASE node" shape for enumerate-only, while the schemas pane uses (almost) the same shape
+for an explicit catalog tick. Disambiguation is possible because the *namings* differ, and no pane
+gesture ever produces the default's negative-with-exceptions naming:
+
+| Pattern node (DATABASE group) | Producer | M8 classification | Introspection |
+|---|---|---|---|
+| `PositiveNaming(name)`, **no** SCHEMA group | pane: catalog ticked (children unloaded) | `EXPLICIT_DEEP` | **expanded to all-schemas** (the fix) |
+| `PositiveNaming(name)` + SCHEMA group | pane: catalog + explicit database(s) | `EXPLICIT_WITH_SCHEMAS` | as the pattern says (unchanged) |
+| bare `NegativeNaming.WILDCARD`, no group | pane: "*" (all catalogs) ticked | `EXPLICIT_DEEP` | expanded (ticking "all" means everything) |
+| `NegativeNaming(all(), [internal])`, no group | **our M2 default only** | `ENUMERATED_DEFAULT` | enumerate-only (visible, shallow) — **unchanged** |
+
+Implementation: `DorisCatalogScopes.classifyCatalog` + `expandExplicitCatalogSelections` (pure,
+unit-tested), applied in `DorisIntrospector.initSpecificThings` — which `BaseIntrospector.init`
+calls **after** assigning the effective scope (bytecode: `putfield introspectionScope` @405,
+`initSpecificThings` @442) — via the protected `setIntrospectionScope`. Expanding the *scope
+itself* means every downstream consumer (the level-by-level schema filter, portions, the tree's
+namespace filter, `isIntrospected` rendering) sees the deep meaning consistently; no per-seam
+patching. The M2 default is a **fixed point** of the expansion (asserted by test), so genuinely
+unselected externals stay visible-but-shallow. Dropping externals from the default instead was
+evaluated and rejected: `DvTreeModelLayer.listNamespacesToShow` *hides* out-of-scope namespaces
+(empty scope → empty sequence), so the default node is what keeps external catalogs visible at all.
+
+### 3. Logging (the definitive trail)
+
+- `DorisCatalogs: scope expansion (explicitly selected catalogs imply all their databases):
+  <serialized before> -> <serialized after>` — emitted at introspector init whenever the expansion
+  changed anything (its absence means the scope had no naked explicit selections).
+- `DorisCatalogs: catalog scope classification: {internal=EXPLICIT_WITH_SCHEMAS,
+  extcat=ENUMERATED_DEFAULT, ...}` — per introspection, after `SHOW CATALOGS`, against the
+  (already expanded) effective scope: exactly which catalogs deep-introspect and why.
+
+### 4. Tests / build
+
+`DorisCatalogScopesTest` M8 cases: catalog ticked alone (classify + expand + idempotence), catalog
+with explicit schema (untouched, same instance), empty scope (NOT_IN_SCOPE, untouched), the
+getDefaultScope pattern itself (fixed point; internal=EXPLICIT_WITH_SCHEMAS,
+externals=ENUMERATED_DEFAULT), bare "all catalogs" wildcard tick (deep + expanded), and
+most-specific-node-wins. Genuine fresh suite on `froze-over` (replay + catalog code merged): see
+report. No replay files touched.
+
+### 5. Residual risks
+
+- **Pane round-trip conversion:** `recheck` shows default-matched externals as ticked; if a user
+  edits the pane and OKs, checked externals may re-serialize as *positive* naked nodes — which now
+  mean deep. That is defensible (the user saw them ticked and confirmed), but a user who unticks
+  one catalog and OKs may deep-sweep the remaining ones. Mitigation if runtime shows pain: make the
+  default's externals node visible in the pane as unticked instead (requires solving tree
+  visibility for out-of-scope namespaces first — currently platform-hidden).
+- `changeScope(TreePattern)` (mid-session scope change without re-init) is final and bypasses
+  `initSpecificThings`; settings-dialog changes create a new introspection session (new introspector
+  → init → expansion), so the normal flow is covered. If a runtime path hits `changeScope` directly,
+  naked explicit nodes would behave un-expanded for that session only.
+- Expansion rebuilds only the DATABASE group; other root groups are preserved as-is.

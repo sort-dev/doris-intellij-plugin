@@ -133,4 +133,131 @@ class DorisCatalogScopesTest : BasePlatformTestCase() {
             dev.sort.doris.sql.DorisSqlDialect.INSTANCE.databaseDialect.dbms,
         )
     }
+
+    // ---- M8: explicit-selection classification + expansion -----------------------------------------
+
+    /** A scope pattern: one DATABASE group with the given nodes. */
+    private fun scopeOf(vararg nodes: com.intellij.database.util.TreePatternNode) =
+        com.intellij.database.util.TreePattern(
+            com.intellij.database.util.TreePatternNode.Group(ObjectKind.DATABASE, arrayOf(*nodes)),
+        )
+
+    /** A positive (schemas-pane-tick-shaped) DATABASE node. */
+    private fun tickedCatalog(name: String, vararg groups: com.intellij.database.util.TreePatternNode.Group) =
+        com.intellij.database.util.TreePatternNode(
+            com.intellij.database.util.TreePatternNode.PositiveNaming(ObjectName.plain(name)),
+            arrayOf(*groups),
+        )
+
+    private fun schemaGroup(vararg schemaNames: String): com.intellij.database.util.TreePatternNode.Group {
+        val nodes = schemaNames.map {
+            com.intellij.database.util.TreePatternNode(
+                com.intellij.database.util.TreePatternNode.PositiveNaming(ObjectName.plain(it)),
+                com.intellij.database.util.TreePatternNode.NO_GROUPS,
+            )
+        }
+        return com.intellij.database.util.TreePatternNode.Group(ObjectKind.SCHEMA, nodes.toTypedArray())
+    }
+
+    fun testCatalogTickedAloneIsExplicitDeepAndExpands() {
+        // The M8 repro: the pane serializes a ticked catalog (databases never loaded) as a naked
+        // positive DATABASE node. Classification must say EXPLICIT_DEEP...
+        val scope = scopeOf(tickedCatalog("extcat"))
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_DEEP,
+            DorisCatalogScopes.classifyCatalog(scope, "extcat"),
+        )
+        // ...and expansion must add the all-schemas group so its databases deep-introspect.
+        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
+        assertNotSame(scope, expanded)
+        val node = expanded.root!!.getGroup(ObjectKind.DATABASE)!!.children.orEmpty()
+            .single { it.naming.matches(ObjectName.plain("extcat"), Casing.EXACT) }
+        val schemas = node.getGroup(ObjectKind.SCHEMA)
+        assertNotNull("expansion must add an all-schemas group", schemas)
+        assertTrue(schemas!!.children.orEmpty().any { TreePatternUtils.isWildcard(it) })
+        // After expansion the classification is the already-deep one (idempotence).
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
+            DorisCatalogScopes.classifyCatalog(expanded, "extcat"),
+        )
+        assertSame("expansion is idempotent", expanded, DorisCatalogScopes.expandExplicitCatalogSelections(expanded))
+    }
+
+    fun testCatalogWithExplicitSchemaIsUntouched() {
+        // The user's second gesture: catalog + one explicit database ticked. The pattern already
+        // says which schemas — expansion must not add a wildcard next to the explicit selection.
+        val scope = scopeOf(tickedCatalog("extcat", schemaGroup("goodio")))
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
+            DorisCatalogScopes.classifyCatalog(scope, "extcat"),
+        )
+        assertSame(scope, DorisCatalogScopes.expandExplicitCatalogSelections(scope))
+    }
+
+    fun testNothingTickedIsNotInScope() {
+        val empty = com.intellij.database.util.TreePattern(
+            com.intellij.database.util.TreePatternNode.Group(ObjectKind.DATABASE, arrayOf()),
+        )
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.NOT_IN_SCOPE,
+            DorisCatalogScopes.classifyCatalog(empty, "extcat"),
+        )
+        assertSame(empty, DorisCatalogScopes.expandExplicitCatalogSelections(empty))
+    }
+
+    fun testDefaultScopeIsAFixedPointOfExpansion() {
+        // CRITICAL M2 preservation: the default (internal deep + externals enumerate-only via the
+        // negative-with-exceptions node) must NOT be reinterpreted as an explicit selection.
+        val default = DorisCatalogScopes.multiCatalogDefaultScope()
+        assertSame(
+            "the M2 default must be a fixed point of the M8 expansion",
+            default,
+            DorisCatalogScopes.expandExplicitCatalogSelections(default),
+        )
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
+            DorisCatalogScopes.classifyCatalog(default, DorisCatalogScopes.INTERNAL_CATALOG),
+        )
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT,
+            DorisCatalogScopes.classifyCatalog(default, "extcat"),
+        )
+    }
+
+    fun testBareAllCatalogsWildcardTickIsExplicitDeep() {
+        // The pane's "*" pseudo-entry serializes as NegativeNaming with NO exception names —
+        // distinct from the default's negative-with-exceptions node. Ticking it means everything.
+        val allTick = com.intellij.database.util.TreePatternNode(
+            com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD,
+            com.intellij.database.util.TreePatternNode.NO_GROUPS,
+        )
+        val scope = scopeOf(allTick)
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_DEEP,
+            DorisCatalogScopes.classifyCatalog(scope, "extcat"),
+        )
+        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
+        assertNotSame(scope, expanded)
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
+            DorisCatalogScopes.classifyCatalog(expanded, "anything"),
+        )
+    }
+
+    fun testMostSpecificNodeWinsClassification() {
+        // Default enumerate-only node + an explicit tick for one catalog: the explicit node must
+        // decide that catalog; others stay default-classified.
+        val default = DorisCatalogScopes.multiCatalogDefaultScope()
+        val defaultNodes = default.root!!.getGroup(ObjectKind.DATABASE)!!
+            .children.orEmpty().filterNotNull().toTypedArray()
+        val scope = scopeOf(*defaultNodes, tickedCatalog("extcat", schemaGroup("goodio")))
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
+            DorisCatalogScopes.classifyCatalog(scope, "extcat"),
+        )
+        assertEquals(
+            DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT,
+            DorisCatalogScopes.classifyCatalog(scope, "othercat"),
+        )
+    }
 }
