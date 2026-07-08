@@ -1,0 +1,44 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('d')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('x')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_AS_EXPRESSION
+            SQL_PARENTHESIZED_QUERY_EXPRESSION
+              PsiElement(()('(')
+              SQL_QUERY_EXPRESSION
+                SQL_SELECT_CLAUSE
+                  PsiElement(SELECT)('SELECT')
+                  PsiWhiteSpace(' ')
+                  SQL_COLUMN_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('x')
+                PsiWhiteSpace(' ')
+                SQL_TABLE_EXPRESSION
+                  SQL_FROM_CLAUSE
+                    PsiElement(FROM)('FROM')
+                    PsiWhiteSpace(' ')
+                    SQL_TABLE_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('t')
+              PsiElement())(')')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('d')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

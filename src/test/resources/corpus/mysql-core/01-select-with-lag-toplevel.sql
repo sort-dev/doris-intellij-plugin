@@ -1,0 +1,3 @@
+WITH s AS (SELECT 1 AS ts, 2 AS k)
+SELECT *,
+    LAG(ts) OVER (PARTITION BY k ORDER BY ts) AS prev FROM s;

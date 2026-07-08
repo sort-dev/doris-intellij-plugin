@@ -1,0 +1,60 @@
+SqlFile:corpus.sql
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      PsiElement(INTO)('INTO')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('a')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('b')
+          PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_VALUES_EXPRESSION
+        PsiElement(VALUES)('VALUES')
+        PsiWhiteSpace(' ')
+        SQL_PARENTHESIZED_EXPRESSION
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('1')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('2')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_PARENTHESIZED_EXPRESSION
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('3')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('4')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_PARENTHESIZED_EXPRESSION
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('5')
+          PsiElement(,)(',')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('6')
+          PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

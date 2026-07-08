@@ -6,10 +6,15 @@ import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.completion.InsertHandler
+import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.patterns.PlatformPatterns
+import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.sql.psi.SqlBinaryExpression
+import com.intellij.sql.psi.SqlFunctionCallExpression
 import com.intellij.util.ProcessingContext
 
 /**
@@ -17,10 +22,16 @@ import com.intellij.util.ProcessingContext
  * in code completion. DataGrip resolves/completes functions against the introspected data-source
  * model, ignoring the dialect's builtin-function registry, so Doris built-ins must be contributed
  * explicitly here — the pattern the StarRocks and TDengine dialect plugins use.
+ *
+ * Additionally completes the table-valued-function surface ([DorisTableFunctions]):
+ *  - TVF names not already covered by the generated list (e.g. `iceberg_meta`);
+ *  - documented PROPERTY KEYS inside a TVF call's parens (`tasks("<caret>` -> `type`);
+ *  - closed enum VALUES for a key on the right of `=` (`tasks("type"="<caret>` -> insert|mv).
  */
 class DorisCompletionContributor : CompletionContributor() {
     init {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), FunctionProvider)
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), TvfArgumentProvider)
     }
 
     private object FunctionProvider : CompletionProvider<CompletionParameters>() {
@@ -41,6 +52,96 @@ class DorisCompletionContributor : CompletionContributor() {
                         .withInsertHandler(CALL_PARENS)
                 )
             }
+            // TVF names missing from the generated list (registry names are FROM-queryable only;
+            // the non-queryable stream-load functions are never registered).
+            for (name in DorisTableFunctions.allNames) {
+                if (name.uppercase() in DorisFunctions.NAMES) continue
+                sink.addElement(
+                    LookupElementBuilder.create(name.lowercase())
+                        .withIcon(AllIcons.Nodes.Function)
+                        .withTypeText("Doris table function", true)
+                        .withInsertHandler(CALL_PARENS)
+                )
+            }
+        }
+    }
+
+    /**
+     * Property-key / enum-value completion inside the parens of a registered TVF call.
+     *
+     * Both the `"key"` and `"value"` positions are STRINGS in Doris SQL, so the caret is usually
+     * inside a (possibly unterminated) quoted token; the platform's identifier-based prefix does
+     * not apply there. We recompute the prefix from the quote character to the caret and offer the
+     * bare names; at a bare (unquoted) position the insert handler wraps the name in quotes.
+     */
+    private object TvfArgumentProvider : CompletionProvider<CompletionParameters>() {
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
+            val position = parameters.position
+            val offset = parameters.offset
+
+            // Enclosing registered TVF call with the caret inside its argument parens. Walk up
+            // from the caret leaf; with empty parens the leaf can be the ')' token or an error
+            // element whose parent is the call itself, so gate on "after the '('" rather than on
+            // the argument-list element's range.
+            var call = PsiTreeUtil.getParentOfType(position, SqlFunctionCallExpression::class.java, false)
+            var tvf: DorisTableFunctions.Tvf? = null
+            while (call != null) {
+                val parenIndex = call.text.indexOf('(')
+                val insideParens = parenIndex >= 0 && offset > call.textRange.startOffset + parenIndex
+                if (insideParens) {
+                    tvf = DorisTableFunctions.byName(call.nameElement?.name)
+                    if (tvf != null) break
+                }
+                call = PsiTreeUtil.getParentOfType(call, SqlFunctionCallExpression::class.java)
+            }
+            if (tvf == null || call == null) return
+
+            // Value position = caret inside/after the right operand of a `lhs = rhs` argument.
+            val binary = PsiTreeUtil.getParentOfType(position, SqlBinaryExpression::class.java)
+            val inValuePosition = binary != null &&
+                call.textRange.contains(binary.textRange) &&
+                binary.lOperand != null && offset > binary.lOperand!!.textRange.endOffset &&
+                binary.text.substring(0, (offset - binary.textRange.startOffset).coerceIn(0, binary.textLength)).contains('=')
+
+            val candidates: List<String> = if (inValuePosition) {
+                val key = binary!!.lOperand?.text?.trim('\'', '"', '`')
+                tvf.key(key)?.values ?: return
+            } else {
+                tvf.keys.map { it.name }
+            }
+            if (candidates.isEmpty()) return
+
+            // Prefix: strip the opening quote when the caret sits inside a quoted token.
+            val leafText = position.text ?: ""
+            val leafStart = position.textRange.startOffset
+            val typed = if (offset > leafStart) leafText.take(offset - leafStart) else ""
+            val quoted = typed.isNotEmpty() && typed.first() in "'\"`"
+            val prefix = if (quoted) typed.drop(1) else typed.takeWhile { it.isLetterOrDigit() || it == '_' || it == '.' }
+            val sink = result.withPrefixMatcher(prefix).caseInsensitive()
+
+            val typeText = if (inValuePosition) "${tvf.name} value" else "${tvf.name} property"
+            for (name in candidates) {
+                var element = LookupElementBuilder.create(name)
+                    .withIcon(AllIcons.Nodes.Parameter)
+                    .withTypeText(typeText, true)
+                if (!quoted) element = element.withInsertHandler(WRAP_IN_QUOTES)
+                // Rank above the ~900 general function names — inside a TVF's parens the
+                // documented property keys are what the user is after (the lookup is also
+                // hard-capped at 500 variants, which would otherwise drop these entirely).
+                sink.addElement(PrioritizedLookupElement.withPriority(element, 100.0))
+            }
+        }
+
+        /** At a bare position, insert `"name"` instead of `name` (Doris properties are strings). */
+        private val WRAP_IN_QUOTES = InsertHandler<LookupElement> { ctx, item ->
+            val doc = ctx.document
+            doc.replaceString(ctx.startOffset, ctx.tailOffset, "\"${item.lookupString}\"")
+            ctx.editor.caretModel.moveToOffset(ctx.startOffset + item.lookupString.length + 2)
         }
     }
 

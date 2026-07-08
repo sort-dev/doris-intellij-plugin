@@ -1,0 +1,34 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    PsiElement(USE)('use')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('@')
+    PsiElement(SQL_IDENT)('etl')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_STATEMENT
+    PsiElement(USE)('USE')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('acme_db')
+    PsiElement(SQL_IDENT)('@')
+    PsiElement(SQL_IDENT)('etl')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('2')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

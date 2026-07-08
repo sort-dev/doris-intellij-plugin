@@ -1,0 +1,1 @@
+WITH c AS (SELECT 1 SELECT * FROM c;

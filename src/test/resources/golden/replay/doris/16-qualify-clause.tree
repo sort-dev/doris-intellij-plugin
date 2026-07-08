@@ -1,0 +1,66 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('k')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('v')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+      PsiWhiteSpace(' ')
+      SQL_QUALIFY_CLAUSE
+        PsiElement(QUALIFY)('QUALIFY')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(ROW_NUMBER_IDENT)('ROW_NUMBER')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+            PsiWhiteSpace(' ')
+            SQL_ANALYTIC_CLAUSE
+              PsiElement(OVER)('OVER')
+              PsiWhiteSpace(' ')
+              PsiElement(()('(')
+              SQL_PARTITION_BY_CLAUSE
+                PsiElement(PARTITION)('PARTITION')
+                PsiWhiteSpace(' ')
+                PsiElement(BY)('BY')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('k')
+              PsiWhiteSpace(' ')
+              SQL_ORDER_BY_CLAUSE
+                PsiElement(ORDER)('ORDER')
+                PsiWhiteSpace(' ')
+                PsiElement(BY)('BY')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('v')
+              PsiElement())(')')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

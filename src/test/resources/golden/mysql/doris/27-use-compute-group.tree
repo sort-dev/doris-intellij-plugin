@@ -1,0 +1,41 @@
+SqlFile:corpus.sql
+  SQL_USE_SCHEMA_STATEMENT
+    PsiElement(USE)('use')
+    PsiWhiteSpace(' ')
+    MYSQL_USER_VARIABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('@')
+        PsiElement(SQL_IDENT)('etl')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_USE_SCHEMA_STATEMENT
+    PsiElement(USE)('USE')
+    PsiWhiteSpace(' ')
+    SQL_SCHEMA_REFERENCE
+      SQL_SCHEMA_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_db')
+      PsiElement(SQL_IDENT)('@')
+      SQL_GENERIC_AT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('etl')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('2')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

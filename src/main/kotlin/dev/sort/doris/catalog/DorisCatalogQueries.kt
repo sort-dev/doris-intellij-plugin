@@ -1,0 +1,244 @@
+package dev.sort.doris.catalog
+
+import com.intellij.database.model.ObjectKind
+import com.intellij.database.remote.jdba.core.Layouts
+import com.intellij.database.remote.jdba.core.ResultLayout
+import com.intellij.database.remote.jdba.sql.SqlQuery
+import com.intellij.database.util.ObjectPath
+import dev.sort.doris.DorisStringUtils
+
+/**
+ * All SQL the experimental multi-catalog introspector runs over the MySQL protocol, plus the jdba
+ * [ResultLayout]s that decode each result. Kept as a pure object with **no platform state** so the
+ * query text and row shapes are unit-testable offline ([dev.sort.doris.catalog] tests) — the parts
+ * that need a live Doris (does the server actually answer `SHOW CATALOGS`?) are exactly the parts we
+ * cannot assert here.
+ *
+ * ## Stateless-first design (Gate 1 design revision, review feedback)
+ *
+ * The **primary** per-catalog queries are *catalog-qualified and stateless*:
+ * `SHOW DATABASES FROM <catalog>` and `SELECT ... FROM <catalog>.information_schema.*`. They never
+ * mutate connection session state, so they are safe on pooled/shared/keep-alive connections, impose
+ * no per-catalog phase ordering, halve round trips (no `SWITCH` before each read), and isolate
+ * per-catalog failures naturally.
+ *
+ * `SWITCH <catalog>` + the unqualified `*_CURRENT` forms are retained **only as a documented
+ * fallback** for older Doris versions where the qualified forms fail; see [DorisIntrospector] for
+ * the fail-then-fall-back flow. Catalog names are backtick-quoted identifiers (they can need
+ * quoting), and identifiers cannot be JDBC `?` parameters, so the qualified query text is built per
+ * catalog.
+ *
+ * ## Row structs and jdba `structOf`
+ *
+ * `Layouts.structOf(C::class.java)` maps each result column to the public field of `C` with the same
+ * name. Doris `SHOW CATALOGS` emits `CatalogId, CatalogName, Type, IsCurrent, ...`; only the fields
+ * we name below are bound, the rest ignored. Fields are plain public JVM fields (`@JvmField`).
+ */
+object DorisCatalogQueries {
+
+    /** One row of `SHOW CATALOGS`. Field names match Doris's column labels. */
+    class CatalogRow {
+        @JvmField var CatalogId: Long = 0
+        @JvmField var CatalogName: String? = null
+
+        /**
+         * Doris reports the session's current catalog in an `IsCurrent` column (`Yes`/`No`). Older
+         * builds may lack the column; jdba then leaves this null and the introspector falls back to
+         * treating `internal` as the current catalog.
+         */
+        @JvmField var IsCurrent: String? = null
+    }
+
+    /** One row of the per-schema `information_schema.tables` scan. */
+    class TableRow {
+        @JvmField var TABLE_NAME: String? = null
+        @JvmField var TABLE_TYPE: String? = null
+    }
+
+    /** One row of the per-schema `information_schema.columns` scan. */
+    class ColumnRow {
+        @JvmField var TABLE_NAME: String? = null
+        @JvmField var COLUMN_NAME: String? = null
+
+        /** Bare type name (`varchar`, `variant`, ...). Fallback when [COLUMN_TYPE] is absent. */
+        @JvmField var DATA_TYPE: String? = null
+
+        /**
+         * Full type spec (`varchar(65533)`, `decimal(27,9)`, `array<int>`, ...) — the MySQL-layout
+         * column Doris's FE-served `information_schema` fills; may be null/blank for some external
+         * catalogs, in which case [DATA_TYPE] is used.
+         */
+        @JvmField var COLUMN_TYPE: String? = null
+        @JvmField var ORDINAL_POSITION: Long = 0
+    }
+
+    private val DATABASES_LAYOUT: ResultLayout<Array<String>> = Layouts.columnOf(String::class.java)
+    private val TABLES_LAYOUT: ResultLayout<List<TableRow>> =
+        Layouts.listOf(Layouts.structOf(TableRow::class.java))
+    private val COLUMNS_LAYOUT: ResultLayout<List<ColumnRow>> =
+        Layouts.listOf(Layouts.structOf(ColumnRow::class.java))
+
+    private const val TABLES_SELECT = "SELECT TABLE_NAME, TABLE_TYPE FROM "
+    private const val TABLES_WHERE = ".tables WHERE TABLE_SCHEMA = ?"
+    private const val COLUMNS_SELECT =
+        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, ORDINAL_POSITION FROM "
+    private const val COLUMNS_WHERE =
+        ".columns WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION"
+
+    /** `SHOW CATALOGS` -> one [CatalogRow] per Doris catalog (`internal` + externals). Stateless. */
+    val LIST_CATALOGS: SqlQuery<List<CatalogRow>> =
+        SqlQuery("SHOW CATALOGS", Layouts.listOf(Layouts.structOf(CatalogRow::class.java)))
+
+    // ---- Primary path: stateless, catalog-qualified -----------------------------------------------
+
+    /** `SHOW DATABASES FROM <catalog>` -> one database name per row. Stateless (no SWITCH). */
+    fun listDatabasesIn(catalogName: String): SqlQuery<Array<String>> =
+        SqlQuery("SHOW DATABASES FROM " + quote(catalogName), DATABASES_LAYOUT)
+
+    /**
+     * Tables + views of one Doris database, read from the **catalog-qualified**
+     * `<catalog>.information_schema.tables`. `?` is bound to the database (schema) name via
+     * `withParams(schemaName)`. Stateless.
+     */
+    fun listTablesIn(catalogName: String): SqlQuery<List<TableRow>> =
+        SqlQuery(TABLES_SELECT + qualifiedInformationSchema(catalogName) + TABLES_WHERE, TABLES_LAYOUT)
+
+    /** Columns of every table of one Doris database, catalog-qualified. `?` = schema name. Stateless. */
+    fun listColumnsIn(catalogName: String): SqlQuery<List<ColumnRow>> =
+        SqlQuery(COLUMNS_SELECT + qualifiedInformationSchema(catalogName) + COLUMNS_WHERE, COLUMNS_LAYOUT)
+
+    // ---- Fallback path: SWITCH + unqualified (older Doris without qualified-form support) ----------
+
+    /**
+     * `SWITCH <catalog>` — **fallback only**. Mutates connection session state (the current
+     * catalog), which is exactly why the primary path avoids it: on pooled/shared/keep-alive
+     * connections the mutated state leaks across the connection's users and forces per-catalog
+     * phase ordering. Used only when the qualified forms fail for a catalog.
+     */
+    fun switchCatalog(catalogName: String): String = "SWITCH " + quote(catalogName)
+
+    /** Fallback for [listDatabasesIn]: `SHOW DATABASES` against the SWITCHed current catalog. */
+    val LIST_DATABASES_CURRENT: SqlQuery<Array<String>> =
+        SqlQuery("SHOW DATABASES", DATABASES_LAYOUT)
+
+    /** Fallback for [listTablesIn]: unqualified `information_schema` after `SWITCH`. `?` = schema. */
+    val LIST_TABLES_CURRENT: SqlQuery<List<TableRow>> =
+        SqlQuery(TABLES_SELECT + "information_schema" + TABLES_WHERE, TABLES_LAYOUT)
+
+    /** Fallback for [listColumnsIn]: unqualified `information_schema` after `SWITCH`. `?` = schema. */
+    val LIST_COLUMNS_CURRENT: SqlQuery<List<ColumnRow>> =
+        SqlQuery(COLUMNS_SELECT + "information_schema" + COLUMNS_WHERE, COLUMNS_LAYOUT)
+
+    // ---- Console namespace switcher (M4) -----------------------------------------------------------
+
+    /**
+     * The SQL the console's namespace switcher runs when the user picks an entry (M4, BUG A).
+     *
+     * The inherited MySQL composer (`MysqlBaseDialect.sqlSetSearchPath`) renders
+     * `ObjectPath.getDisplayName()` — the full dotted path — and quotes it as **one** identifier,
+     * producing ``use `catalog.schema` `` under the multi-catalog model, which Doris rejects
+     * ("Unknown database"). Compose per path shape instead, quoting **each part separately**:
+     *
+     * - SCHEMA with a DATABASE parent -> ``use `catalog`.`db` ``  (Doris `USE [catalog.]db`)
+     * - SCHEMA without a parent       -> ``use `db` ``            (MySQL-identical)
+     * - DATABASE (catalog only)       -> ``SWITCH `catalog` ``    (Doris cannot `USE` a bare catalog)
+     *
+     * Deliberately one small function so the quoting strategy is a one-line swap if a live Doris
+     * rejects the per-part-quoted form (fallbacks, in order: unquoted `use catalog.db`; two
+     * statements ``SWITCH `catalog` `` then ``use `db` ``). See the Gate 1 log §5 runtime script.
+     */
+    fun sqlSwitchSearchPath(current: ObjectPath): String? {
+        return when (current.kind) {
+            ObjectKind.SCHEMA -> {
+                val parent = current.parent
+                if (parent != null && parent.kind == ObjectKind.DATABASE) {
+                    "use " + quote(parent.name) + "." + quote(current.name)
+                } else {
+                    "use " + quote(current.name)
+                }
+            }
+            ObjectKind.DATABASE -> "SWITCH " + quote(current.name)
+            else -> null
+        }
+    }
+
+    // ---- Console search-path read-back (M6) --------------------------------------------------------
+
+    /** Primary read-back probe for the session's current catalog (Doris built-in function). */
+    const val SELECT_CURRENT_CATALOG: String = "select current_catalog()"
+
+    /** Read-back probe for the session's current database (MySQL-identical). */
+    const val SELECT_CURRENT_DATABASE: String = "select database()"
+
+    /**
+     * Maps the read-back results onto the multi-catalog model's path shape (M6): the console's
+     * search path must be **two-level** — `DATABASE(catalog) -> SCHEMA(db)` — or it cannot bind to
+     * the Ms-model tree and the console loses its context after every statement (the observed
+     * "dropdown resets to `<database>`, completion dies" regression: MySQL's read-back produces a
+     * single-level bare `database()` path with no catalog parent).
+     *
+     * - catalog + database -> `catalog.db` (SCHEMA path with a DATABASE parent)
+     * - catalog only       -> `catalog` (DATABASE path; session has no current database)
+     * - catalog unknown    -> assume [DorisCatalogScopes.INTERNAL_CATALOG] (the connect-time
+     *   default) so the path still binds; the fallback probes should make this rare.
+     */
+    fun currentSearchPath(catalog: String?, database: String?): com.intellij.database.util.SearchPath {
+        val catalogName = catalog?.takeUnless { it.isBlank() } ?: DorisCatalogScopes.INTERNAL_CATALOG
+        val catalogPath = ObjectPath.create(catalogName, ObjectKind.DATABASE)
+        val current = if (database.isNullOrBlank()) {
+            catalogPath
+        } else {
+            catalogPath.append(database, ObjectKind.SCHEMA)
+        }
+        return com.intellij.database.util.SearchPath.of(current)
+    }
+
+    // ---- Column data types (M5) --------------------------------------------------------------------
+
+    /**
+     * Builds the column's stored [DasType] from `information_schema.columns` data (M5, item 2).
+     *
+     * Uses the platform's own generic recipe (verified in `JdbcIntrospectorHelper` bytecode):
+     * **`DataTypeFactory.of(spec)` -> `DasUnresolvedTypeReference.of(dataType)`**. `DataTypeFactory`
+     * parses the full spec (`varchar(65533)`, `decimal(27,9)`) into a [com.intellij.database.model.DataType]
+     * with size/scale, and `DasUnresolvedTypeReference` resolves lazily against the dbms type
+     * system — a name the type system does not know (Doris exotics like `variant`, `bitmap`, `hll`,
+     * `largeint`, `agg_state`, generics like `array<int>` / `map<string,int>`, or hive-side strings
+     * from external catalogs) simply stays an unresolved reference **that preserves the type-name
+     * string**, so the UI shows `variant` instead of blank/unknown, and nothing throws.
+     *
+     * Prefers the full [ColumnRow.COLUMN_TYPE] spec; falls back to the bare [ColumnRow.DATA_TYPE];
+     * returns null (leave the column untyped) when neither is usable — never crashes introspection
+     * on a weird engine-specific string.
+     */
+    fun columnDasType(dataType: String?, columnType: String?): com.intellij.database.types.DasType? {
+        val spec = columnType?.takeUnless { it.isBlank() }
+            ?: dataType?.takeUnless { it.isBlank() }
+            ?: return null
+        return try {
+            com.intellij.database.types.DasUnresolvedTypeReference.of(
+                com.intellij.database.model.properties.DataTypeFactory.of(spec),
+            )
+        } catch (t: Throwable) {
+            // Even the lenient factory choked (pathological spec): preserve the raw string if the
+            // string-based factory accepts it, else leave the column untyped.
+            try {
+                com.intellij.database.types.DasUnresolvedTypeReference.of(spec)
+            } catch (t2: Throwable) {
+                null
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------
+
+    /** Doris `information_schema.tables.TABLE_TYPE` value that denotes a view (vs. `BASE TABLE`). */
+    fun isViewType(tableType: String?): Boolean =
+        tableType != null && tableType.equals("VIEW", ignoreCase = true)
+
+    /** `<catalog>.information_schema`, catalog backtick-quoted. */
+    private fun qualifiedInformationSchema(catalogName: String): String =
+        quote(catalogName) + ".information_schema"
+
+    private fun quote(identifier: String): String = DorisStringUtils.quoteIdentifier(identifier)
+}

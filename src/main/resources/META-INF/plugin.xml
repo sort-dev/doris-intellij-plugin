@@ -66,6 +66,38 @@
         <modelFacade dbms="DORIS" implementationClass="dev.sort.doris.DorisModelFacade"/>
         <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>
         <extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>
+        <!-- Type system: exact MySQL delegation (what the extensionFallback above used to select)
+             plus static output schemas for Doris table-valued functions in FROM
+             (tasks/catalogs/...; see DorisTypeSystem/DorisTableFunctions). Always on. -->
+        <typeSystem dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisTypeSystem"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
+
+        <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
+             `doris.catalogs.experimental` system property; see dev.sort.doris.DorisCatalogs).
+             All five registrations are DUAL-MODE: with the flag OFF each delegates to the exact
+             MySQL implementation the `extensionFallback DORIS -> MYSQL` above would have selected,
+             so flag-off behaviour is byte-for-byte unchanged. With the flag ON they switch to the
+             SQL Server (Ms*) multi-database model that exposes the catalog level. -->
+        <introspector dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisIntrospector$DorisIntrospectorFactory"/>
+        <sqlObjectBuilder dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisObjectBuilder"/>
+        <scriptGenerator dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisScriptGenerator"/>
+        <hookUpHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisHookUpHelper"/>
+        <predicatesHelper dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisPredicatesHelper"/>
+        <!-- M4: dbms-keyed database dialect. Dual-mode like the rest: flag-off it replicates the
+             fallback MysqlDialect exactly (MysqlBaseDialect subclass, same getDbms/getDisplayName);
+             flag-on it fixes the console namespace switcher: per-part-quoted USE `catalog`.`db`
+             composition (BUG A) and the two-level catalog->database stepped popup (BUG B). -->
+        <dialect dbms="DORIS" implementationClass="dev.sort.doris.catalog.DorisDatabaseDialect"/>
     </extensions>
+
+    <!-- M9: persisted-model shape migration across the catalogs flag (RESEARCH-model-migration.md
+         §5(b)). started(Project) fires SYNCHRONOUSLY before the platform reads any model file;
+         mismatched-shape Doris model files are deleted for a silent empty-tree rebuild. This is
+         the one deliberate always-on catalog-side behavior: it must clear catalogs-shaped files
+         when the flag is OFF too (otherwise the flat loader hits them and logs
+         "family not in parent" errors / drops nodes). -->
+    <applicationListeners>
+        <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
+                  topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
+    </applicationListeners>
 </idea-plugin>

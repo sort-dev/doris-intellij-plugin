@@ -1,0 +1,84 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('t')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('id')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+        PsiWhiteSpace(' ')
+        SQL_NOT_NULL_CONSTRAINT_DEFINITION
+          PsiElement(NOT)('NOT')
+          PsiWhiteSpace(' ')
+          PsiElement(NULL)('NULL')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_GENERATED_AS_IDENTITY_CLAUSE
+          PsiElement(AUTO_INCREMENT)('AUTO_INCREMENT')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(NAME_IDENT)('name')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(VARCHAR)('VARCHAR')
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('64')
+          PsiElement())(')')
+        PsiWhiteSpace(' ')
+        SQL_NOT_NULL_CONSTRAINT_DEFINITION
+          PsiElement(NOT)('NOT')
+          PsiWhiteSpace(' ')
+          PsiElement(NULL)('NULL')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('created_at')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(DATETIME)('DATETIME')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_PRIMARY_KEY_DEFINITION
+        PsiElement(PRIMARY)('PRIMARY')
+        PsiWhiteSpace(' ')
+        PsiElement(KEY)('KEY')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_SHORT_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('id')
+          PsiElement())(')')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_INDEX_DEFINITION
+        PsiElement(INDEX)('INDEX')
+        PsiWhiteSpace(' ')
+        SQL_INDEX_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('idx_name')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_SHORT_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(NAME_IDENT)('name')
+          PsiElement())(')')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

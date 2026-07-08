@@ -12,6 +12,7 @@ package dev.sort.doris.sql
 import com.intellij.lang.PsiBuilder
 import com.intellij.sql.dialects.mysql.MysqlParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
+import dev.sort.doris.sql.replay.CstReplayer
 
 /**
  * A lenient PSI parser for the DorisSQL language. It extends the platform's MySQL parser and only
@@ -33,6 +34,15 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
+        // Route B (RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly enabled: replay
+        // the authoritative Doris ANTLR CST onto the platform token stream, producing REAL typed PSI for
+        // the query family (SELECT / WITH / QUALIFY) and Doris statement leads (CREATE [MATERIALIZED] VIEW,
+        // Doris CREATE TABLE, REFRESH / WARM UP / SWITCH). On ANY ANTLR error, boundary misalignment, or
+        // greed mismatch the replayer rolls back and consumes nothing, so we fall through to the unchanged
+        // lenient/delegation logic below — behaviour with the flag unset is byte-for-byte identical.
+        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wantsReplay(builder)) {
+            if (CstReplayer(builder, this).tryReplayStatement()) return true
+        }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
             isCreateJob(builder)) {
             return parseLenientToQueryTail(builder, SQL_STATEMENT)
@@ -44,6 +54,19 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             return parseBoundedQuery(builder)
         }
         return super.parseSqlStatement(builder, level)
+    }
+
+    /**
+     * True iff the statement at the cursor is one the Route B replayer attempts. A superset gate: the
+     * replayer itself is the real arbiter (it rolls back cleanly on anything it cannot shape), so this
+     * only needs to avoid waking it for statements it never handles. Query leads (SELECT / WITH, incl.
+     * QUALIFY queries) plus the Doris statement leads with a CST->PSI mapping today.
+     */
+    private fun wantsReplay(builder: PsiBuilder): Boolean {
+        if (wordAt(builder, 0) in REPLAY_QUERY_LEADS) return true
+        if (wordAt(builder, 0) in REPLAY_STATEMENT_LEADS) return true
+        return isCreateView(builder) || isCreateMaterializedView(builder) || isDorisCreateTable(builder) ||
+            isCreateJob(builder)
     }
 
     // --- dispatch predicates (bounded, non-consuming; all use mark/rollback) ---
@@ -100,6 +123,11 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return when (wordAt(builder, 0)) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
+            // Doris compute/workload-group USE (`USE @etl`, `USE db@etl`): MySQL reads the '@...' as
+            // a user-variable reference inside its USE statement, which then red-flags as an
+            // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
+            // (console schema switching depends on it); only the '@' forms go lenient.
+            "USE" -> statementContainsTokenPrefix(builder, '@')
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             "CREATE" -> isDorisCreateStatement(builder)
@@ -217,8 +245,19 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return found
     }
 
-
-
+    /** True if any token before the next ';' STARTS with [prefix] within the look-ahead window. Non-consuming. */
+    private fun statementContainsTokenPrefix(builder: PsiBuilder, prefix: Char): Boolean {
+        val marker = builder.mark()
+        var scanned = 0
+        var found = false
+        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
+            if (builder.tokenText?.firstOrNull() == prefix) { found = true; break }
+            builder.advanceLexer()
+            scanned++
+        }
+        marker.rollbackTo()
+        return found
+    }
 
     private fun createTableKeywordOffset(builder: PsiBuilder): Int? {
         if (wordAt(builder, 0) != "CREATE") return null
@@ -238,11 +277,17 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     private companion object {
         const val MAX_LOOKAHEAD = 512
+        // Statement leads the Route B replayer attempts: a query (SELECT / WITH cte / a parenthesised
+        // `(SELECT ...)`, whose first letter-word is still SELECT). wordAt skips the leading '('.
+        val REPLAY_QUERY_LEADS = setOf("SELECT", "WITH")
+        // Pure-Doris statement leads the replayer types (structure/inner refs materialised). WARM(UP),
+        // REFRESH, SWITCH — the CREATE families are gated by their own predicates in wantsReplay.
+        val REPLAY_STATEMENT_LEADS = setOf("REFRESH", "WARM", "SWITCH")
         val CREATE_TABLE_MODIFIERS = setOf("TEMPORARY", "EXTERNAL")
         // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
         // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,
         // ENGINE=InnoDB, PARTITION BY ...) down the lenient path, losing its typed PSI (caught by the
-        // golden corpus on the freezeth-over branch: mysql-core/38-create-table-plain diverged).
+        // golden corpus: mysql-core/38-create-table-plain diverged between dialects).
         val DORIS_TABLE_CLAUSES = arrayOf(
             "DISTRIBUTED", "BUCKETS", "PROPERTIES", "DUPLICATE", "AGGREGATE", "ROLLUP"
         )

@@ -1,0 +1,1 @@
+SELECT * FROM t JOIN u USING (k);

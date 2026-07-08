@@ -1,0 +1,31 @@
+SqlFile:corpus.sql
+  SQL_SET_STATEMENT
+    PsiElement(SET)('SET')
+    PsiWhiteSpace(' ')
+    SQL_SET_ASSIGNMENT
+      MYSQL_USER_VARIABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('@')
+          PsiElement(SQL_IDENT)('x')
+      PsiWhiteSpace(' ')
+      PsiElement(=)('=')
+      PsiWhiteSpace(' ')
+      SQL_NUMERIC_LITERAL
+        PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_SET_STATEMENT
+    PsiElement(SET)('SET')
+    PsiWhiteSpace(' ')
+    PsiElement(SESSION)('SESSION')
+    PsiWhiteSpace(' ')
+    SQL_SET_ASSIGNMENT
+      SQL_SYSTEM_REFERENCE
+        PsiElement(SQL_IDENT)('sql_mode')
+      PsiWhiteSpace(' ')
+      PsiElement(=)('=')
+      PsiWhiteSpace(' ')
+      SQL_STRING_LITERAL
+        PsiElement(SQL_STRING_TOKEN)(''STRICT_TRANS_TABLES'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

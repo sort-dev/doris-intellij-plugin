@@ -283,6 +283,13 @@ class DorisRegressionTest : BasePlatformTestCase() {
         statements = 2
     )
 
+    // Doris compute/workload-group USE (`use @etl` / `USE db@group`): lenient statement (dogfood
+    // 2026-07-08 P2). Plain USE (above) must keep MySQL's typed USE statement for schema switching.
+    fun testUseComputeGroupForms() = assertClean(
+        "use @etl;\nSELECT 1;\nUSE acme_db@etl;\nSELECT 2;",
+        statements = 4
+    )
+
     // --- multi-statement boundaries: nothing splits, nothing gets swallowed ---
 
     fun testFiveStatementBoundaries() = assertOneStatement(

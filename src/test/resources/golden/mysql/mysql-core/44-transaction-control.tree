@@ -1,0 +1,43 @@
+SqlFile:corpus.sql
+  SQL_START_TRANSACTION_STATEMENT
+    PsiElement(START)('START')
+    PsiWhiteSpace(' ')
+    PsiElement(TRANSACTION)('TRANSACTION')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      PsiElement(INTO)('INTO')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('a')
+          PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_VALUES_EXPRESSION
+        PsiElement(VALUES)('VALUES')
+        PsiWhiteSpace(' ')
+        SQL_PARENTHESIZED_EXPRESSION
+          PsiElement(()('(')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('1')
+          PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_COMMIT_STATEMENT
+    PsiElement(COMMIT)('COMMIT')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ROLLBACK_STATEMENT
+    PsiElement(ROLLBACK)('ROLLBACK')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

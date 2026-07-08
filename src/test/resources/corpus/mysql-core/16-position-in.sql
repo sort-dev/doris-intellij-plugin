@@ -1,0 +1,1 @@
+SELECT POSITION('a' IN b) FROM t;

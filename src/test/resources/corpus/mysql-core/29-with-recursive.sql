@@ -1,0 +1,6 @@
+WITH RECURSIVE cte AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM cte WHERE n < 10
+)
+SELECT n FROM cte;
