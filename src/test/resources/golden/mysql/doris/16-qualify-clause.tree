@@ -1,0 +1,56 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('k')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('v')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:'(', ',', <index hint option>, AS, CROSS, EXCEPT, FOR, GROUP, HAVING, INNER, INTERSECT, INTO, JOIN, LEFT, LIMIT, LOCK, NATURAL, ORDER, PARTITION, PROCEDURE, RIGHT, STRAIGHT_JOIN, UNION, WHERE or WINDOW expected, got 'QUALIFY'
+      PsiElement(QUALIFY)('QUALIFY')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(ROW_NUMBER)('ROW_NUMBER')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(OVER)('OVER')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(PARTITION)('PARTITION')
+        PsiWhiteSpace(' ')
+        PsiElement(BY)('BY')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('k')
+        PsiWhiteSpace(' ')
+        PsiElement(ORDER)('ORDER')
+        PsiWhiteSpace(' ')
+        PsiElement(BY)('BY')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('v')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(=)('=')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('1')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

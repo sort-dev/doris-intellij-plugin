@@ -1,0 +1,26 @@
+SqlFile:corpus.sql
+  SQL_CREATE_INDEX_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(INDEX)('INDEX')
+    PsiWhiteSpace(' ')
+    SQL_INDEX_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('idx_a')
+    PsiWhiteSpace(' ')
+    SQL_ON_TARGET_CLAUSE
+      PsiElement(ON)('ON')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+        PsiWhiteSpace(' ')
+        SQL_REFERENCE_LIST
+          PsiElement(()('(')
+          SQL_COLUMN_SHORT_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('a')
+          PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

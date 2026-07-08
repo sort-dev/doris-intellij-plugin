@@ -1,0 +1,88 @@
+SqlFile:corpus.sql
+  SQL_STATEMENT
+    SQL_WITH_CLAUSE
+      PsiElement(WITH)('with')
+      PsiWhiteSpace(' ')
+      SQL_NAMED_QUERY_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('foo')
+        PsiWhiteSpace(' ')
+        PsiElement(AS)('as')
+        PsiWhiteSpace(' ')
+        PsiElement(()('(')
+        PsiWhiteSpace('\n    ')
+        SQL_UNION_EXPRESSION
+          SQL_QUERY_EXPRESSION
+            SQL_SELECT_CLAUSE
+              PsiElement(SELECT)('select')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+          PsiWhiteSpace(' ')
+          PsiElement(EXCEPT)('EXCEPT')
+          SQL_PARENTHESIZED_QUERY_EXPRESSION
+            PsiElement(()('(')
+            PsiErrorElement:<query expression> expected, got 'event_sub_type'
+              PsiElement(SQL_IDENT)('event_sub_type')
+            PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:')', ',', <query expression>, DELETE, EXCEPT, FOR, INTERSECT, LIMIT, LOCK, ORDER, UNION or UPDATE expected, got 'from'
+      PsiElement(FROM)('from')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(EVENTS)('events')
+      PsiWhiteSpace(' ')
+      PsiElement(AS)('AS')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('e')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('bar')
+      PsiWhiteSpace(' ')
+      PsiElement(AS)('AS')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiWhiteSpace('\n    ')
+        PsiElement(SELECT)('select')
+        PsiWhiteSpace(' ')
+        PsiElement(*)('*')
+        PsiWhiteSpace(' ')
+        PsiElement(FROM)('from')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('foo')
+        PsiWhiteSpace(' ')
+        PsiElement(AS)('AS')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('f')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+  PsiErrorElement:';' expected, got 'select'
+    <empty list>
+  PsiWhiteSpace('\n')
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('select')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          PsiElement(*)('*')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('from')
+          PsiWhiteSpace(' ')
+          SQL_AS_EXPRESSION
+            SQL_TABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('bar')
+            PsiWhiteSpace(' ')
+            PsiElement(AS)('AS')
+            PsiWhiteSpace(' ')
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('b')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

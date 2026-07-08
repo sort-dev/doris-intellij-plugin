@@ -1,0 +1,42 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_INTEGER_TOKEN)('0xFF')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_FLOAT_TOKEN)('3.14')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_NUMERIC_LITERAL
+          PsiElement(SQL_FLOAT_TOKEN)('1.5e10')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_STRING_LITERAL
+          PsiElement(SQL_STRING_TOKEN)(''it\'s'')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_SPECIAL_LITERAL
+          PsiElement(NULL)('NULL')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_BOOLEAN_LITERAL
+          PsiElement(TRUE)('TRUE')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_BOOLEAN_LITERAL
+          PsiElement(FALSE)('FALSE')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

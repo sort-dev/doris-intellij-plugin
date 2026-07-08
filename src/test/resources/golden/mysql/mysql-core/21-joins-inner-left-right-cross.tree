@@ -1,0 +1,120 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          PsiElement(*)('*')
+      PsiWhiteSpace('\n')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_JOIN_EXPRESSION
+            SQL_JOIN_EXPRESSION
+              SQL_JOIN_EXPRESSION
+                SQL_JOIN_EXPRESSION
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('t')
+                  PsiWhiteSpace('\n')
+                  PsiElement(INNER)('INNER')
+                  PsiWhiteSpace(' ')
+                  PsiElement(JOIN)('JOIN')
+                  PsiWhiteSpace(' ')
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('u')
+                  PsiWhiteSpace(' ')
+                  SQL_JOIN_CONDITION_CLAUSE
+                    PsiElement(ON)('ON')
+                    PsiWhiteSpace(' ')
+                    SQL_BINARY_EXPRESSION
+                      SQL_COLUMN_REFERENCE
+                        SQL_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('t')
+                        PsiElement(.)('.')
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('k')
+                      PsiWhiteSpace(' ')
+                      PsiElement(=)('=')
+                      PsiWhiteSpace(' ')
+                      SQL_COLUMN_REFERENCE
+                        SQL_REFERENCE
+                          SQL_IDENTIFIER
+                            PsiElement(SQL_IDENT)('u')
+                        PsiElement(.)('.')
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('k')
+                PsiWhiteSpace('\n')
+                PsiElement(LEFT)('LEFT')
+                PsiWhiteSpace(' ')
+                PsiElement(JOIN)('JOIN')
+                PsiWhiteSpace(' ')
+                SQL_TABLE_REFERENCE
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('s')
+                PsiWhiteSpace(' ')
+                SQL_JOIN_CONDITION_CLAUSE
+                  PsiElement(ON)('ON')
+                  PsiWhiteSpace(' ')
+                  SQL_BINARY_EXPRESSION
+                    SQL_COLUMN_REFERENCE
+                      SQL_REFERENCE
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('t')
+                      PsiElement(.)('.')
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('k')
+                    PsiWhiteSpace(' ')
+                    PsiElement(=)('=')
+                    PsiWhiteSpace(' ')
+                    SQL_COLUMN_REFERENCE
+                      SQL_REFERENCE
+                        SQL_IDENTIFIER
+                          PsiElement(SQL_IDENT)('s')
+                      PsiElement(.)('.')
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('k')
+              PsiWhiteSpace('\n')
+              PsiElement(RIGHT)('RIGHT')
+              PsiWhiteSpace(' ')
+              PsiElement(JOIN)('JOIN')
+              PsiWhiteSpace(' ')
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('r')
+              PsiWhiteSpace(' ')
+              SQL_JOIN_CONDITION_CLAUSE
+                PsiElement(ON)('ON')
+                PsiWhiteSpace(' ')
+                SQL_BINARY_EXPRESSION
+                  SQL_COLUMN_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('t')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('k')
+                  PsiWhiteSpace(' ')
+                  PsiElement(=)('=')
+                  PsiWhiteSpace(' ')
+                  SQL_COLUMN_REFERENCE
+                    SQL_REFERENCE
+                      SQL_IDENTIFIER
+                        PsiElement(SQL_IDENT)('r')
+                    PsiElement(.)('.')
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('k')
+            PsiWhiteSpace('\n')
+            PsiElement(CROSS)('CROSS')
+            PsiWhiteSpace(' ')
+            PsiElement(JOIN)('JOIN')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('w')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

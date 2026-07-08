@@ -1,0 +1,93 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_WITH_QUERY_EXPRESSION
+      SQL_WITH_CLAUSE
+        PsiElement(WITH)('with')
+        PsiWhiteSpace(' ')
+        SQL_NAMED_QUERY_DEFINITION
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('foo')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('as')
+          PsiWhiteSpace(' ')
+          PsiElement(()('(')
+          PsiWhiteSpace('\n    ')
+          SQL_QUERY_EXPRESSION
+            SQL_SELECT_CLAUSE
+              PsiElement(SELECT)('select')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+            PsiWhiteSpace(' ')
+            PsiComment(SQL_BLOCK_COMMENT)('EXCEPT(event_sub_type)')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_EXPRESSION
+              SQL_FROM_CLAUSE
+                PsiElement(FROM)('from')
+                PsiWhiteSpace(' ')
+                SQL_AS_EXPRESSION
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(EVENTS_IDENT)('events')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('e')
+          PsiWhiteSpace('\n')
+          PsiElement())(')')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_NAMED_QUERY_DEFINITION
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('bar')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          PsiElement(()('(')
+          PsiWhiteSpace('\n    ')
+          SQL_QUERY_EXPRESSION
+            SQL_SELECT_CLAUSE
+              PsiElement(SELECT)('select')
+              PsiWhiteSpace(' ')
+              SQL_COLUMN_REFERENCE
+                PsiElement(*)('*')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_EXPRESSION
+              SQL_FROM_CLAUSE
+                PsiElement(FROM)('from')
+                PsiWhiteSpace(' ')
+                SQL_AS_EXPRESSION
+                  SQL_TABLE_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('foo')
+                  PsiWhiteSpace(' ')
+                  PsiElement(AS)('AS')
+                  PsiWhiteSpace(' ')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('f')
+          PsiWhiteSpace('\n')
+          PsiElement())(')')
+      PsiWhiteSpace('\n')
+      SQL_QUERY_EXPRESSION
+        SQL_SELECT_CLAUSE
+          PsiElement(SELECT)('select')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            PsiElement(*)('*')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_EXPRESSION
+          SQL_FROM_CLAUSE
+            PsiElement(FROM)('from')
+            PsiWhiteSpace(' ')
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('bar')
+              PsiWhiteSpace(' ')
+              PsiElement(AS)('AS')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('b')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

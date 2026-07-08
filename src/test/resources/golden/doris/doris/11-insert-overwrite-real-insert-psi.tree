@@ -1,0 +1,36 @@
+SqlFile:corpus.sql
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    PsiComment(SQL_BLOCK_COMMENT)('OVERWRITE')
+    PsiWhiteSpace(' ')
+    PsiComment(SQL_BLOCK_COMMENT)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('db')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+      PsiWhiteSpace(' ')
+      PsiComment(SQL_BLOCK_COMMENT)('PARTITION(*)')
+      PsiWhiteSpace(' ')
+      SQL_QUERY_EXPRESSION
+        SQL_SELECT_CLAUSE
+          PsiElement(SELECT)('SELECT')
+          PsiWhiteSpace(' ')
+          SQL_COLUMN_REFERENCE
+            PsiElement(*)('*')
+        PsiWhiteSpace(' ')
+        SQL_TABLE_EXPRESSION
+          SQL_FROM_CLAUSE
+            PsiElement(FROM)('FROM')
+            PsiWhiteSpace(' ')
+            SQL_TABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('s')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

@@ -1,0 +1,86 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('u')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('id')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_REFERENCE
+          SQL_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('o')
+          PsiElement(.)('.')
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('total')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_JOIN_EXPRESSION
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('users')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('u')
+            PsiWhiteSpace(' ')
+            PsiElement(JOIN)('JOIN')
+            PsiWhiteSpace(' ')
+            SQL_AS_EXPRESSION
+              SQL_TABLE_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('orders')
+              PsiWhiteSpace(' ')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('o')
+            PsiWhiteSpace(' ')
+            SQL_JOIN_CONDITION_CLAUSE
+              PsiElement(ON)('ON')
+              PsiWhiteSpace(' ')
+              SQL_BINARY_EXPRESSION
+                SQL_COLUMN_REFERENCE
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('u')
+                  PsiElement(.)('.')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('id')
+                PsiWhiteSpace(' ')
+                PsiElement(=)('=')
+                PsiWhiteSpace(' ')
+                SQL_COLUMN_REFERENCE
+                  SQL_REFERENCE
+                    SQL_IDENTIFIER
+                      PsiElement(SQL_IDENT)('o')
+                  PsiElement(.)('.')
+                  SQL_IDENTIFIER
+                    PsiElement(SQL_IDENT)('user_id')
+        PsiWhiteSpace(' ')
+        SQL_WHERE_CLAUSE
+          PsiElement(WHERE)('WHERE')
+          PsiWhiteSpace(' ')
+          SQL_BINARY_EXPRESSION
+            SQL_COLUMN_REFERENCE
+              SQL_REFERENCE
+                SQL_IDENTIFIER
+                  PsiElement(SQL_IDENT)('o')
+              PsiElement(.)('.')
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('total')
+            PsiWhiteSpace(' ')
+            PsiElement(>)('>')
+            PsiWhiteSpace(' ')
+            SQL_NUMERIC_LITERAL
+              PsiElement(SQL_INTEGER_TOKEN)('100')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

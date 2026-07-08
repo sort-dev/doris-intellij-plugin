@@ -1,0 +1,19 @@
+SqlFile:corpus.sql
+  SQL_INSERT_STATEMENT
+    PsiElement(INSERT)('INSERT')
+    PsiWhiteSpace(' ')
+    SQL_INSERT_DML_INSTRUCTION
+      PsiElement(INTO)('INTO')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_COLUMN_LIST
+        SQL_TABLE_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_IDENT)('t')
+      PsiWhiteSpace(' ')
+      SQL_VALUES_EXPRESSION
+        PsiElement(VALUES)('VALUES')
+        PsiWhiteSpace(' ')
+        SQL_PARENTHESIZED_EXPRESSION
+          PsiElement(()('(')
+          PsiErrorElement:')' or <expression> expected
+            <empty list>

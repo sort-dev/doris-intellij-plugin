@@ -12,6 +12,7 @@ package dev.sort.doris.sql
 import com.intellij.lang.PsiBuilder
 import com.intellij.sql.dialects.mysql.MysqlParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
+import dev.sort.doris.sql.replay.CstReplayer
 
 /**
  * A lenient PSI parser for the DorisSQL language. It extends the platform's MySQL parser and only
@@ -33,6 +34,13 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
+        // Route B PoC (Gate 2, RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly
+        // enabled: replay the authoritative Doris ANTLR CST onto the platform token stream for simple
+        // SELECTs. On any ANTLR error or boundary misalignment the replayer consumes nothing and we
+        // fall through to the unchanged logic below, so behaviour with the flag unset is identical.
+        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wordAt(builder, 0) == "SELECT") {
+            if (CstReplayer(builder).tryReplaySelectStatement()) return true
+        }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
             isCreateJob(builder)) {
             return parseLenientToQueryTail(builder, SQL_STATEMENT)
@@ -242,7 +250,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
         // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,
         // ENGINE=InnoDB, PARTITION BY ...) down the lenient path, losing its typed PSI (caught by the
-        // golden corpus on the freezeth-over branch: mysql-core/38-create-table-plain diverged).
+        // golden corpus: mysql-core/38-create-table-plain diverged between dialects).
         val DORIS_TABLE_CLAUSES = arrayOf(
             "DISTRIBUTED", "BUCKETS", "PROPERTIES", "DUPLICATE", "AGGREGATE", "ROLLUP"
         )

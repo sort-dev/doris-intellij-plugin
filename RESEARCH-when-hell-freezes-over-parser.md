@@ -173,6 +173,28 @@ CST as a *shape oracle at parse time*.
 - Unique advantage: the grammar is **always exactly Doris** — zero grammar-maintenance, tracks
   upstream by re-vendoring the jar.
 
+### Gate 2 — PASSED ✅ (2026-07-07)
+
+The replay bridge (`CstReplayer` + `ReplayMapping`, behind the `doris.replay.poc` flag) reproduces
+the platform MySQL dialect's PSI tree **byte-for-byte** for a growing slice of the `mysql-core`
+corpus, driven entirely by the authoritative Doris ANTLR CST. Beyond the original PoC (baseline
+SELECT + JOIN) this now covers **expression nesting** (arithmetic precedence chains) and **query-tail
+clauses** (LIMIT/OFFSET, DISTINCT), with GROUP BY / HAVING / ORDER BY mapped and correct. The
+key flattening finding: the platform's single-child collapse (`UNWRAP_IF_SINGLE`) is reproduced *for
+free* by materialising only the ANTLR **labeled** context classes (`ArithmeticBinary`, `Comparison`,
+`ColumnReference`, …) and leaving the pass-through wrappers (`valueExpressionDefault`, `predicated`,
+`expression`, `identifier`) transparent — no child-count heuristic needed; the grammar's labels
+already encode "real node vs. pass-through". Resolver is now ~14 context-class rules + 4
+context-sensitive rules + 3 synthetic wrappers (table-expression span, DISTINCT→SQL_SELECT_OPTION,
+LIMIT integers→SQL_NUMERIC_LITERAL); the context-class scheme is holding up cleanly.
+
+Byte-identical coverage (`DorisReplayPocTest` manifest): `04-baseline-select`, `05-baseline-join`,
+`07-operator-precedence-chain`, `23-self-join`, `30-limit-offset-variants`, `31-distinct`. Blocked
+(fail cleanly to delegation): `06`/`32` (COUNT(*) emits platform-internal `INFO:[expr:any*]`/`INFO:[0]`
+empty-list marker nodes from the MySQL *generated* parser — not derivable from the CST), plus CASE /
+BETWEEN / subquery / UNION / star-projection families (unmapped element types). Full suite green with
+the flag both on and off.
+
 ## 5. Route C — incremental mini-rules (already underway, keep going)
 
 What this plugin already does, named honestly: hand-rolled PsiBuilder rules grafted onto MySQL

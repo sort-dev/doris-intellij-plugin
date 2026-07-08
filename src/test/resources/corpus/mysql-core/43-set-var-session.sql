@@ -1,0 +1,2 @@
+SET @x = 1;
+SET SESSION sql_mode = 'STRICT_TRANS_TABLES';

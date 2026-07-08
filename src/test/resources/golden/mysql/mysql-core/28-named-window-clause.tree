@@ -1,0 +1,67 @@
+SqlFile:corpus.sql
+  SQL_SELECT_STATEMENT
+    SQL_QUERY_EXPRESSION
+      SQL_SELECT_CLAUSE
+        PsiElement(SELECT)('SELECT')
+        PsiWhiteSpace(' ')
+        SQL_FUNCTION_CALL
+          SQL_ANY_CALLABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('SUM')
+          PsiElement(()('(')
+          SQL_ARGUMENT_LIST
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('x')
+            INFO:[expr:decimal]
+              <empty list>
+            INFO:[0]
+              <empty list>
+          PsiElement())(')')
+          PsiWhiteSpace(' ')
+          SQL_ANALYTIC_CLAUSE
+            PsiElement(OVER)('OVER')
+            PsiWhiteSpace(' ')
+            SQL_WINDOW_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('w')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_EXPRESSION
+        SQL_FROM_CLAUSE
+          PsiElement(FROM)('FROM')
+          PsiWhiteSpace(' ')
+          SQL_TABLE_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('t')
+      PsiWhiteSpace(' ')
+      SQL_WINDOW_CLAUSE
+        PsiElement(WINDOW)('WINDOW')
+        PsiWhiteSpace(' ')
+        SQL_GENERIC_DEFINITION
+          SQL_WINDOW_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('w')
+          PsiWhiteSpace(' ')
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          PsiElement(()('(')
+          SQL_PARTITION_BY_CLAUSE
+            PsiElement(PARTITION)('PARTITION')
+            PsiWhiteSpace(' ')
+            PsiElement(BY)('BY')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('k')
+          PsiWhiteSpace(' ')
+          SQL_ORDER_BY_CLAUSE
+            PsiElement(ORDER)('ORDER')
+            PsiWhiteSpace(' ')
+            PsiElement(BY)('BY')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('y')
+          PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

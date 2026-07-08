@@ -74,6 +74,14 @@ tasks {
         // The light test fixture doesn't enable the database plugin by default; without it our
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
         systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin")
+
+        // Gate 1 dual golden corpus (DorisGoldenCorpusTest): absolute paths to the SQL corpus and
+        // the recorded golden trees. Passing -Pgolden.record=true flips the test into record mode.
+        systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
+        systemProperty("golden.dir", layout.projectDirectory.dir("src/test/resources/golden").asFile.absolutePath)
+        if (providers.gradleProperty("golden.record").isPresent) {
+            systemProperty("golden.record", "true")
+        }
     }
 }
 
@@ -86,5 +94,14 @@ kotlin {
 val runIdeWithPsiViewer by intellijPlatformTesting.runIde.registering {
     plugins {
         plugin("PsiViewer", "252.23892.248")
+    }
+}
+
+// Gate 1 / Milestone 1 runtime testing: launch the sandbox IDE with the experimental multi-catalog
+// model enabled (see RESEARCH-catalog-introspection.md "Gate 1 log" -> runtime test script).
+// Usage: ./gradlew runIdeCatalogs   (flag ON). Plain ./gradlew runIde stays flag OFF = shipped.
+val runIdeCatalogs by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.catalogs.experimental=true")
     }
 }
