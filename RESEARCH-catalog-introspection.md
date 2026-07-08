@@ -655,6 +655,20 @@ Help → Edit Custom VM Options: `-Ddoris.catalogs.experimental=true`, then rest
    those lines — the `via <source>` tells which probe stage produced the catalog, and a wrong
    header with a CORRECT read-back line would implicate the platform's path binding rather than
    the loader.
+9. **Fresh-connection default scope, flag-ON (M7):** create a **brand-new** Doris data source
+   (delete/recreate rather than reusing one — the default only applies to a data source whose
+   introspection scope was never touched), then expand its root once. Expected: **without any
+   manual scope ticking**, the `internal` catalog is deep-introspected — expand `internal` → its
+   databases → tables/views → columns are there; external catalogs appear as (empty-until-opened)
+   nodes. There should be **no need** to open the schemas pane and select "all databases"/"all
+   schemas". Log markers (on first expand):
+   `DorisCatalogs: default introspection scope (fresh data source): 'internal' deep-introspected,
+   external catalogs enumerated -> <serialized pattern>` (proves the seam fired and shows exactly
+   what the platform received), followed by `SHOW CATALOGS -> [...]` and, for internal's databases,
+   `catalog 'internal' db '<db>' -> N tables, M views`. If the tree is still empty: the *absence*
+   of the "default introspection scope" line means the seam did not run (data source not actually
+   fresh, or the flag is off); a `no 'internal' catalog ...` warning means the server has no
+   `internal`.
 
 **C. Collect on failure** — Help → Show Log in Finder (`idea.log`), then:
 ```
@@ -1144,3 +1158,95 @@ against a live `MysqlDialect` still pinned. Suite: 76 tests / 0 failures; `build
   a database — either way the popup lands on the stepped shape; only the flat list would indicate a
   regression (the once-per-session `switcher popup inputs` log line tells which inputs the platform
   saw).
+
+---
+
+## Gate 1 log — M7 (default introspection scope for a new connection — spike)
+
+*Spike, 2026-07-07. Goal: a fresh flag-ON Doris data source must not come up empty — `internal`
+(Doris's built-in OLAP store, always present) should be the default introspected scope so content
+loads without the user ticking "all databases"/"all schemas". Investigate-first; implement only a
+clean seam.*
+
+### 1. Seam findings (bytecode evidence) — the canonical hook already exists
+
+**The default introspection scope of a new data source is set by `DBIntrospector.getDefaultScope()`,
+consulted in two proven places (DB-261):**
+
+1. **At introspector init (first connect, before any task is built):**
+   `BaseIntrospector.init(model, config, scope)` does
+   `this.introspectionScope = selectIntrospectionScope(scope, ...)` (bytecode: `invokespecial
+   selectIntrospectionScope` → `putfield introspectionScope`), and
+   `BaseIntrospector.selectIntrospectionScope` returns **`getDefaultScope()` when the passed scope
+   `isEmpty()`** (bytecode: `TreePattern.isNotEmpty` guard else `invokevirtual getDefaultScope`).
+   A fresh `LocalDataSource` has an empty scope (`DataSourceSchemaMapping.myIntrospectionScope`
+   starts empty), so the effective scope of the first introspection *is* `getDefaultScope()`.
+2. **Persisted after the first namespaces pass:** `DatabaseIntrospectionSession.updateDataSourceScope`
+   copies `getDefaultScope()` into `LocalDataSource.setIntrospectionScope(...)` **only when the DS
+   scope is empty** — so it seeds the default and **never overrides a user's later explicit
+   selection**.
+
+**No competing seam exists.** Audit results:
+- `DatabaseDialect`/`DatabaseDialectEx`: **no** `getDefaultSchema`/`getStartupSchema`/`getInitialScope`
+  hook (grep of the full surface returned nothing). The only namespace-ish method is the SQL-editor
+  import anchor `getDefaultNamespace` (protected static), which M3 already covers — it is *editor
+  import scope*, not introspection scope.
+- Driver config (`DatabaseDriverImpl`, `doris-drivers.xml`): **no** default-scope/default-schema
+  attribute to set at creation.
+- `getDefaultScope` readers: only the two above (plus each dialect's introspector override). It is
+  **introspector-keyed**, i.e. we own it flag-ON via `DorisIntrospector`.
+
+**Conclusion: the seam the coordinator asked for is `getDefaultScope()`, and it is already
+implemented in M2** — `DorisIntrospector.getDefaultScope()` returns `internal` deep-introspected +
+external catalogs enumerated. It is the platform-canonical default, applied on first connect and
+persisted, non-overriding. The "default current catalog = internal" framing and the "default scope
+includes internal" framing converge on this one method; the scope-default is the real lever (it
+makes content *load*, not just move a cursor), and it is what we already register.
+
+### 2. Implement vs. wall
+
+**No new mechanism implemented** — adding a second one (e.g. mutating the persisted data-source XML
+or reflecting into settings internals to set a scope at creation time) is exactly the hacky path the
+spike says to avoid, and would risk double-application/conflict with the canonical seam. Instead,
+**diagnostic hardening** of the existing seam (clean, flag-ON only, zero behaviour change) so the
+next runtime pass is self-explaining:
+
+- `getDefaultScope()` now logs the **serialized** applied pattern:
+  `DorisCatalogs: default introspection scope (fresh data source): 'internal' deep-introspected,
+  external catalogs enumerated -> <serialized TreePattern>`. If this line is present in `idea.log`
+  on first connect, the seam fired and this is exactly what the platform received.
+- The catalog lister now **warns if `SHOW CATALOGS` returns no `internal`** — the one case where the
+  default's deep target is absent and the tree can legitimately look empty until the user opts into
+  a catalog (satisfies the spike's "degrade safely + log" requirement; the static pattern already
+  degrades without crashing — a missing `internal` node just matches nothing).
+
+### 3. Degradation
+
+- `internal` present (normal): deep-introspected on first connect; externals enumerated. Content
+  loads with zero manual ticking.
+- `internal` absent (pathological): default scope's `internal` node matches nothing, externals still
+  enumerate; **no crash**; a `DorisCatalogs:` warning explains the empty content.
+- User makes an explicit scope selection later: `updateDataSourceScope`'s empty-scope guard means
+  the default is never re-applied — the user's choice wins (unchanged platform behaviour).
+
+### 4. Tests / build
+
+`DorisCatalogScopesTest.testDefaultScopeSerializesNonEmptyAndNamesInternal` pins the applied scope
+as non-empty and naming `internal` (the diagnostic the log emits). Suite: 77 tests / 0 failures;
+`buildPlugin` green; flag-off untouched (`getDefaultScope`/lister live only in the flag-ON
+`DorisIntrospector`).
+
+### 5. If the empty tree persists next pass
+
+Because the seam is proven present and correct, a persistent empty tree would point at
+*application*, not a missing seam. The `DorisCatalogs:` trail on a **fresh, first-expand** flag-ON
+data source pinpoints it:
+- **`default introspection scope (fresh data source): ... -> <pattern>` absent** → the DORIS
+  introspector's `getDefaultScope` was not reached (introspector not selected? flag not read on?),
+  or the DS scope was not empty (data source not actually fresh — delete/recreate).
+- present, **`SHOW CATALOGS -> [...]` shows `internal`**, but no
+  `catalog 'internal' db '<db>' -> N tables` lines → the scope was applied but internal's schemas
+  did not deep-introspect: capture the pattern string and whether a manual "all schemas" tick then
+  loads them (would implicate scope→introspection wiring, not the default seam).
+- **`no 'internal' catalog ...` warning present** → the server genuinely has no `internal`; not a
+  plugin bug.

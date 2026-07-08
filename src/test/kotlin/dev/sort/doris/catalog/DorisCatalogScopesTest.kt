@@ -41,6 +41,20 @@ class DorisCatalogScopesTest : BasePlatformTestCase() {
         )
     }
 
+    fun testDefaultScopeSerializesNonEmptyAndNamesInternal() {
+        // M7: the fresh-data-source default scope must be a real, non-empty pattern (the seam that
+        // stops the empty tree). Its serialized form — logged by DorisIntrospector.getDefaultScope
+        // for runtime diagnosis — must name `internal`.
+        val pattern = DorisCatalogScopes.multiCatalogDefaultScope()
+        assertTrue("default scope must be non-empty", pattern.isNotEmpty)
+        val serialized = TreePatternUtils.serialize(pattern)
+        assertTrue("serialized default scope must be non-blank: '$serialized'", serialized.isNotBlank())
+        assertTrue(
+            "serialized default scope must reference '${DorisCatalogScopes.INTERNAL_CATALOG}': '$serialized'",
+            serialized.contains(DorisCatalogScopes.INTERNAL_CATALOG),
+        )
+    }
+
     fun testSingleDatabaseDefaultScopeAddsCurrentDatabaseByName() {
         // Base = the platform's own single-database default (the '@' current-schema pattern).
         // Simulate it precisely: a SCHEMA group with the '@' name, as SINGLE_DB_SCOPE builds it.

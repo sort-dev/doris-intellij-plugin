@@ -76,16 +76,41 @@ class DorisIntrospector(
 ) : BaseMultiDatabaseIntrospector<MsRoot, MsDatabase, MsSchema>(context, DorisNature, dbms, modelFactory) {
 
     /**
-     * M2: the default introspection scope a **fresh** data source receives. The platform copies
-     * this into the data source on the first introspection that finds an *empty* scope
-     * (`DatabaseIntrospectionSession.updateDataSourceScope`) and never again after the user makes
-     * an explicit selection. The inherited `MULTI_DB_SCOPE` (`@` current-namespace pattern) can
-     * resolve to nothing on a fresh Doris data source; return an explicit Doris default instead:
-     * `internal` deep-introspected, external catalogs enumerated but not deep-introspected.
+     * The default introspection scope a **fresh** data source receives (M2; M7 confirmed this is
+     * the canonical seam and hardened its diagnostics).
+     *
+     * ## Why this is *the* seam that stops the empty tree (M7 bytecode findings)
+     *
+     * `DBIntrospector.getDefaultScope()` is consulted in **two** places, both proven in DB-261
+     * bytecode, so it takes effect on the very first connect and persists:
+     *  1. `BaseIntrospector.init(model, config, scope)` sets `introspectionScope =
+     *     selectIntrospectionScope(scope, ...)`, and `selectIntrospectionScope` returns
+     *     **`getDefaultScope()` whenever the passed data-source scope `isEmpty()`** — i.e. the
+     *     effective scope of a fresh data source's first introspection is this pattern, before any
+     *     task is built.
+     *  2. `DatabaseIntrospectionSession.updateDataSourceScope()` copies `getDefaultScope()` into the
+     *     `LocalDataSource` when its scope is empty, persisting the default (and never overriding a
+     *     user's later explicit selection).
+     *
+     * There is no separate dbms-keyed "default schema"/"startup schema" hook on `DatabaseDialect`
+     * and no driver-level scope attribute (M7 audit), so this introspector method — which we own
+     * flag-ON — is the correct and only clean lever.
+     *
+     * The pattern: `internal` deep-introspected (its databases/tables load on first connect),
+     * external catalogs enumerated but not deep-introspected (shown, opt-in per catalog). It names
+     * `internal` explicitly (not the `@` current-namespace pattern the inherited `MULTI_DB_SCOPE`
+     * uses, which can resolve to nothing on a fresh Doris connection). Degrades safely if `internal`
+     * is somehow absent: its node simply matches no catalog and the externals still enumerate — no
+     * crash (the [createDatabaseLister] warns in that case so the log explains an empty tree).
      */
     override fun getDefaultScope(): TreePattern {
-        DorisCatalogs.info("supplying default introspection scope: internal deep, external catalogs enumerated")
-        return DorisCatalogScopes.multiCatalogDefaultScope()
+        val scope = DorisCatalogScopes.multiCatalogDefaultScope()
+        DorisCatalogs.info(
+            "default introspection scope (fresh data source): '${DorisCatalogScopes.INTERNAL_CATALOG}' " +
+                "deep-introspected, external catalogs enumerated -> " +
+                com.intellij.database.util.TreePatternUtils.serialize(scope),
+        )
+        return scope
     }
 
     /** Level 1: enumerate Doris catalogs as DATABASE nodes via `SHOW CATALOGS`. */
@@ -98,7 +123,18 @@ class DorisIntrospector(
                     DorisCatalogs.warn("SHOW CATALOGS failed; no catalogs will be listed", t)
                     emptyList()
                 }
-                DorisCatalogs.info("SHOW CATALOGS -> ${rows.mapNotNull { it.CatalogName }}")
+                val names = rows.mapNotNull { it.CatalogName }
+                DorisCatalogs.info("SHOW CATALOGS -> $names")
+                // M7: the default scope deep-introspects `internal`; if the server reports no such
+                // catalog, the fresh-connection tree will look empty until the user opts into a
+                // catalog — surface that as a warning so an empty tree is self-explaining in the log.
+                if (names.none { it.equals(DorisCatalogScopes.INTERNAL_CATALOG, ignoreCase = true) }) {
+                    DorisCatalogs.warn(
+                        "no '${DorisCatalogScopes.INTERNAL_CATALOG}' catalog in SHOW CATALOGS ($names); " +
+                            "the default deep-introspection target is absent — tree may appear empty " +
+                            "until a catalog is selected in the schemas pane",
+                    )
+                }
                 return rows.filter { it.CatalogName != null }
             }
 
