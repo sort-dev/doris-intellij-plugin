@@ -33,6 +33,31 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.0</b> — catalogs, table-valued functions, and a much quieter editor.
+        <ul>
+            <li><b>Multi-catalog support (on by default):</b> Doris external catalogs (Hive, Iceberg,
+                JDBC, ...) appear as a real catalog &rarr; database &rarr; table tree. The <code>internal</code>
+                catalog introspects automatically; enable external catalogs per-catalog in the schemas
+                pane. Three-part <code>catalog.db.table</code> references resolve and complete, the
+                console switcher picks catalog then database, and real Doris column types
+                (<code>variant</code>, <code>array&lt;...&gt;</code>, ...) display throughout.
+                Opt out with the VM option <code>-Ddoris.catalogs.experimental=false</code>.</li>
+            <li><b>Upgrade note:</b> existing Doris data sources rebuild their cached model once
+                (silently) on first launch — the tree repopulates on next connect/refresh.</li>
+            <li><b>Table-valued function completion:</b> <code>tasks()</code>, <code>jobs()</code>,
+                <code>mv_infos()</code>, <code>partitions()</code>, <code>backends()</code> and friends
+                complete their property keys and enum values, and their output columns resolve —
+                including schema-by-argument (<code>tasks("type"="mv")</code>). File TVFs
+                (<code>s3()</code>, <code>hdfs()</code>, ...) stay quiet without fabricating columns.</li>
+            <li><b><code>SELECT * EXCEPT(...)</code> no longer raises false errors</b> (column-count
+                mismatch and dependent noise suppressed; genuine mismatches still flagged).</li>
+            <li>Quieter editor across real Doris SQL: session variables, <code>USE @group</code>,
+                <code>SWITCH</code>, materialized-view schedules, CREATE JOB, partition specs,
+                GROUP BY aliases, CTAS key clauses.</li>
+            <li>View columns now introspect correctly (completion inside queries over views).</li>
+            <li>Experimental (off by default): native typed parsing for Doris DDL/statements via
+                <code>-Ddoris.replay.poc=true</code>.</li>
+        </ul>
         <b>0.2.3</b> — first public release.
         <ul>
             <li>DorisSQL dialect on the MySQL foundation with correct statement/run-block boundaries
