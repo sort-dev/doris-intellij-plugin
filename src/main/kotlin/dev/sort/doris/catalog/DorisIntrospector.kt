@@ -217,9 +217,14 @@ class DorisIntrospector(
                         fallback = { it.query(DorisCatalogQueries.LIST_DATABASES_CURRENT).run() },
                     ).orEmpty()
                     DorisCatalogs.info("catalog '$catalog' databases -> ${names.toList()}")
-                    for (name in names) {
-                        if (name.isNullOrBlank()) continue
-                        database.schemas.createOrGet(name)
+                    // Queries above run OUTSIDE the model lock; family mutations run inside the
+                    // sanctioned write context (0.4.0 P1 `Session not started` fix, see
+                    // [DorisModelWrite] for the bytecode trail).
+                    DorisModelWrite.write(model) {
+                        for (name in names) {
+                            if (name.isNullOrBlank()) continue
+                            database.schemas.createOrGet(name)
+                        }
                     }
                 } catch (t: Throwable) {
                     DorisCatalogs.warn("catalog '$catalog' schema listing failed; skipping catalog", t)
@@ -314,19 +319,24 @@ class DorisIntrospector(
 
             var tableCount = 0
             var viewCount = 0
-            for (t in tables) {
-                val name = t.TABLE_NAME ?: continue
-                if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-                    // M10 Part A: views get their columns attached exactly like tables. Doris
-                    // serves view columns in information_schema.columns (live-verified), and the
-                    // Ms model's MsViewColumn shares the table column surface
-                    // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
-                    // with the column rows, which killed completion on every view.
-                    attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
-                    viewCount++
-                } else {
-                    attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
-                    tableCount++
+            // Queries above run OUTSIDE the model lock; table/view/column family mutations run
+            // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
+            // [DorisModelWrite] for the bytecode trail).
+            DorisModelWrite.write(model) {
+                for (t in tables) {
+                    val name = t.TABLE_NAME ?: continue
+                    if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
+                        // M10 Part A: views get their columns attached exactly like tables. Doris
+                        // serves view columns in information_schema.columns (live-verified), and the
+                        // Ms model's MsViewColumn shares the table column surface
+                        // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
+                        // with the column rows, which killed completion on every view.
+                        attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
+                        viewCount++
+                    } else {
+                        attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
+                        tableCount++
+                    }
                 }
             }
             DorisCatalogs.info(
@@ -441,6 +451,15 @@ class DorisIntrospector(
      * one deliberate change, the M2 default-scope fix for GitHub issue #5 — and delegates all
      * capability answers to the stock `MysqlBaseIntrospector.Factory`; flag-on it produces
      * [DorisIntrospector] and advertises multilevel introspection.
+     *
+     * 262-compat note (COMPAT-262.md): the delegation `by mysql` emits an `isSupported(Version)`
+     * override, which platform 262 deprecates in favour of a NEW default overload
+     * `isSupported(Version, DatabaseConnectionPoint, Project)`. That successor does not exist on
+     * 261 (where the 1-arg form is still *abstract*, so it must be implemented), meaning a single
+     * artifact compiled against 261 cannot override the successor. Verdict: keep the delegated
+     * 1-arg implementation; on 262 the new default overload routes into it, so behaviour is
+     * identical there and the verifier cost is one deprecation *warning* (not a compatibility
+     * problem). Revisit when 261 support is dropped.
      */
     class DorisIntrospectorFactory private constructor(
         private val mysql: MsqlFactory,

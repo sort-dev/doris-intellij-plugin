@@ -13,6 +13,7 @@ import com.intellij.sql.psi.SqlIdentifier
 import com.intellij.sql.psi.SqlQueryExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlSetAssignment
+import com.intellij.sql.psi.SqlSetOperatorExpression
 import com.intellij.sql.psi.SqlStatement
 
 /**
@@ -59,6 +60,27 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         if (description.contains(COUNT_MISMATCH) && isExceptCountMismatch(file, highlightInfo)) {
             return false
         }
+        // P1 (0.4.0, EXCEPT flavor a): the set-operation twin of the same relic —
+        // SqlInsertValuesInspection's visitSqlExpression compares SqlTableType.getColumnCount()
+        // across UNION/INTERSECT/... operands ("Left and right operands should have the same
+        // number of columns, got N and M", SqlBundle
+        // inspection.message.left.right.operands.should.have.same.number.columns.got). When either
+        // operand uses `* EXCEPT(...)` the platform's count includes the excluded columns (the
+        // EXCEPT list is lexer-masked), so the numbers are structurally wrong. Gated on the
+        // ENCLOSING SET OPERATION's text — a genuine operand-count mismatch between EXCEPT-free
+        // branches keeps its error even if an unrelated EXCEPT exists elsewhere in the statement.
+        if (description.contains(UNION_COUNT_MISMATCH) && isExceptUnionCountMismatch(file, highlightInfo)) {
+            return false
+        }
+        // P1 (0.4.0, EXCEPT flavor b): "Ambiguous column reference: ..."
+        // (SqlAmbiguousColumnInspection). When a column is projected explicitly AND arrives again
+        // through the masked `* EXCEPT` star (SELECT CreateTime, * EXCEPT(CreateTime) ...), the
+        // platform sees a duplicate the server de-duplicates. Suppressed IFF the ambiguous name is
+        // literally in an EXCEPT list of an enclosing query — genuine ambiguity (name NOT in the
+        // list) stays red.
+        if (description.contains(AMBIGUOUS_COLUMN) && isExceptMaskedAmbiguity(file, highlightInfo)) {
+            return false
+        }
         if (description.contains(UNRESOLVED_PREFIX)) {
             val element = file.findElementAt(highlightInfo.startOffset)
             if (element != null && isDorisUnresolvedFalsePositive(element)) return false
@@ -82,6 +104,52 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false) ?: return false
         return EXCEPT_COLUMN_EXCLUSION.containsMatchIn(statement.text)
     }
+
+    /**
+     * EXCEPT flavor a: the operand-count highlight sits on the set-operator sign element
+     * (`SqlSetOperatorExpression.getOpSignElement(i)`, inspection bytecode offset 269) — gate on
+     * the enclosing set operation's text, whose range spans exactly the union branches.
+     */
+    private fun isExceptUnionCountMismatch(file: PsiFile, info: HighlightInfo): Boolean {
+        val element = file.findElementAt(info.startOffset) ?: return false
+        val setOp = PsiTreeUtil.getParentOfType(element, SqlSetOperatorExpression::class.java, false)
+            ?: return false
+        return EXCEPT_COLUMN_EXCLUSION.containsMatchIn(setOp.text)
+    }
+
+    /**
+     * EXCEPT flavor b: true iff the ambiguous reference's name appears in a `* EXCEPT(...)` list
+     * of one of ITS enclosing queries (walking outward, statement as last resort for highlights on
+     * clause tails the query walk misses). That is exactly the shape the server de-duplicates: the
+     * explicit projection plus the same column arriving via the masked star. A name matching no
+     * EXCEPT list — genuine ambiguity — is never suppressed.
+     */
+    private fun isExceptMaskedAmbiguity(file: PsiFile, info: HighlightInfo): Boolean {
+        val element = file.findElementAt(info.startOffset) ?: return false
+        // Outermost reference expression at the highlight: for a qualified `t.Col` the leaf's
+        // immediate ref may be the qualifier segment; the top ref's name is the column name.
+        var ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false)
+        while (ref?.parent is SqlReferenceExpression) ref = ref.parent as SqlReferenceExpression
+        val name = ref?.name?.trim('`')?.takeIf { it.isNotBlank() } ?: return false
+
+        var query: SqlQueryExpression? = PsiTreeUtil.getParentOfType(element, SqlQueryExpression::class.java)
+        while (query != null) {
+            if (exceptListContains(query.text, name)) return true
+            query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)
+        }
+        val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false)
+        return statement != null && exceptListContains(statement.text, name)
+    }
+
+    /** True when some `* EXCEPT(col, ...)` list inside [text] names [name] (Doris-insensitively). */
+    private fun exceptListContains(text: String, name: String): Boolean =
+        EXCEPT_LIST_CAPTURE.findAll(text).any { match ->
+            match.groupValues[1].split(',').any { entry ->
+                // Entries are bare or backticked column names; compare on the last path segment.
+                entry.trim().trim('`').substringAfterLast('.').trim('`')
+                    .equals(name, ignoreCase = true)
+            }
+        }
 
     /**
      * Doris-only unresolved-reference false positives (dogfood 2026-07-08 P2 batch). Four narrowly
@@ -231,12 +299,29 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         // "{0} value(s) expected, got {1}". Match the stable middle, the numbers vary.
         private const val COUNT_MISMATCH = " value(s) expected, got "
 
+        // SqlInsertValuesInspection's set-operation message (SqlBundle
+        // "inspection.message.left.right.operands.should.have.same.number.columns.got"):
+        // "Left and right operands should have the same number of columns, got {0} and {1}".
+        private const val UNION_COUNT_MISMATCH = "operands should have the same number of columns"
+
+        // SqlAmbiguousColumnInspection's message (SqlBundle "ambiguous.column.short.reference"):
+        // "Ambiguous column reference: {0}".
+        private const val AMBIGUOUS_COLUMN = "Ambiguous column reference"
+
         // The Doris `* EXCEPT(col, ...)` column-exclusion form — same discrimination as
         // DorisLexer.isExceptColumnExclusion: a `*`, then EXCEPT, then a parenthesised list that
         // starts with an identifier (backtick ok). A set-operation right-hand side (SELECT / WITH /
         // VALUES / TABLE) is excluded so `SELECT * FROM t EXCEPT (SELECT ...)` keeps its inspections.
         private val EXCEPT_COLUMN_EXCLUSION = Regex(
             """\*\s*EXCEPT\s*\(\s*(?!(?:SELECT|WITH|VALUES|TABLE)\b)[`_\p{L}]""",
+            RegexOption.IGNORE_CASE,
+        )
+
+        // Same discrimination, but CAPTURING the exclusion list so the ambiguity gate can check
+        // membership of the ambiguous name (EXCEPT lists are flat comma-separated column names —
+        // no nested parens, so [^)]* is exact).
+        private val EXCEPT_LIST_CAPTURE = Regex(
+            """\*\s*EXCEPT\s*\(\s*(?!(?:SELECT|WITH|VALUES|TABLE)\b)([^)]+)\)""",
             RegexOption.IGNORE_CASE,
         )
 

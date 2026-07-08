@@ -21,6 +21,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         myFixture.enableInspections(
             com.intellij.sql.inspections.SqlResolveInspection(),
             com.intellij.sql.inspections.SqlInsertValuesInspection(),
+            com.intellij.sql.inspections.SqlAmbiguousColumnInspection(),
         )
     }
 
@@ -109,6 +110,63 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
                 "WITH src AS (SELECT 1 AS x, 2 AS y, 3 AS z) SELECT * EXCEPT(z) FROM src;",
         )
         assertNoInfo(except, COUNT_MISMATCH)
+    }
+
+    // --- P1 (0.4.0) EXCEPT flavor a: UNION operand-count vs `* EXCEPT` ---
+
+    fun testUnionOperandCountWithExceptSuppressed() {
+        // Server counts: left `* EXCEPT(b)` = 1 column, right = 1 — legal. The platform can't
+        // subtract the masked EXCEPT list, counts 2 vs 1, and fires the operand-count error.
+        val infos = highlight(
+            "SELECT * EXCEPT(b) FROM (SELECT 1 AS a, 2 AS b) t UNION ALL SELECT 1;",
+        )
+        assertNoInfo(infos, UNION_COUNT_MISMATCH)
+    }
+
+    fun testUnionOperandCountWithExceptInRightBranchSuppressed() {
+        val infos = highlight(
+            "SELECT 1 UNION ALL SELECT * EXCEPT(b) FROM (SELECT 1 AS a, 2 AS b) t;",
+        )
+        assertNoInfo(infos, UNION_COUNT_MISMATCH)
+    }
+
+    fun testGenuineUnionOperandCountStaysRed() {
+        val infos = highlight(
+            "SELECT a, b FROM (SELECT 1 AS a, 2 AS b) t UNION ALL SELECT 1;",
+        )
+        assertHasInfo(infos, UNION_COUNT_MISMATCH)
+    }
+
+    fun testUnionOperandCountGateIsScopedToTheSetOperation() {
+        // An `* EXCEPT` in the SAME STATEMENT but outside both union branches (in the CTE) must
+        // not vouch for a genuine 1-vs-2 mismatch between EXCEPT-free branches.
+        val infos = highlight(
+            "WITH s AS (SELECT * EXCEPT(b) FROM (SELECT 1 AS a, 2 AS b) q) " +
+                "SELECT a FROM s UNION ALL SELECT 1, 2;",
+        )
+        assertHasInfo(infos, UNION_COUNT_MISMATCH)
+    }
+
+    // --- P1 (0.4.0) EXCEPT flavor b: ambiguity from explicit column + masked `* EXCEPT` star ---
+
+    fun testAmbiguityFromExceptMaskedStarSuppressed() {
+        // `SELECT CreateTime, * EXCEPT(CreateTime)` — the server de-duplicates (CreateTime arrives
+        // once), the platform expands the masked star to ALL columns and sees CreateTime twice.
+        val infos = highlight(
+            "SELECT CreateTime FROM (SELECT CreateTime, * EXCEPT(CreateTime) " +
+                "FROM (SELECT 1 AS CreateTime, 2 AS b) s) t;",
+        )
+        assertNoInfo(infos, AMBIGUOUS_COLUMN)
+    }
+
+    fun testGenuineAmbiguityStaysRedWhenNameNotInExceptList() {
+        // The query HAS an `* EXCEPT`, but the duplicated name is NOT in the list — the server
+        // really does project CreateTime twice; the ambiguity is genuine and must stay red.
+        val infos = highlight(
+            "SELECT CreateTime FROM (SELECT CreateTime, * EXCEPT(b) " +
+                "FROM (SELECT 1 AS CreateTime, 2 AS b) s) t;",
+        )
+        assertHasInfo(infos, AMBIGUOUS_COLUMN)
     }
 
     // --- P2-1: unknown session variables in SET ---
@@ -239,5 +297,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
     private companion object {
         const val REPLAY_FLAG = "doris.replay.poc"
         const val COUNT_MISMATCH = "value(s) expected, got"
+        const val UNION_COUNT_MISMATCH = "operands should have the same number of columns"
+        const val AMBIGUOUS_COLUMN = "Ambiguous column reference"
     }
 }
