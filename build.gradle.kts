@@ -104,19 +104,25 @@ val runIdeWithPsiViewer by intellijPlatformTesting.runIde.registering {
     }
 }
 
-// Gate 1 / Milestone 1 runtime testing: launch the sandbox IDE with the experimental multi-catalog
-// model enabled (see RESEARCH-catalog-introspection.md "Gate 1 log" -> runtime test script).
-// Usage: ./gradlew runIdeFrozeOver   (BOTH experimental flags ON: Route B replay + multi-catalog).
-// The froze-over integration config — what v0.3 dogfooding runs. Plain ./gradlew runIde stays shipped.
+// Usage: ./gradlew runIdeFrozeOver — the froze-over integration config (v0.3 dogfooding):
+// Route B replay ON on top of the (since-M10 default-on) multi-catalog model.
 val runIdeFrozeOver by intellijPlatformTesting.runIde.registering {
     task {
         jvmArgs("-Ddoris.replay.poc=true", "-Ddoris.catalogs.experimental=true")
     }
 }
 
-// Usage: ./gradlew runIdeCatalogs   (flag ON). Plain ./gradlew runIde stays flag OFF = shipped.
+// M10: catalogs are ON BY DEFAULT — plain ./gradlew runIde is now the catalogs experience.
+// runIdeCatalogs remains as an explicit alias (harmless; sets what is already the default).
 val runIdeCatalogs by intellijPlatformTesting.runIde.registering {
     task {
         jvmArgs("-Ddoris.catalogs.experimental=true")
+    }
+}
+
+// The M10 escape hatch: the flat single-database model (pre-0.3.0 behaviour) for A/B comparison.
+val runIdeNoCatalogs by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.catalogs.experimental=false")
     }
 }

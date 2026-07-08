@@ -49,17 +49,23 @@ Until it is on the JetBrains Marketplace (see [Status](#status)), install from d
 2. In your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the zip, and restart.
 3. Add a data source from the **Apache Doris** template and connect.
 
-## Experimental: external catalogs (multi-catalog tree)
+## External catalogs (multi-catalog tree) — on by default since 0.3.0
 
 Doris multi-catalog support (external catalogs — Hive, Iceberg, JDBC, ... — as a real level in the
-database tree) is under active development on the `freezeth-catalogs` branch, gated behind an
-opt-in flag:
+database tree) is **enabled by default** as of 0.3.0. The escape hatch back to the old flat
+single-level behavior:
 
 ```
--Ddoris.catalogs.experimental=true      # VM option; default OFF = shipped single-level behavior
+-Ddoris.catalogs.experimental=false     # VM option; default (unset) = catalogs ON
 ```
 
-With the flag on:
+**Upgrading / toggling:** the two model shapes don't cross-load, so on the first IDE start after
+an upgrade or a flag change the plugin silently clears each Doris data source's cached model
+(one `DorisCatalogs:` log line per data source); the tree starts empty and repopulates on the
+first connect/refresh — the normal new-data-source experience. Your data source settings and
+schema selections are untouched.
+
+With catalogs enabled:
 
 - The tree gains a **catalogs** level: every catalog from `SHOW CATALOGS` appears; the `internal`
   catalog is deep-introspected by default, while **external catalogs are enumerated but lazy** —

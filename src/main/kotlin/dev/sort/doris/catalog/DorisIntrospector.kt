@@ -317,23 +317,15 @@ class DorisIntrospector(
             for (t in tables) {
                 val name = t.TABLE_NAME ?: continue
                 if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-                    schema.views.createOrGet(name)
+                    // M10 Part A: views get their columns attached exactly like tables. Doris
+                    // serves view columns in information_schema.columns (live-verified), and the
+                    // Ms model's MsViewColumn shares the table column surface
+                    // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
+                    // with the column rows, which killed completion on every view.
+                    attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
                     viewCount++
                 } else {
-                    val table = schema.tables.createOrGet(name)
-                    for (col in columnsByTable[name].orEmpty()) {
-                        val colName = col.COLUMN_NAME ?: continue
-                        val column = table.columns.createOrGet(colName)
-                        // M5 item 2: stored type from COLUMN_TYPE (full spec) / DATA_TYPE via the
-                        // platform's lenient factory; Doris exotics and hive-side strings stay
-                        // unresolved-but-named (UI shows 'variant' etc.), never throw.
-                        DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
-                            ?.let { dasType -> column.setStoredType(dasType) }
-                        val pos = col.ORDINAL_POSITION
-                        if (pos in 1..Short.MAX_VALUE.toLong()) {
-                            column.setPosition(pos.toShort())
-                        }
-                    }
+                    attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
                     tableCount++
                 }
             }
@@ -342,6 +334,64 @@ class DorisIntrospector(
             )
         } catch (t: Throwable) {
             DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
+        }
+    }
+
+    /**
+     * M10 Part B: restart highlighting in open editors once introspection finishes.
+     *
+     * The platform's own invalidation chain (bytecode-verified): something calls
+     * `DataSourceStorage.updateDataSource(ds)` → `DataSourceStorage.Listener.dataSourceChanged`
+     * (storage topic) → `LocalDataSourceManager` (subscribed in its ctor) relays via
+     * `BasicDataSourceManager.updateDataSource` → `DataSourceManager.Listener.dataSourceChanged`
+     * (project bus) → `DbPsiFacadeImpl.clearCachesImpl` → `incModificationCount()` (the
+     * PSI-modification bump the daemon listens to) + per-DS `DbDataSourceImpl.clearCaches()` →
+     * open editors re-highlight against the fresh model. Our introspection sessions were mutating
+     * the model without that final event, so editors kept stale reds until the next PSI change
+     * (typing) — the observed dogfood symptom, including freshly-CREATEd objects staying red.
+     *
+     * `performFinalDiagnostics()` is the introspector hook `DatabaseIntrospectionSession` invokes
+     * exactly once at the end of every session (bytecode offset 117), so firing here covers all
+     * flows: connect-time auto-sync, schemas-pane changes, portions, and manual refresh. The event
+     * must go out on the EDT (`clearCachesImpl` asserts it) — hence `invokeLater`.
+     */
+    override fun performFinalDiagnostics() {
+        super.performFinalDiagnostics()
+        val project = project ?: return
+        val dataSourceId = dataSourceId ?: return
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            val storage = com.intellij.database.dataSource.DataSourceStorage.getProjectStorage(project)
+            val dataSource = storage.dataSources.firstOrNull { it.uniqueId == dataSourceId }
+                ?: return@invokeLater
+            storage.updateDataSource(dataSource)
+            DorisCatalogs.info(
+                "post-introspection refresh: dataSourceChanged fired for '${dataSource.name}' " +
+                    "(PSI caches cleared, open-editor highlighting restarts)",
+            )
+        }
+    }
+
+    /**
+     * Attaches the `information_schema.columns` rows to a table's or view's column family — shared
+     * by both branches since M10 (M5 item 2 semantics: stored type from COLUMN_TYPE/DATA_TYPE via
+     * the platform's lenient factory, Doris exotics stay unresolved-but-named; ordinal positions).
+     */
+    private fun attachColumns(
+        columns: com.intellij.database.model.families.ModPositioningNamingFamily<
+            out com.intellij.database.model.basic.BasicModTableOrViewColumn,
+            >,
+        rows: List<DorisCatalogQueries.ColumnRow>?,
+    ) {
+        for (col in rows.orEmpty()) {
+            val colName = col.COLUMN_NAME ?: continue
+            val column = columns.createOrGet(colName)
+            DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
+                ?.let { dasType -> column.setStoredType(dasType) }
+            val pos = col.ORDINAL_POSITION
+            if (pos in 1..Short.MAX_VALUE.toLong()) {
+                column.setPosition(pos.toShort())
+            }
         }
     }
 

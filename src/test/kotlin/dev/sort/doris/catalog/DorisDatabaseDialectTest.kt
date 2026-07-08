@@ -15,6 +15,24 @@ import dev.sort.doris.DorisDbms
  */
 class DorisDatabaseDialectTest : BasePlatformTestCase() {
 
+    override fun tearDown() {
+        try {
+            System.clearProperty(dev.sort.doris.DorisCatalogs.PROPERTY)
+        } finally {
+            super.tearDown()
+        }
+    }
+
+    /** JVM-global pin (classloader-proof; the DorisReplayPocTest property pattern). */
+    private fun <T> withFlag(value: Boolean, block: () -> T): T {
+        System.setProperty(dev.sort.doris.DorisCatalogs.PROPERTY, value.toString())
+        try {
+            return block()
+        } finally {
+            System.clearProperty(dev.sort.doris.DorisCatalogs.PROPERTY)
+        }
+    }
+
     fun testSwitchSqlForCatalogQualifiedSchema() {
         // BUG A regression: the whole point — each path part quoted SEPARATELY.
         val path = ObjectPath.create("extcat", ObjectKind.DATABASE).append("somedb", ObjectKind.SCHEMA)
@@ -41,7 +59,7 @@ class DorisDatabaseDialectTest : BasePlatformTestCase() {
         assertNull(DorisCatalogQueries.sqlSwitchSearchPath(ObjectPath.create("t", ObjectKind.TABLE)))
     }
 
-    fun testFlagOffDialectMatchesMysql() {
+    fun testFlagOffDialectMatchesMysql() = withFlag(false) {
         val doris = DorisDatabaseDialect(DorisDbms.DORIS)
         val mysql = MysqlDialect(Dbms.MYSQL)
 
@@ -92,7 +110,9 @@ class DorisDatabaseDialectTest : BasePlatformTestCase() {
         // (bytecode: if_acmpeq DATABASE jumps AWAY from DbScStep). Both inputs must hold here:
         // kind is SCHEMA in both modes; the composer's DATABASE-kind answer is non-null.
         val doris = DorisDatabaseDialect(DorisDbms.DORIS)
-        assertEquals(ObjectKind.SCHEMA, doris.searchPathObjectKind)
+        // Kind must be SCHEMA in BOTH modes (M6 correction; M10 pins each mode explicitly).
+        withFlag(true) { assertEquals(ObjectKind.SCHEMA, doris.searchPathObjectKind) }
+        withFlag(false) { assertEquals(ObjectKind.SCHEMA, doris.searchPathObjectKind) }
         assertEquals(
             "SWITCH `test`",
             DorisCatalogQueries.sqlSwitchSearchPath(ObjectPath.create("test", ObjectKind.DATABASE)),

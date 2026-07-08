@@ -11,26 +11,47 @@ import dev.sort.doris.DorisDbms
 import dev.sort.doris.DorisModelFacade
 
 /**
- * Gate 1 / Milestone 1 dual-mode wiring guarantees, asserted with the flag **OFF** (its default in
- * the test JVM):
+ * Dual-mode wiring guarantees (M1, updated for the M10 default flip):
  *
- *  1. Flag-off, [DorisModelFacade] returns the *exact same* MySQL model + helper the plugin has
- *     always shipped — the bit-for-bit-unchanged requirement.
- *  2. The `<introspector dbms="DORIS">` factory, flag-off, advertises the same capabilities as the
- *     stock MySQL introspector factory (it transparently delegates to it).
- *  3. The flag-ON model choice ([MsMetaModel.MODEL], SQL Server family) genuinely exposes the
- *     DATABASE (catalog) level that the MySQL model collapses — the whole point of path (a).
+ *  1. The flag defaults **ON** since 0.3.0; only an explicit `false` disables it (escape hatch).
+ *  2. With the flag pinned OFF ([DorisCatalogs.setForTests]), [DorisModelFacade] returns the *exact
+ *     same* MySQL model + helper the pre-catalog releases shipped, and the DORIS introspector
+ *     factory advertises the stock MySQL capabilities — the escape hatch stays byte-equivalent.
+ *  3. The flag-ON model ([MsMetaModel.MODEL], SQL Server family) exposes the DATABASE (catalog)
+ *     level that the MySQL model collapses — the whole point of path (a).
  */
 class DorisCatalogWiringTest : BasePlatformTestCase() {
 
-    fun testFlagIsOffByDefault() {
-        assertFalse(
-            "The experimental catalog model must be opt-in; default off keeps shipped behaviour.",
-            DorisCatalogs.enabled,
-        )
+    override fun tearDown() {
+        try {
+            System.clearProperty(DorisCatalogs.PROPERTY)
+        } finally {
+            super.tearDown()
+        }
     }
 
-    fun testFlagOffModelFacadeIsUnchangedMysql() {
+    /** JVM-global pin (classloader-proof; the DorisReplayPocTest property pattern). */
+    private fun <T> withFlag(value: Boolean, block: () -> T): T {
+        System.setProperty(DorisCatalogs.PROPERTY, value.toString())
+        try {
+            return block()
+        } finally {
+            System.clearProperty(DorisCatalogs.PROPERTY)
+        }
+    }
+
+    fun testFlagDefaultsOnSince030() {
+        // M10: catalogs ship on by default; only the explicit escape hatch disables.
+        assertTrue("unset must mean ENABLED (0.3.0 default)", DorisCatalogs.isEnabledValue(null))
+        assertTrue(DorisCatalogs.isEnabledValue("true"))
+        assertTrue("garbage values fail ON (never silently disable)", DorisCatalogs.isEnabledValue("yes"))
+        assertFalse("the documented escape hatch", DorisCatalogs.isEnabledValue("false"))
+        assertFalse("case-insensitive escape hatch", DorisCatalogs.isEnabledValue("FALSE"))
+        // The test JVM sets no property, so the live value must be the default: enabled.
+        assertTrue("live default must be enabled", DorisCatalogs.enabled)
+    }
+
+    fun testFlagOffModelFacadeIsUnchangedMysql() = withFlag(false) {
         val facade = DorisModelFacade(DorisDbms.DORIS)
         assertSame(
             "Flag-off getMetaModel() must be the shipped single-database MySQL model, unchanged.",
@@ -43,7 +64,13 @@ class DorisCatalogWiringTest : BasePlatformTestCase() {
         )
     }
 
-    fun testFlagOffIntrospectorFactoryMatchesMysqlCapabilities() {
+    fun testFlagOnModelFacadeIsMsFamily() = withFlag(true) {
+        val facade = DorisModelFacade(DorisDbms.DORIS)
+        assertSame(MsMetaModel.MODEL, facade.metaModel)
+        assertTrue(facade.modelHelper is DorisCatalogModelHelper)
+    }
+
+    fun testFlagOffIntrospectorFactoryMatchesMysqlCapabilities() = withFlag(false) {
         val doris = DorisIntrospector.DorisIntrospectorFactory(DorisDbms.DORIS)
         val mysql = MysqlBaseIntrospector.Factory(DorisDbms.DORIS)
         // Flag-off the Doris factory is a pass-through to the MySQL factory: same multilevel answer

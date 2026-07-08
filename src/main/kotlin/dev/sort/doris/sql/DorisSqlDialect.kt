@@ -104,6 +104,11 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
         val mysqlImports = super.getBaseImports(dataSource, names)
         if (!DorisCatalogs.enabled) return mysqlImports
         val dsNames = names?.filterNotNull()?.toTypedArray() ?: emptyArray()
+        // M10: no attached data source (empty names) -> nothing to import catalogs into; the
+        // wildcard pattern would trip the platform's "Empty positive naming" assertion
+        // (SqlImportUtil.createDataSources -> PositiveNaming(empty)). Latent since M3, exposed by
+        // the default flip: every data-source-less SQL file resolves through this path.
+        if (dsNames.isEmpty()) return mysqlImports
         return TreePatternUtils.union(mysqlImports, DorisCatalogScopes.allCatalogsImportPattern(dsNames))
     }
 

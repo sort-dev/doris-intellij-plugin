@@ -1469,3 +1469,70 @@ filter extension (sibling branch; TVF rules unchanged).
   not a fresh resolve — flag-ON only, and only for `Unable to resolve` infos.
 - Part B deletes files only under `<storageDir>` for DORIS-dbms data sources with a *successfully
   sniffed, mismatched* shape — never on sniff-null. The one-line log is the audit trail.
+
+---
+
+## Gate 1 log — M10 (0.3.0 release gate: view columns, editor refresh, default flip)
+
+*Executed 2026-07-08 on `froze-over`.*
+
+### Part A — views introspected without columns (near-P0)
+
+Live cluster (Doris 4.1.2, `acme_test`): `information_schema.columns` returns full rows
+(COLUMN_NAME/DATA_TYPE/COLUMN_TYPE/ORDINAL_POSITION) for the view `v_cte_star` exactly as for the
+table `clicks`; `TABLE_TYPE` is `VIEW`. Server innocent. Root cause was ours: the M1/M5 object loop
+fetched column rows for ALL objects (no TABLE_TYPE filter — correct) but attached them **only in
+the table branch**; the view branch did `schema.views.createOrGet(name)` and dropped the rows.
+`MsView.getColumns()` exists (`ModPositioningNamingFamily<MsViewColumn>`, `MsViewColumn :
+MsTableOrViewColumn`), so views take the exact same attachment path as tables — extracted a shared
+`attachColumns(family, rows)` (types + ordinal positions, M5 semantics) used by both branches.
+
+### Part B — open editors keep stale red until the user types
+
+The platform's invalidation chain (bytecode-verified): `DataSourceStorage.updateDataSource(ds)` →
+storage-topic `dataSourceChanged` → `LocalDataSourceManager` (ctor-subscribed) relays →
+`BasicDataSourceManager.updateDataSource` → project-bus `DataSourceManager.Listener.
+dataSourceChanged` → `DbPsiFacadeImpl.clearCachesImpl` → **`incModificationCount()`** (the PSI
+modification bump the daemon listens to) + `DbDataSourceImpl.clearCaches()` → open editors
+re-highlight. Our introspection sessions mutated the model without a final event on that chain, so
+editors kept stale reds until any PSI change (typing) — including freshly-CREATEd objects.
+Fix: `DorisIntrospector.performFinalDiagnostics()` — the hook `DatabaseIntrospectionSession`
+invokes exactly once at the end of every session (bytecode offset 117) — fires
+`DataSourceStorage.getProjectStorage(project).updateDataSource(ds)` on the EDT (`clearCachesImpl`
+asserts EDT). Event-level, platform's own mechanism, covers auto-sync/schemas-pane/portions/manual
+refresh. Log marker: `DorisCatalogs: post-introspection refresh: dataSourceChanged fired for ...`.
+
+### Part C — catalogs ON BY DEFAULT (0.3.0)
+
+- `DorisCatalogs.isEnabledValue(raw)`: only an explicit case-insensitive `"false"` disables; unset
+  and anything else (incl. garbage) mean ON — a typo can never silently disable. Escape hatch
+  documented: `-Ddoris.catalogs.experimental=false`.
+- `enabled` now reads the property **per access** instead of caching at class-load. Reason
+  (discovered the hard way): the platform test fixture loads plugin classes in the *plugin
+  classloader* while test code links against the test classpath — two separate `DorisCatalogs`
+  statics — so only a JVM-global channel (the system property) lets tests pin a mode for both
+  copies. Production semantics unchanged in effect: the property is a VM option, set before
+  startup, never mutated — session-constant by usage.
+- The flip exposed a **latent M3 bug**, now fixed: `DorisSqlDialect.getBaseImports` built the
+  all-catalogs import pattern even with an EMPTY data-source-names array (any SQL file with no
+  attached data source), tripping the platform's `Empty positive naming` assertion
+  (`SqlImportUtil.createDataSources` → `PositiveNaming(empty)`). Guard: empty names → MySQL
+  imports unchanged.
+- Tests pinned explicitly (the `DorisReplayPocTest` System.setProperty pattern, via a `withFlag`
+  helper + tearDown clearProperty): `DorisCatalogWiringTest` (flag-off facade/factory equivalence
+  now pinned false; new flag-on facade test; the old "off by default" test replaced by
+  `testFlagDefaultsOnSince030` asserting the parsing rule + live default) and
+  `DorisDatabaseDialectTest` (flag-off MySQL equivalence pinned false; the popup-kind test now
+  asserts SCHEMA in BOTH pinned modes). All other suites are pure or flag-independent.
+- Gradle: plain `runIde` is now the catalogs experience; `runIdeCatalogs` kept as an explicit
+  alias; **`runIdeNoCatalogs`** added (the escape hatch, for A/B). README section rewritten
+  (default-on, escape hatch, the one-time silent model rebuild on upgrade/toggle).
+
+### Escape-hatch equivalence
+
+Flag-FALSE remains byte-equivalent to shipped behaviour: every flag branch is unchanged, only the
+default value moved. Pinned by the suite: facade returns `MysqlMetaModel.MODEL` +
+`MysqlBaseModelHelper`; introspector factory matches stock MySQL capabilities; database dialect
+matches a live `MysqlDialect` (kind, switch SQL, display name). The M9 migration listener is the
+one deliberate always-on behaviour and now (default-on) clears FLAT-shaped models unless the escape
+hatch is set — symmetric, logged.
