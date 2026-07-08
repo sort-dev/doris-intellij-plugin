@@ -49,8 +49,18 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
     // per-function `since`-version map and filter completion to the connected server version. No such
     // `since` map exists today (Doris doesn't publish one), and the connected version is only readable
     // out-of-process (see the version-gating dead-end note), so this is a deliberate non-goal for now.
+    //
+    // On top of MySQL's map we overlay the Doris table-valued functions (tasks, catalogs, s3, ...;
+    // see DorisTableFunctions). Registration is what makes the platform treat `FROM tasks(...)` as
+    // a call with a known prototype and ask the DORIS type system (DorisTypeSystem) for its return
+    // type — which serves the TVF's static output schema so its columns resolve with zero exec.
+    // The overlay adds no keyword parameters, so TokensHelper.initTokens registers no new tokens
+    // and lexing/parse trees are unchanged.
     override fun createTokensHelper(): TokensHelper =
-        TokensHelper(MysqlTokens::class.java, SqlFunctionsUtil.loadFunctionDefinition(MysqlDialect.INSTANCE))
+        TokensHelper(
+            MysqlTokens::class.java,
+            DorisTableFunctions.BuiltinsOverlay(SqlFunctionsUtil.loadFunctionDefinition(MysqlDialect.INSTANCE))
+        )
 
     /** Register Doris data types on top of MySQL's so JSON/VARIANT/BITMAP/HLL/... are known. */
     override fun addTypes(types: MutableMap<String, BuiltinFunction.Type>) {
@@ -85,11 +95,15 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
      * qualifier head, while no external catalog's *contents* are pulled into the unqualified scope.
      *
      * Flag-OFF: exact MySQL behaviour, untouched.
+     *
+     * `names` is nullable: the platform passes null when resolving in a file with no attached
+     * data source (Java side has no annotation; a non-null Kotlin parameter here turned every
+     * such resolve into an NPE).
      */
-    override fun getBaseImports(dataSource: DbDataSource?, names: Array<ObjectName?>): TreePattern {
+    override fun getBaseImports(dataSource: DbDataSource?, names: Array<ObjectName?>?): TreePattern {
         val mysqlImports = super.getBaseImports(dataSource, names)
         if (!DorisCatalogs.enabled) return mysqlImports
-        val dsNames = names.filterNotNull().toTypedArray()
+        val dsNames = names?.filterNotNull()?.toTypedArray() ?: emptyArray()
         return TreePatternUtils.union(mysqlImports, DorisCatalogScopes.allCatalogsImportPattern(dsNames))
     }
 

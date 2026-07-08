@@ -30,6 +30,10 @@ SqlFile:corpus.sql
                   PsiElement(=)('=')
                   SQL_STRING_LITERAL
                     PsiElement(SQL_STRING_TOKEN)(''acme_derived'')
+                INFO:[args:any*]
+                  <empty list>
+                INFO:[0]
+                  <empty list>
               PsiElement())(')')
         PsiWhiteSpace('\n')
         SQL_WHERE_CLAUSE

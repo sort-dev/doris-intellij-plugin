@@ -66,6 +66,10 @@
         <modelFacade dbms="DORIS" implementationClass="dev.sort.doris.DorisModelFacade"/>
         <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>
         <extensionFallback dbms="DORIS" fallbackDbms="MYSQL"/>
+        <!-- Type system: exact MySQL delegation (what the extensionFallback above used to select)
+             plus static output schemas for Doris table-valued functions in FROM
+             (tasks/catalogs/...; see DorisTypeSystem/DorisTableFunctions). Always on. -->
+        <typeSystem dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisTypeSystem"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
 
         <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
