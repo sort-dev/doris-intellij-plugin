@@ -56,6 +56,13 @@ intellijPlatform {
     publishing {
         token = providers.gradleProperty("intellijPlatformPublishingToken")
     }
+    pluginVerification {
+        ides {
+            // 2026.2 EAP — enumerate upcoming-platform breakages ahead of the 262 release
+            // (Marketplace verifier flagged 2 compatibility problems; untilBuild fences us to 261.*)
+            ide("IU", "262.8665.81")
+        }
+    }
 }
 
 tasks {
