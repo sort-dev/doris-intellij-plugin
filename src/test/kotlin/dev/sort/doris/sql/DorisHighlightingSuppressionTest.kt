@@ -27,7 +27,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            System.clearProperty(REPLAY_FLAG)
+            System.setProperty(REPLAY_FLAG, "false")
         } finally {
             super.tearDown()
         }
@@ -37,14 +37,14 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
 
     /** Highlight [sql] as a DorisSQL file; returns the visible (post-filter) warnings+errors. */
     private fun highlight(sql: String, replay: Boolean = false): List<HighlightInfo> {
-        if (replay) System.setProperty(REPLAY_FLAG, "true") else System.clearProperty(REPLAY_FLAG)
+        if (replay) System.setProperty(REPLAY_FLAG, "true") else System.setProperty(REPLAY_FLAG, "false")
         try {
             val psi = myFixture.configureByText("h${counter++}.sql", sql)
             SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
             return myFixture.doHighlighting()
                 .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }
         } finally {
-            System.clearProperty(REPLAY_FLAG)
+            System.setProperty(REPLAY_FLAG, "false")
         }
     }
 
@@ -285,6 +285,55 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
             replay = true,
         )
         assertNoInfo(infos, "Unable to resolve")
+    }
+
+    // --- P3 (0.4.0): LATERAL VIEW [POS]EXPLODE alias references (dogfood item: `item` red) ---
+
+    fun testLateralViewAliasRefsQuietUnderReplay() {
+        val infos = highlight(
+            "WITH t AS (SELECT 1 AS arr) " +
+                "SELECT pos, item FROM t LATERAL VIEW POSEXPLODE(arr) tv AS pos, item;",
+            replay = true,
+        )
+        assertNoInfo(infos, "Unable to resolve")
+    }
+
+    fun testLateralViewAliasRefsQuietFlagOff() {
+        val infos = highlight(
+            "WITH t AS (SELECT 1 AS arr) " +
+                "SELECT pos, item FROM t LATERAL VIEW POSEXPLODE(arr) tv AS pos, item;",
+        )
+        assertNoInfo(infos, "Unable to resolve")
+    }
+
+    fun testLateralViewAliasInsideExpressionQuiet() {
+        // The dogfood shape: the alias consumed inside nested calls (NULLIF(JSON_EXTRACT(item,...))).
+        val infos = highlight(
+            "WITH t AS (SELECT 1 AS payload_arr) " +
+                "SELECT NULLIF(JSON_EXTRACT(item, '\$.k'), 'null') AS k " +
+                "FROM t LATERAL VIEW EXPLODE(payload_arr) tv AS item;",
+            replay = true,
+        )
+        assertNoInfo(infos, "Unable to resolve")
+    }
+
+    fun testLateralViewWrongNameStaysRed() {
+        // `bogus` matches no lateral-view alias and sits outside the construct — must stay red.
+        val infos = highlight(
+            "WITH t AS (SELECT 1 AS arr) " +
+                "SELECT bogus FROM t LATERAL VIEW EXPLODE(arr) tv AS item;",
+            replay = true,
+        )
+        assertHasInfo(infos, "Unable to resolve column 'bogus'")
+    }
+
+    fun testWrongNameWithoutLateralViewStillRedDespiteAliasWord() {
+        // Same names, NO lateral view in the statement: the alias gate must not vouch.
+        val infos = highlight(
+            "WITH t AS (SELECT 1 AS arr) SELECT item FROM t;",
+            replay = true,
+        )
+        assertHasInfo(infos, "Unable to resolve column 'item'")
     }
 
     // --- guard: ordinary wrong column names keep their error (no over-suppression) ---

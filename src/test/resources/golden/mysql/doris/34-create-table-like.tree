@@ -1,0 +1,50 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_copy')
+    PsiWhiteSpace(' ')
+    SQL_LIKE_TABLE_CLAUSE
+      PsiElement(LIKE)('LIKE')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_copy2')
+    PsiWhiteSpace(' ')
+    SQL_LIKE_TABLE_CLAUSE
+      PsiElement(LIKE)('LIKE')
+      PsiWhiteSpace(' ')
+      SQL_TABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_events')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:'WITH' unexpected
+      PsiElement(WITH)('WITH')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(ROLLUP)('ROLLUP')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('r_user')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('r_daily')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

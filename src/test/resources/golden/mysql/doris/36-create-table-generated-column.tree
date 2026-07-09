@@ -1,0 +1,95 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_gen')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_TABLE_ELEMENT_LIST)
+      PsiElement(()('(')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('a')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('b')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+      PsiElement(,)(',')
+      PsiWhiteSpace('\n    ')
+      SQL_COLUMN_DEFINITION
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('c')
+        PsiWhiteSpace(' ')
+        SQL_BUILTIN_TYPE_ELEMENT
+          PsiElement(INT)('INT')
+        PsiWhiteSpace(' ')
+        SQL_COLUMN_GENERATED_CLAUSE
+          PsiElement(AS)('AS')
+          PsiWhiteSpace(' ')
+          PsiElement(()('(')
+          SQL_BINARY_EXPRESSION
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('a')
+            PsiWhiteSpace(' ')
+            PsiElement(+)('+')
+            PsiWhiteSpace(' ')
+            SQL_COLUMN_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('b')
+          PsiElement())(')')
+      PsiWhiteSpace('\n')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiErrorElement:<as query clause>, <default charset option>, <default collate option>, <engine clause>, <other table option>, COMMENT or PARTITION expected, got 'DUPLICATE'
+      PsiElement(DUPLICATE)('DUPLICATE')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(KEY)('KEY')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('a')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('DISTRIBUTED')
+      PsiWhiteSpace(' ')
+      PsiElement(BY)('BY')
+      PsiWhiteSpace(' ')
+      PsiElement(HASH)('HASH')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('a')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(BUCKETS)('BUCKETS')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_INTEGER_TOKEN)('4')
+      PsiWhiteSpace('\n')
+      PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+        PsiWhiteSpace(' ')
+        PsiElement(=)('=')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT_DELIMITED)('"1"')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

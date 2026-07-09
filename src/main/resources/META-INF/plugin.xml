@@ -95,7 +95,27 @@
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
+        <!-- Re-colors DorisLexer-masked spans (CAST targets, EXCEPT lists, ...) that the SQL
+             highlighter would otherwise paint as comments — the highlighting lexer IS the parser
+             lexer on this platform. TextAttributes only; no PSI or parser impact. -->
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisMaskedSpanRecolorAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
+             pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
+        <completion.confidence language="DorisSQL" order="first"
+                               implementationClass="dev.sort.doris.sql.DorisTvfAutoPopupConfidence"/>
+        <!-- Skips the function autopopup after a digit-led prefix (`GROUP BY 1`); the contributor's
+             own allowlist gate handles the rest per-contributor so platform autopopup is untouched. -->
+        <completion.confidence language="DorisSQL" order="first"
+                               implementationClass="dev.sort.doris.sql.DorisFunctionAutoPopupConfidence"/>
+
+        <!-- Clean Doris cancel, connect-time half (gated by the `doris.cancel.experimental`
+             system property, default ON; see dev.sort.doris.cancel.DorisCancel). Guarded to
+             dbms=DORIS inside interceptConnection — non-Doris data sources are never touched
+             (the interceptor stays inactive, handleConnected is not called). On each Doris
+             connection: mints a per-connection trace id, binds it via SET session_context,
+             mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
+        <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
@@ -137,4 +157,23 @@
         <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
                   topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
     </applicationListeners>
+
+    <!-- Clean Doris cancel, cancel-time half: replaces the stock stop-button action
+         (database-plugin.xml registers Console.Jdbc.Cancel; there is no dialect-level cancel
+         seam — the JDBC chain ends in the MySQL driver's broken second-connection
+         KILL QUERY <conn-id>, see RESEARCH-query-cancel.md). The replacement subclasses the
+         stock action and delegates to it verbatim for non-Doris sessions and when
+         -Ddoris.cancel.experimental=false; for Doris sessions the stock (client-side) cancel
+         still runs first and a server-side KILL QUERY "<trace-id>" follows on a pooled thread.
+         Text/description/icon replicate the stock registration (the platform reads them from
+         the declaring plugin, i.e. us, after the override). -->
+    <actions>
+        <action id="Console.Jdbc.Cancel"
+                class="dev.sort.doris.cancel.DorisCancelRunningStatementsAction"
+                overrides="true"
+                text="Cancel Running Statements"
+                description="Cancel running and queued statements"
+                use-shortcut-of="Stop"
+                icon="AllIcons.Actions.Suspend"/>
+    </actions>
 </idea-plugin>

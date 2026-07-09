@@ -1,0 +1,150 @@
+SqlFile:corpus.sql
+  SQL_CREATE_TABLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_site_visits')
+    PsiWhiteSpace(' ')
+    PsiElement(()('(')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('site_id')
+      PsiWhiteSpace(' ')
+      PsiElement(INT)('INT')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('dt')
+      PsiWhiteSpace(' ')
+      PsiElement(DATE)('DATE')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('city')
+      PsiWhiteSpace(' ')
+      PsiElement(VARCHAR)('VARCHAR')
+      PsiElement(()('(')
+      PsiElement(SQL_INTEGER_TOKEN)('32')
+      PsiElement())(')')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('pv')
+      PsiWhiteSpace(' ')
+      PsiElement(BIGINT)('BIGINT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('SUM')
+      PsiWhiteSpace(' ')
+      PsiElement(DEFAULT)('DEFAULT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT_DELIMITED)('"0"')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('max_latency')
+      PsiWhiteSpace(' ')
+      PsiElement(INT)('INT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('MAX')
+      PsiWhiteSpace(' ')
+      PsiElement(DEFAULT)('DEFAULT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT_DELIMITED)('"0"')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('min_latency')
+      PsiWhiteSpace(' ')
+      PsiElement(INT)('INT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('MIN')
+      PsiWhiteSpace(' ')
+      PsiElement(DEFAULT)('DEFAULT')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT_DELIMITED)('"999999"')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('last_visit')
+      PsiWhiteSpace(' ')
+      PsiElement(DATETIME)('DATETIME')
+      PsiWhiteSpace(' ')
+      PsiElement(REPLACE)('REPLACE')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('uv')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('BITMAP')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('BITMAP_UNION')
+    PsiElement(,)(',')
+    PsiWhiteSpace('\n    ')
+    SQL_COLUMN_DEFINITION
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('uniq_users')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('HLL')
+      PsiWhiteSpace(' ')
+      PsiElement(SQL_IDENT)('HLL_UNION')
+    PsiWhiteSpace('\n')
+    PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(AGGREGATE)('AGGREGATE')
+    PsiWhiteSpace(' ')
+    PsiElement(KEY)('KEY')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('site_id')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('dt')
+      PsiElement(,)(',')
+      PsiWhiteSpace(' ')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('city')
+      PsiElement())(')')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('DISTRIBUTED')
+    PsiWhiteSpace(' ')
+    PsiElement(BY)('BY')
+    PsiWhiteSpace(' ')
+    PsiElement(HASH)('HASH')
+    SQL_REFERENCE_LIST
+      PsiElement(()('(')
+      SQL_COLUMN_SHORT_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('site_id')
+      PsiElement())(')')
+    PsiWhiteSpace(' ')
+    PsiElement(BUCKETS)('BUCKETS')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_INTEGER_TOKEN)('10')
+    PsiWhiteSpace('\n')
+    PsiElement(SQL_IDENT)('PROPERTIES')
+    PsiWhiteSpace(' ')
+    PsiElement(()('(')
+    PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+    PsiWhiteSpace(' ')
+    PsiElement(=)('=')
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT_DELIMITED)('"1"')
+    PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

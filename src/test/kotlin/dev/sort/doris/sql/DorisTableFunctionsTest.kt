@@ -233,6 +233,88 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue("enum values offered, got: $lookups", lookups.containsAll(listOf("insert", "mv")))
     }
 
+    // --- Single-quote property style (dogfood 2026-07-08 P3: keys "didn't offer" in real files;
+    //     Doris docs and real usage write 'key' = 'value', which MySQL lexes as STRING literals,
+    //     a different PSI shape than the double-quoted identifiers the tests above cover) ---
+
+    fun testCompletionOffersPropertyKeysInsideSingleQuotes() {
+        val lookups = completionsAt("SELECT * FROM s3('<caret>');")
+        assertTrue("property key 'uri' offered, got: ${lookups.take(20)}", lookups.contains("uri"))
+        assertTrue("property key 'format' offered", lookups.contains("format"))
+    }
+
+    fun testCompletionOffersPartialKeyInsideSingleQuotes() {
+        val lookups = completionsAt("SELECT * FROM iceberg_meta('query<caret>');")
+        assertTrue("query_type offered, got: $lookups", lookups.contains("query_type"))
+    }
+
+    fun testCompletionOffersNextKeyAfterCommaInSingleQuotes() {
+        // The exact dogfood shape: a later 'key' position after an existing 'uri' = '...' pair.
+        val lookups = completionsAt("SELECT * FROM S3('uri' = 's3://acme-bucket/x.parquet', '<caret>');")
+        assertTrue("property key 'format' offered, got: ${lookups.take(20)}", lookups.contains("format"))
+    }
+
+    fun testCompletionOffersEnumValuesInSingleQuotes() {
+        val lookups = completionsAt("SELECT * FROM tasks('type'='<caret>');")
+        assertTrue("enum values offered, got: ${lookups.take(20)}", lookups.containsAll(listOf("insert", "mv")))
+    }
+
+    // --- Auto-popup confidence: the reason single-quoted keys "didn't offer" in practice was the
+    //     platform's SkipAutopopupInStrings suppressing auto-popup inside any string literal;
+    //     DorisTvfAutoPopupConfidence (order="first") answers NO inside a TVF's argument parens. ---
+
+    private fun confidenceAt(sql: String): com.intellij.util.ThreeState {
+        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        myFixture.configureByText("a.sql", sql)
+        val offset = myFixture.caretOffset
+        val element = myFixture.file.findElementAt(offset)
+            ?: myFixture.file.findElementAt(offset - 1)
+            ?: error("no element at caret")
+        return DorisTvfAutoPopupConfidence().shouldSkipAutopopup(element, myFixture.file, offset)
+    }
+
+    fun testAutopopupNotSkippedInsideTvfPropertyString() {
+        assertEquals(
+            com.intellij.util.ThreeState.NO,
+            confidenceAt("SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');"),
+        )
+    }
+
+    fun testAutopopupConfidenceEditorEntryPointDelegates() {
+        // The production auto-popup path calls the 4-arg (Editor) overload; its platform default
+        // must delegate to the 3-arg one we override. Pins that delegation on this platform build.
+        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        myFixture.configureByText("a.sql", "SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');")
+        val offset = myFixture.caretOffset
+        val element = myFixture.file.findElementAt(offset) ?: myFixture.file.findElementAt(offset - 1)!!
+        assertEquals(
+            com.intellij.util.ThreeState.NO,
+            DorisTvfAutoPopupConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset),
+        )
+    }
+
+    fun testAutopopupNotSkippedInsideDoubleQuotedTvfProperty() {
+        assertEquals(
+            com.intellij.util.ThreeState.NO,
+            confidenceAt("SELECT * FROM tasks(\"ty<caret>\");"),
+        )
+    }
+
+    fun testAutopopupConfidenceUnsureInOrdinaryString() {
+        // Outside a TVF call the platform default (skip in strings) must stay in charge.
+        assertEquals(
+            com.intellij.util.ThreeState.UNSURE,
+            confidenceAt("SELECT 'acme<caret>text' FROM t;"),
+        )
+    }
+
+    fun testAutopopupConfidenceUnsureInUnregisteredCall() {
+        assertEquals(
+            com.intellij.util.ThreeState.UNSURE,
+            confidenceAt("SELECT concat('a<caret>', 'b') FROM t;"),
+        )
+    }
+
     fun testCompletionOffersTvfNames() {
         SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", "SELECT * FROM iceberg<caret>;")

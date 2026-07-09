@@ -49,6 +49,18 @@ class DorisCompletionContributor : CompletionContributor() {
             // is always wrong. Bare positions (`SELECT <caret>`) keep the full function list.
             val ref = PsiTreeUtil.getParentOfType(parameters.position, SqlReferenceExpression::class.java, false)
             if (ref?.qualifierExpression != null) return
+            // Dogfood 2026-07-08 P1 (0.5.0): a digit-led prefix never begins a function name, so a
+            // substring matcher offering `sha1`/`log10` for prefix `1` (breaking `GROUP BY 1`) is
+            // pure over-reach — withhold the whole list even on explicit invoke.
+            if (DorisExpressionPosition.prefixIsDigitLed(parameters.originalFile, parameters.offset)) return
+            // ALLOWLIST the autopopup: functions default to explicit-invoke-only and pop up
+            // automatically only in positively-detected expression positions (see
+            // DorisExpressionPosition). invocationCount == 0 is the auto-popup; >= 1 is Ctrl+Space,
+            // which always gets the full list. This is per-contributor, so it leaves the platform's
+            // own table/column autopopup (e.g. after FROM) untouched.
+            if (parameters.invocationCount == 0 &&
+                !DorisExpressionPosition.isFunctionAutopopupPosition(parameters.originalFile, parameters.offset)
+            ) return
             // Doris function names are case-insensitive, so match regardless of the IDE's
             // "Match case" setting (otherwise typing AB... won't complete a lowercase 'abs').
             val sink = result.caseInsensitive()
@@ -92,22 +104,10 @@ class DorisCompletionContributor : CompletionContributor() {
             val position = parameters.position
             val offset = parameters.offset
 
-            // Enclosing registered TVF call with the caret inside its argument parens. Walk up
-            // from the caret leaf; with empty parens the leaf can be the ')' token or an error
-            // element whose parent is the call itself, so gate on "after the '('" rather than on
-            // the argument-list element's range.
-            var call = PsiTreeUtil.getParentOfType(position, SqlFunctionCallExpression::class.java, false)
-            var tvf: DorisTableFunctions.Tvf? = null
-            while (call != null) {
-                val parenIndex = call.text.indexOf('(')
-                val insideParens = parenIndex >= 0 && offset > call.textRange.startOffset + parenIndex
-                if (insideParens) {
-                    tvf = DorisTableFunctions.byName(call.nameElement?.name)
-                    if (tvf != null) break
-                }
-                call = PsiTreeUtil.getParentOfType(call, SqlFunctionCallExpression::class.java)
-            }
-            if (tvf == null || call == null) return
+            // Enclosing registered TVF call with the caret inside its argument parens (shared with
+            // DorisTvfAutoPopupConfidence so autopopup and the provider agree on the context).
+            val call = DorisTableFunctions.callWithCaretInArgs(position, offset) ?: return
+            val tvf = DorisTableFunctions.byName(call.nameElement?.name) ?: return
 
             // Value position = caret inside/after the right operand of a `lhs = rhs` argument.
             val binary = PsiTreeUtil.getParentOfType(position, SqlBinaryExpression::class.java)

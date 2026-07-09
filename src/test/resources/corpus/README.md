@@ -102,6 +102,37 @@ are our **regression** surface.
 | 20-use-catalog-dot-db.sql | `USE catalog.db` |
 | 21-five-statement-boundaries.sql | Five mixed statements (boundary detection) |
 | 22-lenient-statement-no-eat-next.sql | Lenient statement must not swallow the next one |
+| 23-create-mtmv-partition-expr.sql | `CREATE MATERIALIZED VIEW ... PARTITION BY (date_trunc(...))` |
+| 24-create-table-inverted-index-auto-partition.sql | Inline `INDEX ... USING INVERTED` + `AUTO PARTITION BY RANGE` |
+| 25-refresh-materialized-view-complete.sql | `REFRESH MATERIALIZED VIEW ... COMPLETE` |
+| 26-refresh-mv-partition.sql | `REFRESH MATERIALIZED VIEW ... PARTITION/PARTITIONS/AUTO` |
+| 27-use-compute-group.sql | `USE @group` / `USE db@group` compute-group forms |
+| 28-create-table-unique-key-sequence.sql | `UNIQUE KEY` + `function_column.sequence_col` + merge-on-write |
+| 29-create-table-aggregate-key.sql | `AGGREGATE KEY` with SUM/MAX/MIN/REPLACE/BITMAP_UNION/HLL_UNION |
+| 30-create-table-colocate-bloom.sql | `colocate_with` + `bloom_filter_columns` properties |
+| 31-create-table-dynamic-partition.sql | `PARTITION BY RANGE` + `dynamic_partition.*` properties |
+| 32-create-table-list-partition.sql | `PARTITION BY LIST` with multi-column `VALUES IN` tuples |
+| 33-create-table-range-multi-column.sql | Multi-column RANGE, `VALUES [(...), (...))` + `LESS THAN` |
+| 34-create-table-like.sql | `CREATE TABLE LIKE` (plain + `WITH ROLLUP`) |
+| 35-ctas-variants.sql | CTAS with and without an explicit column list |
+| 36-create-table-generated-column.sql | Generated column `c INT AS (a + b)` |
+| 37-alter-table-columns.sql | `ALTER TABLE ADD / MODIFY / DROP COLUMN` |
+| 38-alter-table-partitions.sql | `ALTER TABLE ADD / DROP / REPLACE PARTITION` (incl. interval form) |
+| 39-alter-table-rename-properties-rollup.sql | `RENAME` / `SET ("k"="v")` / `ADD`/`DROP ROLLUP` |
+| 40-create-mtmv-refresh-strategies.sql | MTMV `BUILD`/`REFRESH` × `ON SCHEDULE EVERY ... STARTS` / `ON COMMIT` |
+| 41-create-mtmv-partition-column-workload.sql | MTMV `PARTITION BY (col)` + `workload_group` property |
+| 42-create-job-schedule-variants.sql | `CREATE JOB` `EVERY n MINUTE/DAY [STARTS/ENDS]` + one-time `AT` |
+| 43-create-routine-load-kafka.sql | `CREATE ROUTINE LOAD ... FROM KAFKA (...)` property bags |
+| 44-export-table.sql | `EXPORT TABLE ... TO "s3://..." WITH s3 (...)` |
+| 45-backup-restore.sql | `BACKUP SNAPSHOT ... TO` / `RESTORE SNAPSHOT ... FROM` |
+| 46-grant-revoke.sql | `GRANT`/`REVOKE` `*_PRIV` forms, workload-group grant, role grant |
+| 47-create-user-role.sql | `CREATE USER [IF NOT EXISTS] ... DEFAULT ROLE` / `CREATE ROLE` |
+| 48-create-catalog-property-bags.sql | `CREATE CATALOG` (hms / iceberg / jdbc property bags) |
+| 49-create-resource-workload-group.sql | `CREATE RESOURCE` / `CREATE WORKLOAD GROUP` |
+| 50-delete-from-partition.sql | `DELETE FROM ... PARTITION (p)` / `PARTITIONS (p1, p2)` / plain |
+| 51-update-set.sql | Single-table `UPDATE ... SET ... WHERE` |
+| 52-truncate-partition.sql | `TRUNCATE TABLE` plain + `PARTITION (...)` |
+| 53-insert-variants.sql | `INSERT` with partition spec + column list / `DEFAULT` / `INSERT ... SELECT` |
 
 ## Manifest — `edge/`
 

@@ -1,0 +1,9 @@
+CREATE JOB acme_minutely_job
+ON SCHEDULE EVERY 1 MINUTE
+DO INSERT INTO acme_stage SELECT * FROM acme_landing;
+CREATE JOB acme_daily_job
+ON SCHEDULE EVERY 1 DAY STARTS '2026-07-09 03:00:00' ENDS '2026-12-31 03:00:00'
+DO INSERT INTO acme_archive SELECT * FROM acme_events WHERE event_ts < CURRENT_DATE;
+CREATE JOB acme_once_job
+ON SCHEDULE AT '2026-07-10 00:00:00'
+DO INSERT INTO acme_snapshot SELECT * FROM acme_events;

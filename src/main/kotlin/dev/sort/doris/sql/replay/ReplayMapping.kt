@@ -115,6 +115,19 @@ internal object ReplayMapping {
         // tail stays a bare token run inside the definition (no MySQL analog) — a deliberate stable shape.
         "IndexDefContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INDEX_DEFINITION,
 
+        // UPDATE / DELETE (statement long-tail, Part 2). The Doris grammar accepts the single-table
+        // UPDATE (`UPDATE t SET ... [WHERE]`) and both DELETE forms (`DELETE FROM t [USING rels] [WHERE]`);
+        // MySQL's multi-table `UPDATE t JOIN u ... SET` is NOT in the Doris grammar, so it always bails
+        // to delegation (byte-identical by construction). The replayed shapes reproduce the platform's
+        // typed PSI byte-for-byte: SQL_UPDATE_STATEMENT > SQL_UPDATE_DML_INSTRUCTION > table ref +
+        // SQL_SET_CLAUSE(SQL_SET_ASSIGNMENTs) + WHERE; SQL_DELETE_STATEMENT > SQL_DELETE_DML_INSTRUCTION
+        // with FROM-clause/USING split per [CstReplayer.emitDeleteSkeleton]. Doris-only tails
+        // (PARTITION spec, target alias, UPDATE ... FROM) DECLINE — see [CstReplayer.updateDeleteReplayable].
+        "UpdateContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_UPDATE_STATEMENT,
+        "DeleteContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_DELETE_STATEMENT,
+        // One `col = expr` inside SET: comma separators stay outside, in the SET clause (golden 51).
+        "UpdateAssignmentContext" to com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SET_ASSIGNMENT,
+
         // QUALIFY: the one query clause the MySQL grammar cannot parse, but the platform DOES own a shared
         // SQL_QUALIFY_CLAUSE element type. The replayer materialises it as a sibling of the synthetic
         // SQL_TABLE_EXPRESSION (like ORDER BY / LIMIT), and DELEGATES its boolean expression to the platform
@@ -219,6 +232,18 @@ internal object ReplayMapping {
         }
 
     /**
+     * The element types a replayed statement may carry at its TOP level. [CstReplayer.tryReplayStatement]
+     * declines any statement whose outermost materialised node is not one of these spanning the whole
+     * statement — the guard that keeps grammar-accepted-but-unmapped families (CREATE TABLE LIKE, ...)
+     * from replaying into loose tokens with no statement wrapper.
+     */
+    val TOP_STATEMENT_TYPES: Set<IElementType> = setOf(
+        SQL_SELECT_STATEMENT, SQL_CREATE_VIEW_STATEMENT, SQL_CREATE_TABLE_STATEMENT, SQL_STATEMENT,
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_UPDATE_STATEMENT,
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_DELETE_STATEMENT,
+    )
+
+    /**
      * ANTLR parent-context class -> the reference element type its `multipartIdentifier` child maps to.
      * Also the gate for [CstReplayer.emitMultipartQualifiers]: a multipart name whose parent is a key here
      * gets its qualifier prefixes nested as SQL_REFERENCE. Anything not listed leaves the multipart
@@ -233,7 +258,29 @@ internal object ReplayMapping {
         "RefreshMTMVContext" to SQL_TABLE_REFERENCE,   // REFRESH MATERIALIZED VIEW <name> [COMPLETE]
         "WarmUpItemContext" to SQL_TABLE_REFERENCE,    // WARM UP ... WITH TABLE <name>
         "InsertTableContext" to SQL_TABLE_REFERENCE,   // INSERT INTO <target> (CREATE JOB DO-body)
+        "UpdateContext" to SQL_TABLE_REFERENCE,        // UPDATE <target> SET ...
+        "DeleteContext" to SQL_TABLE_REFERENCE,        // DELETE FROM <target> ...
+        // The LHS of `SET col = expr`: SQL_COLUMN_REFERENCE, with `t.v` qualifiers nested as
+        // SQL_REFERENCE via emitMultipartQualifiers (matches golden/mysql/mysql-core/33's SET shape).
+        "UpdateAssignmentContext" to SQL_COLUMN_REFERENCE,
     )
+
+    /** SQL_UPDATE_DML_INSTRUCTION: `<target> SET ... [WHERE]` — the platform's update body wrapper. */
+    val UPDATE_DML_INSTRUCTION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_UPDATE_DML_INSTRUCTION
+
+    /** SQL_DELETE_DML_INSTRUCTION: `FROM <target> [USING rels] [WHERE]` — the delete body wrapper. */
+    val DELETE_DML_INSTRUCTION: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_DELETE_DML_INSTRUCTION
+
+    /** SQL_SET_CLAUSE: `SET a = 1, b = 2` (assignments inside, separators between them). */
+    val SET_CLAUSE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SET_CLAUSE
+
+    /** SQL_CLAUSE: the bare `FROM <target>` of a DELETE ... USING (golden 34); plain DELETE uses FROM_CLAUSE. */
+    val GENERIC_CLAUSE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_CLAUSE
+
+    /** SQL_FROM_CLAUSE: plain DELETE's `FROM <target>`, or the `USING <relations>` of DELETE ... USING. */
+    val FROM_CLAUSE: IElementType = SQL_FROM_CLAUSE
 
     /** SQL_INSERT_STATEMENT: the DO-body insert of a CREATE JOB (MySQL CREATE EVENT analog shape). */
     val INSERT_STATEMENT: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INSERT_STATEMENT
@@ -324,6 +371,8 @@ internal object ReplayMapping {
 
     /** SQL_INDEX_REFERENCE: the NAME of a CREATE TABLE inline index (`INDEX <name> ...`; MySQL shape). */
     val INDEX_REFERENCE: IElementType = com.intellij.sql.psi.SqlCompositeElementTypes.SQL_INDEX_REFERENCE
+    // NB: no SQL_TABLE_ELEMENT_LIST mapping on purpose — it is a reparseable CHAMELEON the replay
+    // bridge cannot emit; see the DECLINED note in [CstReplayer.collect] (dogfood item 7).
 
     /** Context class of the LIMIT clause; hosts synthetic SQL_NUMERIC_LITERAL wrappers per integer. */
     const val LIMIT_CLAUSE_CLASS: String = "LimitClauseContext"

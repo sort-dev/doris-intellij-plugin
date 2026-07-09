@@ -34,13 +34,14 @@ import dev.sort.doris.sql.replay.CstReplayer
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
-        // Route B (RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly enabled: replay
-        // the authoritative Doris ANTLR CST onto the platform token stream, producing REAL typed PSI for
-        // the query family (SELECT / WITH / QUALIFY) and Doris statement leads (CREATE [MATERIALIZED] VIEW,
-        // Doris CREATE TABLE, REFRESH / WARM UP / SWITCH). On ANY ANTLR error, boundary misalignment, or
-        // greed mismatch the replayer rolls back and consumes nothing, so we fall through to the unchanged
-        // lenient/delegation logic below — behaviour with the flag unset is byte-for-byte identical.
-        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wantsReplay(builder)) {
+        // Route B (RESEARCH-when-hell-freezes-over-parser.md), ON BY DEFAULT since 0.5.0
+        // (-Ddoris.replay.poc=false to disable): replay the authoritative Doris ANTLR CST onto the
+        // platform token stream, producing REAL typed PSI for the query family (SELECT / WITH / QUALIFY)
+        // and Doris statement leads (CREATE [MATERIALIZED] VIEW, Doris CREATE TABLE, REFRESH / WARM UP /
+        // SWITCH). On ANY ANTLR error, boundary misalignment, or greed mismatch the replayer rolls back
+        // and consumes nothing, so we fall through to the unchanged lenient/delegation logic below —
+        // behaviour with the flag disabled is byte-for-byte identical to pre-0.5.0.
+        if (DorisReplay.enabled && wantsReplay(builder)) {
             if (CstReplayer(builder, this).tryReplayStatement()) return true
         }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||
@@ -122,6 +123,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
         return when (wordAt(builder, 0)) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
+            "EXPORT" -> true // EXPORT TABLE ... TO "s3://..." WITH S3/HDFS/BROKER — pure Doris
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
             // Doris compute/workload-group USE (`USE @etl`, `USE db@etl`): MySQL reads the '@...' as
             // a user-variable reference inside its USE statement, which then red-flags as an
@@ -130,9 +132,23 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             "USE" -> statementContainsTokenPrefix(builder, '@')
             "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
+            // Doris privilege spellings (SELECT_PRIV, LOAD_PRIV, USAGE_PRIV, ...) are identifiers to
+            // MySQL's GRANT grammar, which then errors at the following ON. Role-only grants
+            // (`GRANT 'role' TO 'user'@'%'`) are valid MySQL and keep their typed statement.
+            "GRANT", "REVOKE" -> statementContainsTokenSuffix(builder, "_PRIV")
+            // Doris `TRUNCATE TABLE t PARTITION (p, ...)` / `PARTITIONS (...)`: MySQL TRUNCATE takes
+            // no partition clause. Plain TRUNCATE TABLE keeps MySQL's typed statement (mysql-core/41).
+            "TRUNCATE" -> statementContainsAny(builder, "PARTITION", "PARTITIONS")
+            // Doris `DELETE FROM t PARTITIONS (p1, p2)`: the plural keyword is Doris-only. The
+            // singular parenthesised `PARTITION (p)` form is valid MySQL and stays typed.
+            "DELETE" -> statementContainsAny(builder, "PARTITIONS")
             "CREATE" -> isDorisCreateStatement(builder)
             "ALTER" -> statementContainsAny(builder, "MATERIALIZED", "ROLLUP", "CATALOG", "RESOURCE",
-                "DISTRIBUTION", "DISTRIBUTED", "BUCKETS", "PROPERTIES", "PARTITION", "WORKLOAD", "STORAGE")
+                "DISTRIBUTION", "DISTRIBUTED", "BUCKETS", "PROPERTIES", "PARTITION", "WORKLOAD", "STORAGE") ||
+                // Doris `ALTER TABLE t SET ("key" = "value")` property bag: MySQL has no ALTER ... SET
+                // clause with a parenthesised bag. Gate on SET immediately followed by '(' so MySQL's
+                // `ALTER ... ALTER COLUMN c SET DEFAULT x` keeps its typed statement.
+                statementContainsWordThen(builder, "SET", "(")
             "DROP" -> wordAt(builder, 1) in setOf("MATERIALIZED", "RESOURCE", "CATALOG", "REPOSITORY",
                 "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE")
             "SHOW" -> statementContainsAny(builder, "MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",
@@ -259,6 +275,37 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return found
     }
 
+    /** True if any token before the next ';' ENDS with [suffix] (case-insensitive) within the window. Non-consuming. */
+    private fun statementContainsTokenSuffix(builder: PsiBuilder, suffix: String): Boolean {
+        val marker = builder.mark()
+        var scanned = 0
+        var found = false
+        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
+            if (builder.tokenText?.endsWith(suffix, ignoreCase = true) == true) { found = true; break }
+            builder.advanceLexer()
+            scanned++
+        }
+        marker.rollbackTo()
+        return found
+    }
+
+    /** True if token [word] appears with [next] as the IMMEDIATELY following token (whitespace skipped by the builder). Non-consuming. */
+    private fun statementContainsWordThen(builder: PsiBuilder, word: String, next: String): Boolean {
+        val marker = builder.mark()
+        var scanned = 0
+        var found = false
+        var prevWasWord = false
+        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
+            val text = builder.tokenText
+            if (prevWasWord && text == next) { found = true; break }
+            prevWasWord = text.equals(word, ignoreCase = true)
+            builder.advanceLexer()
+            scanned++
+        }
+        marker.rollbackTo()
+        return found
+    }
+
     private fun createTableKeywordOffset(builder: PsiBuilder): Int? {
         if (wordAt(builder, 0) != "CREATE") return null
         for (offset in 1..3) {
@@ -273,16 +320,22 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         builder.tokenText.equals(expected, ignoreCase = true)
 
     private fun isQueryStart(builder: PsiBuilder): Boolean =
-        isCurrentWord(builder, "SELECT") || isCurrentWord(builder, "WITH")
+        isCurrentWord(builder, "SELECT") ||
+            // WITH starts a CTE query — except Doris `CREATE TABLE ... LIKE src WITH ROLLUP (...)`,
+            // whose WITH would otherwise be parsed as a CTE by parseUntilQueryTail and error out
+            // ("AS expected"). `WITH ROLLUP` is never a valid query lead, so exclude it outright.
+            (isCurrentWord(builder, "WITH") && wordAt(builder, 1) != "ROLLUP")
 
     private companion object {
         const val MAX_LOOKAHEAD = 512
         // Statement leads the Route B replayer attempts: a query (SELECT / WITH cte / a parenthesised
         // `(SELECT ...)`, whose first letter-word is still SELECT). wordAt skips the leading '('.
         val REPLAY_QUERY_LEADS = setOf("SELECT", "WITH")
-        // Pure-Doris statement leads the replayer types (structure/inner refs materialised). WARM(UP),
-        // REFRESH, SWITCH — the CREATE families are gated by their own predicates in wantsReplay.
-        val REPLAY_STATEMENT_LEADS = setOf("REFRESH", "WARM", "SWITCH")
+        // Statement leads the replayer types (structure/inner refs materialised). WARM(UP), REFRESH,
+        // SWITCH — plus UPDATE / DELETE (Part 2 long-tail: single-table UPDATE and DELETE [USING]
+        // replay byte-identical to the platform shapes; every other variant declines inside
+        // CstReplayer and falls through unchanged). CREATE families are gated in wantsReplay.
+        val REPLAY_STATEMENT_LEADS = setOf("REFRESH", "WARM", "SWITCH", "UPDATE", "DELETE")
         val CREATE_TABLE_MODIFIERS = setOf("TEMPORARY", "EXTERNAL")
         // Only clauses that are DISTINCTIVELY Doris. PRIMARY/UNIQUE/PARTITION/ENGINE/RANDOM/AUTO are
         // all valid MySQL table syntax — including them sent plain MySQL CREATE TABLE (PRIMARY KEY,

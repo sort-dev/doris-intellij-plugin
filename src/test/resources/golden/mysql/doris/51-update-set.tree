@@ -1,0 +1,89 @@
+SqlFile:corpus.sql
+  SQL_UPDATE_STATEMENT
+    PsiElement(UPDATE)('UPDATE')
+    PsiWhiteSpace(' ')
+    SQL_UPDATE_DML_INSTRUCTION
+      SQL_TABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_orders')
+      PsiWhiteSpace(' ')
+      SQL_SET_CLAUSE
+        PsiElement(SET)('SET')
+        PsiWhiteSpace(' ')
+        SQL_SET_ASSIGNMENT
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('order_status')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)(''SHIPPED'')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        SQL_SET_ASSIGNMENT
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('updated_at')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_FUNCTION_CALL
+            SQL_ANY_CALLABLE_REFERENCE
+              SQL_IDENTIFIER
+                PsiElement(SQL_IDENT)('NOW')
+            PsiElement(()('(')
+            SQL_ARGUMENT_LIST
+              INFO:[0]
+                <empty list>
+            PsiElement())(')')
+      PsiWhiteSpace(' ')
+      SQL_WHERE_CLAUSE
+        PsiElement(WHERE)('WHERE')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('order_id')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_NUMERIC_LITERAL
+            PsiElement(SQL_INTEGER_TOKEN)('42')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_UPDATE_STATEMENT
+    PsiElement(UPDATE)('UPDATE')
+    PsiWhiteSpace(' ')
+    SQL_UPDATE_DML_INSTRUCTION
+      SQL_TABLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('acme_orders')
+      PsiWhiteSpace(' ')
+      SQL_SET_CLAUSE
+        PsiElement(SET)('SET')
+        PsiWhiteSpace(' ')
+        SQL_SET_ASSIGNMENT
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('order_status')
+          PsiWhiteSpace(' ')
+          PsiElement(=)('=')
+          PsiWhiteSpace(' ')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)(''STALE'')
+      PsiWhiteSpace(' ')
+      SQL_WHERE_CLAUSE
+        PsiElement(WHERE)('WHERE')
+        PsiWhiteSpace(' ')
+        SQL_BINARY_EXPRESSION
+          SQL_COLUMN_REFERENCE
+            SQL_IDENTIFIER
+              PsiElement(SQL_IDENT)('updated_at')
+          PsiWhiteSpace(' ')
+          PsiElement(<)('<')
+          PsiWhiteSpace(' ')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)(''2026-01-01 00:00:00'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

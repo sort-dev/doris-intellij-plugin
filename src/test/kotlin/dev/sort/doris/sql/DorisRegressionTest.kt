@@ -312,4 +312,47 @@ class DorisRegressionTest : BasePlatformTestCase() {
         """.trimIndent(),
         statements = 4
     )
+
+    // --- corpus phase 2 dispatch families (each was a PsiErrorElement source before its gate) ---
+
+    fun testExportStatementLenient() = assertClean(
+        "EXPORT TABLE acme_events TO \"s3://acme-bucket/export/\" PROPERTIES (\"format\" = \"parquet\");"
+    )
+
+    // Doris privilege spellings go lenient; the MySQL-valid role-grant form must stay typed.
+    fun testGrantRevokePrivForms() {
+        assertClean("GRANT SELECT_PRIV ON acme_db.* TO 'acme_analyst'@'%';")
+        assertClean("REVOKE SELECT_PRIV ON acme_db.* FROM 'acme_analyst'@'%';")
+        assertClean("GRANT USAGE_PRIV ON WORKLOAD GROUP 'etl' TO ROLE 'acme_etl';")
+        val t = tree("GRANT 'acme_etl' TO 'acme_jack'@'%';")
+        assertTrue("role grant must keep MySQL's typed statement", t.contains("SQL_GRANT_STATEMENT"))
+    }
+
+    // TRUNCATE ... PARTITION goes lenient; plain TRUNCATE must keep MySQL's typed statement.
+    fun testTruncatePartitionForms() {
+        assertClean("TRUNCATE TABLE acme_events_daily PARTITION (p20260601, p20260602);")
+        val t = tree("TRUNCATE TABLE acme_events;")
+        assertTrue("plain TRUNCATE must stay typed", t.contains("SQL_TRUNCATE_TABLE_STATEMENT"))
+    }
+
+    // DELETE ... PARTITIONS (plural, Doris-only) goes lenient; the MySQL-valid singular stays typed.
+    fun testDeletePartitionsForms() {
+        assertClean("DELETE FROM acme_events_daily PARTITIONS (p1, p2) WHERE event_id > 0;")
+        val t = tree("DELETE FROM acme_events PARTITION (p1) WHERE event_id > 0;")
+        assertTrue("singular PARTITION delete must stay typed", t.contains("SQL_DELETE_STATEMENT"))
+    }
+
+    // ALTER TABLE ... SET ("k" = "v") property bag goes lenient; plain column ALTERs stay typed.
+    fun testAlterTableSetPropertiesForms() {
+        assertClean("ALTER TABLE acme_events SET (\"dynamic_partition.enable\" = \"false\");")
+        val t = tree("ALTER TABLE acme_events ADD COLUMN category VARCHAR(32);")
+        assertTrue("plain ALTER must stay typed", t.contains("SQL_ALTER_TABLE_STATEMENT"))
+    }
+
+    // CREATE TABLE ... LIKE src WITH ROLLUP: the WITH must not be parsed as a CTE ("AS expected").
+    fun testCreateTableLikeWithRollup() {
+        assertClean("CREATE TABLE acme_copy LIKE acme_events WITH ROLLUP (r_user);")
+        val t = tree("CREATE TABLE acme_copy LIKE acme_events;")
+        assertTrue("plain CREATE TABLE LIKE must stay typed", t.contains("SQL_CREATE_TABLE_STATEMENT"))
+    }
 }

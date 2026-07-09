@@ -1,0 +1,90 @@
+SqlFile:corpus.sql
+  SQL_DEFINITION_HOLDER_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(USER)('USER')
+    PsiWhiteSpace(' ')
+    MYSQL_USER_DEFINITION
+      SQL_USER_REFERENCE
+        SQL_USER_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_STRING_TOKEN)(''acme_analyst'')
+        PsiElement(SQL_IDENT)('@')
+        SQL_GENERIC_AT_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_STRING_TOKEN)(''%'')
+      PsiWhiteSpace(' ')
+      SQL_CLAUSE
+        PsiElement(IDENTIFIED)('IDENTIFIED')
+        PsiWhiteSpace(' ')
+        PsiElement(BY)('BY')
+        PsiWhiteSpace(' ')
+        SQL_STRING_LITERAL
+          PsiElement(SQL_STRING_TOKEN)(''Passw0rd!'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_DEFINITION_HOLDER_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(USER)('USER')
+    PsiWhiteSpace(' ')
+    PsiElement(IF)('IF')
+    PsiWhiteSpace(' ')
+    PsiElement(NOT)('NOT')
+    PsiWhiteSpace(' ')
+    PsiElement(EXISTS)('EXISTS')
+    PsiWhiteSpace(' ')
+    MYSQL_USER_DEFINITION
+      SQL_USER_REFERENCE
+        SQL_USER_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_STRING_TOKEN)(''acme_etl_user'')
+        PsiElement(SQL_IDENT)('@')
+        SQL_GENERIC_AT_REFERENCE
+          SQL_IDENTIFIER
+            PsiElement(SQL_STRING_TOKEN)(''10.0.0.%'')
+      PsiWhiteSpace(' ')
+      SQL_CLAUSE
+        PsiElement(IDENTIFIED)('IDENTIFIED')
+        PsiWhiteSpace(' ')
+        PsiElement(BY)('BY')
+        PsiWhiteSpace(' ')
+        SQL_STRING_LITERAL
+          PsiElement(SQL_STRING_TOKEN)(''Passw0rd!'')
+    PsiWhiteSpace(' ')
+    SQL_CLAUSE
+      PsiElement(DEFAULT)('DEFAULT')
+      PsiWhiteSpace(' ')
+      PsiElement(ROLE)('ROLE')
+      PsiWhiteSpace(' ')
+      SQL_ROLE_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_STRING_TOKEN)(''acme_etl'')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_CREATE_ROLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(ROLE)('ROLE')
+    PsiWhiteSpace(' ')
+    SQL_ROLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_etl')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_CREATE_ROLE_STATEMENT
+    PsiElement(CREATE)('CREATE')
+    PsiWhiteSpace(' ')
+    PsiElement(ROLE)('ROLE')
+    PsiWhiteSpace(' ')
+    PsiElement(IF)('IF')
+    PsiWhiteSpace(' ')
+    PsiElement(NOT)('NOT')
+    PsiWhiteSpace(' ')
+    PsiElement(EXISTS)('EXISTS')
+    PsiWhiteSpace(' ')
+    SQL_ROLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_readonly')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

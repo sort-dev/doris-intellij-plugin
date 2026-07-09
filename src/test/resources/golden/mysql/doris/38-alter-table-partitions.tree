@@ -1,0 +1,126 @@
+SqlFile:corpus.sql
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_daily')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(ADD)('ADD')
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+      PsiErrorElement:'(' expected, got 'p20260708'
+        <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('p20260708')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(VALUES)('VALUES')
+      PsiWhiteSpace(' ')
+      PsiElement(LESS)('LESS')
+      PsiWhiteSpace(' ')
+      PsiElement(THAN)('THAN')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"2026-07-09"')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_daily')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(ADD)('ADD')
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+      PsiErrorElement:'(' expected, got 'p20260709'
+        <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(SQL_IDENT)('p20260709')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(VALUES)('VALUES')
+      PsiWhiteSpace(' ')
+      PsiElement([)('[')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"2026-07-09"')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(,)(',')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT_DELIMITED)('"2026-07-10"')
+      PsiElement())(')')
+    PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_daily')
+    PsiWhiteSpace(' ')
+    SQL_ALTER_INSTRUCTION
+      PsiElement(DROP)('DROP')
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+      PsiWhiteSpace(' ')
+      SQL_PARTITION_REFERENCE
+        SQL_IDENTIFIER
+          PsiElement(SQL_IDENT)('p20260601')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_ALTER_TABLE_STATEMENT
+    PsiElement(ALTER)('ALTER')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_daily')
+    PsiErrorElement:<alter table instruction> or PARTITION expected, got 'REPLACE'
+      <empty list>
+    PsiWhiteSpace(' ')
+    PsiElement(REPLACE)('REPLACE')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('p20260708')
+      PsiElement())(')')
+    PsiElement(DUMMY_BLOCK)
+      PsiWhiteSpace(' ')
+      PsiElement(WITH)('WITH')
+      PsiWhiteSpace(' ')
+      PsiElement(TEMPORARY)('TEMPORARY')
+      PsiWhiteSpace(' ')
+      PsiElement(PARTITION)('PARTITION')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('tp20260708')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

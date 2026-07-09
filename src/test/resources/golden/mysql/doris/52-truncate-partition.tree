@@ -1,0 +1,33 @@
+SqlFile:corpus.sql
+  SQL_TRUNCATE_TABLE_STATEMENT
+    PsiElement(TRUNCATE)('TRUNCATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')
+  SQL_TRUNCATE_TABLE_STATEMENT
+    PsiElement(TRUNCATE)('TRUNCATE')
+    PsiWhiteSpace(' ')
+    PsiElement(TABLE)('TABLE')
+    PsiWhiteSpace(' ')
+    SQL_TABLE_REFERENCE
+      SQL_IDENTIFIER
+        PsiElement(SQL_IDENT)('acme_events_daily')
+    PsiWhiteSpace(' ')
+    PsiErrorElement:'PARTITION' unexpected
+      PsiElement(PARTITION)('PARTITION')
+    PsiWhiteSpace(' ')
+    PsiElement(DUMMY_BLOCK)
+      PsiElement(()('(')
+      PsiElement(DUMMY_BLOCK)
+        PsiElement(SQL_IDENT)('p20260601')
+        PsiElement(,)(',')
+        PsiWhiteSpace(' ')
+        PsiElement(SQL_IDENT)('p20260602')
+      PsiElement())(')')
+  PsiElement(;)(';')
+  PsiWhiteSpace('\n')

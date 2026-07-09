@@ -21,8 +21,9 @@ import com.intellij.sql.psi.SqlTokens
  * Scope/limits:
  * - Only the column-exclusion form is masked — `EXCEPT ( <identifier> …`. The `EXCEPT` set operator
  *   (`… EXCEPT SELECT …` / `EXCEPT (SELECT …)`) is left untouched.
- * - This lexer feeds the PARSER only. Editor syntax coloring uses a separate highlighter lexer, so
- *   `EXCEPT(...)` still colors normally in the editor.
+ * - This lexer feeds the parser AND the editor highlighter: the platform's SqlSyntaxHighlighter
+ *   builds its highlighting lexer from the ParserDefinition, so masked spans would render as
+ *   comments. [DorisMaskedSpanRecolorAnnotator] re-colors them (TextAttributes only).
  * - Trade-off: excepted columns are still offered in completion (they aren't modeled as excluded).
  *   Column-accurate exclusion would require the parser to emit SQL_SELECT_EXCEPT_CLAUSE, which the
  *   generated MySQL grammar cannot be made to do without replacing the parser.
