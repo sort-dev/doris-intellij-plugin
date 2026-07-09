@@ -232,6 +232,57 @@ class DorisCancelTest {
         } as com.intellij.database.remote.jdbc.RemoteConnection
     }
 
+    // --- in-flight dedupe state machine (ours-first ordering, P0b) ------------------------------
+
+    @Test
+    fun `beginCancel claims the slot once and dedupes repeat presses until endCancel`() {
+        val id = System.nanoTime() // unique per run so the shared set stays clean across tests
+        assertFalse(DorisCancel.isCancelInFlight(id))
+
+        // First press claims the slot.
+        assertTrue(DorisCancel.beginCancel(id))
+        assertTrue(DorisCancel.isCancelInFlight(id))
+
+        // Repeat presses while in flight are refused (no re-dispatch, no stock escalation).
+        assertFalse(DorisCancel.beginCancel(id))
+        assertFalse(DorisCancel.beginCancel(id))
+        assertTrue(DorisCancel.isCancelInFlight(id))
+
+        // After our kill resolves, the slot is released and a fresh cancel may start.
+        DorisCancel.endCancel(id)
+        assertFalse(DorisCancel.isCancelInFlight(id))
+        assertTrue(DorisCancel.beginCancel(id))
+        DorisCancel.endCancel(id)
+    }
+
+    @Test
+    fun `in-flight slots are independent per session`() {
+        val a = System.nanoTime()
+        val b = a + 1
+        assertTrue(DorisCancel.beginCancel(a))
+        assertTrue(DorisCancel.beginCancel(b)) // different session, own slot
+        assertFalse(DorisCancel.beginCancel(a))
+        DorisCancel.endCancel(a)
+        assertFalse(DorisCancel.isCancelInFlight(a))
+        assertTrue(DorisCancel.isCancelInFlight(b)) // ending a must not touch b
+        DorisCancel.endCancel(b)
+    }
+
+    @Test
+    fun `endCancel is idempotent`() {
+        val id = System.nanoTime()
+        DorisCancel.beginCancel(id)
+        DorisCancel.endCancel(id)
+        DorisCancel.endCancel(id) // no throw, still not in flight
+        assertFalse(DorisCancel.isCancelInFlight(id))
+    }
+
+    @Test
+    fun `stock fallback is needed only when our path did nothing`() {
+        assertTrue(DorisCancel.needsStockFallback(DorisCancel.KillOutcome.NOTHING))
+        assertFalse(DorisCancel.needsStockFallback(DorisCancel.KillOutcome.KILLED))
+    }
+
     // --- dbms guard --------------------------------------------------------------------------
 
     @Test

@@ -229,4 +229,39 @@ object DorisCancel {
     /** True if we ever tagged any connection of this data source (vs. genuinely pre-plugin). */
     fun hasAnyGuidForDataSource(dataSourceId: String?): Boolean =
         guidsForDataSource(dataSourceId).isNotEmpty()
+
+    // ---------------------------------------------------------------------------------------
+    // In-flight cancel dedupe (ours-first ordering; P0b)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Outcome of our server-side kill attempt. [KILLED] (or already-finished) means the success
+     * path — the console statement unblocks when the server errors it, so the stock cancel is
+     * **suppressed**. [NOTHING] means we definitively did nothing (no guid, no running tagged row,
+     * ambiguous, or the helper failed) — the stock cancel then runs as the best remaining effort
+     * and its "Deactivate the Data Source?" dialog is legitimate.
+     */
+    enum class KillOutcome { KILLED, NOTHING }
+
+    /** Whether a [KillOutcome] means we should fall back to the stock cancel. */
+    fun needsStockFallback(outcome: KillOutcome): Boolean = outcome == KillOutcome.NOTHING
+
+    /** Session ids with a Doris cancel currently dispatched (its helper kill in flight). */
+    private val inFlightCancels: MutableSet<Long> =
+        Collections.synchronizedSet(HashSet())
+
+    /**
+     * Claim the in-flight slot for a session. Returns `true` if this call started a new cancel,
+     * `false` if one is already in flight (a repeat Stop press) — in which case the caller must
+     * **not** dispatch again nor escalate to the stock deactivate dialog.
+     */
+    fun beginCancel(sessionId: Long): Boolean = inFlightCancels.add(sessionId)
+
+    /** Release the in-flight slot once our kill resolves (success or definitive failure). */
+    fun endCancel(sessionId: Long) {
+        inFlightCancels.remove(sessionId)
+    }
+
+    /** Test/diagnostic view. */
+    fun isCancelInFlight(sessionId: Long): Boolean = inFlightCancels.contains(sessionId)
 }

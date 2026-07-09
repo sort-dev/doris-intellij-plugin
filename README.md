@@ -100,12 +100,16 @@ belongs to a *different session of the same user*, silently killing the wrong qu
 
 The plugin replaces this: at connect time each Doris connection is tagged with a unique trace id
 (`SET session_context = 'trace_id:dg-...'`, also visible as `DorisTraceId=dg-...` in
-`SHOW PROCESSLIST` `Info`). Pressing Stop still interrupts the client-side statement exactly as
-before, and additionally issues `KILL QUERY "dg-..."` from a short-lived helper connection — on
-Doris 4.0+ the frontends forward that kill among themselves until the owner is found, killing
-exactly your statement (the session stays alive). On older servers (2.1/3.x) the plugin falls
-back to locating your query in the all-frontends processlist by its trace marker and killing it
-by query id. Everything is logged under the `DorisCancel:` prefix in `idea.log`.
+`SHOW PROCESSLIST` `Info`). Pressing Stop issues `KILL QUERY "dg-..."` from a short-lived helper
+connection — on Doris 4.0+ the frontends forward that kill among themselves until the owner is
+found, killing exactly your statement (the session stays alive). On older servers (2.1/3.x) the
+plugin falls back to locating your query in the all-frontends processlist by its trace marker and
+killing it by query id. The server erroring the statement is what unblocks the console (the red
+"cancel query by user" bar). The IDE's stock cancel runs **only** if the plugin path genuinely
+can't act — so you no longer see the spurious "Cancelling Failed. Deactivate the Data Source?"
+dialog when the cancel actually succeeded. The trade-off: the console unblocks when the kill lands
+(a fraction of a second) rather than instantly. Everything is logged under the `DorisCancel:`
+prefix in `idea.log`.
 
 The escape hatch back to the stock (driver-only) cancel:
 

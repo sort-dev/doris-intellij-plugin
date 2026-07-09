@@ -19,9 +19,34 @@ import com.intellij.openapi.application.ApplicationManager
  * where the stock action escalates to deactivate-with-confirmation) this is byte-for-byte the
  * stock [CancelRunningStatementsAction] — `performAction` delegates straight to `super`.
  *
- * For a Doris session the stock path still runs, **first**, and our server-side kill follows on
- * a pooled thread (ordering rationale unchanged: `performAction` is on the EDT, the plugin kill
- * needs a helper connection, and the stock path is what unblocks the client-side statement).
+ * ## Ordering — ours first, stock only as a genuine fallback (P0b)
+ *
+ * The first cut ran stock **first**, ours after. Behind a k8s LB stock's `KILL QUERY <conn-id>`
+ * hits the wrong FE and *fails*, so the stock "Cancelling of Running Statements Failed. Deactivate
+ * the Data Source?" dialog popped even though our kill landed ~0.5s later and killed the query
+ * (confirmed live on the user's prod multi-FE cluster: the red *"cancel query by user from
+ * 10.244.7.112"* bar is our helper connection's cross-FE kill). The dialog was pure noise in the
+ * success case.
+ *
+ * Now, for a Doris session with any tagged connection:
+ * - our kill is dispatched to a pooled thread and the **stock cancel is suppressed** in the
+ *   success path. Our server-side `KILL QUERY` makes the console's running statement return
+ *   *"cancel query by user"*, which unblocks the client on its own — so stock is unnecessary.
+ * - the stock cancel runs **only when our path definitively did nothing** ([DorisCancel.KillOutcome.NOTHING]:
+ *   no guid resolvable, no running tagged row, an ambiguous multi-match, or the helper failed);
+ *   then its dialog is legitimate. That decision is only known after the async kill, so the stock
+ *   fallback is posted back to the EDT.
+ * - if we never tagged this data source at all (connected before the plugin/flag), there is no
+ *   hope for our path, so we delegate to stock **immediately and synchronously** — no dispatch.
+ * - a repeat Stop press while our kill is in flight is de-duped ([DorisCancel.beginCancel]) so it
+ *   does not prematurely escalate to stock's deactivate dialog.
+ *
+ * **Accepted trade-off:** we give up stock's *instant* client-side unblock for a no-spurious-dialog
+ * experience; the unblock now happens when our kill lands (~0.5s, the server erroring the
+ * statement) instead of instantly. The user explicitly finds the false dialog worse than the wait.
+ * Stock's client-side `Statement.cancel()` cannot be fired without also arming its server-failure
+ * dialog (the failure dialog is wired into the stock cancel request's `onError`, DB-261 bytecode),
+ * so the two cannot be decoupled — hence ours-only in the success path.
  *
  * ## Resolving *which* query to kill — the P0 fix
  *
@@ -50,35 +75,61 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
     override fun performAction(e: AnActionEvent, session: DatabaseSession) {
         val handleDoris = DorisCancel.shouldHandle(session.connectionPoint.dbms) &&
             !session.isCancelled
-
-        // Stock behavior always runs first (posts the async client-side cancel; harmless server
-        // miss). It must not be gated on any of our resolution succeeding.
-        super.performAction(e, session)
-        if (!handleDoris) return
+        if (!handleDoris) {
+            // Non-Doris, flag-off, or the deactivate-escalation second press: pure stock.
+            super.performAction(e, session)
+            return
+        }
 
         val dataSourceId = dataSourceId(session)
-        // Resolve the guid off the BUSY connection (the P0 fix); logs each accessor it tries.
-        val guid = resolveConnectionGuid(session)
 
-        if (guid == null && !DorisCancel.hasAnyGuidForDataSource(dataSourceId)) {
-            // Truly nothing tagged for this data source: connected before the plugin/flag.
+        // No hope for our path (never tagged this data source: connected before the plugin/flag)?
+        // Delegate to stock immediately and synchronously — its dialog is legitimate.
+        if (!DorisCancel.hasAnyGuidForDataSource(dataSourceId)) {
             DorisCancel.info(
                 "session '${session.title}' (ds=$dataSourceId): no trace id ever minted for this " +
-                    "data source (connected before the plugin/flag?); stock cancel only",
+                    "data source (connected before the plugin/flag?); delegating to stock",
+            )
+            super.performAction(e, session)
+            return
+        }
+
+        // Dedupe: a second Stop press while our kill is in flight must not re-dispatch nor
+        // escalate to stock's deactivate dialog.
+        if (!DorisCancel.beginCancel(session.id)) {
+            DorisCancel.info(
+                "session '${session.title}': a Doris cancel is already in flight; ignoring repeat press",
             )
             return
         }
-        if (guid == null) {
-            DorisCancel.info(
-                "session '${session.title}' (ds=$dataSourceId): guid minted for this data source " +
-                    "but its connection was unreachable at cancel; using processlist safety net",
-            )
-        } else {
-            DorisCancel.info("cancel requested for session '${session.title}', trace id $guid")
-        }
+
+        DorisCancel.info(
+            "session '${session.title}' (ds=$dataSourceId): our kill dispatched, stock suppressed " +
+                "unless our path finds nothing (success path)",
+        )
         ApplicationManager.getApplication().executeOnPooledThread {
-            killOnServer(session, guid, dataSourceId)
+            val outcome = try {
+                killOnServer(session, dataSourceId)
+            } catch (t: Throwable) {
+                DorisCancel.warn("session '${session.title}': kill dispatch threw: ${t.message}")
+                DorisCancel.KillOutcome.NOTHING
+            } finally {
+                DorisCancel.endCancel(session.id)
+            }
+            if (DorisCancel.needsStockFallback(outcome)) {
+                DorisCancel.info(
+                    "session '${session.title}': our path found nothing to kill; delegating to stock as fallback",
+                )
+                ApplicationManager.getApplication().invokeLater {
+                    if (!session.isCancelled) runStockCancel(e, session)
+                }
+            }
         }
+    }
+
+    /** Bridge so the stock (super) cancel can be invoked from an async continuation. */
+    private fun runStockCancel(e: AnActionEvent, session: DatabaseSession) {
+        super.performAction(e, session)
     }
 
     private fun dataSourceId(session: DatabaseSession): String? =
@@ -184,8 +235,24 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
     // Server-side kill (pooled thread; one short-lived helper connection)
     // ---------------------------------------------------------------------------------------
 
-    private fun killOnServer(session: DatabaseSession, guid: String?, dataSourceId: String?) {
-        try {
+    /**
+     * Resolve the guid off the busy connection and kill, on a pooled thread through one short-lived
+     * helper connection. Returns [DorisCancel.KillOutcome.KILLED] on the success path (a kill the
+     * server accepted, or the statement already finished) and [DorisCancel.KillOutcome.NOTHING]
+     * when we definitively did nothing — the caller then runs the stock fallback.
+     */
+    private fun killOnServer(session: DatabaseSession, dataSourceId: String?): DorisCancel.KillOutcome {
+        // Resolve here (off the EDT) — `getClientInfo` is a remote call.
+        val guid = resolveConnectionGuid(session)
+        if (guid != null) {
+            DorisCancel.info("session '${session.title}': resolved trace id $guid")
+        } else {
+            DorisCancel.info(
+                "session '${session.title}' (ds=$dataSourceId): guid unresolved in-process; " +
+                    "using data-source processlist safety net",
+            )
+        }
+        return try {
             val ref = DatabaseConnectionManager.getInstance()
                 .build(session.project, session.connectionPoint)
                 .setRequestor(ConnectionRequestor.Anonymous())
@@ -201,24 +268,29 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
             }
         } catch (t: Throwable) {
             DorisCancel.warn("helper connection for kill (guid=$guid) failed: ${t.message}")
+            DorisCancel.KillOutcome.NOTHING
         }
     }
 
     /** Primary: one-shot kill by our own trace id (Doris >= 4.0, FE-forwarded). */
-    private fun killByTraceId(helper: DatabaseConnection, session: DatabaseSession, guid: String) {
+    private fun killByTraceId(
+        helper: DatabaseConnection,
+        session: DatabaseSession,
+        guid: String,
+    ): DorisCancel.KillOutcome {
         DorisCancel.info("kill: issuing ${DorisCancel.sqlKillQueryByTraceId(guid)}")
         try {
             execute(helper, DorisCancel.sqlKillQueryByTraceId(guid))
             DorisCancel.info("kill: killed by trace id $guid")
-            return
+            return DorisCancel.KillOutcome.KILLED
         } catch (t: Throwable) {
             if (!DorisCancel.isUnknownQueryId(t)) {
                 DorisCancel.warn("kill: KILL QUERY by trace id $guid failed: ${t.message}")
-                return
+                return DorisCancel.KillOutcome.NOTHING
             }
             if (session.isIdle) {
                 DorisCancel.info("kill: unknown query id for $guid and session idle -> already finished")
-                return
+                return DorisCancel.KillOutcome.KILLED
             }
             DorisCancel.info(
                 "kill: unknown query id for $guid but session still busy " +
@@ -228,7 +300,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         // Fallback for exactly this guid.
         widenProcesslist(helper)
         val candidates = collectRunningCandidates(helper, setOf(guid))
-        killSingleCandidate(helper, candidates, "trace-id fallback for $guid")
+        return killSingleCandidate(helper, candidates, "trace-id fallback for $guid")
     }
 
     /**
@@ -239,16 +311,16 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         helper: DatabaseConnection,
         session: DatabaseSession,
         dataSourceId: String?,
-    ) {
+    ): DorisCancel.KillOutcome {
         val guids = DorisCancel.guidsForDataSource(dataSourceId)
         if (guids.isEmpty()) {
             DorisCancel.info("safety net: no minted guids for ds=$dataSourceId; nothing to do")
-            return
+            return DorisCancel.KillOutcome.NOTHING
         }
         DorisCancel.info("safety net: scanning processlist for ${guids.size} guid(s) of ds=$dataSourceId")
         widenProcesslist(helper)
         val candidates = collectRunningCandidates(helper, guids)
-        killSingleCandidate(helper, candidates, "safety net for session '${session.title}'")
+        return killSingleCandidate(helper, candidates, "safety net for session '${session.title}'")
     }
 
     /** Kill exactly one candidate; refuse (log) on zero or ambiguous multiple. */
@@ -256,32 +328,38 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         helper: DatabaseConnection,
         candidates: List<Candidate>,
         context: String,
-    ) {
+    ): DorisCancel.KillOutcome {
         when {
-            candidates.isEmpty() ->
-                DorisCancel.info("$context: no running tagged query found; nothing to kill (stock handled it)")
+            candidates.isEmpty() -> {
+                DorisCancel.info("$context: no running tagged query found; nothing to kill (stock will handle it)")
+                return DorisCancel.KillOutcome.NOTHING
+            }
             candidates.size > 1 -> {
                 val ids = candidates.joinToString { "${it.queryId}(${it.guid})" }
                 DorisCancel.warn(
                     "$context: ${candidates.size} running tagged queries [$ids]; ambiguous, " +
                         "refusing to kill to avoid a wrong-kill; leaving it to stock",
                 )
+                return DorisCancel.KillOutcome.NOTHING
             }
             else -> {
                 val c = candidates.single()
                 if (!DorisCancel.isValidQueryId(c.queryId)) {
                     DorisCancel.warn("$context: refusing to kill malformed query id '${c.queryId}'")
-                    return
+                    return DorisCancel.KillOutcome.NOTHING
                 }
                 DorisCancel.info("$context: issuing ${DorisCancel.sqlKillQueryByQueryId(c.queryId)} (guid=${c.guid})")
-                try {
+                return try {
                     execute(helper, DorisCancel.sqlKillQueryByQueryId(c.queryId))
                     DorisCancel.info("$context: killed query id ${c.queryId}")
+                    DorisCancel.KillOutcome.KILLED
                 } catch (t: Throwable) {
                     if (DorisCancel.isUnknownQueryId(t)) {
                         DorisCancel.info("$context: query id ${c.queryId} already gone")
+                        DorisCancel.KillOutcome.KILLED
                     } else {
                         DorisCancel.warn("$context: KILL QUERY \"${c.queryId}\" failed: ${t.message}")
+                        DorisCancel.KillOutcome.NOTHING
                     }
                 }
             }
