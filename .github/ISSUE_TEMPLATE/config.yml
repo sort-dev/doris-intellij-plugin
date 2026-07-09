@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Apache Doris (the database itself)
+    url: https://doris.apache.org/
+    about: This plugin is an independent third-party tool. For questions about Apache Doris the database, see the official project.
