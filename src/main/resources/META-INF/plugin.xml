@@ -4,14 +4,27 @@
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
 
     <description><![CDATA[
-        <p>Apache Doris SQL dialect and data-source support for DataGrip and IntelliJ IDEA Ultimate.</p>
+        <p>First-class Apache Doris support for DataGrip and IntelliJ IDEA Ultimate — a dedicated
+        SQL dialect, a multi-catalog database tree, table-function completion, and a Stop button that
+        actually cancels your Doris query. Compatible with the 2026.1 and 2026.2 IDE lines.</p>
 
         <ul>
-            <li>Dedicated <b>DorisSQL dialect</b> with correct statement and run-block boundaries for
+            <li><b>Multi-catalog database tree.</b> Doris external catalogs (Hive, Iceberg, JDBC, ...)
+                appear as a real <code>catalog &rarr; database &rarr; table</code> hierarchy, with
+                three-part <code>catalog.db.table</code> completion and resolution and a stepped
+                console catalog/database switcher</li>
+            <li><b>Table-valued-function completion.</b> <code>tasks()</code>, <code>jobs()</code>,
+                <code>mv_infos()</code>, <code>partitions()</code>, <code>backends()</code> and more
+                complete their property keys and enum values, and their output columns resolve —
+                including schema-by-argument (<code>tasks("type"="mv")</code>)</li>
+            <li><b>Reliable query cancel.</b> The Stop button kills the running Doris query even
+                behind a load balancer, where the driver's own cancel silently misses</li>
+            <li><b>Dedicated DorisSQL dialect</b> with correct statement and run-block boundaries for
                 Doris syntax the generic MySQL dialect mis-parses: <code>INSERT OVERWRITE</code>,
                 <code>SELECT * EXCEPT(...)</code>, <code>QUALIFY</code>, <code>CREATE JOB</code>,
                 materialized views, <code>DISTRIBUTED BY</code> / <code>PROPERTIES</code> DDL,
-                <code>REFRESH</code>, <code>WARM UP</code>, and more</li>
+                <code>REFRESH</code>, <code>WARM UP</code>, and more — plus native typed parsing for
+                navigation inside DDL bodies</li>
             <li>Window functions, CTEs, Doris cast targets (<code>STRING</code>, <code>LARGEINT</code>,
                 <code>ARRAY&lt;...&gt;</code>, <code>MAP&lt;...&gt;</code>), <code>TRY_CAST</code>,
                 and map access (<code>col['key']</code>) parse with full structure and completion</li>
