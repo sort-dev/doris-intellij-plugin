@@ -67,6 +67,10 @@
              pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
         <completion.confidence language="DorisSQL" order="first"
                                implementationClass="dev.sort.doris.sql.DorisTvfAutoPopupConfidence"/>
+        <!-- Skips the function autopopup after a digit-led prefix (`GROUP BY 1`); the contributor's
+             own allowlist gate handles the rest per-contributor so platform autopopup is untouched. -->
+        <completion.confidence language="DorisSQL" order="first"
+                               implementationClass="dev.sort.doris.sql.DorisFunctionAutoPopupConfidence"/>
 
         <!-- Clean Doris cancel, connect-time half (gated by the `doris.cancel.experimental`
              system property, default ON; see dev.sort.doris.cancel.DorisCancel). Guarded to
