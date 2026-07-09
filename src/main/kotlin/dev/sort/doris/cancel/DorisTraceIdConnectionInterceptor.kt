@@ -71,10 +71,11 @@ class DorisTraceIdConnectionInterceptor : DatabaseConnectionInterceptor {
         }
 
         if (traceIdBound || clientInfoSet) {
-            DorisCancel.registerGuid(connection.remoteConnection, guid)
+            val dataSourceId = connection.connectionPoint.dataSource.uniqueId
+            DorisCancel.registerGuid(connection.remoteConnection, guid, dataSourceId)
             DorisCancel.info(
-                "minted trace id $guid for '$dataSourceName' " +
-                    "(session_context=$traceIdBound, clientInfo=$clientInfoSet)",
+                "minted trace id $guid for '$dataSourceName' (ds=$dataSourceId, " +
+                    "session_context=$traceIdBound, clientInfo=$clientInfoSet)",
             )
         }
     }

@@ -152,15 +152,70 @@ class DorisCancelTest {
         val b = fakeRemoteConnection()
         val guidA = DorisCancel.mintGuid()
         val guidB = DorisCancel.mintGuid()
-        DorisCancel.registerGuid(a, guidA)
-        DorisCancel.registerGuid(b, guidB)
-        assertEquals(guidA, DorisCancel.guidFor(a))
-        assertEquals(guidB, DorisCancel.guidFor(b))
-        assertEquals(null, DorisCancel.guidFor(fakeRemoteConnection()))
-        assertEquals(null, DorisCancel.guidFor(null))
+        DorisCancel.registerGuid(a, guidA, "ds-A")
+        DorisCancel.registerGuid(b, guidB, "ds-B")
+        assertEquals(guidA, DorisCancel.guidForConnection(a))
+        assertEquals(guidB, DorisCancel.guidForConnection(b))
+        assertEquals(null, DorisCancel.guidForConnection(fakeRemoteConnection()))
+        assertEquals(null, DorisCancel.guidForConnection(null))
         // Reconnect semantics: re-registering the same connection replaces the guid.
-        DorisCancel.registerGuid(a, guidB)
-        assertEquals(guidB, DorisCancel.guidFor(a))
+        DorisCancel.registerGuid(a, guidB, "ds-A")
+        assertEquals(guidB, DorisCancel.guidForConnection(a))
+    }
+
+    @Test
+    fun `per data source registry accumulates guids and is retrievable without a connection`() {
+        val ds = "ds-${DorisCancel.mintGuid()}" // unique per run so the shared object stays clean
+        assertFalse(DorisCancel.hasAnyGuidForDataSource(ds))
+        assertTrue(DorisCancel.guidsForDataSource(ds).isEmpty())
+
+        val g1 = DorisCancel.mintGuid()
+        val g2 = DorisCancel.mintGuid()
+        // Two connections of the same data source (the two-mint-lines case from the bake log).
+        DorisCancel.registerGuid(fakeRemoteConnection(), g1, ds)
+        DorisCancel.registerGuid(fakeRemoteConnection(), g2, ds)
+
+        assertTrue(DorisCancel.hasAnyGuidForDataSource(ds))
+        assertEquals(setOf(g1, g2), DorisCancel.guidsForDataSource(ds))
+        // Null / unknown data source ids are empty, not crashy.
+        assertTrue(DorisCancel.guidsForDataSource(null).isEmpty())
+        assertFalse(DorisCancel.hasAnyGuidForDataSource(null))
+        assertTrue(DorisCancel.guidsForDataSource("never-registered").isEmpty())
+    }
+
+    @Test
+    fun `registering with a null data source id still records the connection guid`() {
+        val c = fakeRemoteConnection()
+        val g = DorisCancel.mintGuid()
+        DorisCancel.registerGuid(c, g, null)
+        assertEquals(g, DorisCancel.guidForConnection(c))
+    }
+
+    // --- processlist candidate classification (fallback disambiguation) --------------------------
+
+    @Test
+    fun `running-candidate classification excludes idle and self statements`() {
+        val marker = "/* ApplicationName=DataGrip, DorisTraceId=dg-9f2c41d87ab34e0b */ INSERT INTO t SELECT 1"
+        // A running tagged INSERT: yes.
+        assertTrue(DorisCancel.isRunningCancelCandidate("Query", marker))
+        // Idle pooled connection (Command=Sleep): no, even if it carries a stale marker.
+        assertFalse(DorisCancel.isRunningCancelCandidate("Sleep", marker))
+        // The helper's own SHOW / KILL must never match.
+        assertFalse(DorisCancel.isRunningCancelCandidate("Query", "SHOW FULL PROCESSLIST"))
+        assertFalse(DorisCancel.isRunningCancelCandidate("Query", "KILL QUERY \"dg-9f2c41d87ab34e0b\""))
+        // An untagged running query is not ours.
+        assertFalse(DorisCancel.isRunningCancelCandidate("Query", "SELECT * FROM t"))
+    }
+
+    @Test
+    fun `matched guid picks the one marker present`() {
+        val g1 = "dg-1111111111111111"
+        val g2 = "dg-2222222222222222"
+        val info = "/* DorisTraceId=$g2 */ INSERT ..."
+        assertEquals(g2, DorisCancel.matchedGuid(info, setOf(g1, g2)))
+        assertEquals(null, DorisCancel.matchedGuid(info, setOf(g1)))
+        assertEquals(null, DorisCancel.matchedGuid(null, setOf(g1, g2)))
+        assertEquals(null, DorisCancel.matchedGuid("no marker here", setOf(g1, g2)))
     }
 
     private fun fakeRemoteConnection(): com.intellij.database.remote.jdbc.RemoteConnection {

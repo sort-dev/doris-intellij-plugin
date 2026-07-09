@@ -121,6 +121,28 @@ object DorisCancel {
     /** The `Info`-column marker the fallback greps for (driver comment fingerprint). */
     fun processlistMarker(guid: String): String = "$CLIENT_INFO_KEY=$guid"
 
+    /**
+     * Classify a `SHOW FULL PROCESSLIST` row for the fallback: is it a *running* statement we
+     * could legitimately cancel? A `Command` of `Sleep` is an idle pooled connection (not
+     * executing), and we must never match the helper connection's own `SHOW FULL PROCESSLIST`
+     * or the `KILL QUERY` it is about to issue. Everything else with a `Query` command that
+     * carries one of our markers is a candidate. Pure + unit-tested.
+     */
+    fun isRunningCancelCandidate(command: String?, info: String?): Boolean {
+        val cmd = command?.trim().orEmpty()
+        if (cmd.equals("Sleep", ignoreCase = true)) return false
+        val sql = info.orEmpty()
+        if (sql.contains(SQL_SHOW_FULL_PROCESSLIST, ignoreCase = true)) return false
+        if (sql.contains("KILL QUERY", ignoreCase = true)) return false
+        return sql.contains(CLIENT_INFO_KEY)
+    }
+
+    /** Extract which of our minted guids a processlist `Info` value carries, if any. */
+    fun matchedGuid(info: String?, candidateGuids: Set<String>): String? {
+        val sql = info ?: return null
+        return candidateGuids.firstOrNull { sql.contains(processlistMarker(it)) }
+    }
+
     // ---------------------------------------------------------------------------------------
     // Error classification
     // ---------------------------------------------------------------------------------------
@@ -151,23 +173,60 @@ object DorisCancel {
         flagEnabled && dbms === DorisDbms.DORIS
 
     // ---------------------------------------------------------------------------------------
-    // Guid registry: connection identity -> guid
+    // Guid registries
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Weak map keyed by the connection's [RemoteConnection] — the one object identity that is
-     * stable across the platform's `DatabaseConnection` wrappers (`ConnectionWithClient` etc.
-     * all delegate `getRemoteConnection()` to the same instance). Entries die with the
-     * connection; a reconnect produces a new `RemoteConnection`, passes through the interceptor
-     * again, and gets a fresh guid — no explicit lifecycle management needed.
+     * Weak map keyed by the connection's [RemoteConnection] — a secondary lookup for the
+     * in-process path. The **primary** cancel-time lookup reads the guid straight back off the
+     * driver (`RemoteConnection.getClientInfo("DorisTraceId")`), which is self-describing and
+     * needs no identity assumptions; this map is the belt-and-braces fallback for that step.
+     * Entries die with the connection; a reconnect produces a new `RemoteConnection`, re-runs
+     * the interceptor, and gets a fresh guid — no explicit lifecycle management needed.
      */
     private val guidsByConnection: MutableMap<RemoteConnection, String> =
         Collections.synchronizedMap(WeakHashMap())
 
-    fun registerGuid(connection: RemoteConnection, guid: String) {
+    /**
+     * Per-data-source set of every guid we have minted (keyed by [LocalDataSource.getUniqueId]).
+     *
+     * This is the **robust, connection-independent** registry the processlist safety net uses:
+     * at cancel time we may hold no live connection object at all (the P0 that motivated it), but
+     * we always know the session's data source, and every statement of every tagged connection
+     * carries its guid in the processlist `Info` comment. So "kill the running query for this data
+     * source whose `Info` marker is one of ours" works with only the data-source id in hand.
+     *
+     * Guids accumulate for the JVM session (one per connection; a data source has few). Stale
+     * guids from closed connections are harmless — their queries are gone, so they never match a
+     * *running* processlist row.
+     */
+    private val guidsByDataSource: MutableMap<String, MutableSet<String>> =
+        Collections.synchronizedMap(HashMap())
+
+    /** Called at mint time: record the guid under both the connection and its data source. */
+    fun registerGuid(connection: RemoteConnection, guid: String, dataSourceId: String?) {
         guidsByConnection[connection] = guid
+        if (dataSourceId != null) {
+            val set = synchronized(guidsByDataSource) {
+                guidsByDataSource.getOrPut(dataSourceId) {
+                    Collections.synchronizedSet(HashSet())
+                }
+            }
+            set.add(guid)
+        }
     }
 
-    fun guidFor(connection: RemoteConnection?): String? =
+    /** Secondary in-process lookup: the guid keyed by the (busy or idle) connection identity. */
+    fun guidForConnection(connection: RemoteConnection?): String? =
         connection?.let { guidsByConnection[it] }
+
+    /** Every guid ever minted for this data source (for the processlist safety net). */
+    fun guidsForDataSource(dataSourceId: String?): Set<String> =
+        dataSourceId?.let { id ->
+            synchronized(guidsByDataSource) { guidsByDataSource[id]?.toSet() }
+        } ?: emptySet()
+
+    /** True if we ever tagged any connection of this data source (vs. genuinely pre-plugin). */
+    fun hasAnyGuidForDataSource(dataSourceId: String?): Boolean =
+        guidsForDataSource(dataSourceId).isNotEmpty()
 }
