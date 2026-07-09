@@ -25,29 +25,52 @@ Doris-specific completion and validation.
 - **Correct statement & run-block boundaries** for Doris constructs the MySQL grammar mis-parses:
   `CREATE [OR REPLACE] VIEW` bodies with modern SQL, multi-line window functions (`… OVER (…)`),
   `SELECT * EXCEPT(…)`, `QUALIFY`, `INSERT OVERWRITE`, `DISTRIBUTED BY` / `PROPERTIES` DDL,
-  materialized views, and more.
+  materialized views, `CREATE JOB`, and more.
+- **Multi-catalog database tree** (default on): Doris external catalogs (Hive, Iceberg, JDBC, …)
+  appear as a real `catalog → database → table` hierarchy with three-part reference resolution and
+  a stepped console switcher. See [External catalogs](#external-catalogs-multi-catalog-tree--on-by-default-since-030).
+- **Table-valued-function completion**: `tasks()`, `jobs()`, `mv_infos()`, `partitions()`,
+  `backends()`, … complete their property keys and enum values, and their output columns resolve —
+  including schema-by-argument (`tasks("type"="mv")`). File TVFs (`s3()`, `hdfs()`, …) stay quiet
+  without fabricating columns.
+- **Reliable query cancel** (default on): the Stop button actually kills the running Doris query,
+  even behind a load balancer. See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
 - **Completion** for 825 Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
-  `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords.
+  `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords. Function auto-popup fires only
+  in expression positions, so it never interrupts typing keywords or literals (explicit
+  <kbd>Ctrl</kbd>+<kbd>Space</kbd> always offers the full list).
 - **Doris-accurate error validation** via an embedded build of Doris's own SQL parser (see below),
-  with the platform's false MySQL-syntax errors suppressed.
+  with the platform's false MySQL-syntax errors suppressed. Note that suppression makes the editor
+  stop *reporting* false errors — e.g. `SELECT * EXCEPT(…)` no longer red-flags — but does not fully
+  model every semantic (an `EXCEPT`-ed column is still visible to downstream references; the query
+  behaves per the server at run time).
+- **Native typed parsing** (default on since 0.5.0): Doris DDL/statements parse into real typed PSI
+  via a shadow-replay of Doris's own grammar, giving navigation and structure inside
+  `CREATE VIEW`/`TABLE`/`MATERIALIZED VIEW`/`JOB` bodies. It falls back to the lenient path on
+  anything it can't cleanly type, so it is never *worse* than before.
 - **Ready-to-use data source**: an "Apache Doris" driver template (MySQL Connector/J, default port
   9030, native-password auth) so you can connect without hand-configuring a MySQL driver.
 
 ## Requirements
 
-- **DataGrip 2026.1** or **IntelliJ IDEA Ultimate 2026.1** (JetBrains platform build **261**).
-  The plugin is pinned to the 261 line and will not load on other generations.
+- **DataGrip** or **IntelliJ IDEA Ultimate**, **2026.1 or 2026.2** (JetBrains platform builds
+  **261** and **262**). A single artifact serves both generations; it will not load on 2025.2 or
+  earlier.
 - An Apache Doris server reachable over the MySQL protocol (FE query port, default `9030`).
 
 ## Installation
 
-Until it is on the JetBrains Marketplace (see [Status](#status)), install from disk:
+**From the JetBrains Marketplace** (recommended): search for *"SQL Dialect for Apache Doris"* in
+**Settings → Plugins → Marketplace**, install, and restart.
+
+**From disk** (specific version / offline):
 
 1. Download `doris-intellij-plugin-<version>.zip` from the
    [Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page, or build it yourself
    (below).
 2. In your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the zip, and restart.
-3. Add a data source from the **Apache Doris** template and connect.
+
+Then add a data source from the **Apache Doris** template and connect.
 
 ## External catalogs (multi-catalog tree) — on by default since 0.3.0
 
@@ -85,9 +108,8 @@ With catalogs enabled:
 Note on relative references: a 2-part `db.table` reference resolves against the console's
 **current catalog** — switch catalogs and previously written relative lines will (correctly) stop
 resolving until you switch back or qualify them fully. Fully-qualified `catalog.db.table` is
-immune to context switches. Known limitations while experimental: catalog entries in flat
-completion lists are intentional; the current-namespace label may briefly show a placeholder
-segment.
+immune to context switches. Minor known behaviors: catalog entries in flat completion lists are
+intentional, and the current-namespace label may briefly show a placeholder segment.
 
 ## Reliable query cancel — on by default since 0.5.0
 
@@ -144,11 +166,15 @@ publishes `fe-sql-parser` as a real artifact, the vendored jar will be swapped f
 
 ## Status
 
-**Pre-release / under active validation.** It works and is being dogfooded against real Doris
-workloads, but it has not yet had wide testing.
+**Published on the JetBrains Marketplace and in active development.** Shipped and dogfooded against
+real Doris workloads.
 
-- **Publishing to the JetBrains Marketplace is TBD**, pending more validation.
-- Known gaps and in-progress work are tracked in the issues.
+- Available on the **JetBrains Marketplace** and as installable zips on the
+  [Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page.
+- Compatible with the current (2026.1) and upcoming (2026.2) IDE lines from a single artifact.
+- Known gaps and in-progress work are tracked in the issues. The semantic corners noted above
+  (e.g. full `EXCEPT` modeling, some file-TVF output schemas) depend on platform capabilities that
+  are not yet exposed to third-party dialects.
 
 ## License
 
