@@ -46,6 +46,26 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.5.0</b> — reliable query cancel, native typed parsing, calmer completion.
+        <ul>
+            <li><b>Reliable query cancel (on by default):</b> the Stop button now actually kills the
+                running Doris query — even behind a load balancer, where the driver's own cancel can
+                miss the frontend or kill the wrong session. The console session stays alive, and the
+                spurious "Cancelling Failed. Deactivate the Data Source?" dialog no longer appears
+                when the cancel succeeds. Opt out with <code>-Ddoris.cancel.experimental=false</code>.</li>
+            <li><b>Native typed parsing (on by default):</b> Doris DDL/statements parse into real
+                typed structure for navigation inside <code>CREATE VIEW</code>/<code>TABLE</code>/
+                <code>MATERIALIZED VIEW</code>/<code>JOB</code> bodies, falling back safely to the
+                lenient parse on anything it can't cleanly type. Opt out with
+                <code>-Ddoris.replay.poc=false</code>.</li>
+            <li><b>Function completion no longer interrupts typing:</b> function suggestions auto-pop
+                only in expression positions, so keywords and literals (e.g. <code>GROUP BY 1</code>,
+                <code>... AS name</code>) type cleanly. Explicit completion
+                (<kbd>Ctrl</kbd>+<kbd>Space</kbd>) still offers the full list everywhere.</li>
+            <li>More Doris DDL variants recognized (aggregate/unique-key tables, dynamic/list/range
+                partitioning, routine load, catalog/resource/workload DDL, UPDATE/DELETE), and more
+                <code>* EXCEPT(...)</code> false-error cases silenced.</li>
+        </ul>
         <b>0.4.0</b> — 2026.2-ready, plus introspection and editor fixes.
         <ul>
             <li><b>Compatible with the upcoming 2026.2 IDE line</b> (one artifact spans 2026.1 and
