@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "0.2.3"
+version = "0.5.0"
 
 repositories {
     mavenCentral()
@@ -96,6 +96,11 @@ tasks {
         if (providers.gradleProperty("golden.record").isPresent) {
             systemProperty("golden.record", "true")
         }
+
+        // Replay is ON by default since 0.5.0 (see DorisReplay). The suite's baseline stays flag-OFF
+        // so the flag-off golden corpus / lenient-parity contracts keep meaning "the shipped fallback
+        // path"; DorisReplayPocTest pins "true" per-test and restores "false" in tearDown.
+        systemProperty("doris.replay.poc", "false")
     }
 }
 
@@ -105,7 +110,14 @@ kotlin {
     }
 }
 
-// Usage: ./gradlew runIdeReplay   (Route B replay ON). Plain ./gradlew runIde stays flag OFF = shipped.
+// 0.5.0: replay is ON by default (plain runIde = replay + catalogs, the shipping config).
+// runIdeReplay kept as a historical alias; runIdeNoReplay is the escape-hatch sandbox.
+val runIdeNoReplay by intellijPlatformTesting.runIde.registering {
+    task {
+        jvmArgs("-Ddoris.replay.poc=false")
+    }
+}
+// Historical alias (pre-0.5.0, when replay was opt-in):
 val runIdeReplay by intellijPlatformTesting.runIde.registering {
     task {
         jvmArgs("-Ddoris.replay.poc=true")

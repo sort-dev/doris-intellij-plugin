@@ -26,7 +26,10 @@ class DorisReplayPocTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            System.clearProperty(FLAG)
+            // Restore the suite baseline (flag-OFF, set in build.gradle.kts) rather than clearing:
+            // since 0.5.0 the flag's UNSET default is ON (DorisReplay), so a bare clear would flip
+            // every subsequently-run test onto the replay path and break the flag-off goldens.
+            System.setProperty(FLAG, "false")
         } finally {
             super.tearDown()
         }
@@ -394,7 +397,7 @@ class DorisReplayPocTest : BasePlatformTestCase() {
      * thing under test, not delegation.
      */
     fun testFlagOffStillMatchesGolden() {
-        System.clearProperty(FLAG)
+        System.setProperty(FLAG, "false") // 0.5.0: unset now means ON; explicit false = flag-off
         try {
             val rel = "mysql-core/04-baseline-select"
             val sql = norm(corpusFile("$rel.sql").readText())

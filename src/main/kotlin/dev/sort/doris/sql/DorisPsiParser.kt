@@ -34,13 +34,14 @@ import dev.sort.doris.sql.replay.CstReplayer
 class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
-        // Route B (RESEARCH-when-hell-freezes-over-parser.md), dormant unless explicitly enabled: replay
-        // the authoritative Doris ANTLR CST onto the platform token stream, producing REAL typed PSI for
-        // the query family (SELECT / WITH / QUALIFY) and Doris statement leads (CREATE [MATERIALIZED] VIEW,
-        // Doris CREATE TABLE, REFRESH / WARM UP / SWITCH). On ANY ANTLR error, boundary misalignment, or
-        // greed mismatch the replayer rolls back and consumes nothing, so we fall through to the unchanged
-        // lenient/delegation logic below — behaviour with the flag unset is byte-for-byte identical.
-        if (java.lang.Boolean.getBoolean("doris.replay.poc") && wantsReplay(builder)) {
+        // Route B (RESEARCH-when-hell-freezes-over-parser.md), ON BY DEFAULT since 0.5.0
+        // (-Ddoris.replay.poc=false to disable): replay the authoritative Doris ANTLR CST onto the
+        // platform token stream, producing REAL typed PSI for the query family (SELECT / WITH / QUALIFY)
+        // and Doris statement leads (CREATE [MATERIALIZED] VIEW, Doris CREATE TABLE, REFRESH / WARM UP /
+        // SWITCH). On ANY ANTLR error, boundary misalignment, or greed mismatch the replayer rolls back
+        // and consumes nothing, so we fall through to the unchanged lenient/delegation logic below —
+        // behaviour with the flag disabled is byte-for-byte identical to pre-0.5.0.
+        if (DorisReplay.enabled && wantsReplay(builder)) {
             if (CstReplayer(builder, this).tryReplayStatement()) return true
         }
         if (isDorisCreateTable(builder) || isCreateMaterializedView(builder) || isCreateView(builder) ||

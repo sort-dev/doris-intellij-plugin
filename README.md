@@ -57,6 +57,7 @@ single-level behavior:
 
 ```
 -Ddoris.catalogs.experimental=false     # VM option; default (unset) = catalogs ON
+-Ddoris.replay.poc=false                # VM option; default (unset) = native typed parsing ON (0.5.0)
 ```
 
 **Upgrading / toggling:** the two model shapes don't cross-load, so on the first IDE start after

@@ -27,7 +27,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            System.clearProperty(REPLAY_FLAG)
+            System.setProperty(REPLAY_FLAG, "false")
         } finally {
             super.tearDown()
         }
@@ -37,14 +37,14 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
 
     /** Highlight [sql] as a DorisSQL file; returns the visible (post-filter) warnings+errors. */
     private fun highlight(sql: String, replay: Boolean = false): List<HighlightInfo> {
-        if (replay) System.setProperty(REPLAY_FLAG, "true") else System.clearProperty(REPLAY_FLAG)
+        if (replay) System.setProperty(REPLAY_FLAG, "true") else System.setProperty(REPLAY_FLAG, "false")
         try {
             val psi = myFixture.configureByText("h${counter++}.sql", sql)
             SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
             return myFixture.doHighlighting()
                 .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }
         } finally {
-            System.clearProperty(REPLAY_FLAG)
+            System.setProperty(REPLAY_FLAG, "false")
         }
     }
 
