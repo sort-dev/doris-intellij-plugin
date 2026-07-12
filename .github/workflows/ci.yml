@@ -10,6 +10,14 @@ jobs:
   build:
     name: Test & Build
     runs-on: ubuntu-latest
+    # Credentials for the brikk/public-maven GitHub Packages repo (brikk-sql-metadata dependency).
+    # This repo is under sort-dev but the package is in the brikk org, so the built-in GITHUB_TOKEN
+    # cannot read it cross-org — set BRIKK_GPR_USER / BRIKK_GPR_KEY as repository secrets (a GitHub
+    # username + a PAT with read:packages). The build's credential chain (build.gradle.kts) picks
+    # these up via env.
+    env:
+      BRIKK_GPR_USER: ${{ secrets.BRIKK_GPR_USER }}
+      BRIKK_GPR_KEY: ${{ secrets.BRIKK_GPR_KEY }}
     steps:
       - uses: actions/checkout@v4
 

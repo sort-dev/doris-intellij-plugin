@@ -26,7 +26,20 @@ awkward for our public CI). Cleanest: publish `brikk-sql-metadata-jvm` to `brikk
 (raw-git Maven repo, no auth; README says "coming soon") or Maven Central, so the plugin resolves
 it credential-free. Decide before adding the dependency; the code change is tiny.
 
-## 1. The trade (on-ramp — actionable now)
+## 1. The trade — DONE (metadata integrated 2026-07-12)
+
+**Shipped on branch `feat/brikk-metadata`:** the plugin now depends on
+`dev.brikk.house:brikk-sql-metadata-jvm` and sources `DorisFunctions.NAMES` from
+`DORIS_FUNCTION_CATALOG` (names + aliases). Our local `tools/generate_doris_functions.py` +
+`doris-functions.txt` are deleted (the generator lives in brikk-house now). Bundling stays
+featherweight — only the 117 KB metadata jar is added; its kotlin-stdlib + kotlinx-serialization
+transitives are excluded because the IntelliJ platform provides them at runtime (verified 261+262).
+Credential chain wired (gradle.properties -> BRIKK_GPR_* env -> GITHUB_*); CI needs the
+BRIKK_GPR_USER/KEY repo secrets (cross-org, so GITHUB_TOKEN won't do). 204 tests green. Next
+adoptions available from the same catalog: `isTableFunction` (cross-check TVF names), `kind`
+(sharpen the completion allowlist), `sinceVersion` (version-gated completion, once populated).
+
+### Original trade rationale (on-ramp)
 
 brikk-sql needs the Doris function list; move the extraction **up** to brikk-sql as the single
 source of truth. Our `DorisFunctions.NAMES` is already just a generated resource
