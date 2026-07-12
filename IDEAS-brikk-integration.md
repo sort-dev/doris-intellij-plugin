@@ -4,6 +4,28 @@
 the brikk-sql (polyglot sqlglot-in-Kotlin) transpiler could grow into together. Ordered roughly by
 how soon it's actionable.*
 
+## 0. Artifacts (confirmed 2026-07 — `dev.brikk.house`, 0.1.0-SNAPSHOT)
+
+Source read from `brikk/brikk-house` (private; `brikk-sql-metadata/`, `brikk-sql/`, `brikk-sql-verify/`).
+- **`brikk-sql-metadata-jvm`** — the featherweight consumer contract (only dep:
+  kotlinx-serialization-json). API in `FunctionCatalog.kt`: `FunctionCatalog` (case-insensitive
+  `get`/`contains` by name+alias, `isTableFunction`, `.functions`, `.toJson()`), `FunctionDef`
+  (name, `kind` ∈ SCALAR/AGGREGATE/WINDOW/TABLE_VALUED/TABLE_GENERATING, aliases, `overloads`
+  [argTypes+returnType], `nativeKind`, `sinceVersion`), and generated per-dialect vals:
+  **`DORIS_FUNCTION_CATALOG`** (826 names / 728 defs / 1434 overloads, from Doris's runtime
+  registry via `tools/generate_doris_functions.py` — the generator already lives here, not in our
+  repo), plus DUCKDB / TRINO catalogs. **This is our function-name source; it also subsumes TVF
+  detection (`isTableFunction`) and holds the `sinceVersion` hook for version-gated completion.**
+- **`brikk-sql-jvm`** — the transpiler engine (~3.4 MB). For Convert + Doris Pipes later (§2, §3).
+- **`brikk-sql-verify`** — verification. NOTE (user): **will break out per-engine soon; a Doris one
+  is coming and shares the same vendored `fe-sql-parser` we already embed** → the shared parser is
+  the foundation for **pipes in Doris syntax** (§3). Keep on the radar.
+
+**Consumption gotcha:** artifacts are in GitHub Packages (needs a read token even when public —
+awkward for our public CI). Cleanest: publish `brikk-sql-metadata-jvm` to `brikk/public-maven`
+(raw-git Maven repo, no auth; README says "coming soon") or Maven Central, so the plugin resolves
+it credential-free. Decide before adding the dependency; the code change is tiny.
+
 ## 1. The trade (on-ramp — actionable now)
 
 brikk-sql needs the Doris function list; move the extraction **up** to brikk-sql as the single
