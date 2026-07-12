@@ -28,11 +28,35 @@ that wanted a shared home anyway; we get a feature we couldn't cheaply build). C
   "version-gated function completion" TODO.
 - Stable accessor contract; license compatible with our Apache-2.0 (sqlglot is MIT).
 
-## 2. Convert to / from Doris (first transpilation feature)
+## 2. Transpilation as a SEPARATE cross-dialect plugin (not a Doris feature)
 
-Right-click SQL → **Convert to Doris** / **Convert from Doris → pick dialect**. The plugin is the
-IDE surface for brikk-sql's Doris support. Honesty: transpilation is best-effort/lossy at the edges
-— the action says "review the result," never pretends exact.
+The engine is dialect-agnostic — scoping it to Doris undersells it. Ship a standalone **brikk SQL
+Transpiler** plugin (its own Marketplace listing) that converts between *all* supported dialects
+(Doris is one node). Three-piece architecture:
+
+```
+brikk-sql-metadata (99 KB)  — shared contract: per-dialect function catalogs + accessors
+        ├── Doris plugin (~1.8 MB): dialect, completion, catalogs, cancel, native parsing
+        │                            depends ONLY on metadata → never carries the engine
+        └── brikk SQL Transpiler plugin: bundles the 3.4 MB engine; Convert-between-dialects
+                                         + (later) virtual-syntax transpile-on-run; standalone
+```
+
+Composition (why it's clean):
+- Doris plugin never touches the engine → base install stays ~1.8 MB regardless of transpiler size.
+- The transpiler owns the **Convert actions generically** (right-click → convert between any two
+  recognized dialects); it reads the source dialect from the file's assigned dialect or the
+  `-- dialect:` annotation (§4). No Doris-specific menu item, no cross-plugin wiring.
+- Each stands alone; together = author Doris + convert to/from anything. Users compose.
+- Virtual-syntax execution (§3) belongs to the transpiler — generic transpile-on-run against
+  whatever the console connects to.
+
+Honesty: transpilation is best-effort/lossy at the edges — the action says "review the result,"
+never pretends exact.
+
+**Strategic note:** this is a *second product* (own listing, support surface, roadmap), not a
+feature. The metadata/engine split keeps the two plugins independent, so neither drags the other —
+but go in deliberately knowing it's a product line.
 
 ## 3. Virtual Doris syntax — author extended SQL, execute on vanilla Doris (north star)
 
