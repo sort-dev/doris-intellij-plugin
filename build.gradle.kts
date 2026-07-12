@@ -7,8 +7,27 @@ plugins {
 group = "dev.sort.doris"
 version = "0.5.0"
 
+// brikk-sql-metadata (function catalogs) is served from brikk/public-maven, a GitHub Packages Maven
+// repo — which requires auth even for public artifacts (a GitHub limitation; Maven Central is the
+// eventual home). Credential resolution chain: gradle.properties `brikk.gpr.user`/`brikk.gpr.key`
+// (local dev) -> env BRIKK_GPR_USER/BRIKK_GPR_KEY (CI repo secrets) -> GITHUB_ACTOR/GITHUB_TOKEN
+// (same-org fallback; note our repo is under sort-dev, so cross-org GITHUB_TOKEN can't read brikk
+// packages — CI must set the BRIKK_GPR_* secrets). A missing credential fails with a clear message
+// telling contributors to create a read:packages PAT.
+fun brikkCredential(prop: String, vararg envVars: String): String? =
+    providers.gradleProperty(prop).orNull
+        ?: envVars.firstNotNullOfOrNull { providers.environmentVariable(it).orNull }
+
 repositories {
     mavenCentral()
+    maven {
+        name = "brikkPublic"
+        url = uri("https://maven.pkg.github.com/brikk/public-maven")
+        credentials {
+            username = brikkCredential("brikk.gpr.user", "BRIKK_GPR_USER", "GITHUB_ACTOR")
+            password = brikkCredential("brikk.gpr.key", "BRIKK_GPR_KEY", "GITHUB_TOKEN")
+        }
+    }
     intellijPlatform {
         defaultRepositories()
     }
@@ -25,6 +44,19 @@ dependencies {
     // the platform's, switch to the proven shade-relocate of org.antlr.v4.runtime.
     implementation(files("vendor/lib/doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar"))
     implementation("org.antlr:antlr4-runtime:4.13.1")
+
+    // brikk-sql-metadata: the featherweight (128 KB) function-catalog contract — DORIS_FUNCTION_CATALOG
+    // (names, aliases, kind, overloads, isTableFunction, sinceVersion). Bundle ONLY this jar; exclude
+    // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
+    // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
+    // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.1.0-SNAPSHOT") {
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "org.jetbrains.kotlinx")
+    }
+    // Compile-time only: lets the compiler resolve the @Serializable types on the metadata classes.
+    // NOT bundled (the platform provides kotlinx-serialization at runtime); no version conflict.
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
     intellijPlatform {
         // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
