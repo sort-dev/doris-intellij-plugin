@@ -84,6 +84,15 @@ won't take"; the cancel feature already taught us to intercept the statement/con
 (rewrite-outgoing-SQL-on-Run lives there); the golden-corpus method extends to pinning
 pipe-in → Doris-SQL-out.
 
+**Pipe + native fragments (down-the-road refinement).** You shouldn't have to rewrite a whole query
+into *pure* pipe form. Let pipe operators wrap **native SQL fragments**: brikk-sql parses the pipe
+*skeleton* (`FROM … |> … |> …`) and **delegates the SQL fragments to the native/target parser**,
+transpiling only the pipe composition and passing the fragments through. This is the exact mirror of
+our own Route B shadow-replay (structure by one grammar, expression fragments delegated to the MySQL
+parser) — a pattern we already proved sound here. Payoff: incremental adoption — sprinkle pipe over
+SQL you already have, fragments stay in the target dialect's own hands — and it works "over some
+databases" without brikk-sql needing to fully own every dialect's expression grammar.
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
