@@ -93,6 +93,22 @@ parser) — a pattern we already proved sound here. Payoff: incremental adoption
 SQL you already have, fragments stay in the target dialect's own hands — and it works "over some
 databases" without brikk-sql needing to fully own every dialect's expression grammar.
 
+**"Doris Pipes" — a stage-aware feature IN the Doris plugin (the key insight).** brikk-sql exposes
+the **pipe AST *before* transform** — each stage is a node carrying its original SQL. That makes the
+plugin *stage-aware*, not a black-box transpile-and-run wrapper, unlocking:
+- **Execute up to stage N** — run the first K pipe stages, see the intermediate result set, extend.
+  Incremental query building with live feedback at each `|>`.
+- **Per-stage completion** — completion at stage 4 knows the *shape* produced by stages 1–3, so it
+  offers the right columns for an intermediate relation that exists nowhere in the DB.
+- **Per-stage lineage/diagnostics** — "this column first appears at stage 2 / is dropped at stage 3."
+
+These need *Doris-specific* knowledge (Doris completion, execution, result handling), so **Doris
+Pipes lives in the Doris plugin** — while the *generic* cross-dialect Convert stays in the transpiler
+plugin. Packaging: Doris Pipes is a Doris-plugin feature that **lights up when the engine is present**
+(optional dependency on the transpiler/engine plugin). Base Doris plugin stays metadata-only and
+featherweight; install the transpiler alongside → a "Doris Pipes" toggle appears and consumes
+brikk-sql's pipe AST + transform-to-Doris. We *use* the engine when it's there; we never bundle it.
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
