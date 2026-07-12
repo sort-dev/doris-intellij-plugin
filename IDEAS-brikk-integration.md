@@ -54,9 +54,16 @@ Composition (why it's clean):
 Honesty: transpilation is best-effort/lossy at the edges — the action says "review the result,"
 never pretends exact.
 
+**Repo homes** (boundaries mirror the architecture):
+- `brikk` — owns the transpiler plugin + `brikk-sql` engine + `brikk-sql-metadata`. The transpiler
+  plugin is the **flagship showcase of brikk-sql** (a transpiler demoing your transpiler = the best
+  advert). Dependency arrows point outward *from* brikk (it publishes the contract + engine).
+- `doris-intellij` (this repo) — the Doris plugin, a well-behaved *consumer* of the 99 KB
+  `brikk-sql-metadata` contract. No inward coupling, no monorepo entanglement.
+
 **Strategic note:** this is a *second product* (own listing, support surface, roadmap), not a
-feature. The metadata/engine split keeps the two plugins independent, so neither drags the other —
-but go in deliberately knowing it's a product line.
+feature. The metadata/engine split + separate repos keep the two plugins independent, so neither
+drags the other — but go in deliberately knowing it's a product line.
 
 ## 3. Virtual Doris syntax — author extended SQL, execute on vanilla Doris (north star)
 
