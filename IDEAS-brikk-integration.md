@@ -13,9 +13,16 @@ lift is clean: generator + data relocate; the plugin consumes a thin, offline-em
 
 In return: **transpilation in the plugin.** Verdict: fair and favorable (we hand over reference data
 that wanted a shared home anyway; we get a feature we couldn't cheaply build). Conditions:
-- Keep completion's dependency featherweight (small artifact / keep generating our `.txt` from the
-  shared upstream); the heavy transpiler engine loads only when a transform is invoked. Plugin stays
-  ~2 MB, works offline.
+- Keep completion's dependency featherweight — and brikk-sql already ships the right split:
+  **`brikk-sql-metadata` (99 KB, plugin-facing contract)** vs **`brikk-sql` (3.4 MB engine)**.
+  Completion depends only on the 99 KB metadata artifact → plugin grows 1.7 MB → ~1.8 MB (a
+  non-event; it's smaller than our own code). Works offline.
+- The 3.4 MB engine is then purely a **packaging decision**, not a completion concern:
+  (a) *bundle always* → ~5.1 MB base, simplest, everyone carries the engine; or (b) *optional
+  companion plugin* (IntelliJ `<depends optional="true">`) → base stays ~1.8 MB, transpilation
+  lights up only when the engine plugin is installed. **Lean: (b)** — matches the metadata/engine
+  split, keeps the base snappy, makes Convert/virtual-syntax an opt-in install. (5 MB bundled is
+  fine by Marketplace norms if simplicity wins for v1; (b) scales better as more brikk modules land.)
 - Provenance (the generator + "from Doris docs") moves up intact so it's regenerable per Doris
   version. Natural home for the **signatures + since-version map** → quietly solves our long-standing
   "version-gated function completion" TODO.
