@@ -159,6 +159,39 @@ text; invalidate on edit). Investigate: does the IntelliJ platform already **car
 of copied/pasted SQL** (paste metadata)? If so, we could auto-populate the annotation on paste from a
 non-Doris console.
 
+## 4b. Editor error-suppression recipe for the transpiler plugin (proven in this plugin)
+
+How this plugin makes a foreign syntax first-class inside a JetBrains SQL editor without owning
+the platform grammar — the exact pattern the transpiler plugin needs for pipe syntax / annotated
+foreign dialects. Three layers, in priority order:
+
+1. **Prevent > suppress (lexer masking / replay).** Keep the foreign syntax out of the substrate
+   parser entirely: mask it at the lexer into tokens the substrate never sees (`DorisLexer` masks
+   `* EXCEPT(...)`; Route B replay is the industrial version). For pipes: mask the `|>` stage
+   operators so the platform parses each stage as a plausible fragment — masking is what keeps
+   **completion/resolve** working; suppression alone only removes red.
+2. **Blanket syntax kill** — `com.intellij.highlightErrorFilter` EP (`DorisHighlightErrorFilter`,
+   ~10 lines): refuse to highlight ANY `PsiErrorElement` in files you claim. Total, because the
+   substrate's opinion of foreign syntax is worthless.
+3. **Surgical semantic kill** — `com.intellij.daemon.highlightInfoFilter` EP
+   (`DorisHighlightInfoFilter`): cheap `description.contains(<stable message substring>)`
+   pre-gate, THEN a PSI-context gate proving the error structurally bogus — the genuine variant of
+   the same inspection must stay red. Runs per-highlight: strings first, PSI walks second.
+
+Non-obvious lessons (learned here, save the re-derivation):
+- **The filters don't require owning the file's language** — they're plain predicates and can gate
+  on a `-- dialect: X` annotation, `|>` presence, or user-data instead of `language.isKindOf`. So
+  the transpiler plugin can suppress inside consoles assigned to ANY dialect (DorisSQL, stock
+  MySQL, ...) with no Language registration — this is what makes §4 (annotated pasted queries)
+  cheap.
+- **Blanket filter and authoritative annotator ship TOGETHER, never apart.** Layer real
+  diagnostics back via an annotator that runs the real parser (`DorisErrorAnnotator` runs
+  fe-sql-parser; the transpiler runs brikk-sql's parse) at original offsets — otherwise the editor
+  is permanently not-red and users lose all feedback.
+- **Message-substring matching pins JetBrains bundle strings** — annotate every constant with the
+  inspection class + bundle key (e.g. `SqlInsertValuesInspection` / `incorrect.values.number`) so
+  a platform bump that rewords messages is a grep, not a mystery. Recheck per major.
+
 ## 5. Later brikk modules (pre-execution client-side resolution)
 
 brikk's other modules — **virtual TVFs, parameterized views, full lineage across views-not-yet-written**
