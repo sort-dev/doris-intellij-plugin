@@ -203,7 +203,15 @@ object DorisCancel {
     private val guidsByDataSource: MutableMap<String, MutableSet<String>> =
         Collections.synchronizedMap(HashMap())
 
-    /** Called at mint time: record the guid under both the connection and its data source. */
+    /**
+     * Called at mint time: record the guid under the connection and its data source.
+     *
+     * There is deliberately NO per-session registry here: connect time cannot see which console
+     * owns the connection (the requestor `JdbcEngine` retains no session field, and the
+     * run-config/audit handles are shared or recreated across a data source's consoles — all
+     * verified live). Session scoping instead happens at CANCEL time, by matching the live
+     * request-owner of each active connection (see `DorisCancelRunningStatementsAction`).
+     */
     fun registerGuid(connection: RemoteConnection, guid: String, dataSourceId: String?) {
         guidsByConnection[connection] = guid
         if (dataSourceId != null) {

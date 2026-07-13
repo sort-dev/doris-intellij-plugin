@@ -1,6 +1,8 @@
 package dev.sort.doris.cancel
 
 import com.intellij.database.actions.CancelRunningStatementsAction
+import com.intellij.database.console.JdbcEngine
+import com.intellij.database.console.client.SessionClient
 import com.intellij.database.console.session.DatabaseSession
 import com.intellij.database.dataSource.DatabaseConnection
 import com.intellij.database.dataSource.DatabaseConnectionManager
@@ -48,24 +50,35 @@ import com.intellij.openapi.application.ApplicationManager
  * dialog (the failure dialog is wired into the stock cancel request's `onError`, DB-261 bytecode),
  * so the two cannot be decoupled — hence ours-only in the success path.
  *
- * ## Resolving *which* query to kill — the P0 fix
+ * ## Resolving *which* query to kill
  *
- * Cancel fires exactly while a statement is executing, so the session's connection is **busy**.
- * `JdbcEngine.getCurrentConnectionIfReady()` returns `null` for a busy connection by design
- * (`isConnectionReady` gate, DB-261 bytecode) — the first cut resolved the guid through it and so
- * *always* missed mid-query and fell to stock (the observed "no trace id known" -> deactivate
- * dialog). The busy connection is reachable through the private `JdbcEngine.getCurrentConnection()`
- * (returns `myConnection.get()` with no ready gate); we call the public ready accessor first and
- * only reflect the private one when busy. From that connection the guid is read **straight back
- * off the driver** via `RemoteConnection.getClientInfo("DorisTraceId")` (self-describing, no
- * identity assumption), with the connect-time weak map as a secondary.
+ * Cancel fires while the console's statement is executing. The guid for *this* console lives on
+ * its connection, but `session.messageBus.dataProducer` is a one-method `DataProducer` JDK proxy,
+ * so the connection (and its guid) cannot be reflected off it — the original cut tried and always
+ * failed, falling through to the data-source-wide net below (which then refused whenever a second
+ * query, e.g. a background copy in another console, was running on the same data source). Instead
+ * we match **live at cancel time**: a console connection's requestor is its `JdbcEngine` (a public
+ * class — it *is* the `DataProducer` behind that proxy), and while the console is executing, the
+ * engine's `getRequestContextIfAny()` exposes the active request, whose public `owner` is the
+ * session client that submitted it. Cancel fires exactly while the target session is mid-query, so
+ * enumerating `DatabaseConnectionManager.getActiveConnections()` and keeping the connection(s)
+ * whose live request-owner belongs to this session pins down *this console's* connection — and our
+ * connect-time weak map turns it into the guid, with no remote call. Nothing is registered
+ * per-session ahead of time, so reconnects can never leave the mapping stale. (Session-identity
+ * keys that do NOT work, learned the hard way: `ConsoleRunConfiguration` and the audit handles are
+ * shared/recreated across consoles of a data source; `JdbcEngine` holds no session field to
+ * reflect.)
  *
- * If the in-process connection genuinely can't be resolved, the **data-source processlist safety
- * net** takes over: we know the session's data source and every guid we ever minted for it, and
- * every tagged statement carries its guid in the processlist `Info` comment — so we find the one
- * *running* row whose `Info` marker is one of this data source's guids and kill it by `QueryId`.
- * With more than one running tagged query for the data source we refuse (to avoid the very
- * wrong-kill this feature exists to prevent) and leave it to stock.
+ * The guid is then used only as the **`Info`-marker to match in `SHOW FULL PROCESSLIST`**, from
+ * which we read the running query's real `QueryId` and `KILL QUERY "<QueryId>"`. We do *not* kill
+ * by trace id directly: `KILL QUERY "<trace-id>"` returns success but is a silent no-op on Doris
+ * 4.1.2 (the query keeps running), whereas the QueryId kill is live-proven.
+ *
+ * **Data-source safety net (last resort):** if no console guid resolves, we match against every
+ * guid minted for the *data source* instead. More than one running match -> refuse (avoid the
+ * wrong-kill this feature exists to prevent) and leave it to stock. With per-console resolution
+ * above now working, this net is reached only when the config registry and active-connection
+ * lookup both come up empty.
  *
  * Every resolution step logs under the `DorisCancel:` prefix so a real-IDE press leaves a
  * definitive trail (the flow is not headless-drivable).
@@ -141,51 +154,73 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         }
 
     // ---------------------------------------------------------------------------------------
-    // In-process resolution: the guid off the (busy) session connection
+    // Session resolution: this console's guid(s) via the public active-connection registry
     // ---------------------------------------------------------------------------------------
 
     /**
-     * The guid of the query this console is currently running. Layered so reflection is only used
-     * when the connection is actually busy, and every step is logged:
+     * The guid(s) of the connection(s) backing THIS session.
      *
-     * 1. public `getCurrentConnectionIfReady()` — non-null only when the session is idle;
-     * 2. private `getCurrentConnection()` via reflection — the busy connection (the P0 case);
-     * 3. from whichever connection: `getClientInfo("DorisTraceId")`, then the connect-time weak map.
+     * Replaces the original proxy reflection (see the class KDoc): we enumerate the platform's
+     * public active-connection list and keep only the connection(s) whose `ConsoleRunConfiguration`
+     * is identity-equal to this session's — each console owns a distinct run-config instance,
+     * threaded by identity into the connection it opens, so config identity isolates this console
+     * from other consoles on the same data source. The guid is then read from our connect-time
+     * registry (or, on a miss, straight off the driver via `getClientInfo` — a safe direct call now
+     * that we hold the real connection, not the proxy). Usually one guid; a session that reconnected
+     * can carry more than one (stale ones simply never match a *running* processlist row).
      */
-    private fun resolveConnectionGuid(session: DatabaseSession): String? {
-        val engine = session.messageBus.dataProducer
-        if (engine == null) {
-            DorisCancel.info("resolve: session has no data producer engine")
-            return null
+    private fun sessionGuids(session: DatabaseSession): Set<String> {
+        val id = session.id
+        val clients = try {
+            session.clients
+        } catch (t: Throwable) {
+            emptyArray()
         }
-
-        val ready = invokeConnectionAccessor(engine, "getCurrentConnectionIfReady")
-        if (ready != null) {
-            DorisCancel.info("resolve: getCurrentConnectionIfReady -> connection (session idle)")
-            guidFromConnection(ready)?.let { return it }
-        } else {
-            DorisCancel.info("resolve: getCurrentConnectionIfReady -> null (session busy, expected mid-query)")
+        val active = try {
+            DatabaseConnectionManager.getInstance().activeConnections
+        } catch (t: Throwable) {
+            DorisCancel.warn("sessionGuids: activeConnections unavailable: ${t.message}")
+            return emptySet()
         }
-
-        val busy = invokeConnectionAccessor(engine, "getCurrentConnection")
-        if (busy != null) {
-            DorisCancel.info("resolve: getCurrentConnection (reflected) -> busy connection")
-            guidFromConnection(busy)?.let { return it }
-        } else {
-            DorisCancel.info("resolve: getCurrentConnection (reflected) -> null/unavailable")
+        // Live match: a console connection's requestor is its JdbcEngine, and WHILE the console is
+        // executing, the engine exposes the active request's context, whose request carries its
+        // OWNER — the session client that submitted it. Cancel fires exactly while the target
+        // session is mid-query, so its engine has a context and the owner names the session. All
+        // public API, read fresh at every press — nothing registered ahead of time, so reconnects
+        // can never leave this stale.
+        val mine = active.filter { conn ->
+            runCatching {
+                val owner = (conn.requestor as? JdbcEngine)?.requestContextIfAny?.request?.owner
+                    ?: return@runCatching false
+                val ownerSessionId = ((owner as? SessionClient<*>)?.session as? DatabaseSession)?.id
+                ownerSessionId == id || clients.any { it === owner }
+            }.getOrDefault(false)
         }
-
-        DorisCancel.info("resolve: no guid from any in-process accessor")
-        return null
+        val guids = mine.mapNotNullTo(LinkedHashSet()) { guidFromConnection(it) }
+        DorisCancel.info(
+            "sessionGuids: '${session.title}' id=$id -> ${guids.size} guid(s) via " +
+                "${mine.size}/${active.size} live request-owner match(es)",
+        )
+        return guids
     }
 
-    /** Read the guid from a resolved connection: driver client-info first, weak map second. */
+    /**
+     * Read the guid from a resolved connection: connect-time weak map first (instant, in-process),
+     * driver client-info second. Order matters: `getClientInfo` is a remote call that can stall for
+     * seconds behind the busy connection's running statement (observed 8s live), while the weak map
+     * — populated at mint for every tagged connection — answers immediately.
+     */
     private fun guidFromConnection(connection: DatabaseConnection): String? {
         val remote: RemoteConnection = try {
             connection.remoteConnection
         } catch (t: Throwable) {
             DorisCancel.warn("resolve: remoteConnection unavailable: ${t.message}")
             return null
+        }
+        val fromMap = DorisCancel.guidForConnection(remote)
+        if (DorisCancel.isValidGuid(fromMap)) {
+            DorisCancel.info("resolve: guid from connect-time weak map -> $fromMap")
+            return fromMap
         }
         val fromDriver = try {
             JdbcNativeUtil.computeRemote { remote.getClientInfo(DorisCancel.CLIENT_INFO_KEY) }
@@ -197,38 +232,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
             DorisCancel.info("resolve: guid from driver client-info -> $fromDriver")
             return fromDriver
         }
-        val fromMap = DorisCancel.guidForConnection(remote)
-        if (DorisCancel.isValidGuid(fromMap)) {
-            DorisCancel.info("resolve: guid from connect-time weak map -> $fromMap")
-            return fromMap
-        }
         return null
-    }
-
-    /**
-     * Invoke a no-arg `DatabaseConnection`-returning accessor by name on the engine, searching the
-     * runtime class hierarchy (the accessor may be private on `JdbcEngine`). Any reflection
-     * failure is logged and returns null — the safety net then handles the cancel.
-     */
-    private fun invokeConnectionAccessor(engine: Any, methodName: String): DatabaseConnection? {
-        return try {
-            var cls: Class<*>? = engine.javaClass
-            while (cls != null) {
-                val method = cls.declaredMethods.firstOrNull {
-                    it.name == methodName && it.parameterCount == 0
-                }
-                if (method != null) {
-                    method.isAccessible = true
-                    return method.invoke(engine) as? DatabaseConnection
-                }
-                cls = cls.superclass
-            }
-            DorisCancel.info("resolve: no accessor '$methodName' on ${engine.javaClass.name}")
-            null
-        } catch (t: Throwable) {
-            DorisCancel.warn("resolve: accessor '$methodName' threw: ${t.message}")
-            null
-        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -236,21 +240,31 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Resolve the guid off the busy connection and kill, on a pooled thread through one short-lived
-     * helper connection. Returns [DorisCancel.KillOutcome.KILLED] on the success path (a kill the
-     * server accepted, or the statement already finished) and [DorisCancel.KillOutcome.NOTHING]
-     * when we definitively did nothing — the caller then runs the stock fallback.
+     * Resolve this session's guid(s) and kill, on a pooled thread through one short-lived helper
+     * connection. We always kill via the **processlist -> real `QueryId`** path: it is the only one
+     * live-proven on the user's cluster. (`KILL QUERY "<trace-id>"` returns success but is a silent
+     * no-op on Doris 4.1.2 — the running query keeps going — so the trace id is used only as the
+     * `Info`-marker we match in the processlist, never as a direct kill argument.)
+     *
+     * Guid scoping, best -> last resort:
+     *  - **this console's** guids (`session.configuration` registry) — kills only this console's
+     *    running query, so a background copy in another console on the same data source is ignored;
+     *  - if none resolve, **the data source's** guids — the old, ambiguity-prone net, which refuses
+     *    on more than one running match and leaves it to stock.
+     *
+     * Returns [DorisCancel.KillOutcome.KILLED] when the server accepted a kill (or the row was
+     * already gone) and [DorisCancel.KillOutcome.NOTHING] when we did nothing — the caller then
+     * runs the stock fallback.
      */
     private fun killOnServer(session: DatabaseSession, dataSourceId: String?): DorisCancel.KillOutcome {
-        // Resolve here (off the EDT) — `getClientInfo` is a remote call.
-        val guid = resolveConnectionGuid(session)
-        if (guid != null) {
-            DorisCancel.info("session '${session.title}': resolved trace id $guid")
-        } else {
-            DorisCancel.info(
-                "session '${session.title}' (ds=$dataSourceId): guid unresolved in-process; " +
-                    "using data-source processlist safety net",
-            )
+        val scoped = sessionGuids(session)
+        val guids = if (scoped.isNotEmpty()) scoped else DorisCancel.guidsForDataSource(dataSourceId)
+        val context =
+            if (scoped.isNotEmpty()) "session '${session.title}'"
+            else "data-source safety net for '${session.title}' (ds=$dataSourceId)"
+        if (guids.isEmpty()) {
+            DorisCancel.info("$context: no guids to match; nothing to kill (stock will handle it)")
+            return DorisCancel.KillOutcome.NOTHING
         }
         return try {
             val ref = DatabaseConnectionManager.getInstance()
@@ -260,67 +274,15 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                 ?: throw IllegalStateException("no helper connection")
             ref.use { r ->
                 val helper = r.get()
-                if (guid != null) {
-                    killByTraceId(helper, session, guid)
-                } else {
-                    killViaDataSourceProcesslist(helper, session, dataSourceId)
-                }
+                DorisCancel.info("$context: matching ${guids.size} guid(s) in the processlist")
+                widenProcesslist(helper)
+                val candidates = collectRunningCandidates(helper, guids)
+                killSingleCandidate(helper, candidates, context)
             }
         } catch (t: Throwable) {
-            DorisCancel.warn("helper connection for kill (guid=$guid) failed: ${t.message}")
+            DorisCancel.warn("helper connection for kill failed: ${t.message}")
             DorisCancel.KillOutcome.NOTHING
         }
-    }
-
-    /** Primary: one-shot kill by our own trace id (Doris >= 4.0, FE-forwarded). */
-    private fun killByTraceId(
-        helper: DatabaseConnection,
-        session: DatabaseSession,
-        guid: String,
-    ): DorisCancel.KillOutcome {
-        DorisCancel.info("kill: issuing ${DorisCancel.sqlKillQueryByTraceId(guid)}")
-        try {
-            execute(helper, DorisCancel.sqlKillQueryByTraceId(guid))
-            DorisCancel.info("kill: killed by trace id $guid")
-            return DorisCancel.KillOutcome.KILLED
-        } catch (t: Throwable) {
-            if (!DorisCancel.isUnknownQueryId(t)) {
-                DorisCancel.warn("kill: KILL QUERY by trace id $guid failed: ${t.message}")
-                return DorisCancel.KillOutcome.NOTHING
-            }
-            if (session.isIdle) {
-                DorisCancel.info("kill: unknown query id for $guid and session idle -> already finished")
-                return DorisCancel.KillOutcome.KILLED
-            }
-            DorisCancel.info(
-                "kill: unknown query id for $guid but session still busy " +
-                    "(pre-4.0 server or trace id clobbered) -> per-guid processlist fallback",
-            )
-        }
-        // Fallback for exactly this guid.
-        widenProcesslist(helper)
-        val candidates = collectRunningCandidates(helper, setOf(guid))
-        return killSingleCandidate(helper, candidates, "trace-id fallback for $guid")
-    }
-
-    /**
-     * Data-source safety net: no in-process connection was resolvable, so find the running query
-     * for this data source by matching the `Info` marker against every guid we minted for it.
-     */
-    private fun killViaDataSourceProcesslist(
-        helper: DatabaseConnection,
-        session: DatabaseSession,
-        dataSourceId: String?,
-    ): DorisCancel.KillOutcome {
-        val guids = DorisCancel.guidsForDataSource(dataSourceId)
-        if (guids.isEmpty()) {
-            DorisCancel.info("safety net: no minted guids for ds=$dataSourceId; nothing to do")
-            return DorisCancel.KillOutcome.NOTHING
-        }
-        DorisCancel.info("safety net: scanning processlist for ${guids.size} guid(s) of ds=$dataSourceId")
-        widenProcesslist(helper)
-        val candidates = collectRunningCandidates(helper, guids)
-        return killSingleCandidate(helper, candidates, "safety net for session '${session.title}'")
     }
 
     /** Kill exactly one candidate; refuse (log) on zero or ambiguous multiple. */
