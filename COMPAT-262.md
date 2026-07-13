@@ -27,3 +27,22 @@ Also at the same time:
 - Internal-API usages (DBIntrospector.Factory, 11 hits) are expected/unavoidable — the
   introspection EP has no public variant; justification if JetBrains asks: multi-catalog
   introspection requires implementing it, as other third-party dialect plugins do.
+
+---
+
+## Cancel feature — 3 compat problems on 262 (found 2026-07-13, RE-verify after cancel landed)
+
+`./gradlew verifyPlugin` was NOT re-run after the query-cancel feature landed in 0.5.0, so these
+262 problems shipped unnoticed (261 = Compatible; only 262 affected, and 262 is still EAP):
+
+1. `DorisCancelRunningStatementsAction.resolveConnectionGuid(DatabaseSession)` references
+   `com.intellij.database.datagrid.DataProducer` — unresolved on 262 (moved/renamed).
+2. `com.intellij.database.datagrid.DataRequest.Owner` references `GridDataRequest.GridDataRequestOwner`
+   — unresolved on 262.
+3. Stock `com.intellij.database.actions.CancelRunningStatementsAction` (which we subclass) references
+   `com.intellij.database.run.actions.GridAction` — unresolved on 262.
+
+Risk: NoSuchClassError on 262 when cancel is invoked, and our action subclass may fail to load
+(hierarchy shift). No 261 users affected; matters before 2026.2 GA. Fix like DorisMetaCompat: find
+the 262 equivalents and bridge (reflection / version-agnostic API), acceptance = verifyPlugin zero
+compat problems on BOTH 261 and 262. PROCESS FIX: add verifyPlugin to CI so this can't slip again.
