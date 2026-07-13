@@ -46,6 +46,18 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.6.0</b> — enhanced query cancelling across console windows.
+        <ul>
+            <li><b>Cancel works across console windows:</b> with several consoles running queries
+                against the same data source, Stop now kills exactly the query of the console you
+                pressed it in — the other consoles' queries keep running. (Previously the plugin
+                refused to guess in that situation and fell back to the IDE's stock cancel, which
+                could show the "Deactivate the Data Source?" dialog.) Repeat cancels are also
+                faster.</li>
+            <li><b>Function completion shows each function's kind:</b> scalar, aggregate, window,
+                and table functions get distinct icons and labels, sourced from Doris's own
+                function registry (via the shared brikk-sql-metadata catalog).</li>
+        </ul>
         <b>0.5.0</b> — reliable query cancel, native typed parsing, calmer completion.
         <ul>
             <li><b>Reliable query cancel (on by default):</b> the Stop button now actually kills the

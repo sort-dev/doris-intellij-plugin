@@ -34,7 +34,9 @@ Doris-specific completion and validation.
   including schema-by-argument (`tasks("type"="mv")`). File TVFs (`s3()`, `hdfs()`, …) stay quiet
   without fabricating columns.
 - **Reliable query cancel** (default on): the Stop button actually kills the running Doris query,
-  even behind a load balancer. See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
+  even behind a load balancer — and with several console windows on the same data source, each
+  Stop kills exactly its own console's query (0.6.0).
+  See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
 - **Completion** for 825 Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
   `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords. Function auto-popup fires only
   in expression positions, so it never interrupts typing keywords or literals (explicit
@@ -120,18 +122,24 @@ that connection id either doesn't exist (the cancel silently does nothing and yo
 burning cluster resources) or — because Doris frontends number connections independently —
 belongs to a *different session of the same user*, silently killing the wrong query.
 
-The plugin replaces this: at connect time each Doris connection is tagged with a unique trace id
-(`SET session_context = 'trace_id:dg-...'`, also visible as `DorisTraceId=dg-...` in
-`SHOW PROCESSLIST` `Info`). Pressing Stop issues `KILL QUERY "dg-..."` from a short-lived helper
-connection — on Doris 4.0+ the frontends forward that kill among themselves until the owner is
-found, killing exactly your statement (the session stays alive). On older servers (2.1/3.x) the
-plugin falls back to locating your query in the all-frontends processlist by its trace marker and
-killing it by query id. The server erroring the statement is what unblocks the console (the red
-"cancel query by user" bar). The IDE's stock cancel runs **only** if the plugin path genuinely
-can't act — so you no longer see the spurious "Cancelling Failed. Deactivate the Data Source?"
-dialog when the cancel actually succeeded. The trade-off: the console unblocks when the kill lands
-(a fraction of a second) rather than instantly. Everything is logged under the `DorisCancel:`
-prefix in `idea.log`.
+The plugin replaces this: at connect time each Doris connection is tagged with a unique trace
+marker (`SET session_context = 'trace_id:dg-...'`, also visible as `DorisTraceId=dg-...` in
+`SHOW PROCESSLIST` `Info`). Pressing Stop resolves which connection *the console you pressed it
+in* is using at that moment, locates that connection's running statement in the all-frontends
+processlist by its trace marker, and kills it by query id from a short-lived helper connection —
+killing exactly your statement, on whichever frontend owns it (the session stays alive).
+
+**Enhanced in 0.6.0 — cancelling across console windows:** with several consoles running queries
+against the same data source (say, a big `INSERT INTO ... SELECT` in one window and a bad ad-hoc
+query in another), each Stop kills only its own console's query; the others keep running.
+Previously the plugin refused to guess between concurrent queries and fell back to the IDE's
+stock cancel.
+
+The server erroring the statement is what unblocks the console (the red "cancel query by user"
+bar). The IDE's stock cancel runs **only** if the plugin path genuinely can't act — so you no
+longer see the spurious "Cancelling Failed. Deactivate the Data Source?" dialog when the cancel
+actually succeeded. The trade-off: the console unblocks when the kill lands (a fraction of a
+second) rather than instantly. Everything is logged under the `DorisCancel:` prefix in `idea.log`.
 
 The escape hatch back to the stock (driver-only) cancel:
 
