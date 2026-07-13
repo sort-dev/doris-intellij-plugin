@@ -34,8 +34,8 @@ it credential-free. Decide before adding the dependency; the code change is tiny
 `doris-functions.txt` are deleted (the generator lives in brikk-house now). Bundling stays
 featherweight — only the 117 KB metadata jar is added; its kotlin-stdlib + kotlinx-serialization
 transitives are excluded because the IntelliJ platform provides them at runtime (verified 261+262).
-Credential chain wired (gradle.properties -> BRIKK_GPR_* env -> GITHUB_*); CI needs the
-BRIKK_GPR_USER/KEY repo secrets (cross-org, so GITHUB_TOKEN won't do). 204 tests green. Next
+Resolved from **Maven Central snapshots** (no auth — the GitHub Packages credential dance was
+dropped once the artifacts appeared on Central). 204 tests green. Next
 adoptions available from the same catalog: `isTableFunction` (cross-check TVF names), `kind`
 (sharpen the completion allowlist), `sinceVersion` (version-gated completion, once populated).
 

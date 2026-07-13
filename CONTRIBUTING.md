@@ -11,17 +11,9 @@ are especially welcome — real, hostile SQL is how this plugin got good.
 ./gradlew test          # the full suite (light platform fixture, no IDE install needed)
 ```
 
-**One-time credential setup:** the plugin's Doris function catalog comes from
-`dev.brikk.house:brikk-sql-metadata-jvm`, published to the `brikk/public-maven` GitHub Packages
-repo — which requires authentication even for public artifacts (a GitHub limitation; Maven Central
-is the eventual home). Create a GitHub [Personal Access Token](https://github.com/settings/tokens)
-with the **`read:packages`** scope, then provide it via either:
-
-- `~/.gradle/gradle.properties`: `brikk.gpr.user=<your-github-username>` and `brikk.gpr.key=<PAT>`, or
-- environment: `BRIKK_GPR_USER=<username>` and `BRIKK_GPR_KEY=<PAT>`.
-
-(CI uses the `BRIKK_GPR_USER` / `BRIKK_GPR_KEY` repository secrets.)
-
+The plugin's Doris function catalog comes from `dev.brikk.house:brikk-sql-metadata-jvm`, resolved
+from the **Maven Central snapshots** repository — no authentication or setup required. (It will move
+to a Central release coordinate once brikk-house cuts a stable release.)
 - **JVM 21**, **Kotlin 2.3.0**, JetBrains IntelliJ Platform Gradle plugin. The DataGrip 2026.1 SDK
   is downloaded automatically on first build.
 - The suite runs against a headless platform fixture; it does **not** need a running Doris server.

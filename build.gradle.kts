@@ -7,26 +7,15 @@ plugins {
 group = "dev.sort.doris"
 version = "0.5.0"
 
-// brikk-sql-metadata (function catalogs) is served from brikk/public-maven, a GitHub Packages Maven
-// repo — which requires auth even for public artifacts (a GitHub limitation; Maven Central is the
-// eventual home). Credential resolution chain: gradle.properties `brikk.gpr.user`/`brikk.gpr.key`
-// (local dev) -> env BRIKK_GPR_USER/BRIKK_GPR_KEY (CI repo secrets) -> GITHUB_ACTOR/GITHUB_TOKEN
-// (same-org fallback; note our repo is under sort-dev, so cross-org GITHUB_TOKEN can't read brikk
-// packages — CI must set the BRIKK_GPR_* secrets). A missing credential fails with a clear message
-// telling contributors to create a read:packages PAT.
-fun brikkCredential(prop: String, vararg envVars: String): String? =
-    providers.gradleProperty(prop).orNull
-        ?: envVars.firstNotNullOfOrNull { providers.environmentVariable(it).orNull }
-
 repositories {
     mavenCentral()
+    // brikk-sql-metadata (function catalogs) — resolved from the Maven Central snapshots repository.
+    // No authentication required (unlike GitHub Packages), so clones and CI build credential-free.
+    // Will move to a Central release coordinate once brikk-house cuts a stable release.
     maven {
-        name = "brikkPublic"
-        url = uri("https://maven.pkg.github.com/brikk/public-maven")
-        credentials {
-            username = brikkCredential("brikk.gpr.user", "BRIKK_GPR_USER", "GITHUB_ACTOR")
-            password = brikkCredential("brikk.gpr.key", "BRIKK_GPR_KEY", "GITHUB_TOKEN")
-        }
+        name = "centralSnapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent { snapshotsOnly() }
     }
     intellijPlatform {
         defaultRepositories()
