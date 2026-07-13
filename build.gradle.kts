@@ -8,15 +8,9 @@ group = "dev.sort.doris"
 version = "0.5.0"
 
 repositories {
+    // brikk-sql-metadata (function catalogs) is a released artifact on Maven Central — no extra
+    // repository or authentication needed.
     mavenCentral()
-    // brikk-sql-metadata (function catalogs) — resolved from the Maven Central snapshots repository.
-    // No authentication required (unlike GitHub Packages), so clones and CI build credential-free.
-    // Will move to a Central release coordinate once brikk-house cuts a stable release.
-    maven {
-        name = "centralSnapshots"
-        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-        mavenContent { snapshotsOnly() }
-    }
     intellijPlatform {
         defaultRepositories()
     }
@@ -39,7 +33,7 @@ dependencies {
     // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
     // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
     // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
-    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.1.0-SNAPSHOT") {
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.1.0") {
         exclude(group = "org.jetbrains.kotlin")
         exclude(group = "org.jetbrains.kotlinx")
     }
