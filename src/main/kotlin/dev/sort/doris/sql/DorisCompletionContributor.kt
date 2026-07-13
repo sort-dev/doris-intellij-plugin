@@ -11,12 +11,30 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.patterns.PlatformPatterns
+import icons.DatabaseIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlBinaryExpression
 import com.intellij.sql.psi.SqlFunctionCallExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.util.ProcessingContext
+
+// Kind-specific completion presentation, reusing the Database plugin's own semantic icons so it
+// matches the rest of the IDE and adapts to light/dark. Presentation only — kind is never used to
+// GATE which functions appear (aggregate-vs-scalar validity is too context-dependent to decide
+// reliably mid-typing; gating there would risk the false-suppression bug the autopopup allowlist fixed).
+private fun iconFor(kind: DorisFunctions.Kind) = when (kind) {
+    DorisFunctions.Kind.AGGREGATE, DorisFunctions.Kind.WINDOW -> DatabaseIcons.Aggregate
+    DorisFunctions.Kind.TABLE -> DatabaseIcons.Table
+    DorisFunctions.Kind.SCALAR -> DatabaseIcons.Function
+}
+
+private fun typeTextFor(kind: DorisFunctions.Kind) = when (kind) {
+    DorisFunctions.Kind.AGGREGATE -> "Doris aggregate"
+    DorisFunctions.Kind.WINDOW -> "Doris window function"
+    DorisFunctions.Kind.TABLE -> "Doris table function"
+    DorisFunctions.Kind.SCALAR -> "Doris function"
+}
 
 /**
  * Offers Doris built-in function names (from the docs/registry-generated list, DorisFunctions.NAMES)
@@ -63,23 +81,26 @@ class DorisCompletionContributor : CompletionContributor() {
             ) return
             // Doris function names are case-insensitive, so match regardless of the IDE's
             // "Match case" setting (otherwise typing AB... won't complete a lowercase 'abs').
+            // Each item carries a kind-specific icon + label (scalar / aggregate / window / table)
+            // from the catalog — presentation only; we never *gate* on kind (aggregate-vs-scalar
+            // validity is too context-dependent to decide reliably mid-typing).
             val sink = result.caseInsensitive()
-            for (name in DorisFunctions.NAMES) {
+            for ((upperName, kind) in DorisFunctions.BY_NAME) {
                 sink.addElement(
-                    LookupElementBuilder.create(name.lowercase())
-                        .withIcon(AllIcons.Nodes.Function)
-                        .withTypeText("Doris function", true)
+                    LookupElementBuilder.create(upperName.lowercase())
+                        .withIcon(iconFor(kind))
+                        .withTypeText(typeTextFor(kind), true)
                         .withInsertHandler(CALL_PARENS)
                 )
             }
-            // TVF names missing from the generated list (registry names are FROM-queryable only;
+            // TVF names missing from the generated catalog (registry names are FROM-queryable only;
             // the non-queryable stream-load functions are never registered).
             for (name in DorisTableFunctions.allNames) {
                 if (name.uppercase() in DorisFunctions.NAMES) continue
                 sink.addElement(
                     LookupElementBuilder.create(name.lowercase())
-                        .withIcon(AllIcons.Nodes.Function)
-                        .withTypeText("Doris table function", true)
+                        .withIcon(iconFor(DorisFunctions.Kind.TABLE))
+                        .withTypeText(typeTextFor(DorisFunctions.Kind.TABLE), true)
                         .withInsertHandler(CALL_PARENS)
                 )
             }
