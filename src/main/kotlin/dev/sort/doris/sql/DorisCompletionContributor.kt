@@ -101,7 +101,11 @@ class DorisCompletionContributor : CompletionContributor() {
                 val tableName = parts.last()
                 val dbName = parts.getOrNull(parts.size - 2)
                 val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
-                val dataSource = console.session.connectionPoint.dataSource
+                // The introspected model hangs off the DbDataSource wrapper, NOT the LocalDataSource
+                // (DasUtil.getTables on the latter is silently empty — dogfood round 6).
+                val local = console.session.connectionPoint.dataSource
+                val dataSource = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                    .findDataSource(local.uniqueId) ?: return
                 val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
                     t.name.equals(tableName, ignoreCase = true) &&
                         (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
