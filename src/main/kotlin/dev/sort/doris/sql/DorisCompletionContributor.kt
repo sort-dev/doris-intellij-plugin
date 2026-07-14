@@ -82,7 +82,46 @@ class DorisCompletionContributor : CompletionContributor() {
             val sink = result.caseInsensitive()
             val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
 
-            // (2) aliases introduced before the caret (AGGREGATE count(*) AS c, EXTEND ... AS x)
+            // Base relation: the FROM table's das columns (introspected model — the DbDataSource
+            // wrapper, NOT the LocalDataSource, whose table list is silently empty; round 6).
+            val qualified = FROM_TABLE.find(chunk.text)?.groupValues?.get(1)?.let { q ->
+                q.split('.').joinToString(".") { it.trim('`') }
+            }
+            val dasColumns: List<String>? = runCatching {
+                val parts = qualified?.split('.') ?: return@runCatching null
+                val tableName = parts.last()
+                val dbName = parts.getOrNull(parts.size - 2)
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
+                    ?: return@runCatching null
+                val local = console.session.connectionPoint.dataSource
+                val dataSource = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                    .findDataSource(local.uniqueId) ?: return@runCatching null
+                val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
+                    t.name.equals(tableName, ignoreCase = true) &&
+                        (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
+                } ?: return@runCatching null
+                com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
+            }.getOrNull()
+
+            // Preferred: the engine's per-stage scope (brikk-sql 0.6.0 stageShapes, cached per
+            // chunk) — exactly the columns in scope at the caret's stage, das-fed so the base
+            // relation resolves to real names. Fixes the "alias offered before in scope" over-offer.
+            val scope = dev.sort.doris.pipes.DorisPipes.stageScopeAt(chunk.text, rel, qualified, dasColumns)
+            if (!scope.isNullOrEmpty()) {
+                for (name in scope) {
+                    sink.addElement(
+                        PrioritizedLookupElement.withPriority(
+                            LookupElementBuilder.create(name)
+                                .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                                .withTypeText("stage scope", true),
+                            95.0,
+                        ),
+                    )
+                }
+                return
+            }
+
+            // Fallback (engine scope unavailable): aliases before the caret + raw das columns.
             for (m in AS_ALIAS.findAll(chunk.text.substring(0, rel))) {
                 sink.addElement(
                     PrioritizedLookupElement.withPriority(
@@ -93,33 +132,15 @@ class DorisCompletionContributor : CompletionContributor() {
                     ),
                 )
             }
-
-            // (1) columns of the FROM table via the console's introspected model
-            runCatching {
-                val qualified = FROM_TABLE.find(chunk.text)?.groupValues?.get(1) ?: return
-                val parts = qualified.split('.').map { it.trim('`') }
-                val tableName = parts.last()
-                val dbName = parts.getOrNull(parts.size - 2)
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
-                // The introspected model hangs off the DbDataSource wrapper, NOT the LocalDataSource
-                // (DasUtil.getTables on the latter is silently empty — dogfood round 6).
-                val local = console.session.connectionPoint.dataSource
-                val dataSource = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
-                    .findDataSource(local.uniqueId) ?: return
-                val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
-                    t.name.equals(tableName, ignoreCase = true) &&
-                        (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
-                } ?: return
-                for (column in com.intellij.database.util.DasUtil.getColumns(table)) {
-                    sink.addElement(
-                        PrioritizedLookupElement.withPriority(
-                            LookupElementBuilder.create(column.name)
-                                .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
-                                .withTypeText("${table.name} column", true),
-                            94.0,
-                        ),
-                    )
-                }
+            for (name in dasColumns.orEmpty()) {
+                sink.addElement(
+                    PrioritizedLookupElement.withPriority(
+                        LookupElementBuilder.create(name)
+                            .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                            .withTypeText("table column", true),
+                        94.0,
+                    ),
+                )
             }
         }
     }

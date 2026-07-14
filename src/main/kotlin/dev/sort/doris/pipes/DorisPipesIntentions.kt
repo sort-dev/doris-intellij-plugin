@@ -90,7 +90,7 @@ internal object DorisPipesUi {
         when (val result = DorisPipes.transpile(prefix.text)) {
             is DorisPipes.Transpile.Ok -> {
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
-                if (DorisPipesExecution.submit(console, result.dorisSql, prefix.text)) {
+                if (DorisPipesExecution.submit(console, result.dorisSql, prefix.text, result.result)) {
                     notify(
                         project,
                         "Running pipe stages 1–${prefix.stage} of ${prefix.totalStages}",

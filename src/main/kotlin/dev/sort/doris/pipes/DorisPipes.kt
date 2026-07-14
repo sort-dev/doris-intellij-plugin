@@ -2,10 +2,12 @@ package dev.sort.doris.pipes
 
 import com.intellij.openapi.diagnostic.Logger
 import dev.brikk.house.sql.ast.PipeQuery
-import dev.brikk.house.sql.ast.desugarPipes
-import dev.brikk.house.sql.dialects.Dialects
-import dev.brikk.house.sql.dialects.sql
 import dev.brikk.house.sql.parser.ParseError
+import dev.brikk.house.sql.shape.ColumnShape
+import dev.brikk.house.sql.shape.Shape
+import dev.brikk.house.sql.shape.ShapeCatalog
+import dev.brikk.house.sql.shape.SqlFragment
+import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
 
 /**
@@ -51,8 +53,10 @@ object DorisPipes {
     // ---------------------------------------------------------------------------------------
 
     sealed interface Transpile {
-        /** A valid pipe program; [dorisSql] is the canonical Doris SQL to execute instead. */
-        data class Ok(val dorisSql: String) : Transpile
+        /** A valid pipe program; [dorisSql] is the canonical Doris SQL to execute instead.
+         *  [result] carries the engine SourceMap (identity-tied to [dorisSql]) for exact
+         *  server-error map-back; null only in unit-test fabrication. */
+        data class Ok(val dorisSql: String, val result: TranspileResult? = null) : Transpile
 
         /** Pipe-looking but the engine rejects it; positions are 1-based like fe-sql-parser's. */
         data class Err(val line: Int?, val col: Int?, val message: String) : Transpile
@@ -68,11 +72,12 @@ object DorisPipes {
      * Expression.sql("doris").
      */
     fun transpile(text: String): Transpile = try {
-        val ast = Dialects.DORIS.parseOne(text.trim().removeSuffix(";"))
-        if (ast !is PipeQuery) {
+        val fragment = SqlFragment(text.trim().removeSuffix(";"), "doris")
+        if (fragment.ast !is PipeQuery) {
             Transpile.NotPipe
         } else {
-            Transpile.Ok(desugarPipes(ast, false).sql("doris", pretty = true))
+            val result = fragment.toExecutable("doris", pretty = true)
+            Transpile.Ok(result.sql, result)
         }
     } catch (e: ParseError) {
         val first = e.errors.firstOrNull()
@@ -169,7 +174,71 @@ object DorisPipes {
         val originalLine: Int?,
         val transpiledLine: Int,
         val transpiledPos: Int,
+        /** Chunk-relative 0-based char span in the ORIGINAL pipe text (engine map; exact path only). */
+        val startOffset: Int? = null,
+        val endOffset: Int? = null,
     )
+
+    /**
+     * EXACT map-back via the engine SourceMap ([TranspileResult.mapErrorToSource], strict mode:
+     * null when no positioned node covers the offset). Doris reports ANTLR 0-based `pos`; the
+     * engine contract is 1-based col — the +1 is OURS, permanently (upstream doc'd).
+     */
+    fun mapServerErrorExact(message: String, result: TranspileResult): MappedError? {
+        val match = SERVER_POSITION.find(message) ?: return null
+        val line = match.groupValues[1].toInt()
+        val pos = match.groupValues[2].toInt()
+        val sp = runCatching { result.mapErrorToSource(line, pos + 1) }.getOrNull() ?: return null
+        val origLine = if (sp.lineStart > 0) sp.lineStart else sp.line
+        return MappedError(
+            token = null,
+            originalLine = origLine,
+            transpiledLine = line,
+            transpiledPos = pos,
+            startOffset = sp.start.takeIf { it >= 0 },
+            endOffset = sp.end.takeIf { it >= sp.start },
+        )
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Per-stage scopes (engine stageShapes, 1:1 with PipeStageSplitter incl. FROM = element 0)
+    // ---------------------------------------------------------------------------------------
+
+    private val shapeCache =
+        java.util.Collections.synchronizedMap(object : LinkedHashMap<Int, List<Shape>>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<Shape>>) = size > 32
+        })
+
+    /**
+     * Column names in scope for completion at chunk-relative [relOffset]: element `k-1` of
+     * [SqlFragment.stageShapes] where `k` is the caret's 0-based splitter stage — the base
+     * relation (das columns of the FROM table, when [baseTable]/[baseColumns] are known) for the
+     * FROM/WHERE-adjacent start. `[*]` scopes degrade to [baseColumns]. Cached per
+     * (chunk text, base) — stageShapes is O(stages) qualify passes (engine guidance: never
+     * per-keystroke). Null on any engine failure (caller falls back to its heuristics).
+     */
+    fun stageScopeAt(chunkText: String, relOffset: Int, baseTable: String?, baseColumns: List<String>?): List<String>? =
+        runCatching {
+            val prefix = stagePrefixAt(chunkText, relOffset) ?: return null
+            val k = prefix.stage - 1 // stagePrefixAt is 1-based; contract indices are 0-based
+            if (k <= 0) return baseColumns // inside FROM: only the base relation exists
+            val key = 31 * chunkText.hashCode() + (baseColumns?.hashCode() ?: 0)
+            val shapes = shapeCache.getOrPut(key) {
+                val catalog = if (baseTable != null && !baseColumns.isNullOrEmpty()) {
+                    val shape = Shape(baseColumns.map { ColumnShape(it, "UNKNOWN", null) })
+                    val names = buildMap {
+                        put(baseTable, shape)
+                        put(baseTable.substringAfterLast('.'), shape)
+                    }
+                    ShapeCatalog(names, emptyMap())
+                } else {
+                    ShapeCatalog(emptyMap(), emptyMap())
+                }
+                SqlFragment(chunkText.trim().removeSuffix(";"), "doris").stageShapes(catalog)
+            }
+            val scope = shapes.getOrNull(k - 1)?.names() ?: return baseColumns
+            if (scope.isEmpty() || scope == listOf("*")) baseColumns else scope.filter { it != "*" }
+        }.getOrNull()
 
     private val SERVER_POSITION = Regex("""\(line (\d+), pos (\d+)\)""")
     private val IDENT_AT = Regex("""[A-Za-z_`][A-Za-z0-9_$]*""")

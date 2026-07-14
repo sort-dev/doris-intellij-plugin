@@ -113,7 +113,7 @@ private object PipesExecuteInterceptor {
                 DorisPipesExecution.notifyTranspileError(console, result)
                 true // handled: running the raw pipe text would only produce a worse server error
             }
-            is DorisPipes.Transpile.Ok -> DorisPipesExecution.submit(console, result.dorisSql, text)
+            is DorisPipes.Transpile.Ok -> DorisPipesExecution.submit(console, result.dorisSql, text, result.result)
         }
     }
 }
@@ -133,7 +133,12 @@ internal object DorisPipesExecution {
     }
 
     /** Submit [dorisSql] through the console session's own request bus. False = no attached client. */
-    fun submit(console: JdbcConsole, dorisSql: String, originalText: String): Boolean {
+    fun submit(
+        console: JdbcConsole,
+        dorisSql: String,
+        originalText: String,
+        transpile: dev.brikk.house.sql.shape.TranspileResult? = null,
+    ): Boolean {
         val session = console.session
         val client = session.clientsWithFile.firstOrNull()
             ?: return false // no attached console client — let stock produce its own error
@@ -145,18 +150,29 @@ internal object DorisPipesExecution {
         // Server errors travel the AUDIT stream, not the request promise (task #19 finding): a
         // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
         // the reported transpiled position back to the user's pipe text.
-        registerRun(console, request, dorisSql, originalText)
+        registerRun(console, request, dorisSql, originalText, transpile)
         session.messageBus.dataProducer.processRequest(request)
         return true
     }
 
     /** In-flight pipe runs by request identity (weak — entries die with the request). */
-    private data class PipeRun(val console: JdbcConsole, val dorisSql: String, val originalText: String)
+    private data class PipeRun(
+        val console: JdbcConsole,
+        val dorisSql: String,
+        val originalText: String,
+        val transpile: dev.brikk.house.sql.shape.TranspileResult?,
+    )
     private val runs = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, PipeRun>())
     private val audited = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, Boolean>())
 
-    private fun registerRun(console: JdbcConsole, request: DataRequest, dorisSql: String, originalText: String) {
-        runs[request] = PipeRun(console, dorisSql, originalText)
+    private fun registerRun(
+        console: JdbcConsole,
+        request: DataRequest,
+        dorisSql: String,
+        originalText: String,
+        transpile: dev.brikk.house.sql.shape.TranspileResult?,
+    ) {
+        runs[request] = PipeRun(console, dorisSql, originalText, transpile)
         val bus = console.session.messageBus
         // One auditor per session bus for the plugin's lifetime (weak-keyed dedupe) — it consults
         // the in-flight map, so it is inert for non-pipe requests.
@@ -176,7 +192,8 @@ internal object DorisPipesExecution {
     private fun balloonMappedError(run: PipeRun, info: com.intellij.database.connection.throwable.info.ErrorInfo) {
         val message = runCatching { info.message }.getOrNull() ?: return
         if (!message.contains("(line ")) return
-        val mapped = DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
+        val mapped = run.transpile?.let { DorisPipes.mapServerErrorExact(message, it) }
+            ?: DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
         if (mapped.originalLine == null) return
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
