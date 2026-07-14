@@ -144,7 +144,7 @@ plugin. Packaging: Doris Pipes is a Doris-plugin feature that **lights up when t
 featherweight; install the transpiler alongside → a "Doris Pipes" toggle appears and consumes
 brikk-sql's pipe AST + transform-to-Doris. We *use* the engine when it's there; we never bundle it.
 
-### Verified against brikk-sql 0.5.0-SNAPSHOT (2026-07-13, live drive from a scratch playground)
+### Verified against brikk-sql 0.5.0 (2026-07-13; snapshot first, then re-verified byte-identical against the 0.5.0 Maven Central release)
 
 Everything P0/P1 needs already exists in the engine — the eval found no missing API:
 
@@ -164,8 +164,10 @@ Everything P0/P1 needs already exists in the engine — the eval found no missin
   only needed for execute-to-stage-N.
 - **Cross-dialect paste** (§4) works: `transpile(clickhouse→doris)` converts functions
   (`toStartOfDay` → `DATE_TRUNC(...,'DAY')`). One fidelity bug found + filed upstream: zero-arg
-  `count()` → `COUNT()` is invalid Doris (needs `COUNT(*)`); fix lands in brikk-sql 0.5.1.
-- metadata 0.5.0-SNAPSHOT: same 728 defs as the plugin's pinned 0.1.0 — no migration pressure.
+  `count()` → `COUNT()` is invalid Doris (needs `COUNT(*)`); fix lands in brikk-sql **0.5.1**
+  (building as of 2026-07-13 — re-verify the count case when it hits Central).
+- metadata 0.5.0: same 728 defs as the plugin's pinned 0.1.0 — no migration pressure (bumping the
+  plugin's metadata pin to 0.5.0 is optional ecosystem alignment, zero feature gain).
 
 Net effect on phasing: **P0 shrinks to plugin-side plumbing** — run-path action override (the
 cancel feature proved that seam), the annotator gate (skip fe-sql-parser when brikk-sql validates
