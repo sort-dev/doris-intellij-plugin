@@ -174,6 +174,31 @@ cancel feature proved that seam), the annotator gate (skip fe-sql-parser when br
 the statement as a pipe program), and the review-before-run UI. P2's stage-shape completion still
 wants lineage exposure from brikk-sql; the stage spans + surviving positions are its foundation.
 
+### SPIKE STATUS (branch `pipes-spike`, dogfooded 2026-07-13; throwaway — never merges)
+
+Proven working in the user's real IDE against prod Doris: **transpile-on-run** from all four
+execute entries (override `Console.Jdbc.Execute[.2/.3/.Selection]` at the EVENT-level
+`invokeImpl`; extract the pipe program from raw document text around the caret, NOT the platform
+ScriptModel), **statement bounding box** (a `|>`-bearing statement parses as one lenient
+`SQL_STATEMENT` — same machinery as CREATE JOB; fast and correct), engine-verdict **annotations**
+replacing fe noise on pipe chunks, **stage-keyword completion** after `|>`, and Alt+Enter
+**preview-generated-SQL** + **run-stages-up-to-caret** (engine `PipeStageSplitter` offsets; a
+stage prefix is a valid pipe program). Execution submits via
+`DataRequest.newRequest(sessionClientWithFile, sql, dbms)` →
+`session.messageBus.dataProducer.processRequest` — results land in the normal grid, generated SQL
+in the output log.
+
+Known gaps for the REAL build (Path B: engine from the published
+`dev.sort.sql-transpiler-intellij-plugin`, optional-depends, pipes behind an optional descriptor):
+- **No running-spinner / gutter cancel** on pipe runs — our request isn't anchored to an editor
+  range; needs the stock `executeQueries` wiring or request-range plumbing.
+- **Server-error map-back balloon never fires** — `DataRequest.promise` apparently resolves
+  normally on SQL errors (errors travel the audit sink); find the right seam (task #19). The
+  token-heuristic mapper is unit-tested and ready; the exact fix is generated-position provenance.
+- **In-stage column completion/resolution** — needs the replay extension (pipe skeleton +
+  delegated expressions) + typeSystem lineage shapes; nothing built yet.
+- Semantic noise inside pipe statements is blanket-suppressed (no `|>` masking).
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
