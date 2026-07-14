@@ -89,8 +89,6 @@ class DorisCompletionContributor : CompletionContributor() {
             }
             val dasColumns: List<String>? = runCatching {
                 val parts = qualified?.split('.') ?: return@runCatching null
-                val tableName = parts.last()
-                val dbName = parts.getOrNull(parts.size - 2)
                 val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
                     ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no console for file") }
                 val local = console.session.connectionPoint.dataSource
@@ -98,18 +96,34 @@ class DorisCompletionContributor : CompletionContributor() {
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
                     ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
+                // DETERMINISTIC (user call-out): the console KNOWS its context — qualify the
+                // FROM reference against the live namespace instead of name-hunting the tree.
+                // currentNamespace is catalog(.schema) in our multi-catalog model; a 2-part name
+                // is schema.table under the current catalog, a bare name uses the current schema.
+                val nsNames = runCatching {
+                    generateSequence(console.currentNamespace) { it.parent }
+                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().reversed()
+                }.getOrDefault(emptyList())
+                val curCatalog = nsNames.getOrNull(0)
+                val curSchema = nsNames.getOrNull(1)
+                val want = when (parts.size) {
+                    3 -> Triple(parts[0], parts[1], parts[2])
+                    2 -> Triple(curCatalog, parts[0], parts[1])
+                    else -> Triple(curCatalog, curSchema, parts[0])
+                }
                 val tables = com.intellij.database.util.DasUtil.getTables(dataSource)
-                val byName = tables.filter { it.name.equals(tableName, ignoreCase = true) }.toList()
-                // Multi-catalog tree: the doris database may be the parent OR grandparent
-                // (catalog->db->table); a uniquely-named table matches regardless.
                 fun parentish(t: com.intellij.database.model.DasObject) = listOfNotNull(
                     t.dasParent?.name, t.dasParent?.dasParent?.name)
+                val byName = tables.filter { it.name.equals(want.third, ignoreCase = true) }.toList()
                 val table = byName.firstOrNull { t ->
-                    dbName != null && parentish(t).any { it.equals(dbName, ignoreCase = true) }
+                    val chain = parentish(t)
+                    (want.second == null || chain.any { it.equals(want.second, ignoreCase = true) }) &&
+                        (want.first == null || chain.any { it.equals(want.first, ignoreCase = true) } ||
+                            chain.size < 2)
                 } ?: byName.singleOrNull() ?: return@runCatching null.also {
                     val sample = tables.take(4).map { t -> (parentish(t) + t.name).joinToString(".") }
                     dev.sort.doris.pipes.DorisPipes.info(
-                        "columns: table '$qualified' not in model (candidates=${byName.size}, sample=$sample)")
+                        "columns: '$qualified' unresolved (ns=$nsNames want=$want candidates=${byName.size} sample=$sample)")
                 }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
