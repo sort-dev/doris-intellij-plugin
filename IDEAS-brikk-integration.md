@@ -164,8 +164,8 @@ Everything P0/P1 needs already exists in the engine — the eval found no missin
   only needed for execute-to-stage-N.
 - **Cross-dialect paste** (§4) works: `transpile(clickhouse→doris)` converts functions
   (`toStartOfDay` → `DATE_TRUNC(...,'DAY')`). One fidelity bug found + filed upstream: zero-arg
-  `count()` → `COUNT()` is invalid Doris (needs `COUNT(*)`); fix lands in brikk-sql **0.5.1**
-  (building as of 2026-07-13 — re-verify the count case when it hits Central).
+  `count()` → `COUNT()` is invalid Doris (needs `COUNT(*)`); **fixed + verified in brikk-sql 0.5.1**
+  (Central release, all other probes byte-identical). Engine baseline for Doris Pipes: **>= 0.5.1**.
 - metadata 0.5.0: same 728 defs as the plugin's pinned 0.1.0 — no migration pressure (bumping the
   plugin's metadata pin to 0.5.0 is optional ecosystem alignment, zero feature gain).
 
