@@ -50,6 +50,16 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return true
         val description = highlightInfo.description ?: return true
+        // PIPES SPIKE (branch pipes-spike): inside a pipe statement the substrate PSI is
+        // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
+        // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
+        // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
+        if (dev.sort.doris.pipes.DorisPipes.enabled &&
+            !description.startsWith("Doris Pipes:") &&
+            isInsidePipeStatement(file, highlightInfo)
+        ) {
+            return false
+        }
         if (SUPPRESSED_PREFIXES.any { description.contains(it) }) return false
         // P0 (dogfood 2026-07-08): "N value(s) expected, got M" (SqlInsertValuesInspection) is
         // structurally wrong whenever the feeding query contains `* EXCEPT(...)`: the EXCEPT list is
@@ -96,6 +106,13 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             return false
         }
         return true
+    }
+
+    /** PIPES SPIKE: is the highlight inside a statement carrying the pipe marker? */
+    private fun isInsidePipeStatement(file: PsiFile, info: HighlightInfo): Boolean {
+        val element = file.findElementAt(info.startOffset) ?: return false
+        val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false) ?: return false
+        return statement.text.contains(dev.sort.doris.pipes.DorisPipes.MARKER)
     }
 
     /** P0: the count-mismatch highlight sits on the feeding query; gate on its statement's text. */

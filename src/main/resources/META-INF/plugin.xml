@@ -161,6 +161,9 @@
              connection: mints a per-connection trace id, binds it via SET session_context,
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
+
+        <!-- PIPES SPIKE: balloon channel for pipe-transpile errors at execute time. -->
+        <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
@@ -220,5 +223,17 @@
                 description="Cancel running and queued statements"
                 use-shortcut-of="Stop"
                 icon="AllIcons.Actions.Suspend"/>
+
+        <!-- PIPES SPIKE (branch pipes-spike): replaces the console execute action with a subclass
+             that transpiles a pipe-syntax statement to canonical Doris SQL at run time and submits
+             THAT; everything else delegates to stock byte-for-byte (see DorisPipesRunQueryAction).
+             Registration mirrors the stock one (database-plugin.xml, RunQueryAction$Alt1). -->
+        <action id="Console.Jdbc.Execute"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction"
+                overrides="true"
+                text="Execute"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"
+                use-shortcut-of="Console.Execute.Multiline"/>
     </actions>
 </idea-plugin>

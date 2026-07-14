@@ -6,6 +6,7 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
+import dev.sort.doris.pipes.DorisPipes
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.DefaultErrorStrategy
 import org.antlr.v4.runtime.RecognitionException
@@ -28,7 +29,15 @@ class DorisErrorAnnotator : ExternalAnnotator<String, List<DorisSyntaxError>>() 
     }
 
     override fun doAnnotate(collectedInfo: String): List<DorisSyntaxError> {
-        return validate(collectedInfo)
+        val feErrors = validate(collectedInfo)
+        if (!DorisPipes.enabled || !collectedInfo.contains(DorisPipes.MARKER)) return feErrors
+        // PIPES SPIKE: pipe statements are foreign to fe-sql-parser by design, so its errors on
+        // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
+        // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
+        return runCatching {
+            feErrors.filterNot { DorisPipes.lineInsidePipeChunk(collectedInfo, it.line) } +
+                DorisPipes.pipeSyntaxErrors(collectedInfo)
+        }.getOrDefault(feErrors)
     }
 
     override fun apply(file: PsiFile, annotationResult: List<DorisSyntaxError>, holder: AnnotationHolder) {

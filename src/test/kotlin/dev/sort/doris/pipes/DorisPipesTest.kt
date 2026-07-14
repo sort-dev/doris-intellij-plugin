@@ -1,0 +1,94 @@
+package dev.sort.doris.pipes
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Pure-logic coverage for the pipes SPIKE seam (engine calls run headless — no IDE needed). */
+class DorisPipesTest {
+
+    private val pipe = """
+        FROM db1.events
+        |> WHERE event_at >= '2026-01-01'
+        |> AGGREGATE count(*) AS c GROUP BY user_id
+        |> ORDER BY c DESC
+        |> LIMIT 10
+    """.trimIndent()
+
+    @Test
+    fun `flag parsing matches the catalogs-cancel convention`() {
+        assertTrue(DorisPipes.isEnabledValue(null))
+        assertTrue(DorisPipes.isEnabledValue("true"))
+        assertTrue(DorisPipes.isEnabledValue("garbage"))
+        assertFalse(DorisPipes.isEnabledValue("false"))
+        assertFalse(DorisPipes.isEnabledValue("FALSE"))
+    }
+
+    @Test
+    fun `valid pipe program transpiles to CTE-form Doris SQL`() {
+        val r = DorisPipes.transpile(pipe)
+        assertTrue("expected Ok, got $r", r is DorisPipes.Transpile.Ok)
+        val sql = (r as DorisPipes.Transpile.Ok).dorisSql
+        assertTrue(sql.contains("WITH"))
+        assertTrue(sql.contains("GROUP BY"))
+        assertTrue(sql.contains("LIMIT 10"))
+        assertFalse("no pipe operators may survive transpile", sql.contains(DorisPipes.MARKER))
+    }
+
+    @Test
+    fun `trailing semicolon is tolerated`() {
+        assertTrue(DorisPipes.transpile("$pipe;") is DorisPipes.Transpile.Ok)
+    }
+
+    @Test
+    fun `plain SQL with pipe marker inside a string literal is NotPipe`() {
+        val r = DorisPipes.transpile("SELECT '|>' AS marker FROM t")
+        assertTrue("expected NotPipe, got $r", r is DorisPipes.Transpile.NotPipe)
+    }
+
+    @Test
+    fun `broken pipe program yields positioned Err`() {
+        val r = DorisPipes.transpile("FROM t\n|> WHERE\n|> LIMIT 5")
+        assertTrue("expected Err, got $r", r is DorisPipes.Transpile.Err)
+        val err = r as DorisPipes.Transpile.Err
+        assertEquals(3, err.line)
+        assertTrue(err.message.isNotBlank())
+    }
+
+    @Test
+    fun `chunks split on semicolons and track 1-based lines`() {
+        val text = "SELECT 1;\nFROM t\n|> LIMIT 1;\nSELECT 2"
+        val chunks = DorisPipes.chunks(text)
+        assertEquals(3, chunks.size)
+        assertEquals(1, chunks[0].startLine)
+        assertTrue(chunks[1].text.contains(DorisPipes.MARKER))
+        assertEquals(2, chunks[1].startLine) // first CONTENT line (leading newline skipped)
+        assertEquals(3, chunks[1].endLine)
+    }
+
+    @Test
+    fun `lineInsidePipeChunk isolates pipe statements from neighbours`() {
+        val text = "SELECT 1;\nFROM t\n|> LIMIT 1;\nSELECT 2"
+        assertFalse(DorisPipes.lineInsidePipeChunk(text, 1))
+        assertTrue(DorisPipes.lineInsidePipeChunk(text, 2))
+        assertTrue(DorisPipes.lineInsidePipeChunk(text, 3))
+        assertFalse(DorisPipes.lineInsidePipeChunk(text, 4))
+    }
+
+    @Test
+    fun `pipeSyntaxErrors reports absolute lines for broken pipe chunks only`() {
+        val text = "SELECT 1;\nFROM t\n|> WHERE\n|> LIMIT 5"
+        val errors = DorisPipes.pipeSyntaxErrors(text)
+        assertEquals(1, errors.size)
+        // Engine says relative line 3 of the chunk; the chunk starts on document line 1 (after
+        // the ';' on line 1), so the |> on document line 4 is the anchor.
+        assertEquals(4, errors.single().line)
+        assertTrue(errors.single().message.startsWith("Doris Pipes:"))
+    }
+
+    @Test
+    fun `valid pipe chunks produce no errors`() {
+        assertTrue(DorisPipes.pipeSyntaxErrors("SELECT 1;\n$pipe").isEmpty())
+    }
+}

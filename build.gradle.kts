@@ -33,13 +33,24 @@ dependencies {
     // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
     // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
     // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
-    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.1.0") {
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.5.1") {
         exclude(group = "org.jetbrains.kotlin")
         exclude(group = "org.jetbrains.kotlinx")
     }
     // Compile-time only: lets the compiler resolve the @Serializable types on the metadata classes.
     // NOT bundled (the platform provides kotlinx-serialization at runtime); no version conflict.
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+
+    // ── PIPES SPIKE ONLY (branch pipes-spike) ─────────────────────────────────────────────────
+    // The brikk-sql ENGINE (~3.6 MB) is bundled here so pipe syntax can be dogfooded in a real
+    // IDE. This is a deliberate violation of the shipping architecture (IDEAS-brikk-integration.md
+    // §2/§3: the engine belongs to the separate transpiler plugin; the Doris plugin stays
+    // metadata-only) — this dependency must NOT reach main/a release. Same transitive-exclusion
+    // rationale as the metadata jar above.
+    implementation("dev.brikk.house:brikk-sql-jvm:0.5.1") {
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "org.jetbrains.kotlinx")
+    }
 
     intellijPlatform {
         // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
