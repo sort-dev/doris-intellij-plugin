@@ -224,10 +224,10 @@
                 use-shortcut-of="Stop"
                 icon="AllIcons.Actions.Suspend"/>
 
-        <!-- PIPES SPIKE (branch pipes-spike): replaces the console execute action with a subclass
-             that transpiles a pipe-syntax statement to canonical Doris SQL at run time and submits
-             THAT; everything else delegates to stock byte-for-byte (see DorisPipesRunQueryAction).
-             Registration mirrors the stock one (database-plugin.xml, RunQueryAction$Alt1). -->
+        <!-- PIPES SPIKE (branch pipes-spike): replaces ALL FOUR stock console execute actions with
+             subclasses that transpile a pipe-syntax statement to canonical Doris SQL at run time
+             and submit THAT; everything else delegates to stock byte-for-byte (see
+             DorisPipesRunQueryAction). Registrations mirror the stock ones (database-plugin.xml). -->
         <action id="Console.Jdbc.Execute"
                 class="dev.sort.doris.pipes.DorisPipesRunQueryAction"
                 overrides="true"
@@ -235,5 +235,23 @@
                 description="Execute statement"
                 icon="AllIcons.Actions.Execute"
                 use-shortcut-of="Console.Execute.Multiline"/>
+        <action id="Console.Jdbc.Execute.2"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction2"
+                overrides="true"
+                text="Execute (Variant 2)"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"/>
+        <action id="Console.Jdbc.Execute.3"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction3"
+                overrides="true"
+                text="Execute (Variant 3)"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"/>
+        <action id="Console.Jdbc.Execute.Selection"
+                class="dev.sort.doris.pipes.DorisPipesRunSelectionAction"
+                overrides="true"
+                text="Run Selection as One Statement"
+                description="Execute the selection exactly as one statement"
+                icon="AllIcons.Actions.Execute"/>
     </actions>
 </idea-plugin>

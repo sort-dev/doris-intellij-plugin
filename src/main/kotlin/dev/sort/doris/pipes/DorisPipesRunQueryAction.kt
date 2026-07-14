@@ -7,56 +7,105 @@ import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.script.ScriptModel
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.actionSystem.AnActionEvent
 import dev.sort.doris.DorisDbms
 
 /**
- * Replaces `Console.Jdbc.Execute` (`overrides="true"` in plugin.xml) — the transpile-on-run half
- * of the Doris Pipes SPIKE (see [DorisPipes]).
+ * Replaces the FOUR stock console execute actions (`Console.Jdbc.Execute[.2/.3/.Selection]`,
+ * `overrides="true"` in plugin.xml) — the transpile-on-run half of the Doris Pipes SPIKE
+ * (see [DorisPipes]).
  *
- * Extends the stock [RunQueryAction.Alt1] and overrides ONLY the final `invokeImpl` overload, so
- * ALL stock behavior — statement-under-caret/selection resolution, multi-statement scripts,
- * parameters, enable-state — stays the platform's. Our hook fires after the platform has computed
- * the [ScriptModel] of what is about to run:
+ * Interception happens at [RunQueryAction]'s EVENT-level `invokeImpl` overload — the first common
+ * entry after `actionPerformed` for every execute variant — and again at the model-level overload
+ * as a belt-and-braces (both delegate to the same idempotent [PipesExecuteInterceptor]).
  *
- *  - Doris console + pipes flag on + the model text is a valid pipe program (engine verdict):
- *    transpile to canonical Doris SQL ([DorisPipes.transpile]) and submit THAT through the
- *    session's own request bus — `DataRequest.newRequest(consoleClient, sql, dbms)` into
- *    `session.messageBus.dataProducer.processRequest(...)` — so results land in the console's
- *    normal grid/output exactly like a stock run, and the OUTPUT LOG shows the generated Doris
- *    SQL (the §3 trust surface, for free).
- *  - Engine rejects a pipe-looking statement: error balloon with the engine's line/col — we do
- *    NOT fall through to stock (the server would only produce a worse error for pipe text).
- *  - Anything else (non-Doris, flag off, not a pipe program, any spike-path failure): stock
- *    execution, byte-for-byte.
+ * ## Why the pipe text comes from the DOCUMENT, not the platform's ScriptModel
+ * The spike does no `|>` lexer masking, so the substrate PSI mangles a pipe program's statement
+ * boundaries (observed live: no/wrong execution-block highlight). The platform's
+ * statement-under-caret model therefore hands FRAGMENTS. The interceptor instead takes the
+ * editor SELECTION if there is one, else the `;`-separated chunk of raw document text around the
+ * caret ([DorisPipes.chunkAt]) — correct regardless of the broken PSI. (The block-highlight
+ * cosmetics remain wrong in the spike; fixing that means teaching the parser pipe statement
+ * boundaries — a P1 item, noted in IDEAS §3.)
+ *
+ * Behavior:
+ *  - Doris console + pipes flag on + chunk is a valid pipe program (engine verdict): transpile to
+ *    canonical Doris SQL and submit through the session's own request bus — results land in the
+ *    normal grid, and the output log shows the generated Doris SQL (the §3 trust surface).
+ *  - Engine rejects a pipe-looking chunk: error balloon with the engine's line/col; stock is NOT
+ *    invoked (the server would only produce a worse error for pipe text).
+ *  - Anything else (non-Doris, flag off, no pipe marker, any spike-path failure): stock execution.
  */
 class DorisPipesRunQueryAction : RunQueryAction.Alt1() {
-
-    override fun invokeImpl(
-        console: JdbcConsole?,
-        model: ScriptModel<*>,
-        info: JdbcConsoleProvider.Info,
-    ) {
-        val handled = try {
-            console != null && tryPipes(console, model, info)
-        } catch (t: Throwable) {
-            DorisPipes.warn("pipe execute path failed; falling back to stock: ${t.message}", t)
-            false
-        }
-        if (!handled) super.invokeImpl(console, model, info)
+    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
     }
 
-    private fun tryPipes(
-        console: JdbcConsole,
-        model: ScriptModel<*>,
-        info: JdbcConsoleProvider.Info,
-    ): Boolean {
-        if (!DorisPipes.enabled) return false
+    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
+    }
+}
+
+/** Same interception for the settings-variant `Console.Jdbc.Execute.2`. */
+class DorisPipesRunQueryAction2 : RunQueryAction.Alt2() {
+    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
+    }
+
+    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
+    }
+}
+
+/** Same interception for the settings-variant `Console.Jdbc.Execute.3`. */
+class DorisPipesRunQueryAction3 : RunQueryAction.Alt3() {
+    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
+    }
+
+    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
+    }
+}
+
+/** Same interception for `Console.Jdbc.Execute.Selection` (run selection as one statement). */
+class DorisPipesRunSelectionAction : RunQueryAction.RunSelectionExactlyAsOneStatement() {
+    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
+    }
+
+    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
+        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
+    }
+}
+
+private object PipesExecuteInterceptor {
+
+    /**
+     * True = a pipe program was handled (executed or error-ballooned) — the caller must NOT run
+     * stock. False = not ours; run stock. Never throws (any failure logs and returns false).
+     */
+    fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean = try {
+        doHandle(console, info)
+    } catch (t: Throwable) {
+        DorisPipes.warn("pipe execute path failed; falling back to stock: ${t.message}", t)
+        false
+    }
+
+    private fun doHandle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean {
+        if (console == null || !DorisPipes.enabled) return false
         val session = console.session
         if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
+        val editor = info.editor ?: return false
 
-        val document = info.editor?.document ?: return false
-        val text = document.getText(model.textRange)
+        // Selection wins (run-selection semantics); else the raw-text chunk around the caret.
+        val text: String = if (editor.selectionModel.hasSelection()) {
+            editor.selectionModel.selectedText ?: return false
+        } else {
+            DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset)?.text ?: return false
+        }
         if (!text.contains(DorisPipes.MARKER)) return false
+        DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
 
         return when (val result = DorisPipes.transpile(text)) {
             is DorisPipes.Transpile.NotPipe -> false

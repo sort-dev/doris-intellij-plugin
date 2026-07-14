@@ -87,31 +87,54 @@ object DorisPipes {
      * A `;`-separated chunk of console text. [startLine] is the 1-based line of the chunk's FIRST
      * NON-WHITESPACE character — [transpile] trims leading blank lines, so the engine's relative
      * line 1 corresponds exactly to [startLine] (this is what makes error translation exact).
+     * [startOffset]/[endOffset] are absolute document offsets (end exclusive) so the execute
+     * interceptor can find the chunk under the caret WITHOUT the platform's statement PSI (which
+     * the unmasked pipe syntax mangles — the spike's known statement-boundary limitation).
      */
-    data class Chunk(val text: String, val startLine: Int, val endLine: Int)
+    data class Chunk(
+        val text: String,
+        val startLine: Int,
+        val endLine: Int,
+        val startOffset: Int,
+        val endOffset: Int,
+    )
 
-    /** Naive `;` split preserving line numbers (see class KDoc for the spike-grade caveat). */
+    /** Naive `;` split preserving line numbers + offsets (see class KDoc for the spike-grade caveat). */
     fun chunks(text: String): List<Chunk> {
         val out = ArrayList<Chunk>()
         val current = StringBuilder()
         var line = 1
         var firstContentLine = -1
-        fun flush(endLine: Int) {
+        var chunkStartOffset = 0
+        fun flush(endLine: Int, endOffsetExclusive: Int) {
             if (current.isNotBlank()) {
-                out.add(Chunk(current.toString(), if (firstContentLine == -1) endLine else firstContentLine, endLine))
+                out.add(
+                    Chunk(
+                        text = current.toString(),
+                        startLine = if (firstContentLine == -1) endLine else firstContentLine,
+                        endLine = endLine,
+                        startOffset = chunkStartOffset,
+                        endOffset = endOffsetExclusive,
+                    ),
+                )
             }
             current.setLength(0)
             firstContentLine = -1
+            chunkStartOffset = endOffsetExclusive
         }
-        for (ch in text) {
+        for ((i, ch) in text.withIndex()) {
             current.append(ch)
             if (firstContentLine == -1 && !ch.isWhitespace()) firstContentLine = line
-            if (ch == ';') flush(line)
+            if (ch == ';') flush(line, i + 1)
             if (ch == '\n') line++
         }
-        flush(line)
+        flush(line, text.length)
         return out
     }
+
+    /** The chunk whose span contains document [offset] (a caret at a chunk's very end counts). */
+    fun chunkAt(text: String, offset: Int): Chunk? =
+        chunks(text).firstOrNull { offset >= it.startOffset && offset <= it.endOffset }
 
     /** True when 1-based [line] falls inside a chunk that carries the pipe marker. */
     fun lineInsidePipeChunk(text: String, line: Int): Boolean =
