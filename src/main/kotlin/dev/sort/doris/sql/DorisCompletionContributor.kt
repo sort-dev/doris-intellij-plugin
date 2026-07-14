@@ -66,6 +66,56 @@ class DorisCompletionContributor : CompletionContributor() {
         private val FROM_TABLE = Regex("""\bFROM\s+([A-Za-z_`][\w`]*(?:\.[A-Za-z_`][\w`]*){0,2})""", RegexOption.IGNORE_CASE)
         private val AS_ALIAS = Regex("""\bAS\s+`?([A-Za-z_]\w*)`?""", RegexOption.IGNORE_CASE)
 
+        /** FROM-stage path completion: catalogs, then schemas, then tables along the typed path. */
+        private fun offerFromPath(
+            sink: CompletionResultSet,
+            file: com.intellij.psi.PsiFile,
+            chunkText: String,
+            rel: Int,
+        ) {
+            runCatching {
+                val m = Regex("""\bFROM\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
+                    .find(chunkText.substring(0, rel)) ?: return
+                val parents = m.groupValues[1].split('.').map { it.trim('`') }.dropLast(1)
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
+                val local = console.session.connectionPoint.dataSource
+                val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                val dataSource = facade.findDataSource(local.uniqueId)
+                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: return
+                val roots = dataSource.model.modelRoots.toList()
+                val nsFirst = runCatching {
+                    generateSequence(console.currentNamespace) { it.parent }
+                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().lastOrNull()
+                }.getOrNull()
+                fun offer(names: Iterable<String>, type: String, icon: javax.swing.Icon) {
+                    for (n in names) sink.addElement(
+                        PrioritizedLookupElement.withPriority(
+                            LookupElementBuilder.create(n).withIcon(icon).withTypeText(type, true),
+                            96.0,
+                        ),
+                    )
+                }
+                val tkind = com.intellij.database.model.ObjectKind.TABLE
+                fun children(o: com.intellij.database.model.DasObject) =
+                    (o.getDasChildren(tkind).toList() + o.getDasChildren(null).toList()).distinct()
+                if (parents.isEmpty()) {
+                    offer(roots.map { it.name }, "catalog", AllIcons.Nodes.Folder)
+                    roots.firstOrNull { it.name.equals(nsFirst ?: "", true) }
+                        ?.let { offer(children(it).map { c -> c.name }, "schema", AllIcons.Nodes.Package) }
+                } else {
+                    var node: com.intellij.database.model.DasObject? =
+                        roots.firstOrNull { it.name.equals(parents[0], true) }
+                            ?: roots.firstOrNull { it.name.equals(nsFirst ?: "", true) }
+                                ?.let { cat -> children(cat).firstOrNull { it.name.equals(parents[0], true) } }
+                    for (p in parents.drop(1)) {
+                        node = node?.let { n -> children(n).firstOrNull { it.name.equals(p, true) } }
+                    }
+                    node?.let { offer(children(it).map { c -> c.name }, "in ${it.name}", DatabaseIcons.Table) }
+                }
+            }
+        }
+
         override fun addCompletions(
             parameters: CompletionParameters,
             context: ProcessingContext,
@@ -81,6 +131,12 @@ class DorisCompletionContributor : CompletionContributor() {
 
             val sink = result.caseInsensitive()
             val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
+
+            // FROM stage (splitter stage 1): offer table PATH segments, not columns.
+            if (dev.sort.doris.pipes.DorisPipes.stagePrefixAt(chunk.text, rel)?.stage == 1) {
+                offerFromPath(sink, file, chunk.text, rel)
+                return
+            }
 
             // Base relation: the FROM table's das columns (introspected model — the DbDataSource
             // wrapper, NOT the LocalDataSource, whose table list is silently empty; round 6).
@@ -122,23 +178,27 @@ class DorisCompletionContributor : CompletionContributor() {
                 val schemaNode = (catalogNode ?: roots.firstOrNull { it.name.equals(want.second ?: "", true) })
                     ?.let { base -> if (catalogNode != null) childNamed(base, want.second) else base }
                 val tkind = com.intellij.database.model.ObjectKind.TABLE
-                val table = schemaNode?.let { sn ->
-                    sn.getDasChildren(tkind).firstOrNull { it.name.equals(want.third, true) }
-                        ?: childNamed(sn, want.third)
-                } as? com.intellij.database.model.DasTable
-                    ?: return@runCatching null.also {
-                        val sn = schemaNode
-                        dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
-                            file.project, file.viewProvider.virtualFile, qualified ?: want.third.orEmpty())
-                        dev.sort.doris.pipes.DorisPipes.info(
-                            "columns: '$qualified' walk failed (want=$want catalog=${catalogNode?.name} " +
-                                "schema=${sn?.name} kind=${sn?.kind} cls=${sn?.javaClass?.simpleName} " +
-                                "tables=${sn?.getDasChildren(tkind)?.size()} " +
-                                "any=${sn?.getDasChildren(null)?.size()} " +
-                                "dasUtilTables=${sn?.let { com.intellij.database.util.DasUtil.getTables(dataSource).filter { t -> t.dasParent === it }.size() }})")
-                    }
-                dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, file.viewProvider.virtualFile)
-                com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
+                val vf = file.viewProvider.virtualFile
+                val schemaTables = schemaNode?.let { sn ->
+                    (sn.getDasChildren(tkind).toList() + sn.getDasChildren(null).toList()).distinct()
+                }.orEmpty()
+                // Banner ONLY for truly-childless nodes (M9 enumerated-but-not-introspected). A
+                // name that simply doesn't match is mid-typing — never banner, never spam.
+                if (schemaNode != null && schemaTables.isEmpty()) {
+                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                        file.project, vf, listOfNotNull(want.first, want.second).joinToString("."))
+                    return@runCatching null
+                }
+                val table = schemaTables.firstOrNull { it.name.equals(want.third, true) }
+                    as? com.intellij.database.model.DasTable ?: return@runCatching null
+                val cols = com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
+                if (cols.isEmpty()) {
+                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                        file.project, vf, "${want.second}.${table.name}")
+                    return@runCatching null
+                }
+                dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, vf)
+                cols
             }.getOrNull()
 
             // Preferred: the engine's per-stage scope (brikk-sql 0.6.0 stageShapes, cached per
