@@ -125,10 +125,14 @@ private object PipesExecuteInterceptor {
 internal object DorisPipesExecution {
 
     fun notifyTranspileError(console: JdbcConsole, err: DorisPipes.Transpile.Err) {
-        val where = err.line?.let { " (line ${err.line}, col ${err.col})" } ?: ""
+        val where = err.line?.let { " at line ${err.line}, col ${err.col}" } ?: ""
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
-            .createNotification("Pipe program has a syntax error$where", err.message, NotificationType.ERROR)
+            .createNotification(
+                "Parse error$where",
+                "The parser reported: \"${err.message}\"",
+                NotificationType.ERROR,
+            )
             .notify(console.project)
     }
 
@@ -198,10 +202,10 @@ internal object DorisPipesExecution {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
             .createNotification(
-                "Doris error maps to pipe line ${mapped.originalLine}" +
+                "SQL execution error at line ${mapped.originalLine}" +
                     (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
-                "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
-                    "of the generated SQL shown in the output log.",
+                "For the translated SQL, the error was reported as:\n$message\n" +
+                    "(right-click \u2192 Doris Pipes \u2192 Preview Generated SQL)",
                 NotificationType.WARNING,
             )
             .notify(run.console.project)

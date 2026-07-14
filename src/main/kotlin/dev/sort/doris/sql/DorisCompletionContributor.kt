@@ -92,14 +92,16 @@ class DorisCompletionContributor : CompletionContributor() {
                 val tableName = parts.last()
                 val dbName = parts.getOrNull(parts.size - 2)
                 val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
-                    ?: return@runCatching null
+                    ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no console for file") }
                 val local = console.session.connectionPoint.dataSource
-                val dataSource = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
-                    .findDataSource(local.uniqueId) ?: return@runCatching null
+                val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                val dataSource = facade.findDataSource(local.uniqueId)
+                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
                 val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
                     t.name.equals(tableName, ignoreCase = true) &&
                         (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
-                } ?: return@runCatching null
+                } ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: table '$qualified' not in model") }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
 
@@ -156,7 +158,10 @@ class DorisCompletionContributor : CompletionContributor() {
             "ORDER BY", "LIMIT", "JOIN", "LEFT JOIN", "CROSS JOIN", "UNION ALL", "INTERSECT",
             "EXCEPT", "WINDOW", "PIVOT", "UNPIVOT", "TABLESAMPLE", "AS", "CALL",
         )
-        private val AFTER_PIPE = Regex("""\|>\s*[A-Za-z]*(\s+[A-Za-z]*)?$""")
+        // First stage word only — once a complete keyword + space is typed, columns take over.
+        // Second word allowed only for the multi-word keywords (ORDER BY / LEFT JOIN / ...).
+        private val AFTER_PIPE =
+            Regex("""\|>\s*(?:[A-Za-z]*|(?:ORDER|LEFT|CROSS|UNION)\s+[A-Za-z]*)$""", RegexOption.IGNORE_CASE)
 
         override fun addCompletions(
             parameters: CompletionParameters,
