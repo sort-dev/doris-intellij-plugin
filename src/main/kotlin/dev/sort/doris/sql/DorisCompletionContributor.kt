@@ -128,6 +128,8 @@ class DorisCompletionContributor : CompletionContributor() {
                 } as? com.intellij.database.model.DasTable
                     ?: return@runCatching null.also {
                         val sn = schemaNode
+                        dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                            file.project, file.viewProvider.virtualFile, qualified ?: want.third.orEmpty())
                         dev.sort.doris.pipes.DorisPipes.info(
                             "columns: '$qualified' walk failed (want=$want catalog=${catalogNode?.name} " +
                                 "schema=${sn?.name} kind=${sn?.kind} cls=${sn?.javaClass?.simpleName} " +
@@ -135,6 +137,7 @@ class DorisCompletionContributor : CompletionContributor() {
                                 "any=${sn?.getDasChildren(null)?.size()} " +
                                 "dasUtilTables=${sn?.let { com.intellij.database.util.DasUtil.getTables(dataSource).filter { t -> t.dasParent === it }.size() }})")
                     }
+                dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, file.viewProvider.virtualFile)
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
 

@@ -162,6 +162,9 @@
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
 
+        <!-- PIPES SPIKE: "table not introspected" banner for pipe statements. -->
+        <editorNotificationProvider implementation="dev.sort.doris.pipes.DorisPipesNotificationProvider"/>
+
         <!-- PIPES SPIKE: balloon channel for pipe-transpile errors at execute time. -->
         <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
 
