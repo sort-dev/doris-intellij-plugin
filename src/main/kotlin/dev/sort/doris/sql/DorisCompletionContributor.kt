@@ -111,22 +111,23 @@ class DorisCompletionContributor : CompletionContributor() {
                     2 -> Triple(curCatalog, parts[0], parts[1])
                     else -> Triple(curCatalog, curSchema, parts[0])
                 }
-                val tables = com.intellij.database.util.DasUtil.getTables(dataSource)
-                fun parentish(t: com.intellij.database.model.DasObject) = listOfNotNull(
-                    t.dasParent?.name, t.dasParent?.dasParent?.name)
-                val byName = tables.filter { it.name.equals(want.third, ignoreCase = true) }.toList()
-                val table = byName.firstOrNull { t ->
-                    val chain = parentish(t)
-                    (want.second == null || chain.any { it.equals(want.second, ignoreCase = true) }) &&
-                        (want.first == null || chain.any { it.equals(want.first, ignoreCase = true) } ||
-                            chain.size < 2)
-                } ?: byName.singleOrNull() ?: return@runCatching null.also {
-                    val chains = byName.joinToString(" | ") { t ->
-                        (parentish(t).reversed() + t.name).joinToString(".")
+                // Walk the model BY PATH (root -> catalog -> schema -> table): the flat
+                // DasUtil.getTables traversal skips the internal catalog subtree in our
+                // two-level model (log evidence: only external-catalog tables enumerated).
+                val model = dataSource.model
+                fun childNamed(o: com.intellij.database.model.DasObject, name: String?) =
+                    name?.let { n -> o.getDasChildren(null).firstOrNull { it.name.equals(n, true) } }
+                val roots = model.modelRoots.toList()
+                val catalogNode = want.first?.let { c -> roots.firstOrNull { it.name.equals(c, true) } }
+                val schemaNode = (catalogNode ?: roots.firstOrNull { it.name.equals(want.second ?: "", true) })
+                    ?.let { base -> if (catalogNode != null) childNamed(base, want.second) else base }
+                val table = schemaNode?.let { childNamed(it, want.third) } as? com.intellij.database.model.DasTable
+                    ?: return@runCatching null.also {
+                        dev.sort.doris.pipes.DorisPipes.info(
+                            "columns: '$qualified' walk failed (want=$want roots=${roots.map { it.name }} " +
+                                "catalog=${catalogNode?.name} schemaChildren=" +
+                                "${schemaNode?.getDasChildren(null)?.take(6)?.toList()?.map { it.name }})")
                     }
-                    dev.sort.doris.pipes.DorisPipes.info(
-                        "columns: '$qualified' unresolved (ns=$nsNames want=$want candidateChains=[$chains])")
-                }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
 
