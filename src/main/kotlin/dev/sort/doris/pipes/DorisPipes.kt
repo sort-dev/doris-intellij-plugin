@@ -237,7 +237,10 @@ object DorisPipes {
                 SqlFragment(chunkText.trim().removeSuffix(";"), "doris").stageShapes(catalog)
             }
             val scope = shapes.getOrNull(k - 1)?.names() ?: return baseColumns
-            if (scope.isEmpty() || scope == listOf("*")) baseColumns else scope.filter { it != "*" }
+            // Drop engine post-processing names (_col_N): they exist only in the DESUGARED SQL —
+            // a user cannot type them in pipe syntax (alias the expression to name it instead).
+            val typeable = scope.filter { it != "*" && !it.matches(Regex("_col_\\d+")) }
+            if (typeable.isEmpty()) baseColumns else typeable
         }.getOrNull()
 
     private val SERVER_POSITION = Regex("""\(line (\d+), pos (\d+)\)""")

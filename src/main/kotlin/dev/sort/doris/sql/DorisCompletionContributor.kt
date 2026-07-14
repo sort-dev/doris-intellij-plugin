@@ -98,10 +98,19 @@ class DorisCompletionContributor : CompletionContributor() {
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
                     ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
-                val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
-                    t.name.equals(tableName, ignoreCase = true) &&
-                        (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
-                } ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: table '$qualified' not in model") }
+                val tables = com.intellij.database.util.DasUtil.getTables(dataSource)
+                val byName = tables.filter { it.name.equals(tableName, ignoreCase = true) }.toList()
+                // Multi-catalog tree: the doris database may be the parent OR grandparent
+                // (catalog->db->table); a uniquely-named table matches regardless.
+                fun parentish(t: com.intellij.database.model.DasObject) = listOfNotNull(
+                    t.dasParent?.name, t.dasParent?.dasParent?.name)
+                val table = byName.firstOrNull { t ->
+                    dbName != null && parentish(t).any { it.equals(dbName, ignoreCase = true) }
+                } ?: byName.singleOrNull() ?: return@runCatching null.also {
+                    val sample = tables.take(4).map { t -> (parentish(t) + t.name).joinToString(".") }
+                    dev.sort.doris.pipes.DorisPipes.info(
+                        "columns: table '$qualified' not in model (candidates=${byName.size}, sample=$sample)")
+                }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
 
