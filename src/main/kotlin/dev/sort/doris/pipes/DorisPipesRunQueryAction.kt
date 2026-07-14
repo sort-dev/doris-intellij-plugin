@@ -131,6 +131,29 @@ private object PipesExecuteInterceptor {
                         "canonical Doris SQL (${result.dorisSql.length} chars)",
                 )
                 val request = DataRequest.newRequest(client, result.dorisSql, session.connectionPoint.dbms)
+                // Server errors report positions in the TRANSPILED SQL (which is what ran); map the
+                // offending token back to the user's pipe text and balloon the original line —
+                // supplements the console's own (transpiled-relative) error output.
+                request.promise.onError { t ->
+                    runCatching {
+                        val message = generateSequence(t) { it.cause?.takeIf { c -> c !== it } }
+                            .mapNotNull { it.message }
+                            .firstOrNull { it.contains("(line ") } ?: return@runCatching
+                        val mapped = DorisPipes.mapServerError(message, result.dorisSql, text) ?: return@runCatching
+                        if (mapped.originalLine != null) {
+                            NotificationGroupManager.getInstance()
+                                .getNotificationGroup("Doris Pipes")
+                                .createNotification(
+                                    "Doris error maps to pipe line ${mapped.originalLine}" +
+                                        (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
+                                    "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
+                                        "of the generated SQL shown in the output log.",
+                                    NotificationType.WARNING,
+                                )
+                                .notify(console.project)
+                        }
+                    }
+                }
                 session.messageBus.dataProducer.processRequest(request)
                 true
             }

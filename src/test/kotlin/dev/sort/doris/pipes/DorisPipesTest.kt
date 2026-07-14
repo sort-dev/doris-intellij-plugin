@@ -91,4 +91,32 @@ class DorisPipesTest {
     fun `valid pipe chunks produce no errors`() {
         assertTrue(DorisPipes.pipeSyntaxErrors("SELECT 1;\n$pipe").isEmpty())
     }
+
+    @Test
+    fun `chunkAt finds the chunk around any caret offset`() {
+        val text = "SELECT 1;\nFROM t\n|> LIMIT 1;\nSELECT 2"
+        val fromOffset = text.indexOf("FROM")
+        val chunk = DorisPipes.chunkAt(text, fromOffset)!!
+        assertTrue(chunk.text.contains(DorisPipes.MARKER))
+        // Caret at the very end of the pipe chunk (right after ';') still resolves to it.
+        assertEquals(chunk, DorisPipes.chunkAt(text, chunk.endOffset))
+        // Caret in the trailing statement resolves to that one instead.
+        assertFalse(DorisPipes.chunkAt(text, text.indexOf("SELECT 2"))!!.text.contains(DorisPipes.MARKER))
+    }
+
+    @Test
+    fun `mapServerError maps a transpiled-position token back to the pipe line`() {
+        val original = "FROM db1.events\n|> WHERE event_atx >= '2026-05-01'\n|> LIMIT 10"
+        val transpiled = "SELECT\n  *\nFROM db1.events\nWHERE\n  event_atx >= '2026-05-01'\nLIMIT 10"
+        val message = "errCode = 2, detailMessage = Unknown column 'event_atx' in 'table list' in FILTER clause(line 5, pos 2)"
+        val mapped = DorisPipes.mapServerError(message, transpiled, original)!!
+        assertEquals("event_atx", mapped.token)
+        assertEquals(2, mapped.originalLine)
+        assertEquals(5, mapped.transpiledLine)
+    }
+
+    @Test
+    fun `mapServerError returns null without a position marker`() {
+        assertEquals(null, DorisPipes.mapServerError("some other failure", "SELECT 1", "FROM t |> LIMIT 1"))
+    }
 }

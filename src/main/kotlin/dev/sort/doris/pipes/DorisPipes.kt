@@ -136,6 +136,45 @@ object DorisPipes {
     fun chunkAt(text: String, offset: Int): Chunk? =
         chunks(text).firstOrNull { offset >= it.startOffset && offset <= it.endOffset }
 
+    // ---------------------------------------------------------------------------------------
+    // Server-error map-back (MVP: token-text heuristic; real fix = generated-position provenance)
+    // ---------------------------------------------------------------------------------------
+
+    /** A Doris server error against the TRANSPILED SQL, mapped back toward the pipe original. */
+    data class MappedError(
+        val token: String?,
+        val originalLine: Int?,
+        val transpiledLine: Int,
+        val transpiledPos: Int,
+    )
+
+    private val SERVER_POSITION = Regex("""\(line (\d+), pos (\d+)\)""")
+    private val IDENT_AT = Regex("""[A-Za-z_`][A-Za-z0-9_$]*""")
+
+    /**
+     * Map a Doris error message carrying `(line N, pos M)` — positions in [transpiledSql], which is
+     * what the server actually ran — back to a 1-based line of the ORIGINAL pipe text.
+     *
+     * MVP heuristic: extract the identifier at the reported transpiled position and find the line
+     * of its first occurrence in [originalText] (exact first, case-insensitive second). Ambiguous
+     * (repeated) tokens map to their first occurrence — good enough for a balloon hint. The exact
+     * fix is generated-position provenance (re-parse the generated SQL and zip its node meta with
+     * the desugared AST's original-position meta), queued behind the spike verdict.
+     */
+    fun mapServerError(message: String, transpiledSql: String, originalText: String): MappedError? {
+        val match = SERVER_POSITION.find(message) ?: return null
+        val line = match.groupValues[1].toInt()
+        val pos = match.groupValues[2].toInt()
+        val transpiledLine = transpiledSql.lines().getOrNull(line - 1)
+            ?: return MappedError(null, null, line, pos)
+        val token = IDENT_AT.find(transpiledLine, pos.coerceIn(0, transpiledLine.length))?.value
+            ?: return MappedError(null, null, line, pos)
+        val originalLines = originalText.lines()
+        val exact = originalLines.indexOfFirst { it.contains(token) }
+        val found = if (exact >= 0) exact else originalLines.indexOfFirst { it.contains(token, ignoreCase = true) }
+        return MappedError(token, if (found >= 0) found + 1 else null, line, pos)
+    }
+
     /** True when 1-based [line] falls inside a chunk that carries the pipe marker. */
     fun lineInsidePipeChunk(text: String, line: Int): Boolean =
         chunks(text).any { it.text.contains(MARKER) && line in it.startLine..it.endLine }
