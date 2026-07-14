@@ -199,6 +199,16 @@ Known gaps for the REAL build (Path B: engine from the published
   delegated expressions) + typeSystem lineage shapes; nothing built yet.
 - Semantic noise inside pipe statements is blanket-suppressed (no `|>` masking).
 
+Round-5 dogfood verdicts (2026-07-14): **right-click "Doris Pipes" submenu is the canonical
+surface** — preview-generated-SQL and run-stages-to-caret both work from it. The console Execute
+action owns Alt+Enter in consoles (and our intercept deliberately pre-empts the stock
+"Ask what to execute" chooser for pipe statements), so intentions are lightbulb-only — acceptable.
+Plain run just runs (the right norm): pipe programs desugar to pure SELECT by construction (no
+DDL/DML stage exists), so auto-run is low-harm; write-shaped wrappers aren't PipeQuery roots and
+fall through to stock. TODO for real build: syntax-highlight the preview popup (read-only editor
+component, not JTextArea); running-spinner confirmed present for normal SQL and absent for pipe
+runs (the request-anchoring gap).
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
