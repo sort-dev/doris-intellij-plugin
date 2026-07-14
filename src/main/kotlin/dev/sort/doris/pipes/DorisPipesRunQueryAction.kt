@@ -142,31 +142,51 @@ internal object DorisPipesExecution {
                 "canonical Doris SQL (${dorisSql.length} chars)",
         )
         val request = DataRequest.newRequest(client, dorisSql, session.connectionPoint.dbms)
-        // Server errors report positions in the TRANSPILED SQL (which is what ran); map the
-        // offending token back to the user's pipe text and balloon the original line. KNOWN not to
-        // fire in dogfood round 3 (task #19: the promise likely resolves normally on SQL errors —
-        // the audit sink, not the promise, carries them); kept until the right seam is wired.
-        request.promise.onError { t ->
-            runCatching {
-                val message = generateSequence(t) { it.cause?.takeIf { c -> c !== it } }
-                    .mapNotNull { it.message }
-                    .firstOrNull { it.contains("(line ") } ?: return@runCatching
-                val mapped = DorisPipes.mapServerError(message, dorisSql, originalText) ?: return@runCatching
-                if (mapped.originalLine != null) {
-                    NotificationGroupManager.getInstance()
-                        .getNotificationGroup("Doris Pipes")
-                        .createNotification(
-                            "Doris error maps to pipe line ${mapped.originalLine}" +
-                                (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
-                            "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
-                                "of the generated SQL shown in the output log.",
-                            NotificationType.WARNING,
-                        )
-                        .notify(console.project)
-                }
-            }
-        }
+        // Server errors travel the AUDIT stream, not the request promise (task #19 finding): a
+        // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
+        // the reported transpiled position back to the user's pipe text.
+        registerRun(console, request, dorisSql, originalText)
         session.messageBus.dataProducer.processRequest(request)
         return true
+    }
+
+    /** In-flight pipe runs by request identity (weak — entries die with the request). */
+    private data class PipeRun(val console: JdbcConsole, val dorisSql: String, val originalText: String)
+    private val runs = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, PipeRun>())
+    private val audited = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, Boolean>())
+
+    private fun registerRun(console: JdbcConsole, request: DataRequest, dorisSql: String, originalText: String) {
+        runs[request] = PipeRun(console, dorisSql, originalText)
+        val bus = console.session.messageBus
+        // One auditor per session bus for the plugin's lifetime (weak-keyed dedupe) — it consults
+        // the in-flight map, so it is inert for non-pipe requests.
+        if (audited.put(bus, true) == null) {
+            bus.addAuditor(object : com.intellij.database.datagrid.DataAuditor {
+                override fun error(
+                    context: DataRequest.Context,
+                    info: com.intellij.database.connection.throwable.info.ErrorInfo,
+                ) {
+                    val run = runs[context.request] ?: return
+                    runCatching { balloonMappedError(run, info) }
+                }
+            })
+        }
+    }
+
+    private fun balloonMappedError(run: PipeRun, info: com.intellij.database.connection.throwable.info.ErrorInfo) {
+        val message = runCatching { info.message }.getOrNull() ?: return
+        if (!message.contains("(line ")) return
+        val mapped = DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
+        if (mapped.originalLine == null) return
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Doris Pipes")
+            .createNotification(
+                "Doris error maps to pipe line ${mapped.originalLine}" +
+                    (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
+                "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
+                    "of the generated SQL shown in the output log.",
+                NotificationType.WARNING,
+            )
+            .notify(run.console.project)
     }
 }

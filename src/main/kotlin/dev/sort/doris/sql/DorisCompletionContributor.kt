@@ -52,6 +52,72 @@ class DorisCompletionContributor : CompletionContributor() {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), FunctionProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), TvfArgumentProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeStageKeywordProvider)
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeColumnProvider)
+    }
+
+    /**
+     * PIPES SPIKE: heuristic COLUMN completion inside a pipe statement — the lenient pipe token
+     * run has no query PSI, so the platform offers no columns at all. Offered: (1) the columns of
+     * the stage-1 `FROM` table, resolved against the introspected model of the file's console
+     * data source; (2) aliases introduced by `AS <name>` in stages BEFORE the caret. The real
+     * per-stage shape walker (engine lineage) is the P2 item; this covers the common cases today.
+     */
+    private object PipeColumnProvider : CompletionProvider<CompletionParameters>() {
+        private val FROM_TABLE = Regex("""\bFROM\s+([A-Za-z_`][\w`]*(?:\.[A-Za-z_`][\w`]*){0,2})""", RegexOption.IGNORE_CASE)
+        private val AS_ALIAS = Regex("""\bAS\s+`?([A-Za-z_]\w*)`?""", RegexOption.IGNORE_CASE)
+
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            val file = parameters.originalFile
+            if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return
+            val text = file.text
+            val offset = parameters.offset.coerceAtMost(text.length)
+            val chunk = dev.sort.doris.pipes.DorisPipes.chunkAt(text, offset) ?: return
+            if (!chunk.text.contains(dev.sort.doris.pipes.DorisPipes.MARKER)) return
+
+            val sink = result.caseInsensitive()
+            val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
+
+            // (2) aliases introduced before the caret (AGGREGATE count(*) AS c, EXTEND ... AS x)
+            for (m in AS_ALIAS.findAll(chunk.text.substring(0, rel))) {
+                sink.addElement(
+                    PrioritizedLookupElement.withPriority(
+                        LookupElementBuilder.create(m.groupValues[1])
+                            .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                            .withTypeText("pipe stage alias", true),
+                        95.0,
+                    ),
+                )
+            }
+
+            // (1) columns of the FROM table via the console's introspected model
+            runCatching {
+                val qualified = FROM_TABLE.find(chunk.text)?.groupValues?.get(1) ?: return
+                val parts = qualified.split('.').map { it.trim('`') }
+                val tableName = parts.last()
+                val dbName = parts.getOrNull(parts.size - 2)
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
+                val dataSource = console.session.connectionPoint.dataSource
+                val table = com.intellij.database.util.DasUtil.getTables(dataSource).firstOrNull { t ->
+                    t.name.equals(tableName, ignoreCase = true) &&
+                        (dbName == null || t.dasParent?.name?.equals(dbName, ignoreCase = true) == true)
+                } ?: return
+                for (column in com.intellij.database.util.DasUtil.getColumns(table)) {
+                    sink.addElement(
+                        PrioritizedLookupElement.withPriority(
+                            LookupElementBuilder.create(column.name)
+                                .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                                .withTypeText("${table.name} column", true),
+                            94.0,
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     /**

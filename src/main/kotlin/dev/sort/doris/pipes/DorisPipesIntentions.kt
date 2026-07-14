@@ -41,7 +41,7 @@ internal object DorisPipesUi {
     }
 
     /** The running console attached to exactly this file (matched via the session client's file). */
-    private fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
+    fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
         val vf = file.viewProvider.virtualFile
         return JdbcConsoleProvider.getRunningConsoles(project).firstOrNull { console ->
             runCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
@@ -112,15 +112,24 @@ internal object DorisPipesUi {
     }
 
     private fun showSqlPopup(editor: Editor, title: String, sql: String) {
-        val area = JTextArea(sql).apply {
-            isEditable = false
-            font = java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, font.size)
+        val project = editor.project
+        // DorisSQL-highlighted read-only editor component; JTextArea fallback if it can't build.
+        val component: javax.swing.JComponent = runCatching {
+            com.intellij.ui.LanguageTextField(DorisSqlDialect.INSTANCE, project, sql, false).apply {
+                isViewer = true
+                setCaretPosition(0)
+            } as javax.swing.JComponent
+        }.getOrElse {
+            JTextArea(sql).apply {
+                isEditable = false
+                font = java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, font.size)
+            }
         }
-        val scroll = JScrollPane(area).apply {
+        val scroll = JScrollPane(component).apply {
             preferredSize = Dimension(640, 360.coerceAtMost(80 + 18 * sql.lines().size))
         }
         JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(scroll, area)
+            .createComponentPopupBuilder(scroll, component)
             .setTitle(title)
             .setResizable(true)
             .setMovable(true)
