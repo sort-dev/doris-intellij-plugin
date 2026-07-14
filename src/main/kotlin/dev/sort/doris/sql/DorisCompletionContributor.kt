@@ -121,12 +121,19 @@ class DorisCompletionContributor : CompletionContributor() {
                 val catalogNode = want.first?.let { c -> roots.firstOrNull { it.name.equals(c, true) } }
                 val schemaNode = (catalogNode ?: roots.firstOrNull { it.name.equals(want.second ?: "", true) })
                     ?.let { base -> if (catalogNode != null) childNamed(base, want.second) else base }
-                val table = schemaNode?.let { childNamed(it, want.third) } as? com.intellij.database.model.DasTable
+                val tkind = com.intellij.database.model.ObjectKind.TABLE
+                val table = schemaNode?.let { sn ->
+                    sn.getDasChildren(tkind).firstOrNull { it.name.equals(want.third, true) }
+                        ?: childNamed(sn, want.third)
+                } as? com.intellij.database.model.DasTable
                     ?: return@runCatching null.also {
+                        val sn = schemaNode
                         dev.sort.doris.pipes.DorisPipes.info(
-                            "columns: '$qualified' walk failed (want=$want roots=${roots.map { it.name }} " +
-                                "catalog=${catalogNode?.name} schemaChildren=" +
-                                "${schemaNode?.getDasChildren(null)?.take(6)?.toList()?.map { it.name }})")
+                            "columns: '$qualified' walk failed (want=$want catalog=${catalogNode?.name} " +
+                                "schema=${sn?.name} kind=${sn?.kind} cls=${sn?.javaClass?.simpleName} " +
+                                "tables=${sn?.getDasChildren(tkind)?.size()} " +
+                                "any=${sn?.getDasChildren(null)?.size()} " +
+                                "dasUtilTables=${sn?.let { com.intellij.database.util.DasUtil.getTables(dataSource).filter { t -> t.dasParent === it }.size() }})")
                     }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
