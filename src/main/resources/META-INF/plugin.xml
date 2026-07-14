@@ -164,6 +164,19 @@
 
         <!-- PIPES SPIKE: balloon channel for pipe-transpile errors at execute time. -->
         <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
+
+        <!-- PIPES SPIKE: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
+             "run stages up to caret" (execute-to-stage-N; a stage prefix is a valid pipe program). -->
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.pipes.PreviewPipeSqlIntention</className>
+            <category>Doris</category>
+        </intentionAction>
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.pipes.RunPipesToStageIntention</className>
+            <category>Doris</category>
+        </intentionAction>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">

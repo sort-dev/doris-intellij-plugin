@@ -119,4 +119,20 @@ class DorisPipesTest {
     fun `mapServerError returns null without a position marker`() {
         assertEquals(null, DorisPipes.mapServerError("some other failure", "SELECT 1", "FROM t |> LIMIT 1"))
     }
+
+    @Test
+    fun `stagePrefixAt cuts a runnable prefix at the caret's stage`() {
+        // Caret inside the WHERE stage -> stages 1-2 only.
+        val whereOffset = pipe.indexOf("WHERE") + 2
+        val prefix = DorisPipes.stagePrefixAt(pipe, whereOffset)!!
+        assertEquals(2, prefix.stage)
+        assertEquals(5, prefix.totalStages)
+        assertTrue(prefix.text.endsWith("'2026-01-01'"))
+        // A stage prefix is itself a valid pipe program.
+        assertTrue(DorisPipes.transpile(prefix.text) is DorisPipes.Transpile.Ok)
+        // Caret in the last stage -> the whole program.
+        val last = DorisPipes.stagePrefixAt(pipe, pipe.indexOf("LIMIT") + 1)!!
+        assertEquals(5, last.stage)
+        assertEquals(pipe.trimEnd(), last.text.trimEnd())
+    }
 }

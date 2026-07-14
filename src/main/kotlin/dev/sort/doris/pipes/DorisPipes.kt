@@ -137,6 +137,29 @@ object DorisPipes {
         chunks(text).firstOrNull { offset >= it.startOffset && offset <= it.endOffset }
 
     // ---------------------------------------------------------------------------------------
+    // Stage boundaries (execute-to-stage-N; IDEAS §3 "Execute up to stage N")
+    // ---------------------------------------------------------------------------------------
+
+    /** The pipe-program prefix ending at the stage containing [relOffset], plus (1-based stage, total). */
+    data class StagePrefix(val text: String, val stage: Int, val totalStages: Int)
+
+    /**
+     * Cut [chunkText] (one pipe program) down to the stages up to and including the one containing
+     * [relOffset] (an offset RELATIVE to [chunkText]). A prefix of pipe stages is itself a valid
+     * pipe program, so the result transpiles/executes like any other. Uses the engine's own
+     * [dev.brikk.house.sql.parser.PipeStageSplitter] (verified: per-stage char offsets). Returns
+     * null when the text isn't splittable or the offset lands before the first stage.
+     */
+    fun stagePrefixAt(chunkText: String, relOffset: Int): StagePrefix? = runCatching {
+        val stages = dev.brikk.house.sql.parser.PipeStageSplitter.split(chunkText, "doris").stages
+        if (stages.isEmpty()) return null
+        val index = stages.indexOfLast { relOffset >= it.start }
+        if (index < 0) return null
+        val end = (stages[index].endInclusive + 1).coerceAtMost(chunkText.length)
+        StagePrefix(chunkText.substring(0, end), index + 1, stages.size)
+    }.getOrNull()
+
+    // ---------------------------------------------------------------------------------------
     // Server-error map-back (MVP: token-text heuristic; real fix = generated-position provenance)
     // ---------------------------------------------------------------------------------------
 

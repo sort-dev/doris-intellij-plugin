@@ -109,54 +109,64 @@ private object PipesExecuteInterceptor {
 
         return when (val result = DorisPipes.transpile(text)) {
             is DorisPipes.Transpile.NotPipe -> false
-
             is DorisPipes.Transpile.Err -> {
-                val where = result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""
-                NotificationGroupManager.getInstance()
-                    .getNotificationGroup("Doris Pipes")
-                    .createNotification(
-                        "Pipe program has a syntax error$where",
-                        result.message,
-                        NotificationType.ERROR,
-                    )
-                    .notify(console.project)
+                DorisPipesExecution.notifyTranspileError(console, result)
                 true // handled: running the raw pipe text would only produce a worse server error
             }
+            is DorisPipes.Transpile.Ok -> DorisPipesExecution.submit(console, result.dorisSql, text)
+        }
+    }
+}
 
-            is DorisPipes.Transpile.Ok -> {
-                val client = session.clientsWithFile.firstOrNull()
-                    ?: return false // no attached console client — let stock produce its own error
-                DorisPipes.info(
-                    "session '${session.title}': pipe program (${text.length} chars) -> executing " +
-                        "canonical Doris SQL (${result.dorisSql.length} chars)",
-                )
-                val request = DataRequest.newRequest(client, result.dorisSql, session.connectionPoint.dbms)
-                // Server errors report positions in the TRANSPILED SQL (which is what ran); map the
-                // offending token back to the user's pipe text and balloon the original line —
-                // supplements the console's own (transpiled-relative) error output.
-                request.promise.onError { t ->
-                    runCatching {
-                        val message = generateSequence(t) { it.cause?.takeIf { c -> c !== it } }
-                            .mapNotNull { it.message }
-                            .firstOrNull { it.contains("(line ") } ?: return@runCatching
-                        val mapped = DorisPipes.mapServerError(message, result.dorisSql, text) ?: return@runCatching
-                        if (mapped.originalLine != null) {
-                            NotificationGroupManager.getInstance()
-                                .getNotificationGroup("Doris Pipes")
-                                .createNotification(
-                                    "Doris error maps to pipe line ${mapped.originalLine}" +
-                                        (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
-                                    "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
-                                        "of the generated SQL shown in the output log.",
-                                    NotificationType.WARNING,
-                                )
-                                .notify(console.project)
-                        }
-                    }
+/**
+ * Shared pipe-execution machinery for the execute-action interceptor and the pipe intentions
+ * (preview / run-to-stage). Owns the platform submission path and the user-facing notifications.
+ */
+internal object DorisPipesExecution {
+
+    fun notifyTranspileError(console: JdbcConsole, err: DorisPipes.Transpile.Err) {
+        val where = err.line?.let { " (line ${err.line}, col ${err.col})" } ?: ""
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Doris Pipes")
+            .createNotification("Pipe program has a syntax error$where", err.message, NotificationType.ERROR)
+            .notify(console.project)
+    }
+
+    /** Submit [dorisSql] through the console session's own request bus. False = no attached client. */
+    fun submit(console: JdbcConsole, dorisSql: String, originalText: String): Boolean {
+        val session = console.session
+        val client = session.clientsWithFile.firstOrNull()
+            ?: return false // no attached console client — let stock produce its own error
+        DorisPipes.info(
+            "session '${session.title}': pipe program (${originalText.length} chars) -> executing " +
+                "canonical Doris SQL (${dorisSql.length} chars)",
+        )
+        val request = DataRequest.newRequest(client, dorisSql, session.connectionPoint.dbms)
+        // Server errors report positions in the TRANSPILED SQL (which is what ran); map the
+        // offending token back to the user's pipe text and balloon the original line. KNOWN not to
+        // fire in dogfood round 3 (task #19: the promise likely resolves normally on SQL errors —
+        // the audit sink, not the promise, carries them); kept until the right seam is wired.
+        request.promise.onError { t ->
+            runCatching {
+                val message = generateSequence(t) { it.cause?.takeIf { c -> c !== it } }
+                    .mapNotNull { it.message }
+                    .firstOrNull { it.contains("(line ") } ?: return@runCatching
+                val mapped = DorisPipes.mapServerError(message, dorisSql, originalText) ?: return@runCatching
+                if (mapped.originalLine != null) {
+                    NotificationGroupManager.getInstance()
+                        .getNotificationGroup("Doris Pipes")
+                        .createNotification(
+                            "Doris error maps to pipe line ${mapped.originalLine}" +
+                                (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
+                            "Server reported line ${mapped.transpiledLine}, pos ${mapped.transpiledPos} " +
+                                "of the generated SQL shown in the output log.",
+                            NotificationType.WARNING,
+                        )
+                        .notify(console.project)
                 }
-                session.messageBus.dataProducer.processRequest(request)
-                true
             }
         }
+        session.messageBus.dataProducer.processRequest(request)
+        return true
     }
 }

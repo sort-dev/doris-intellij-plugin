@@ -51,6 +51,43 @@ class DorisCompletionContributor : CompletionContributor() {
     init {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), FunctionProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), TvfArgumentProvider)
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeStageKeywordProvider)
+    }
+
+    /**
+     * PIPES SPIKE (branch pipes-spike): stage-operator keywords right after a `|>`. The pipe
+     * statement is a lenient token run, so the platform offers nothing there itself. Textual gate:
+     * only immediately after `|>` (optionally one or two partial words in), never elsewhere.
+     */
+    private object PipeStageKeywordProvider : CompletionProvider<CompletionParameters>() {
+        private val STAGE_KEYWORDS = listOf(
+            "WHERE", "SELECT", "EXTEND", "SET", "DROP", "RENAME", "AGGREGATE", "DISTINCT",
+            "ORDER BY", "LIMIT", "JOIN", "LEFT JOIN", "CROSS JOIN", "UNION ALL", "INTERSECT",
+            "EXCEPT", "WINDOW", "PIVOT", "UNPIVOT", "TABLESAMPLE", "AS", "CALL",
+        )
+        private val AFTER_PIPE = Regex("""\|>\s*[A-Za-z]*(\s+[A-Za-z]*)?$""")
+
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
+            val text = parameters.originalFile.text
+            val offset = parameters.offset.coerceAtMost(text.length)
+            val tail = text.substring((offset - 120).coerceAtLeast(0), offset)
+            if (!AFTER_PIPE.containsMatchIn(tail)) return
+            val sink = result.caseInsensitive()
+            for (kw in STAGE_KEYWORDS) {
+                sink.addElement(
+                    PrioritizedLookupElement.withPriority(
+                        LookupElementBuilder.create(kw).bold().withTypeText("pipe stage", true),
+                        90.0,
+                    ),
+                )
+            }
+        }
     }
 
     private object FunctionProvider : CompletionProvider<CompletionParameters>() {
