@@ -144,6 +144,34 @@ plugin. Packaging: Doris Pipes is a Doris-plugin feature that **lights up when t
 featherweight; install the transpiler alongside → a "Doris Pipes" toggle appears and consumes
 brikk-sql's pipe AST + transform-to-Doris. We *use* the engine when it's there; we never bundle it.
 
+### Verified against brikk-sql 0.5.0-SNAPSHOT (2026-07-13, live drive from a scratch playground)
+
+Everything P0/P1 needs already exists in the engine — the eval found no missing API:
+
+- **Doris dialect parses pipes natively**: `Dialects.DORIS.parseOne(pipeProgram)` → `PipeQuery` AST.
+- **Run payload = 3 calls**: `parseOne` → `desugarPipes(expr)` → `expr.sql("doris")` → canonical
+  CTE-form Doris SQL (`WITH __tmp1 AS (...) SELECT ...`). Note: plain
+  `transpile(pipe, doris, doris)` **preserves** pipes (the Doris generator is pipe-capable) —
+  desugar is explicit, so the plugin controls flatten-for-run vs keep-for-display.
+- **`PipeStageSplitter.split(sql, "doris")`** returns each stage with operator + **exact character
+  offsets** — the editor source map (masking spans, per-stage anchors) ships in the engine; the
+  plugin doesn't build it.
+- **`ParseError.errors[]`** carries per-error line/col/description/highlight — direct annotator feed.
+- **Position provenance survives desugar**: semantic nodes in the desugared tree keep
+  `meta={line,col,start,end}` pointing into the ORIGINAL pipe text, so server errors against the
+  transpiled SQL map back to the right stage (synthetic CTE scaffolding correctly has no positions).
+  Whole-program transpile + map-back therefore covers validation; per-stage prefix transpiles are
+  only needed for execute-to-stage-N.
+- **Cross-dialect paste** (§4) works: `transpile(clickhouse→doris)` converts functions
+  (`toStartOfDay` → `DATE_TRUNC(...,'DAY')`). One fidelity bug found + filed upstream: zero-arg
+  `count()` → `COUNT()` is invalid Doris (needs `COUNT(*)`); fix lands in brikk-sql 0.5.1.
+- metadata 0.5.0-SNAPSHOT: same 728 defs as the plugin's pinned 0.1.0 — no migration pressure.
+
+Net effect on phasing: **P0 shrinks to plugin-side plumbing** — run-path action override (the
+cancel feature proved that seam), the annotator gate (skip fe-sql-parser when brikk-sql validates
+the statement as a pipe program), and the review-before-run UI. P2's stage-shape completion still
+wants lineage exposure from brikk-sql; the stage spans + surviving positions are its foundation.
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
