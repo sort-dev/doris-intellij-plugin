@@ -121,9 +121,11 @@ class DorisCompletionContributor : CompletionContributor() {
                         (want.first == null || chain.any { it.equals(want.first, ignoreCase = true) } ||
                             chain.size < 2)
                 } ?: byName.singleOrNull() ?: return@runCatching null.also {
-                    val sample = tables.take(4).map { t -> (parentish(t) + t.name).joinToString(".") }
+                    val chains = byName.joinToString(" | ") { t ->
+                        (parentish(t).reversed() + t.name).joinToString(".")
+                    }
                     dev.sort.doris.pipes.DorisPipes.info(
-                        "columns: '$qualified' unresolved (ns=$nsNames want=$want candidates=${byName.size} sample=$sample)")
+                        "columns: '$qualified' unresolved (ns=$nsNames want=$want candidateChains=[$chains])")
                 }
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
             }.getOrNull()
