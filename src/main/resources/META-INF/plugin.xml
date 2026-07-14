@@ -266,5 +266,19 @@
                 text="Run Selection as One Statement"
                 description="Execute the selection exactly as one statement"
                 icon="AllIcons.Actions.Execute"/>
+
+        <!-- PIPES SPIKE: right-click "Doris Pipes" submenu — same operations as the Alt+Enter
+             intentions, visible only with the caret inside a pipe statement of a Doris file. -->
+        <group id="DorisPipes.EditorMenu" text="Doris Pipes" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <action id="DorisPipes.PreviewSql"
+                    class="dev.sort.doris.pipes.PreviewPipeSqlAction"
+                    text="Preview Generated SQL"
+                    description="Show the canonical Doris SQL this pipe program transpiles to, without running it"/>
+            <action id="DorisPipes.RunToStage"
+                    class="dev.sort.doris.pipes.RunPipesToStageAction"
+                    text="Run Stages up to Caret"
+                    description="Transpile and execute only the pipe stages up to and including the one under the caret"/>
+        </group>
     </actions>
 </idea-plugin>

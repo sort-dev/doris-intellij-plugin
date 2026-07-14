@@ -5,6 +5,10 @@ import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
@@ -15,46 +19,43 @@ import javax.swing.JScrollPane
 import javax.swing.JTextArea
 
 /**
- * Alt+Enter intentions for the Doris Pipes SPIKE (see [DorisPipes]) — both available whenever the
- * caret sits inside a pipe statement of a Doris file:
+ * User-facing surfaces for the Doris Pipes SPIKE (see [DorisPipes]), all gated on the caret being
+ * inside a pipe statement of a Doris file:
  *
- *  - [PreviewPipeSqlIntention]: show the canonical Doris SQL the pipe program transpiles to,
- *    WITHOUT running it — the IDEAS §3 "Show generated Doris SQL" trust surface.
- *  - [RunPipesToStageIntention]: transpile + execute only the stages up to and including the one
- *    under the caret — the IDEAS §3 "Execute up to stage N" incremental-authoring feature (a
- *    prefix of pipe stages is itself a valid pipe program). Requires the file's console.
+ *  - Alt+Enter intentions ([PreviewPipeSqlIntention], [RunPipesToStageIntention]);
+ *  - the editor right-click "Doris Pipes" submenu ([PreviewPipeSqlAction],
+ *    [RunPipesToStageAction]) — same operations, discoverable without the intention machinery.
+ *
+ * Operations:
+ *  - PREVIEW: show the canonical Doris SQL the pipe program transpiles to, WITHOUT running it —
+ *    the IDEAS §3 "Show generated Doris SQL" trust surface.
+ *  - RUN TO STAGE: transpile + execute only the stages up to and including the one under the
+ *    caret (§3 "Execute up to stage N"; a prefix of pipe stages is itself a valid pipe program).
  */
-private fun pipeChunkAtCaret(file: PsiFile, editor: Editor): DorisPipes.Chunk? {
-    if (!DorisPipes.enabled || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
-    val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return null
-    return chunk.takeIf { it.text.contains(DorisPipes.MARKER) }
-}
+internal object DorisPipesUi {
 
-/** The running console attached to exactly this file (matched via the session client's file). */
-private fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
-    val vf = file.viewProvider.virtualFile
-    return JdbcConsoleProvider.getRunningConsoles(project).firstOrNull { console ->
-        runCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
+    fun pipeChunkAtCaret(file: PsiFile, editor: Editor): DorisPipes.Chunk? {
+        if (!DorisPipes.enabled || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
+        val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return null
+        return chunk.takeIf { it.text.contains(DorisPipes.MARKER) }
     }
-}
 
-private fun notify(project: Project, title: String, content: String, type: NotificationType) {
-    NotificationGroupManager.getInstance()
-        .getNotificationGroup("Doris Pipes")
-        .createNotification(title, content, type)
-        .notify(project)
-}
+    /** The running console attached to exactly this file (matched via the session client's file). */
+    private fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
+        val vf = file.viewProvider.virtualFile
+        return JdbcConsoleProvider.getRunningConsoles(project).firstOrNull { console ->
+            runCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
+        }
+    }
 
-class PreviewPipeSqlIntention : IntentionAction {
-    override fun getText(): String = "Doris Pipes: preview generated SQL"
-    override fun getFamilyName(): String = "Doris Pipes"
-    override fun startInWriteAction(): Boolean = false
+    private fun notify(project: Project, title: String, content: String, type: NotificationType) {
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Doris Pipes")
+            .createNotification(title, content, type)
+            .notify(project)
+    }
 
-    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean =
-        editor != null && file != null && pipeChunkAtCaret(file, editor) != null
-
-    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
-        if (editor == null || file == null) return
+    fun preview(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
         when (val result = DorisPipes.transpile(chunk.text)) {
             is DorisPipes.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
@@ -70,33 +71,7 @@ class PreviewPipeSqlIntention : IntentionAction {
         }
     }
 
-    private fun showSqlPopup(editor: Editor, title: String, sql: String) {
-        val area = JTextArea(sql).apply {
-            isEditable = false
-            font = java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, font.size)
-        }
-        val scroll = JScrollPane(area).apply { preferredSize = Dimension(640, 360.coerceAtMost(80 + 18 * sql.lines().size)) }
-        JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(scroll, area)
-            .setTitle(title)
-            .setResizable(true)
-            .setMovable(true)
-            .setRequestFocus(true)
-            .createPopup()
-            .showInBestPositionFor(editor)
-    }
-}
-
-class RunPipesToStageIntention : IntentionAction {
-    override fun getText(): String = "Doris Pipes: run stages up to caret"
-    override fun getFamilyName(): String = "Doris Pipes"
-    override fun startInWriteAction(): Boolean = false
-
-    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean =
-        editor != null && file != null && pipeChunkAtCaret(file, editor) != null
-
-    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
-        if (editor == null || file == null) return
+    fun runToStage(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
         val console = consoleFor(project, file) ?: run {
             notify(
@@ -135,4 +110,86 @@ class RunPipesToStageIntention : IntentionAction {
                 notify(project, "Not a pipe program", "The statement parses as plain SQL.", NotificationType.INFORMATION)
         }
     }
+
+    private fun showSqlPopup(editor: Editor, title: String, sql: String) {
+        val area = JTextArea(sql).apply {
+            isEditable = false
+            font = java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, font.size)
+        }
+        val scroll = JScrollPane(area).apply {
+            preferredSize = Dimension(640, 360.coerceAtMost(80 + 18 * sql.lines().size))
+        }
+        JBPopupFactory.getInstance()
+            .createComponentPopupBuilder(scroll, area)
+            .setTitle(title)
+            .setResizable(true)
+            .setMovable(true)
+            .setRequestFocus(true)
+            .createPopup()
+            .showInBestPositionFor(editor)
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Alt+Enter intentions
+// ---------------------------------------------------------------------------------------------
+
+class PreviewPipeSqlIntention : IntentionAction {
+    override fun getText(): String = "Doris Pipes: preview generated SQL"
+    override fun getFamilyName(): String = "Doris Pipes"
+    override fun startInWriteAction(): Boolean = false
+
+    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean =
+        editor != null && file != null && DorisPipesUi.pipeChunkAtCaret(file, editor) != null
+
+    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
+        if (editor != null && file != null) DorisPipesUi.preview(project, editor, file)
+    }
+}
+
+class RunPipesToStageIntention : IntentionAction {
+    override fun getText(): String = "Doris Pipes: run stages up to caret"
+    override fun getFamilyName(): String = "Doris Pipes"
+    override fun startInWriteAction(): Boolean = false
+
+    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean =
+        editor != null && file != null && DorisPipesUi.pipeChunkAtCaret(file, editor) != null
+
+    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
+        if (editor != null && file != null) DorisPipesUi.runToStage(project, editor, file)
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Editor right-click menu ("Doris Pipes" submenu) — same operations, intention-machinery-free
+// ---------------------------------------------------------------------------------------------
+
+abstract class DorisPipesMenuAction : AnAction() {
+    final override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    final override fun update(e: AnActionEvent) {
+        val editor = e.getData(CommonDataKeys.EDITOR)
+        val file = e.getData(CommonDataKeys.PSI_FILE)
+        e.presentation.isEnabledAndVisible =
+            editor != null && file != null && DorisPipesUi.pipeChunkAtCaret(file, editor) != null
+    }
+
+    final override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val editor = e.getData(CommonDataKeys.EDITOR) ?: return
+        val file = e.getData(CommonDataKeys.PSI_FILE) ?: return
+        perform(project, editor, file)
+    }
+
+    abstract fun perform(project: Project, editor: Editor, file: PsiFile)
+}
+
+class PreviewPipeSqlAction : DorisPipesMenuAction() {
+    override fun perform(project: Project, editor: Editor, file: PsiFile) =
+        DorisPipesUi.preview(project, editor, file)
+}
+
+class RunPipesToStageAction : DorisPipesMenuAction() {
+    override fun perform(project: Project, editor: Editor, file: PsiFile) =
+        DorisPipesUi.runToStage(project, editor, file)
 }
