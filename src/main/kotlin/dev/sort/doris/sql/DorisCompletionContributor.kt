@@ -53,6 +53,65 @@ class DorisCompletionContributor : CompletionContributor() {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), TvfArgumentProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeStageKeywordProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeColumnProvider)
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), QualifiedPathIntrospectProvider)
+    }
+
+    /**
+     * Auto-introspection trigger for ANY Doris statement (not just pipes — user round 20 ask):
+     * completion invoked right after a qualified path (`hive_ovh.outbox.<caret>`) that resolves to
+     * an enumerated-but-childless namespace kicks the TARGETED refresh + progress banner. Offers
+     * nothing itself — the platform (or the pipe providers) supply names once the model has them.
+     * Engine-free: candidate for the base plugin (0.7.0) independent of Doris Pipes.
+     */
+    private object QualifiedPathIntrospectProvider : CompletionProvider<CompletionParameters>() {
+        private val PATH_BEFORE_CARET = Regex("""([A-Za-z_`][\w`]*(?:\.[A-Za-z_`][\w`]*)*)\.\s*\w*$""")
+
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            val file = parameters.originalFile
+            if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return
+            runCatching {
+                val text = file.text
+                val offset = parameters.offset.coerceAtMost(text.length)
+                val tail = text.substring((offset - 160).coerceAtLeast(0), offset)
+                val parts = PATH_BEFORE_CARET.find(tail)?.groupValues?.get(1)
+                    ?.split('.')?.map { it.trim('`') } ?: return
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
+                val local = console.session.connectionPoint.dataSource
+                val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                val dataSource = facade.findDataSource(local.uniqueId)
+                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: return
+                val roots = dataSource.model.modelRoots.toList()
+                val nsFirst = runCatching {
+                    generateSequence(console.currentNamespace) { it.parent }
+                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().lastOrNull()
+                }.getOrNull()
+                val tkind = com.intellij.database.model.ObjectKind.TABLE
+                fun children(o: com.intellij.database.model.DasObject) =
+                    (o.getDasChildren(tkind).toList() + o.getDasChildren(null).toList()).distinct()
+                var node: com.intellij.database.model.DasObject? =
+                    roots.firstOrNull { it.name.equals(parts[0], true) }
+                        ?: roots.firstOrNull { it.name.equals(nsFirst ?: "", true) }
+                            ?.let { cat -> children(cat).firstOrNull { it.name.equals(parts[0], true) } }
+                for (p in parts.drop(1)) {
+                    node = node?.let { n -> children(n).firstOrNull { it.name.equals(p, true) } }
+                }
+                val target = node ?: return
+                if (children(target).isNotEmpty()) return // normal completion will handle it
+                val fqn = parts.joinToString(".")
+                dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
+                    file.project, local, parts.dropLast(1).lastOrNull() ?: nsFirst, parts.last(), target)
+                dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                    file.project, file.viewProvider.virtualFile,
+                    "Doris: introspecting '$fqn'\u2026 invoke completion again when it finishes " +
+                        "(if nothing appears, introspect it in the Database view).")
+            }
+        }
     }
 
     /**
