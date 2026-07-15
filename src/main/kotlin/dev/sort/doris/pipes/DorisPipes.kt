@@ -39,6 +39,20 @@ object DorisPipes {
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"
 
+    /**
+     * A chunk counts as pipe territory when it carries `|>` OR its first content word is FROM —
+     * a bare `FROM ...` chunk is a pipe program being authored (plain Doris SQL never starts a
+     * statement with FROM), and completion must work BEFORE the first `|>` is typed.
+     */
+    fun looksLikePipeChunk(text: String): Boolean {
+        if (text.contains(MARKER)) return true
+        val firstContent = text.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() && !it.startsWith("--") } ?: return false
+        return firstContent.startsWith("FROM ", ignoreCase = true) ||
+            firstContent.equals("FROM", ignoreCase = true)
+    }
+
     const val LOG_PREFIX: String = "DorisPipes:"
 
     private val log = Logger.getInstance(DorisPipes::class.java)

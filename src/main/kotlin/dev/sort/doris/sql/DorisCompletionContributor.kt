@@ -72,17 +72,17 @@ class DorisCompletionContributor : CompletionContributor() {
             file: com.intellij.psi.PsiFile,
             chunkText: String,
             rel: Int,
-        ) {
+        ): Boolean {
             runCatching {
-                val m = Regex("""\bFROM\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
-                    .find(chunkText.substring(0, rel)) ?: return
+                val m = Regex("""\b(?:FROM|JOIN)\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
+                    .find(chunkText.substring(0, rel)) ?: return false
                 val parents = m.groupValues[1].split('.').map { it.trim('`') }.dropLast(1)
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return true
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
-                    ?: return
+                    ?: return true
                 val roots = dataSource.model.modelRoots.toList()
                 val nsFirst = runCatching {
                     generateSequence(console.currentNamespace) { it.parent }
@@ -114,6 +114,7 @@ class DorisCompletionContributor : CompletionContributor() {
                     node?.let { offer(children(it).map { c -> c.name }, "in ${it.name}", DatabaseIcons.Table) }
                 }
             }
+            return true
         }
 
         override fun addCompletions(
@@ -127,16 +128,13 @@ class DorisCompletionContributor : CompletionContributor() {
             val text = file.text
             val offset = parameters.offset.coerceAtMost(text.length)
             val chunk = dev.sort.doris.pipes.DorisPipes.chunkAt(text, offset) ?: return
-            if (!chunk.text.contains(dev.sort.doris.pipes.DorisPipes.MARKER)) return
+            if (!dev.sort.doris.pipes.DorisPipes.looksLikePipeChunk(chunk.text)) return
 
             val sink = result.caseInsensitive()
             val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
 
-            // FROM stage (splitter stage 1): offer table PATH segments, not columns.
-            if (dev.sort.doris.pipes.DorisPipes.stagePrefixAt(chunk.text, rel)?.stage == 1) {
-                offerFromPath(sink, file, chunk.text, rel)
-                return
-            }
+            // Table-path position (FROM head or any JOIN stage): offer path segments, not columns.
+            if (offerFromPath(sink, file, chunk.text, rel)) return
 
             // Base relation: the FROM table's das columns (introspected model — the DbDataSource
             // wrapper, NOT the LocalDataSource, whose table list is silently empty; round 6).
@@ -179,14 +177,21 @@ class DorisCompletionContributor : CompletionContributor() {
                     ?.let { base -> if (catalogNode != null) childNamed(base, want.second) else base }
                 val tkind = com.intellij.database.model.ObjectKind.TABLE
                 val vf = file.viewProvider.virtualFile
-                val schemaTables = schemaNode?.let { sn ->
+                // 2-part reference whose first segment is a CATALOG (hive_ovh.outbox): reinterpret
+                // as catalog.schema so the not-introspected banner can name the real target.
+                var bannerFqn = listOfNotNull(want.first, want.second).joinToString(".")
+                val schemaNodeEff = schemaNode ?: (if (parts.size == 2)
+                    roots.firstOrNull { it.name.equals(parts[0], true) }
+                        ?.let { childNamed(it, parts[1]) }
+                        ?.also { bannerFqn = "${parts[0]}.${parts[1]}" }
+                else null)
+                val schemaTables = schemaNodeEff?.let { sn ->
                     (sn.getDasChildren(tkind).toList() + sn.getDasChildren(null).toList()).distinct()
                 }.orEmpty()
                 // Banner ONLY for truly-childless nodes (M9 enumerated-but-not-introspected). A
                 // name that simply doesn't match is mid-typing — never banner, never spam.
-                if (schemaNode != null && schemaTables.isEmpty()) {
-                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
-                        file.project, vf, listOfNotNull(want.first, want.second).joinToString("."))
+                if (schemaNodeEff != null && schemaTables.isEmpty()) {
+                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(file.project, vf, bannerFqn)
                     return@runCatching null
                 }
                 val table = schemaTables.firstOrNull { it.name.equals(want.third, true) }
