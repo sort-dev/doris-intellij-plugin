@@ -90,10 +90,13 @@ internal object DorisPipesUi {
         when (val result = DorisPipes.transpile(prefix.text)) {
             is DorisPipes.Transpile.Ok -> {
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
-                val anchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
+                val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
+                val range = com.intellij.openapi.util.TextRange(
+                    trimAnchor, chunk.startOffset + prefix.text.trimEnd().length)
                 if (DorisPipesExecution.submit(
                         console, result.dorisSql, prefix.text, result.result,
-                        file.viewProvider.virtualFile, anchor, editor.document.text.hashCode(),
+                        PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
+                            editor.document.text.hashCode()),
                     )
                 ) {
                     notify(

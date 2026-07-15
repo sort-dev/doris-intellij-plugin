@@ -120,16 +120,50 @@ private object PipesExecuteInterceptor {
             }
             is DorisPipes.Transpile.Ok -> {
                 // Engine offsets are relative to the TRIMMED text (transpile trims before parsing).
-                val anchor = selStart + (text.length - text.trimStart().length)
+                val trimAnchor = selStart + (text.length - text.trimStart().length)
                 val vf = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
+                val range = com.intellij.openapi.util.TextRange(trimAnchor, selStart + text.trimEnd().length)
                 DorisPipesExecution.submit(
                     console, result.dorisSql, text, result.result,
-                    vf, anchor, editor.document.text.hashCode(),
+                    PipeAnchor(editor, range, vf, trimAnchor, editor.document.text.hashCode()),
                 )
             }
         }
     }
 }
+
+/**
+ * A [DataRequest.QueryRequest] carrying the TRANSPILED Doris SQL while implementing
+ * [DataRequest.CoupledWithEditor] over the ORIGINAL pipe span — the same coupling the stock
+ * ConsoleDataRequest provides, which is what the platform's execution tracking decorates
+ * (running indicator over the statement, gutter cancel, error focus). Mirrors the stock
+ * `DataRequest.newRequest(owner, query, dbms)` construction (QueryRequest + newConstraints(dbms)).
+ */
+private class PipeQueryRequest(
+    owner: DataRequest.OwnerEx,
+    dorisSql: String,
+    dbms: com.intellij.database.Dbms,
+    private val editor: com.intellij.openapi.editor.Editor,
+    private val range: com.intellij.openapi.util.TextRange,
+) : DataRequest.QueryRequest(owner, dorisSql, newConstraints(dbms), null),
+    DataRequest.CoupledWithEditor {
+    override fun getEditor(): com.intellij.openapi.editor.Editor = editor
+    override fun getRange(): com.intellij.openapi.util.TextRange = range
+    override fun getRequest(): com.intellij.database.datagrid.GridDataRequest = this
+    override fun onError(
+        info: com.intellij.database.connection.throwable.info.ErrorInfo,
+    ): DataRequest.CoupledWithEditor.ErrorNavigator? = null
+    override fun onWarning(w: com.intellij.database.console.JdbcEngineUtils.EngineWarningExceptionInfo) {}
+}
+
+/** Everything needed to anchor a pipe run to its editor span and to place the error mark. */
+internal data class PipeAnchor(
+    val editor: com.intellij.openapi.editor.Editor,
+    val range: com.intellij.openapi.util.TextRange,
+    val file: com.intellij.openapi.vfs.VirtualFile?,
+    val trimAnchor: Int,
+    val docHash: Int,
+)
 
 /**
  * Shared pipe-execution machinery for the execute-action interceptor and the pipe intentions
@@ -155,9 +189,7 @@ internal object DorisPipesExecution {
         dorisSql: String,
         originalText: String,
         transpile: dev.brikk.house.sql.shape.TranspileResult? = null,
-        markFile: com.intellij.openapi.vfs.VirtualFile? = null,
-        markAnchor: Int = 0,
-        markDocHash: Int = 0,
+        anchor: PipeAnchor? = null,
     ): Boolean {
         val session = console.session
         val client = session.clientsWithFile.firstOrNull()
@@ -166,13 +198,22 @@ internal object DorisPipesExecution {
             "session '${session.title}': pipe program (${originalText.length} chars) -> executing " +
                 "canonical Doris SQL (${dorisSql.length} chars)",
         )
-        val request = DataRequest.newRequest(client, dorisSql, session.connectionPoint.dbms)
+        // Anchored request (spinner/gutter coupling) when we know the editor span; plain request
+        // as the fallback so an anchoring failure can never break execution itself.
+        val request: DataRequest = anchor?.let { a ->
+            runCatching {
+                PipeQueryRequest(client, dorisSql, session.connectionPoint.dbms, a.editor, a.range) as DataRequest
+            }.getOrNull()
+        } ?: DataRequest.newRequest(client, dorisSql, session.connectionPoint.dbms)
         // Server errors travel the AUDIT stream, not the request promise (task #19 finding): a
         // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
         // the reported transpiled position back to the user's pipe text.
         // A new run supersedes the previous run's editor mark for this file.
-        markFile?.let { DorisPipes.clearExecMark(it.url) }
-        registerRun(console, request, dorisSql, originalText, transpile, markFile, markAnchor, markDocHash)
+        anchor?.file?.let { DorisPipes.clearExecMark(it.url) }
+        registerRun(
+            console, request, dorisSql, originalText, transpile,
+            anchor?.file, anchor?.trimAnchor ?: 0, anchor?.docHash ?: 0,
+        )
         session.messageBus.dataProducer.processRequest(request)
         return true
     }
