@@ -115,7 +115,7 @@ class DorisCompletionContributor : CompletionContributor() {
     }
 
     /**
-     * PIPES SPIKE: heuristic COLUMN completion inside a pipe statement — the lenient pipe token
+     * DORIS PIPES: heuristic COLUMN completion inside a pipe statement — the lenient pipe token
      * run has no query PSI, so the platform offers no columns at all. Offered: (1) the columns of
      * the stage-1 `FROM` table, resolved against the introspected model of the file's console
      * data source; (2) aliases introduced by `AS <name>` in stages BEFORE the caret. The real
@@ -437,7 +437,7 @@ class DorisCompletionContributor : CompletionContributor() {
     }
 
     /**
-     * PIPES SPIKE (branch pipes-spike): stage-operator keywords right after a `|>`. The pipe
+     * DORIS PIPES: stage-operator keywords right after a `|>`. The pipe
      * statement is a lenient token run, so the platform offers nothing there itself. Textual gate:
      * only immediately after `|>` (optionally one or two partial words in), never elsewhere.
      */

@@ -41,7 +41,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // SWITCH). On ANY ANTLR error, boundary misalignment, or greed mismatch the replayer rolls back
         // and consumes nothing, so we fall through to the unchanged lenient/delegation logic below —
         // behaviour with the flag disabled is byte-for-byte identical to pre-0.5.0.
-        // PIPES SPIKE (branch pipes-spike): a GoogleSQL pipe program (`FROM t |> WHERE ... |> ...`)
+        // DORIS PIPES: a GoogleSQL pipe program (`FROM t |> WHERE ... |> ...`)
         // has no MySQL shape at all — unhandled, the grammar shreds it into fragments, so the
         // statement bounding box / statement-under-caret / gutter anchors all break (observed in
         // dogfood round 2). One statement node to the ';' restores all of those; inner structure
@@ -254,7 +254,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     }
 
     /**
-     * PIPES SPIKE: true when the statement at the cursor carries the `|>` pipe operator before the
+     * DORIS PIPES: true when the statement at the cursor carries the `|>` pipe operator before the
      * next ';'. Token-based (a string literal is ONE token whose text includes its quotes), so a
      * `'|>'` inside a literal never matches; the lexer may deliver `|>` as one token or as `|`,`>`.
      * Non-consuming.

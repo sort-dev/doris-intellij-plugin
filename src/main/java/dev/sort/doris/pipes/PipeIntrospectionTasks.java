@@ -5,7 +5,7 @@ import com.intellij.database.introspection.IntrospectionTasks;
 import com.intellij.database.model.basic.BasicElement;
 
 /**
- * PIPES SPIKE: Java shim for {@link IntrospectionTasks} — the factory is Kotlin-{@code internal}
+ * DORIS PIPES: Java shim for {@link IntrospectionTasks} — the factory is Kotlin-{@code internal}
  * in metadata (public in bytecode), so Kotlin sources cannot reference it while Java can. Used by
  * DorisPipesAutoIntrospect to build the TARGETED one-element refresh (never a general sync).
  */

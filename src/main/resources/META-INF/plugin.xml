@@ -19,6 +19,15 @@
                 including schema-by-argument (<code>tasks("type"="mv")</code>)</li>
             <li><b>Reliable query cancel.</b> The Stop button kills the running Doris query even
                 behind a load balancer, where the driver's own cancel silently misses</li>
+            <li><b>Doris Pipes (optional).</b> Write GoogleSQL-style pipe syntax
+                (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) directly in Doris consoles —
+                it transpiles to standard Doris SQL on run, with per-stage completion, run-to-stage,
+                generated-SQL preview, and errors mapped back to the pipe line you wrote. Lights up
+                when the free <b>SQL Transpiler</b> plugin
+                (<code>dev.sort.sql-transpiler-intellij-plugin</code>) is installed</li>
+            <li><b>Automatic targeted introspection.</b> Reference a table in a catalog or schema
+                that hasn't been introspected yet and the plugin introspects just that schema in the
+                background — no more hunting for the right refresh checkbox</li>
             <li><b>Dedicated DorisSQL dialect</b> with correct statement and run-block boundaries for
                 Doris syntax the generic MySQL dialect mis-parses: <code>INSERT OVERWRITE</code>,
                 <code>SELECT * EXCEPT(...)</code>, <code>QUALIFY</code>, <code>CREATE JOB</code>,
@@ -46,6 +55,26 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
+        <ul>
+            <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax
+                (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) in Doris consoles and run
+                them against any Doris — the plugin transpiles them to standard Doris SQL at
+                execution time (the generated SQL is what the server sees). Includes pipe-aware
+                statement boundaries and syntax checking, per-stage column completion (aliases and
+                join relations included), a right-click <i>Doris Pipes</i> menu with
+                <i>Preview Generated SQL</i> (syntax-highlighted) and <i>Run Stages up to Caret</i>,
+                and server errors mapped back to the exact line and column of the pipe SQL you
+                wrote. Requires the free <b>SQL Transpiler</b> plugin
+                (<code>dev.sort.sql-transpiler-intellij-plugin</code>) from the Marketplace —
+                install it and restart the IDE; without it, this plugin simply keeps its regular
+                Doris behavior. Escape hatch: <code>-Ddoris.pipes=false</code>.</li>
+            <li><b>Automatic targeted introspection:</b> when completion or a query references a
+                catalog or schema that is enumerated but not yet introspected, the plugin now
+                widens the introspection scope to just that schema and refreshes only it —
+                columns appear moments later, and an editor banner tells you when a table has no
+                column data yet. Works for plain Doris SQL and pipe syntax alike.</li>
+        </ul>
         <b>0.6.0</b> — enhanced query cancelling across console windows.
         <ul>
             <li><b>Cancel works across console windows:</b> with several consoles running queries
@@ -167,10 +196,10 @@
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
 
-        <!-- PIPES SPIKE: "table not introspected" banner for pipe statements. -->
+        <!-- DORIS PIPES: "table not introspected" banner for pipe statements. -->
         <editorNotificationProvider implementation="dev.sort.doris.pipes.DorisPipesNotificationProvider"/>
 
-        <!-- PIPES SPIKE: balloon channel for pipe-transpile errors at execute time. -->
+        <!-- DORIS PIPES: balloon channel for pipe-transpile errors at execute time. -->
         <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
 
     </extensions>

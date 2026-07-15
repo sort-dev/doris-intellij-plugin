@@ -11,7 +11,7 @@ import com.intellij.database.util.TreePatternUtils
 import com.intellij.openapi.project.Project
 
 /**
- * PIPES SPIKE (user call-out): when a pipe statement references a RESOLVED-but-childless schema
+ * DORIS PIPES (user call-out): when a pipe statement references a RESOLVED-but-childless schema
  * (enumerated but never introspected — typo-proof by construction), don't ask the user to go
  * click "introspect" — do it for them: widen the data source's introspection scope to exactly
  * that catalog.schema (same TreePattern vocabulary as [dev.sort.doris.catalog.DorisCatalogScopes];

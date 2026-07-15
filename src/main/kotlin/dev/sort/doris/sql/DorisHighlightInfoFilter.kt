@@ -50,7 +50,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return true
         val description = highlightInfo.description ?: return true
-        // PIPES SPIKE (branch pipes-spike): inside a pipe statement the substrate PSI is
+        // DORIS PIPES: inside a pipe statement the substrate PSI is
         // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
         // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
         // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
@@ -108,7 +108,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         return true
     }
 
-    /** PIPES SPIKE: is the highlight inside a statement carrying the pipe marker? */
+    /** DORIS PIPES: is the highlight inside a statement carrying the pipe marker? */
     private fun isInsidePipeStatement(file: PsiFile, info: HighlightInfo): Boolean {
         val element = file.findElementAt(info.startOffset) ?: return false
         val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false) ?: return false

@@ -10,7 +10,7 @@ import java.util.Collections
 import java.util.function.Function
 
 /**
- * PIPES SPIKE: banner at the top of a console editor when a pipe statement references a table
+ * DORIS PIPES: banner at the top of a console editor when a pipe statement references a table
  * that is enumerated in the model but NOT introspected (the M9 "enumerated-but-childless" case —
  * column completion silently has nothing to offer until the schema is introspected). Recorded by
  * the pipe column provider on a resolution miss; cleared on dismiss or on the first successful

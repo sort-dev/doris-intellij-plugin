@@ -4,7 +4,7 @@
          plugin stays engine-free. -->
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- PIPES SPIKE: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
+        <!-- DORIS PIPES: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
              "run stages up to caret" (execute-to-stage-N; a stage prefix is a valid pipe program). -->
         <intentionAction>
             <language>DorisSQL</language>
@@ -19,7 +19,7 @@
     </extensions>
 
     <actions>
-        <!-- PIPES SPIKE (branch pipes-spike): replaces ALL FOUR stock console execute actions with
+        <!-- DORIS PIPES: replaces ALL FOUR stock console execute actions with
              subclasses that transpile a pipe-syntax statement to canonical Doris SQL at run time
              and submit THAT; everything else delegates to stock byte-for-byte (see
              DorisPipesRunQueryAction). Registrations mirror the stock ones (database-plugin.xml). -->
@@ -49,7 +49,7 @@
                 description="Execute the selection exactly as one statement"
                 icon="AllIcons.Actions.Execute"/>
 
-        <!-- PIPES SPIKE: right-click "Doris Pipes" submenu — same operations as the Alt+Enter
+        <!-- DORIS PIPES: right-click "Doris Pipes" submenu — same operations as the Alt+Enter
              intentions, visible only with the caret inside a pipe statement of a Doris file. -->
         <group id="DorisPipes.EditorMenu" text="Doris Pipes" popup="true">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>

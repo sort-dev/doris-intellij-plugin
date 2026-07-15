@@ -32,7 +32,7 @@ class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSy
     override fun doAnnotate(collectedInfo: Pair<String, String>): List<DorisSyntaxError> {
         val (url, text) = collectedInfo
         val feErrors = validate(text)
-        // PIPES SPIKE: pipe statements are foreign to fe-sql-parser by design, so its errors on
+        // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
         // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
         val base = if (!DorisPipes.enabled || !text.contains(DorisPipes.MARKER)) feErrors
@@ -40,7 +40,7 @@ class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSy
             feErrors.filterNot { DorisPipes.lineInsidePipeChunk(text, it.line) } +
                 DorisPipesEngine.pipeSyntaxErrors(text)
         }.getOrDefault(feErrors)
-        // PIPES SPIKE: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
+        // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
         // offsets); invalidated by any edit (doc-hash) or the next run for this file.
         val exec = if (!DorisPipes.enabled) emptyList() else runCatching {
             DorisPipes.execMarkFor(url, text)?.let { m ->
