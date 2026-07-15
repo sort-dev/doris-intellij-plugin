@@ -11,9 +11,6 @@ repositories {
     // brikk-sql-metadata (function catalogs) is a released artifact on Maven Central — no extra
     // repository or authentication needed.
     mavenCentral()
-    // PIPES SPIKE ONLY: brikk-sql 0.6.0-SNAPSHOT (toExecutable/mapErrorToSource/stageShapes)
-    // resolves from Central snapshots until 0.6.0 releases. Must not reach main.
-    maven("https://central.sonatype.com/repository/maven-snapshots/")
     intellijPlatform {
         defaultRepositories()
     }
@@ -36,7 +33,7 @@ dependencies {
     // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
     // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
     // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
-    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.6.0-SNAPSHOT") {
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.6.0") {
         exclude(group = "org.jetbrains.kotlin")
         exclude(group = "org.jetbrains.kotlinx")
     }
@@ -50,7 +47,7 @@ dependencies {
     // §2/§3: the engine belongs to the separate transpiler plugin; the Doris plugin stays
     // metadata-only) — this dependency must NOT reach main/a release. Same transitive-exclusion
     // rationale as the metadata jar above.
-    implementation("dev.brikk.house:brikk-sql-jvm:0.6.0-SNAPSHOT") {
+    implementation("dev.brikk.house:brikk-sql-jvm:0.6.0") {
         exclude(group = "org.jetbrains.kotlin")
         exclude(group = "org.jetbrains.kotlinx")
     }
