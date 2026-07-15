@@ -179,6 +179,23 @@ object DorisPipes {
     }.getOrNull()
 
     // ---------------------------------------------------------------------------------------
+    // Execution-error editor marks (squiggle at the mapped span; hover = server message)
+    // ---------------------------------------------------------------------------------------
+
+    /** Absolute-document-offset span + message; [docHash] invalidates the mark on ANY edit. */
+    data class ExecMark(val start: Int, val end: Int, val message: String, val docHash: Int)
+
+    private val execMarks = java.util.Collections.synchronizedMap(HashMap<String, ExecMark>())
+
+    fun setExecMark(url: String, mark: ExecMark) { execMarks[url] = mark }
+
+    fun clearExecMark(url: String) { execMarks.remove(url) }
+
+    /** The current mark for [url], or null when the document changed since the run. */
+    fun execMarkFor(url: String, currentText: String): ExecMark? =
+        execMarks[url]?.takeIf { it.docHash == currentText.hashCode() && it.end <= currentText.length }
+
+    // ---------------------------------------------------------------------------------------
     // Server-error map-back (MVP: token-text heuristic; real fix = generated-position provenance)
     // ---------------------------------------------------------------------------------------
 

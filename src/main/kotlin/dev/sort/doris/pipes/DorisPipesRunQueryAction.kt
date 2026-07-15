@@ -99,10 +99,15 @@ private object PipesExecuteInterceptor {
         val editor = info.editor ?: return false
 
         // Selection wins (run-selection semantics); else the raw-text chunk around the caret.
-        val text: String = if (editor.selectionModel.hasSelection()) {
-            editor.selectionModel.selectedText ?: return false
+        val selStart: Int
+        val text: String
+        if (editor.selectionModel.hasSelection()) {
+            text = editor.selectionModel.selectedText ?: return false
+            selStart = editor.selectionModel.selectionStart
         } else {
-            DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset)?.text ?: return false
+            val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return false
+            text = chunk.text
+            selStart = chunk.startOffset
         }
         if (!text.contains(DorisPipes.MARKER)) return false
         DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
@@ -113,7 +118,15 @@ private object PipesExecuteInterceptor {
                 DorisPipesExecution.notifyTranspileError(console, result)
                 true // handled: running the raw pipe text would only produce a worse server error
             }
-            is DorisPipes.Transpile.Ok -> DorisPipesExecution.submit(console, result.dorisSql, text, result.result)
+            is DorisPipes.Transpile.Ok -> {
+                // Engine offsets are relative to the TRIMMED text (transpile trims before parsing).
+                val anchor = selStart + (text.length - text.trimStart().length)
+                val vf = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
+                DorisPipesExecution.submit(
+                    console, result.dorisSql, text, result.result,
+                    vf, anchor, editor.document.text.hashCode(),
+                )
+            }
         }
     }
 }
@@ -142,6 +155,9 @@ internal object DorisPipesExecution {
         dorisSql: String,
         originalText: String,
         transpile: dev.brikk.house.sql.shape.TranspileResult? = null,
+        markFile: com.intellij.openapi.vfs.VirtualFile? = null,
+        markAnchor: Int = 0,
+        markDocHash: Int = 0,
     ): Boolean {
         val session = console.session
         val client = session.clientsWithFile.firstOrNull()
@@ -154,7 +170,9 @@ internal object DorisPipesExecution {
         // Server errors travel the AUDIT stream, not the request promise (task #19 finding): a
         // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
         // the reported transpiled position back to the user's pipe text.
-        registerRun(console, request, dorisSql, originalText, transpile)
+        // A new run supersedes the previous run's editor mark for this file.
+        markFile?.let { DorisPipes.clearExecMark(it.url) }
+        registerRun(console, request, dorisSql, originalText, transpile, markFile, markAnchor, markDocHash)
         session.messageBus.dataProducer.processRequest(request)
         return true
     }
@@ -165,6 +183,9 @@ internal object DorisPipesExecution {
         val dorisSql: String,
         val originalText: String,
         val transpile: dev.brikk.house.sql.shape.TranspileResult?,
+        val markFile: com.intellij.openapi.vfs.VirtualFile?,
+        val markAnchor: Int,
+        val markDocHash: Int,
     )
     private val runs = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, PipeRun>())
     private val audited = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, Boolean>())
@@ -175,8 +196,11 @@ internal object DorisPipesExecution {
         dorisSql: String,
         originalText: String,
         transpile: dev.brikk.house.sql.shape.TranspileResult?,
+        markFile: com.intellij.openapi.vfs.VirtualFile?,
+        markAnchor: Int,
+        markDocHash: Int,
     ) {
-        runs[request] = PipeRun(console, dorisSql, originalText, transpile)
+        runs[request] = PipeRun(console, dorisSql, originalText, transpile, markFile, markAnchor, markDocHash)
         val bus = console.session.messageBus
         // One auditor per session bus for the plugin's lifetime (weak-keyed dedupe) — it consults
         // the in-flight map, so it is inert for non-pipe requests.
@@ -209,5 +233,23 @@ internal object DorisPipesExecution {
                 NotificationType.WARNING,
             )
             .notify(run.console.project)
+        // Editor squiggle at the exact mapped span (engine 0-based char offsets, end inclusive).
+        val file = run.markFile
+        if (file != null && mapped.startOffset != null && mapped.endOffset != null) {
+            DorisPipes.setExecMark(
+                file.url,
+                DorisPipes.ExecMark(
+                    start = run.markAnchor + mapped.startOffset,
+                    end = run.markAnchor + mapped.endOffset + 1,
+                    message = message,
+                    docHash = run.markDocHash,
+                ),
+            )
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                runCatching {
+                    com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(run.console.project).restart()
+                }
+            }
+        }
     }
 }
