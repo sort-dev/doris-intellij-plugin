@@ -6,6 +6,8 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
+import dev.sort.doris.pipes.DorisPipes
+import dev.sort.doris.pipes.DorisPipesEngine
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.DefaultErrorStrategy
 import org.antlr.v4.runtime.RecognitionException
@@ -19,16 +21,36 @@ import org.apache.doris.sqlparser.DorisSqlParser
  * the authoritative Doris grammar (fe-sql-parser) off the EDT and reports every syntax error
  * at its real location — this is what makes genuine Doris DDL/DML mistakes light up.
  */
-class DorisErrorAnnotator : ExternalAnnotator<String, List<DorisSyntaxError>>() {
+class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSyntaxError>>() {
 
-    override fun collectInformation(file: PsiFile): String? {
+    override fun collectInformation(file: PsiFile): Pair<String, String>? {
         if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
         val text = file.text
-        return if (text.isBlank()) null else text
+        return if (text.isBlank()) null else file.viewProvider.virtualFile.url to text
     }
 
-    override fun doAnnotate(collectedInfo: String): List<DorisSyntaxError> {
-        return validate(collectedInfo)
+    override fun doAnnotate(collectedInfo: Pair<String, String>): List<DorisSyntaxError> {
+        val (url, text) = collectedInfo
+        val feErrors = validate(text)
+        // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
+        // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
+        // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
+        val base = if (!DorisPipes.enabled || !text.contains(DorisPipes.MARKER)) feErrors
+        else runCatching {
+            feErrors.filterNot { DorisPipes.lineInsidePipeChunk(text, it.line) } +
+                DorisPipesEngine.pipeSyntaxErrors(text)
+        }.getOrDefault(feErrors)
+        // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
+        // offsets); invalidated by any edit (doc-hash) or the next run for this file.
+        val exec = if (!DorisPipes.enabled) emptyList() else runCatching {
+            DorisPipes.execMarkFor(url, text)?.let { m ->
+                val pre = text.substring(0, m.start.coerceIn(0, text.length))
+                val line = pre.count { it == '\n' } + 1
+                val col = m.start - (pre.lastIndexOf('\n') + 1)
+                listOf(DorisSyntaxError(line, col, (m.end - m.start).coerceAtLeast(1), "Doris (server): ${m.message}"))
+            }.orEmpty()
+        }.getOrDefault(emptyList())
+        return base + exec
     }
 
     override fun apply(file: PsiFile, annotationResult: List<DorisSyntaxError>, holder: AnnotationHolder) {

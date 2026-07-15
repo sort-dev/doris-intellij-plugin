@@ -37,6 +37,15 @@ Doris-specific completion and validation.
   even behind a load balancer — and with several console windows on the same data source, each
   Stop kills exactly its own console's query (0.6.0).
   See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
+- **Doris Pipes** (0.7.0, optional): write GoogleSQL-style pipe syntax in Doris consoles and run it
+  against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
+  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Lights up
+  when the free SQL Transpiler plugin is installed.
+  See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
+- **Automatic targeted introspection** (0.7.0): reference a table in a catalog or schema that
+  hasn't been introspected yet and the plugin widens the introspection scope to just that schema
+  and refreshes it in the background — columns appear moments later, with an editor banner while a
+  table has no column data yet. No more hunting through Settings for the right refresh checkbox.
 - **Completion** for 825 Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
   `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords. Function auto-popup fires only
   in expression positions, so it never interrupts typing keywords or literals (explicit
@@ -149,6 +158,46 @@ The escape hatch back to the stock (driver-only) cancel:
 
 Tip: prefer Doris' own `query_timeout` session/global variable over the data source's JDBC
 "query timeout" option — the JDBC timeout uses the same broken second-connection kill.
+
+## Doris Pipes — pipe-syntax SQL (optional, since 0.7.0)
+
+Write queries in [GoogleSQL-style pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide)
+directly in a Doris console and run them against **any** Apache Doris — no server support needed:
+
+```sql
+FROM sales.orders
+|> WHERE order_date >= '2026-01-01'
+|> AGGREGATE count(*) AS orders, sum(amount) AS revenue GROUP BY region
+|> ORDER BY revenue DESC
+|> LIMIT 10;
+```
+
+At execution time the plugin transpiles the pipe program to standard Doris SQL (via the
+[brikk-sql](https://sort.dev) engine) and sends *that* to the server — pipes desugar to a plain
+`SELECT`, so what runs is ordinary read-only SQL. What you get in the editor:
+
+- **Pipe-aware editing**: correct statement boundaries around `|>` programs, engine syntax
+  checking with squiggles on the exact pipe line, and the platform's false MySQL errors silenced
+  inside pipe statements.
+- **Per-stage completion**: after `|>`, stage keywords; inside a stage, the columns actually
+  flowing *into* that stage — aliases from earlier stages, join relations, and qualified
+  `alias.column` references included, fed by your introspected data source.
+- **Run to any stage**: right-click → **Doris Pipes → Run Stages up to Caret** executes just the
+  pipeline prefix at your caret — the natural way to debug a pipeline stage by stage. **Preview
+  Generated SQL** shows the transpiled statement, syntax-highlighted, before you commit to running
+  anything.
+- **Errors where you wrote them**: server errors carry positions in the *generated* SQL; the
+  plugin maps them back through the transpiler's source map to the exact line and column of your
+  pipe program (balloon + editor squiggle).
+
+**Enabling it**: install the free **SQL Transpiler** plugin
+(`dev.sort.sql-transpiler-intellij-plugin`) from the Marketplace and restart the IDE (the
+restart lets the platform wire the two plugins together). Without it, this plugin simply keeps
+its regular Doris behavior — pipe features stay dormant. Escape hatch:
+
+```
+-Ddoris.pipes=false                     # VM option; default (unset) = pipes ON when engine present
+```
 
 ## Building from source
 

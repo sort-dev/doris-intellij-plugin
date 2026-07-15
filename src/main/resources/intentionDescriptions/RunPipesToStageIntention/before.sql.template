@@ -1,0 +1,3 @@
+FROM t
+|> WHERE x > 1
+|> LIMIT 10;

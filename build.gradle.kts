@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "0.6.0"
+version = "0.7.0"
 
 repositories {
     // brikk-sql-metadata (function catalogs) is a released artifact on Maven Central — no extra
@@ -33,7 +33,7 @@ dependencies {
     // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
     // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
     // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
-    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.1.0") {
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.6.0") {
         exclude(group = "org.jetbrains.kotlin")
         exclude(group = "org.jetbrains.kotlinx")
     }
@@ -51,6 +51,11 @@ dependencies {
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
         // in unit tests and the DorisSQL language never registers.
         bundledPlugin("com.intellij.modules.json")
+        // PATH B: the brikk-sql ENGINE comes from the published transpiler plugin — compile-time
+        // visibility + sandbox/test presence via the Marketplace coordinate; at runtime the
+        // optional <depends> in plugin.xml wires its classloader when the user has it installed.
+        // The Doris plugin itself stays engine-free (metadata-only), per IDEAS §2/§3.
+        plugin("dev.sort.sql-transpiler-intellij-plugin:0.2.0")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 }

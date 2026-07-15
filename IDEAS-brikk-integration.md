@@ -174,6 +174,47 @@ cancel feature proved that seam), the annotator gate (skip fe-sql-parser when br
 the statement as a pipe program), and the review-before-run UI. P2's stage-shape completion still
 wants lineage exposure from brikk-sql; the stage spans + surviving positions are its foundation.
 
+### SPIKE STATUS (branch `pipes-spike`, dogfooded 2026-07-13; throwaway — never merges)
+
+Proven working in the user's real IDE against prod Doris: **transpile-on-run** from all four
+execute entries (override `Console.Jdbc.Execute[.2/.3/.Selection]` at the EVENT-level
+`invokeImpl`; extract the pipe program from raw document text around the caret, NOT the platform
+ScriptModel), **statement bounding box** (a `|>`-bearing statement parses as one lenient
+`SQL_STATEMENT` — same machinery as CREATE JOB; fast and correct), engine-verdict **annotations**
+replacing fe noise on pipe chunks, **stage-keyword completion** after `|>`, and Alt+Enter
+**preview-generated-SQL** + **run-stages-up-to-caret** (engine `PipeStageSplitter` offsets; a
+stage prefix is a valid pipe program). Execution submits via
+`DataRequest.newRequest(sessionClientWithFile, sql, dbms)` →
+`session.messageBus.dataProducer.processRequest` — results land in the normal grid, generated SQL
+in the output log.
+
+FINAL SPIKE STATE (rounds 1–21, 2026-07-13..15; engine baseline brikk-sql 0.6.0 RELEASE): every
+gap except masking closed and user-verified —
+- Anchored pipe requests (`QueryRequest` + `CoupledWithEditor` over the original span): running
+  indicator, gutter coupling, stock-identical run feel.
+- Engine-EXACT error map-back via `toExecutable` + `mapErrorToSource(line, pos+1, exact)`:
+  audit-seam balloon (user-approved wording) + editor SQUIGGLE at the mapped token span
+  (doc-hash invalidation, superseded per run); parse errors squiggle live while typing.
+- Completion: stage keywords after `|>`; stageShapes-scoped columns (das-fed eager ShapeCatalog,
+  deterministic console-namespace resolution, model path-walk); FROM/JOIN table-path segments;
+  per-relation alias qualifiers (`|> AS e` scope + JOIN table columns).
+- AUTO-INTROSPECTION (user design call: never make them click): resolved-but-childless namespace →
+  scope union + TARGETED one-element refresh (never general sync — round-18 lesson) + stable
+  progress banner; fires from path-typing, column path, and DIALECT-WIDE qualified paths in plain
+  SQL (round 21). ENGINE-FREE → extract to the BASE plugin as an 0.7.0 feature regardless of pipes.
+- Remaining, deliberately post-Path B: `|>` masking (navigation/rename/per-expression inspections —
+  shipping-quality, Route-B-scale); lazy ShapeCatalog callback upstream.
+
+Round-5 dogfood verdicts (2026-07-14): **right-click "Doris Pipes" submenu is the canonical
+surface** — preview-generated-SQL and run-stages-to-caret both work from it. The console Execute
+action owns Alt+Enter in consoles (and our intercept deliberately pre-empts the stock
+"Ask what to execute" chooser for pipe statements), so intentions are lightbulb-only — acceptable.
+Plain run just runs (the right norm): pipe programs desugar to pure SELECT by construction (no
+DDL/DML stage exists), so auto-run is low-harm; write-shaped wrappers aren't PipeQuery roots and
+fall through to stock. TODO for real build: syntax-highlight the preview popup (read-only editor
+component, not JTextArea); running-spinner confirmed present for normal SQL and absent for pipe
+runs (the request-anchoring gap).
+
 ## 4. Dialect-annotation execution (UX, folds into #3)
 
 A leading comment marks a pasted/foreign query's dialect:
