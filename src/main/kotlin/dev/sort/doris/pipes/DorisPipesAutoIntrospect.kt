@@ -23,7 +23,13 @@ object DorisPipesAutoIntrospect {
     private val requested = java.util.Collections.synchronizedSet(HashSet<String>())
 
     /** True if a NEW auto-introspection was kicked off; false = already requested this session. */
-    fun request(project: Project, local: LocalDataSource, catalog: String?, schema: String): Boolean {
+    fun request(
+        project: Project,
+        local: LocalDataSource,
+        catalog: String?,
+        schema: String,
+        node: Any? = null,
+    ): Boolean {
         val key = "${local.uniqueId}|${catalog ?: ""}.$schema"
         if (!requested.add(key)) return false
         return runCatching {
@@ -48,11 +54,18 @@ object DorisPipesAutoIntrospect {
             }
             val current = local.introspectionScope
             local.introspectionScope =
-                if (current == null || current.roots.isEmpty()) addition
-                else TreePatternUtils.union(current, addition)
+                if (current == null) addition else TreePatternUtils.union(current, addition)
+            // TARGETED task only (dogfood round 18: selectGeneralTask re-introspected the ENTIRE
+            // widened scope — every catalog, hanging on slow externals). One element, one refresh.
+            val element = node as? com.intellij.database.model.basic.BasicElement
+            if (element == null) {
+                DorisPipes.info("auto-introspect: scope widened for $key; node not a BasicElement — no sync kicked")
+                return@runCatching false
+            }
+            val task = PipeIntrospectionTasks.oneElementRefresh(local.uniqueId, element)
             DataSourceSyncManager.getInstance()
-                .tryPerform(LoaderContext.selectGeneralTask(project, local), true, false)
-            DorisPipes.info("auto-introspect: scope widened + sync kicked for $key")
+                .tryPerform(LoaderContext.selectTask(project, local, task), true, false)
+            DorisPipes.info("auto-introspect: scope widened + TARGETED refresh for $key")
             true
         }.getOrElse { t ->
             DorisPipes.warn("auto-introspect failed for $key: ${t.message}", t)

@@ -287,13 +287,14 @@ class DorisCompletionContributor : CompletionContributor() {
                 if (schemaNodeEff != null && schemaTables.isEmpty()) {
                     val cat = bannerFqn.substringBeforeLast('.', "").takeIf { it.isNotBlank() }
                     val sch = bannerFqn.substringAfterLast('.')
-                    val kicked = dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(file.project, local, cat, sch)
+                    dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
+                        file.project, local, cat, sch, schemaNodeEff)
+                    // One stable message whether this call kicked the refresh or an earlier one did
+                    // (round 18: alternating texts flickered the banner on every completion).
                     dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
                         file.project, vf,
-                        if (kicked) "Doris Pipes: introspecting '$bannerFqn'\u2026 " +
-                            "column completion will light up when it finishes."
-                        else "Doris Pipes: '$bannerFqn' is not introspected — column completion is " +
-                            "unavailable. Introspect it in the Database view.")
+                        "Doris Pipes: introspecting '$bannerFqn'\u2026 column completion lights up " +
+                            "when it finishes (if nothing appears, introspect it in the Database view).")
                     return@runCatching null
                 }
                 val table = schemaTables.firstOrNull { it.name.equals(want.third, true) }
@@ -301,7 +302,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val cols = com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
                 if (cols.isEmpty()) {
                     dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
-                        file.project, local, want.first, want.second ?: table.name)
+                        file.project, local, want.first, want.second ?: table.name, table)
                     dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
                         file.project, vf,
                         "Doris Pipes: introspecting '${want.second}.${table.name}'\u2026")
