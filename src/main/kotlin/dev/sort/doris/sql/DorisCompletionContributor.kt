@@ -66,6 +66,100 @@ class DorisCompletionContributor : CompletionContributor() {
         private val FROM_TABLE = Regex("""\bFROM\s+([A-Za-z_`][\w`]*(?:\.[A-Za-z_`][\w`]*){0,2})""", RegexOption.IGNORE_CASE)
         private val AS_ALIAS = Regex("""\bAS\s+`?([A-Za-z_]\w*)`?""", RegexOption.IGNORE_CASE)
 
+        /** `|> AS e` — names the PIPED relation itself. */
+        private val PIPE_AS = Regex("""\|>\s*AS\s+`?([A-Za-z_]\w*)`?""", RegexOption.IGNORE_CASE)
+
+        /** `JOIN path [AS] alias` — alias must not be a clause keyword. */
+        private val JOIN_REL = Regex(
+            """\bJOIN\s+([\w`.]+)(?:\s+(?:AS\s+)?(?!ON\b|USING\b|WHERE\b|LEFT\b|RIGHT\b|CROSS\b|INNER\b|FULL\b|JOIN\b|GROUP\b|ORDER\b|LIMIT\b)`?([A-Za-z_]\w*)`?)?""",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** Columns of an arbitrary table path, resolved like the FROM base (no banner side-effects). */
+        private fun lookupColumns(file: com.intellij.psi.PsiFile, parts: List<String>): List<String>? =
+            runCatching {
+                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
+                    ?: return@runCatching null
+                val local = console.session.connectionPoint.dataSource
+                val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
+                val dataSource = facade.findDataSource(local.uniqueId)
+                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: return@runCatching null
+                val roots = dataSource.model.modelRoots.toList()
+                val ns = runCatching {
+                    generateSequence(console.currentNamespace) { it.parent }
+                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().reversed()
+                }.getOrDefault(emptyList())
+                val want = when (parts.size) {
+                    3 -> Triple(parts[0], parts[1], parts[2])
+                    2 -> Triple(ns.getOrNull(0), parts[0], parts[1])
+                    else -> Triple(ns.getOrNull(0), ns.getOrNull(1), parts[0])
+                }
+                val tkind = com.intellij.database.model.ObjectKind.TABLE
+                fun children(o: com.intellij.database.model.DasObject) =
+                    (o.getDasChildren(tkind).toList() + o.getDasChildren(null).toList()).distinct()
+                var node: com.intellij.database.model.DasObject? =
+                    roots.firstOrNull { it.name.equals(want.first ?: "", true) }
+                var schema = node?.let { n -> children(n).firstOrNull { it.name.equals(want.second ?: "", true) } }
+                if (schema == null && parts.size == 2) {
+                    // catalog.table? no — try first segment as catalog root, second as schema-less table later
+                    schema = roots.firstOrNull { it.name.equals(parts[0], true) }
+                        ?.let { n -> children(n).firstOrNull { it.name.equals(parts[1], true) } }
+                }
+                val table = (schema?.let { sn -> children(sn).firstOrNull { it.name.equals(want.third, true) } }
+                    ?: schema) as? com.intellij.database.model.DasTable ?: return@runCatching null
+                com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
+                    .takeIf { it.isNotEmpty() }
+            }.getOrNull()
+
+        /** Alias-qualified completion (`e.<caret>`): piped-relation alias or a JOIN relation. */
+        private fun offerQualified(
+            sink: CompletionResultSet,
+            file: com.intellij.psi.PsiFile,
+            chunkText: String,
+            rel: Int,
+            qual: String,
+            fromQualified: String?,
+            fromColumns: List<String>?,
+        ): Boolean {
+            // `|> AS e` — the piped relation: its columns are the stage scope at the caret.
+            if (PIPE_AS.findAll(chunkText).any { it.groupValues[1].equals(qual, true) }) {
+                val scope = dev.sort.doris.pipes.DorisPipes
+                    .stageScopeAt(chunkText, rel, fromQualified, fromColumns) ?: fromColumns ?: return false
+                for (name in scope) {
+                    sink.addElement(
+                        PrioritizedLookupElement.withPriority(
+                            LookupElementBuilder.create(name)
+                                .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                                .withTypeText("via $qual", true),
+                            96.0,
+                        ),
+                    )
+                }
+                return true
+            }
+            // JOIN relations: alias match, or the bare table name as implicit qualifier.
+            for (m in JOIN_REL.findAll(chunkText)) {
+                val path = m.groupValues[1].split('.').map { it.trim('`') }
+                val alias = m.groupValues[2].takeIf { it.isNotBlank() }
+                val matches = (alias?.equals(qual, true) == true) || path.last().equals(qual, true)
+                if (!matches) continue
+                val cols = lookupColumns(file, path) ?: return false
+                for (name in cols) {
+                    sink.addElement(
+                        PrioritizedLookupElement.withPriority(
+                            LookupElementBuilder.create(name)
+                                .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
+                                .withTypeText("${path.last()} column", true),
+                            96.0,
+                        ),
+                    )
+                }
+                return true
+            }
+            return false
+        }
+
         /** FROM-stage path completion: catalogs, then schemas, then tables along the typed path. */
         private fun offerFromPath(
             sink: CompletionResultSet,
@@ -205,6 +299,14 @@ class DorisCompletionContributor : CompletionContributor() {
                 dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, vf)
                 cols
             }.getOrNull()
+
+            // Alias-qualified position (e.<caret>): resolve against the aliased relation.
+            val qualMatch = Regex("""([A-Za-z_]\w*)\.\w*$""").find(chunk.text.substring(0, rel))
+            if (qualMatch != null &&
+                offerQualified(sink, file, chunk.text, rel, qualMatch.groupValues[1], qualified, dasColumns)
+            ) {
+                return
+            }
 
             // Preferred: the engine's per-stage scope (brikk-sql 0.6.0 stageShapes, cached per
             // chunk) — exactly the columns in scope at the caret's stage, das-fed so the base
