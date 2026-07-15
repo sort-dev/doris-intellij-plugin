@@ -84,7 +84,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
-                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return
                 val roots = dataSource.model.modelRoots.toList()
                 val nsFirst = runCatching {
@@ -142,7 +142,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
-                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return@runCatching null
                 val roots = dataSource.model.modelRoots.toList()
                 val ns = runCatching {
@@ -234,7 +234,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
-                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return true
                 val roots = dataSource.model.modelRoots.toList()
                 val nsFirst = runCatching {
@@ -316,7 +316,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
-                    ?: facade.dataSources.firstOrNull { it.delegate === local || it.uniqueId == local.uniqueId }
+                    ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
                 // DETERMINISTIC (user call-out): the console KNOWS its context — qualify the
                 // FROM reference against the live namespace instead of name-hunting the tree.
