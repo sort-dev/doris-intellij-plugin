@@ -183,7 +183,7 @@ class DorisCompletionContributor : CompletionContributor() {
         ): Boolean {
             // `|> AS e` — the piped relation: its columns are the stage scope at the caret.
             if (PIPE_AS.findAll(chunkText).any { it.groupValues[1].equals(qual, true) }) {
-                val scope = dev.sort.doris.pipes.DorisPipes
+                val scope = dev.sort.doris.pipes.DorisPipesEngine
                     .stageScopeAt(chunkText, rel, fromQualified, fromColumns) ?: fromColumns ?: return false
                 for (name in scope) {
                     sink.addElement(
@@ -397,7 +397,7 @@ class DorisCompletionContributor : CompletionContributor() {
             // Preferred: the engine's per-stage scope (brikk-sql 0.6.0 stageShapes, cached per
             // chunk) — exactly the columns in scope at the caret's stage, das-fed so the base
             // relation resolves to real names. Fixes the "alias offered before in scope" over-offer.
-            val scope = dev.sort.doris.pipes.DorisPipes.stageScopeAt(chunk.text, rel, qualified, dasColumns)
+            val scope = dev.sort.doris.pipes.DorisPipesEngine.stageScopeAt(chunk.text, rel, qualified, dasColumns)
             if (!scope.isNullOrEmpty()) {
                 for (name in scope) {
                     sink.addElement(

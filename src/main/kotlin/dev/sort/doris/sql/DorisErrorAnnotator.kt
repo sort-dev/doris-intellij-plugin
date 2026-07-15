@@ -7,6 +7,7 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import dev.sort.doris.pipes.DorisPipes
+import dev.sort.doris.pipes.DorisPipesEngine
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.DefaultErrorStrategy
 import org.antlr.v4.runtime.RecognitionException
@@ -37,7 +38,7 @@ class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSy
         val base = if (!DorisPipes.enabled || !text.contains(DorisPipes.MARKER)) feErrors
         else runCatching {
             feErrors.filterNot { DorisPipes.lineInsidePipeChunk(text, it.line) } +
-                DorisPipes.pipeSyntaxErrors(text)
+                DorisPipesEngine.pipeSyntaxErrors(text)
         }.getOrDefault(feErrors)
         // PIPES SPIKE: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
         // offsets); invalidated by any edit (doc-hash) or the next run for this file.

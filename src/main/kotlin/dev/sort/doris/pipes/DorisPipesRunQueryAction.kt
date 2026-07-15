@@ -112,13 +112,13 @@ private object PipesExecuteInterceptor {
         if (!text.contains(DorisPipes.MARKER)) return false
         DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
 
-        return when (val result = DorisPipes.transpile(text)) {
-            is DorisPipes.Transpile.NotPipe -> false
-            is DorisPipes.Transpile.Err -> {
+        return when (val result = DorisPipesEngine.transpile(text)) {
+            is DorisPipesEngine.Transpile.NotPipe -> false
+            is DorisPipesEngine.Transpile.Err -> {
                 DorisPipesExecution.notifyTranspileError(console, result)
                 true // handled: running the raw pipe text would only produce a worse server error
             }
-            is DorisPipes.Transpile.Ok -> {
+            is DorisPipesEngine.Transpile.Ok -> {
                 // Engine offsets are relative to the TRIMMED text (transpile trims before parsing).
                 val trimAnchor = selStart + (text.length - text.trimStart().length)
                 val vf = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
@@ -171,7 +171,7 @@ internal data class PipeAnchor(
  */
 internal object DorisPipesExecution {
 
-    fun notifyTranspileError(console: JdbcConsole, err: DorisPipes.Transpile.Err) {
+    fun notifyTranspileError(console: JdbcConsole, err: DorisPipesEngine.Transpile.Err) {
         val where = err.line?.let { " at line ${err.line}, col ${err.col}" } ?: ""
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
@@ -261,7 +261,7 @@ internal object DorisPipesExecution {
     private fun balloonMappedError(run: PipeRun, info: com.intellij.database.connection.throwable.info.ErrorInfo) {
         val message = runCatching { info.message }.getOrNull() ?: return
         if (!message.contains("(line ")) return
-        val mapped = run.transpile?.let { DorisPipes.mapServerErrorExact(message, it) }
+        val mapped = run.transpile?.let { DorisPipesEngine.mapServerErrorExact(message, it) }
             ?: DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
         if (mapped.originalLine == null) return
         NotificationGroupManager.getInstance()

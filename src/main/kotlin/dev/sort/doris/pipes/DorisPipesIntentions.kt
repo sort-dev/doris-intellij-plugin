@@ -57,16 +57,16 @@ internal object DorisPipesUi {
 
     fun preview(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
-        when (val result = DorisPipes.transpile(chunk.text)) {
-            is DorisPipes.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
-            is DorisPipes.Transpile.Err -> notify(
+        when (val result = DorisPipesEngine.transpile(chunk.text)) {
+            is DorisPipesEngine.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
+            is DorisPipesEngine.Transpile.Err -> notify(
                 project,
                 "Pipe program has a syntax error" +
                     (result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""),
                 result.message,
                 NotificationType.ERROR,
             )
-            is DorisPipes.Transpile.NotPipe ->
+            is DorisPipesEngine.Transpile.NotPipe ->
                 notify(project, "Not a pipe program", "The statement parses as plain SQL.", NotificationType.INFORMATION)
         }
     }
@@ -83,12 +83,12 @@ internal object DorisPipesUi {
             return
         }
         val rel = editor.caretModel.offset - chunk.startOffset
-        val prefix = DorisPipes.stagePrefixAt(chunk.text, rel) ?: run {
+        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, rel) ?: run {
             notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
             return
         }
-        when (val result = DorisPipes.transpile(prefix.text)) {
-            is DorisPipes.Transpile.Ok -> {
+        when (val result = DorisPipesEngine.transpile(prefix.text)) {
+            is DorisPipesEngine.Transpile.Ok -> {
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
                 val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
                 val range = com.intellij.openapi.util.TextRange(
@@ -107,14 +107,14 @@ internal object DorisPipesUi {
                     )
                 }
             }
-            is DorisPipes.Transpile.Err -> notify(
+            is DorisPipesEngine.Transpile.Err -> notify(
                 project,
                 "Stage prefix has a syntax error" +
                     (result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""),
                 result.message,
                 NotificationType.ERROR,
             )
-            is DorisPipes.Transpile.NotPipe ->
+            is DorisPipesEngine.Transpile.NotPipe ->
                 notify(project, "Not a pipe program", "The statement parses as plain SQL.", NotificationType.INFORMATION)
         }
     }

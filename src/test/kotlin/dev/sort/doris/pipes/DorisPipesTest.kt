@@ -27,9 +27,9 @@ class DorisPipesTest {
 
     @Test
     fun `valid pipe program transpiles to CTE-form Doris SQL`() {
-        val r = DorisPipes.transpile(pipe)
-        assertTrue("expected Ok, got $r", r is DorisPipes.Transpile.Ok)
-        val sql = (r as DorisPipes.Transpile.Ok).dorisSql
+        val r = DorisPipesEngine.transpile(pipe)
+        assertTrue("expected Ok, got $r", r is DorisPipesEngine.Transpile.Ok)
+        val sql = (r as DorisPipesEngine.Transpile.Ok).dorisSql
         assertTrue(sql.contains("WITH"))
         assertTrue(sql.contains("GROUP BY"))
         assertTrue(sql.contains("LIMIT 10"))
@@ -38,20 +38,20 @@ class DorisPipesTest {
 
     @Test
     fun `trailing semicolon is tolerated`() {
-        assertTrue(DorisPipes.transpile("$pipe;") is DorisPipes.Transpile.Ok)
+        assertTrue(DorisPipesEngine.transpile("$pipe;") is DorisPipesEngine.Transpile.Ok)
     }
 
     @Test
     fun `plain SQL with pipe marker inside a string literal is NotPipe`() {
-        val r = DorisPipes.transpile("SELECT '|>' AS marker FROM t")
-        assertTrue("expected NotPipe, got $r", r is DorisPipes.Transpile.NotPipe)
+        val r = DorisPipesEngine.transpile("SELECT '|>' AS marker FROM t")
+        assertTrue("expected NotPipe, got $r", r is DorisPipesEngine.Transpile.NotPipe)
     }
 
     @Test
     fun `broken pipe program yields positioned Err`() {
-        val r = DorisPipes.transpile("FROM t\n|> WHERE\n|> LIMIT 5")
-        assertTrue("expected Err, got $r", r is DorisPipes.Transpile.Err)
-        val err = r as DorisPipes.Transpile.Err
+        val r = DorisPipesEngine.transpile("FROM t\n|> WHERE\n|> LIMIT 5")
+        assertTrue("expected Err, got $r", r is DorisPipesEngine.Transpile.Err)
+        val err = r as DorisPipesEngine.Transpile.Err
         assertEquals(3, err.line)
         assertTrue(err.message.isNotBlank())
     }
@@ -79,7 +79,7 @@ class DorisPipesTest {
     @Test
     fun `pipeSyntaxErrors reports absolute lines for broken pipe chunks only`() {
         val text = "SELECT 1;\nFROM t\n|> WHERE\n|> LIMIT 5"
-        val errors = DorisPipes.pipeSyntaxErrors(text)
+        val errors = DorisPipesEngine.pipeSyntaxErrors(text)
         assertEquals(1, errors.size)
         // Engine says relative line 3 of the chunk; the chunk starts on document line 1 (after
         // the ';' on line 1), so the |> on document line 4 is the anchor.
@@ -89,7 +89,7 @@ class DorisPipesTest {
 
     @Test
     fun `valid pipe chunks produce no errors`() {
-        assertTrue(DorisPipes.pipeSyntaxErrors("SELECT 1;\n$pipe").isEmpty())
+        assertTrue(DorisPipesEngine.pipeSyntaxErrors("SELECT 1;\n$pipe").isEmpty())
     }
 
     @Test
@@ -124,14 +124,14 @@ class DorisPipesTest {
     fun `stagePrefixAt cuts a runnable prefix at the caret's stage`() {
         // Caret inside the WHERE stage -> stages 1-2 only.
         val whereOffset = pipe.indexOf("WHERE") + 2
-        val prefix = DorisPipes.stagePrefixAt(pipe, whereOffset)!!
+        val prefix = DorisPipesEngine.stagePrefixAt(pipe, whereOffset)!!
         assertEquals(2, prefix.stage)
         assertEquals(5, prefix.totalStages)
         assertTrue(prefix.text.endsWith("'2026-01-01'"))
         // A stage prefix is itself a valid pipe program.
-        assertTrue(DorisPipes.transpile(prefix.text) is DorisPipes.Transpile.Ok)
+        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Ok)
         // Caret in the last stage -> the whole program.
-        val last = DorisPipes.stagePrefixAt(pipe, pipe.indexOf("LIMIT") + 1)!!
+        val last = DorisPipesEngine.stagePrefixAt(pipe, pipe.indexOf("LIMIT") + 1)!!
         assertEquals(5, last.stage)
         assertEquals(pipe.trimEnd(), last.text.trimEnd())
     }
