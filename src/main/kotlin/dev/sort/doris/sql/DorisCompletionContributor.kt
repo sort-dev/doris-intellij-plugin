@@ -205,7 +205,22 @@ class DorisCompletionContributor : CompletionContributor() {
                     for (p in parents.drop(1)) {
                         node = node?.let { n -> children(n).firstOrNull { it.name.equals(p, true) } }
                     }
-                    node?.let { offer(children(it).map { c -> c.name }, "in ${it.name}", DatabaseIcons.Table) }
+                    val kids = node?.let { children(it) }.orEmpty()
+                    if (node != null && kids.isEmpty()) {
+                        // The user is PATH-TYPING into an enumerated-but-childless namespace — the
+                        // exact moment auto-introspection should kick (dogfood round 19: the trigger
+                        // only lived on the column path, so `schema.` did nothing at all).
+                        val fqn = parents.joinToString(".")
+                        dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
+                            file.project, local, parents.dropLast(1).lastOrNull() ?: nsFirst,
+                            parents.last(), node)
+                        dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                            file.project, file.viewProvider.virtualFile,
+                            "Doris Pipes: introspecting '$fqn'\u2026 invoke completion again when it " +
+                                "finishes (if nothing appears, introspect it in the Database view).")
+                    } else {
+                        node?.let { offer(kids.map { c -> c.name }, "in ${it.name}", DatabaseIcons.Table) }
+                    }
                 }
             }
             return true
