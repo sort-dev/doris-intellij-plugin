@@ -188,16 +188,22 @@ stage prefix is a valid pipe program). Execution submits via
 `session.messageBus.dataProducer.processRequest` — results land in the normal grid, generated SQL
 in the output log.
 
-Known gaps for the REAL build (Path B: engine from the published
-`dev.sort.sql-transpiler-intellij-plugin`, optional-depends, pipes behind an optional descriptor):
-- **No running-spinner / gutter cancel** on pipe runs — our request isn't anchored to an editor
-  range; needs the stock `executeQueries` wiring or request-range plumbing.
-- **Server-error map-back balloon never fires** — `DataRequest.promise` apparently resolves
-  normally on SQL errors (errors travel the audit sink); find the right seam (task #19). The
-  token-heuristic mapper is unit-tested and ready; the exact fix is generated-position provenance.
-- **In-stage column completion/resolution** — needs the replay extension (pipe skeleton +
-  delegated expressions) + typeSystem lineage shapes; nothing built yet.
-- Semantic noise inside pipe statements is blanket-suppressed (no `|>` masking).
+FINAL SPIKE STATE (rounds 1–21, 2026-07-13..15; engine baseline brikk-sql 0.6.0 RELEASE): every
+gap except masking closed and user-verified —
+- Anchored pipe requests (`QueryRequest` + `CoupledWithEditor` over the original span): running
+  indicator, gutter coupling, stock-identical run feel.
+- Engine-EXACT error map-back via `toExecutable` + `mapErrorToSource(line, pos+1, exact)`:
+  audit-seam balloon (user-approved wording) + editor SQUIGGLE at the mapped token span
+  (doc-hash invalidation, superseded per run); parse errors squiggle live while typing.
+- Completion: stage keywords after `|>`; stageShapes-scoped columns (das-fed eager ShapeCatalog,
+  deterministic console-namespace resolution, model path-walk); FROM/JOIN table-path segments;
+  per-relation alias qualifiers (`|> AS e` scope + JOIN table columns).
+- AUTO-INTROSPECTION (user design call: never make them click): resolved-but-childless namespace →
+  scope union + TARGETED one-element refresh (never general sync — round-18 lesson) + stable
+  progress banner; fires from path-typing, column path, and DIALECT-WIDE qualified paths in plain
+  SQL (round 21). ENGINE-FREE → extract to the BASE plugin as an 0.7.0 feature regardless of pipes.
+- Remaining, deliberately post-Path B: `|>` masking (navigation/rename/per-expression inspections —
+  shipping-quality, Route-B-scale); lazy ShapeCatalog callback upstream.
 
 Round-5 dogfood verdicts (2026-07-14): **right-click "Doris Pipes" submenu is the canonical
 surface** — preview-generated-SQL and run-stages-to-caret both work from it. The console Execute
