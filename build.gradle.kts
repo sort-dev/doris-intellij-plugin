@@ -41,17 +41,6 @@ dependencies {
     // NOT bundled (the platform provides kotlinx-serialization at runtime); no version conflict.
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
-    // ── PIPES SPIKE ONLY (branch pipes-spike) ─────────────────────────────────────────────────
-    // The brikk-sql ENGINE (~3.6 MB) is bundled here so pipe syntax can be dogfooded in a real
-    // IDE. This is a deliberate violation of the shipping architecture (IDEAS-brikk-integration.md
-    // §2/§3: the engine belongs to the separate transpiler plugin; the Doris plugin stays
-    // metadata-only) — this dependency must NOT reach main/a release. Same transitive-exclusion
-    // rationale as the metadata jar above.
-    implementation("dev.brikk.house:brikk-sql-jvm:0.6.0") {
-        exclude(group = "org.jetbrains.kotlin")
-        exclude(group = "org.jetbrains.kotlinx")
-    }
-
     intellijPlatform {
         // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
         // (e.g. SqlFileElementType's package) is incompatible with 261. Remote SDK so any clone/CI
@@ -62,6 +51,11 @@ dependencies {
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
         // in unit tests and the DorisSQL language never registers.
         bundledPlugin("com.intellij.modules.json")
+        // PATH B: the brikk-sql ENGINE comes from the published transpiler plugin — compile-time
+        // visibility + sandbox/test presence via the Marketplace coordinate; at runtime the
+        // optional <depends> in plugin.xml wires its classloader when the user has it installed.
+        // The Doris plugin itself stays engine-free (metadata-only), per IDEAS §2/§3.
+        plugin("dev.sort.sql-transpiler-intellij-plugin:0.2.0")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 }

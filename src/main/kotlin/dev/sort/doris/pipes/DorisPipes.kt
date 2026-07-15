@@ -33,8 +33,23 @@ object DorisPipes {
 
     fun isEnabledValue(raw: String?): Boolean = !"false".equals(raw, ignoreCase = true)
 
+    /**
+     * PATH B: the engine arrives via the OPTIONAL transpiler-plugin dependency
+     * (`dev.sort.sql-transpiler-intellij-plugin`). When it isn't installed, every pipe feature
+     * must vanish cleanly — [enabled] is the single gate all pipe code paths already check, so
+     * it also requires the engine classes to be reachable through our classloader (checked once).
+     * Auto-introspection is deliberately NOT behind this gate — it is engine-free.
+     */
+    val engineAvailable: Boolean by lazy {
+        runCatching {
+            Class.forName("dev.brikk.house.sql.shape.SqlFragment", false, DorisPipes::class.java.classLoader)
+        }.isSuccess.also {
+            if (!it) info("brikk-sql engine not present (transpiler plugin not installed) — pipe features disabled")
+        }
+    }
+
     val enabled: Boolean
-        get() = isEnabledValue(System.getProperty(PROPERTY))
+        get() = engineAvailable && isEnabledValue(System.getProperty(PROPERTY))
 
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"

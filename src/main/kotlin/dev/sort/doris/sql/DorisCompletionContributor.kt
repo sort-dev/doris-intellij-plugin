@@ -71,7 +71,7 @@ class DorisCompletionContributor : CompletionContributor() {
             context: ProcessingContext,
             result: CompletionResultSet
         ) {
-            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            // Engine-free base feature: runs with or without the transpiler plugin installed.
             val file = parameters.originalFile
             if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return
             runCatching {

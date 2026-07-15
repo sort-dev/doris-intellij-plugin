@@ -1,0 +1,66 @@
+<idea-plugin>
+    <!-- Doris Pipes — loaded ONLY when dev.sort.sql-transpiler-intellij-plugin is installed
+         (optional depends in plugin.xml). Everything engine-dependent registers here; the base
+         plugin stays engine-free. -->
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- PIPES SPIKE: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
+             "run stages up to caret" (execute-to-stage-N; a stage prefix is a valid pipe program). -->
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.pipes.PreviewPipeSqlIntention</className>
+            <category>Doris</category>
+        </intentionAction>
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.pipes.RunPipesToStageIntention</className>
+            <category>Doris</category>
+        </intentionAction>
+    </extensions>
+
+    <actions>
+        <!-- PIPES SPIKE (branch pipes-spike): replaces ALL FOUR stock console execute actions with
+             subclasses that transpile a pipe-syntax statement to canonical Doris SQL at run time
+             and submit THAT; everything else delegates to stock byte-for-byte (see
+             DorisPipesRunQueryAction). Registrations mirror the stock ones (database-plugin.xml). -->
+        <action id="Console.Jdbc.Execute"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction"
+                overrides="true"
+                text="Execute"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"
+                use-shortcut-of="Console.Execute.Multiline"/>
+        <action id="Console.Jdbc.Execute.2"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction2"
+                overrides="true"
+                text="Execute (Variant 2)"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"/>
+        <action id="Console.Jdbc.Execute.3"
+                class="dev.sort.doris.pipes.DorisPipesRunQueryAction3"
+                overrides="true"
+                text="Execute (Variant 3)"
+                description="Execute statement"
+                icon="AllIcons.Actions.Execute"/>
+        <action id="Console.Jdbc.Execute.Selection"
+                class="dev.sort.doris.pipes.DorisPipesRunSelectionAction"
+                overrides="true"
+                text="Run Selection as One Statement"
+                description="Execute the selection exactly as one statement"
+                icon="AllIcons.Actions.Execute"/>
+
+        <!-- PIPES SPIKE: right-click "Doris Pipes" submenu — same operations as the Alt+Enter
+             intentions, visible only with the caret inside a pipe statement of a Doris file. -->
+        <group id="DorisPipes.EditorMenu" text="Doris Pipes" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <action id="DorisPipes.PreviewSql"
+                    class="dev.sort.doris.pipes.PreviewPipeSqlAction"
+                    text="Preview Generated SQL"
+                    description="Show the canonical Doris SQL this pipe program transpiles to, without running it"/>
+            <action id="DorisPipes.RunToStage"
+                    class="dev.sort.doris.pipes.RunPipesToStageAction"
+                    text="Run Stages up to Caret"
+                    description="Transpile and execute only the pipe stages up to and including the one under the caret"/>
+        </group>
+    </actions>
+</idea-plugin>
