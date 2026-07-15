@@ -285,15 +285,26 @@ class DorisCompletionContributor : CompletionContributor() {
                 // Banner ONLY for truly-childless nodes (M9 enumerated-but-not-introspected). A
                 // name that simply doesn't match is mid-typing — never banner, never spam.
                 if (schemaNodeEff != null && schemaTables.isEmpty()) {
-                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(file.project, vf, bannerFqn)
+                    val cat = bannerFqn.substringBeforeLast('.', "").takeIf { it.isNotBlank() }
+                    val sch = bannerFqn.substringAfterLast('.')
+                    val kicked = dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(file.project, local, cat, sch)
+                    dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
+                        file.project, vf,
+                        if (kicked) "Doris Pipes: introspecting '$bannerFqn'\u2026 " +
+                            "column completion will light up when it finishes."
+                        else "Doris Pipes: '$bannerFqn' is not introspected — column completion is " +
+                            "unavailable. Introspect it in the Database view.")
                     return@runCatching null
                 }
                 val table = schemaTables.firstOrNull { it.name.equals(want.third, true) }
                     as? com.intellij.database.model.DasTable ?: return@runCatching null
                 val cols = com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
                 if (cols.isEmpty()) {
+                    dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
+                        file.project, local, want.first, want.second ?: table.name)
                     dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
-                        file.project, vf, "${want.second}.${table.name}")
+                        file.project, vf,
+                        "Doris Pipes: introspecting '${want.second}.${table.name}'\u2026")
                     return@runCatching null
                 }
                 dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, vf)

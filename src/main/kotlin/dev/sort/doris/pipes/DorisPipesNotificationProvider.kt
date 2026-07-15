@@ -37,9 +37,7 @@ class DorisPipesNotificationProvider : EditorNotificationProvider {
     companion object {
         private val MISSES: MutableMap<String, String> = Collections.synchronizedMap(HashMap())
 
-        fun reportMiss(project: Project, file: VirtualFile, tableFqn: String) {
-            val message = "Doris Pipes: '$tableFqn' is not introspected — column completion is " +
-                "unavailable. Introspect it in the Database view (or adjust the introspection scope)."
+        fun reportMiss(project: Project, file: VirtualFile, message: String) {
             if (MISSES.put(file.url, message) != message) {
                 EditorNotifications.getInstance(project).updateNotifications(file)
             }
