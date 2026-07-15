@@ -55,6 +55,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.7.1</b> — internal-API cleanup flagged by Marketplace verification (one platform
+        accessor replaced with its public equivalent). No functional changes.
+        <br/>
         <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
         <ul>
             <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax
