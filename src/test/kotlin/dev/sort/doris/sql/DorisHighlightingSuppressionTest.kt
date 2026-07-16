@@ -374,11 +374,29 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         assertNoInfo(infos, "Identifier is too long")
     }
 
-    /** The identifier-length inspection itself stays alive for REAL (backtick) identifiers. */
-    fun testBacktickIdentifierTooLongStaysRed() {
+    /**
+     * The identifier-length suppression keys on DOUBLE-quoted tokens only — backtick identifiers
+     * keep their error. Tested against the filter directly: the platform inspection that produces
+     * "Identifier is too long" is flaky in the light fixture (fires in some runs, not others), so
+     * an end-to-end assertHasInfo on it is not reliable; the filter's verdict is deterministic.
+     */
+    fun testIdentifierTooLongSuppressionKeysOnDoubleQuotesOnly() {
         val long = "x".repeat(80)
-        val infos = highlight("SELECT 1 AS `$long`;")
-        assertHasInfo(infos, "Identifier is too long")
+        val psi = myFixture.configureByText("f.sql", "SELECT 1 AS `$long`, \"$long\" FROM t;")
+        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+        val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
+        assertTrue("mapping must yield a Doris file", file.language.isKindOf(DorisSqlDialect.INSTANCE))
+        val filter = DorisHighlightInfoFilter()
+        fun infoOver(token: String): com.intellij.codeInsight.daemon.impl.HighlightInfo {
+            val start = file.text.indexOf(token).also { check(it >= 0) }
+            return com.intellij.codeInsight.daemon.impl.HighlightInfo
+                .newHighlightInfo(com.intellij.codeInsight.daemon.impl.HighlightInfoType.ERROR)
+                .range(start, start + token.length)
+                .descriptionAndTooltip("Identifier is too long (should not exceed 64 characters)")
+                .create()!!
+        }
+        assertTrue("backtick identifier must KEEP the error", filter.accept(infoOver("`$long`"), file))
+        assertFalse("double-quoted token must be suppressed", filter.accept(infoOver("\"$long\""), file))
     }
 
     private companion object {

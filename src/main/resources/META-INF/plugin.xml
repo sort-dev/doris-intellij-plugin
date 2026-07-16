@@ -55,16 +55,25 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>0.7.1</b> — small fixes.
+        <b>0.8.0</b> — double-quoted strings behave like Doris strings.
         <ul>
-            <li>Double-quoted table-function property values — e.g.
-                <code>query('catalog' = 'c', 'query' = "select ...")</code> — no longer show the
-                false <i>"Identifier is too long"</i> / unresolved errors. Doris reads
-                <code>"..."</code> as a string literal; the underlying MySQL grammar read it as an
-                ANSI quoted identifier. Real (backtick) identifier checks are unaffected.</li>
-            <li>Internal-API cleanup flagged by Marketplace verification (one platform accessor
-                replaced with its public equivalent).</li>
+            <li>Double-quoted values — e.g.
+                <code>query('catalog' = 'c', 'query' = "select ...")</code> — are treated as what
+                they are in Doris: <b>string literals</b>. The false
+                <i>"Identifier is too long"</i> / unresolved errors are gone anywhere in a
+                statement, and the text is now <b>colored as a string</b> instead of an
+                identifier. (Doris reads <code>"..."</code> as a string everywhere — only
+                backticks quote identifiers; the underlying MySQL grammar read it as an ANSI
+                quoted identifier. Backtick identifier checks are unaffected.)</li>
+            <li><b>Enter inside a string inserts a plain newline.</b> Doris string literals are
+                multi-line, so the editor no longer splits them into a
+                <code>'...' || '...'</code> concatenation on Enter — multi-line property values
+                (a <code>query()</code> body spanning several lines, escapes and all) are now
+                comfortable to type.</li>
         </ul>
+        <b>0.7.1</b> — internal-API cleanup flagged by Marketplace verification (one platform
+        accessor replaced with its public equivalent). No functional changes.
+        <br/>
         <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
         <ul>
             <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax
@@ -181,6 +190,10 @@
         <lang.parserDefinition language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisParserDefinition"/>
         <lang.syntaxHighlighterFactory language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisSyntaxHighlighterFactory"/>
         <lang.commenter language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCommenter"/>
+        <!-- Non-Concat quote handler: keeps Enter-inside-a-string a plain newline (Doris strings
+             are multi-line); without this DorisSQL inherits base-SQL's Concat handler and Enter
+             splits the string into '…' || '…'. Same opt-out JetBrains' MySQL dialect uses. -->
+        <lang.quoteHandler language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisQuoteHandler"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
@@ -188,6 +201,10 @@
              highlighter would otherwise paint as comments — the highlighting lexer IS the parser
              lexer on this platform. TextAttributes only; no PSI or parser impact. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisMaskedSpanRecolorAnnotator"/>
+        <!-- Cosmetic: "..." is ALWAYS a string in Doris, but the MySQL substrate colors it as an
+             ANSI quoted identifier — paint string color back over it (throwaway once the lexer
+             remaps the token itself). -->
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisDoubleQuotedStringRecolorAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
              pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
