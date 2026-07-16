@@ -27,9 +27,8 @@ SqlFile:corpus.sql
         SQL_DEFAULT_CONSTRAINT_DEFINITION
           PsiElement(DEFAULT)('DEFAULT')
           PsiWhiteSpace(' ')
-          SQL_COLUMN_REFERENCE
-            SQL_IDENTIFIER
-              PsiElement(SQL_IDENT_DELIMITED)('"unknown"')
+          SQL_STRING_LITERAL
+            PsiElement(SQL_STRING_TOKEN)('"unknown"')
       PsiWhiteSpace(' ')
       SQL_CLAUSE
         PsiElement(AFTER)('AFTER')

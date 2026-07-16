@@ -52,11 +52,11 @@ SqlFile:corpus.sql
     PsiElement(SQL_IDENT)('PROPERTIES')
     PsiWhiteSpace(' ')
     PsiElement(()('(')
-    PsiElement(SQL_IDENT_DELIMITED)('"replication_num"')
+    PsiElement(SQL_STRING_TOKEN)('"replication_num"')
     PsiWhiteSpace(' ')
     PsiElement(=)('=')
     PsiWhiteSpace(' ')
-    PsiElement(SQL_IDENT_DELIMITED)('"1"')
+    PsiElement(SQL_STRING_TOKEN)('"1"')
     PsiElement())(')')
     PsiWhiteSpace('\n')
     SQL_AS_QUERY_CLAUSE
