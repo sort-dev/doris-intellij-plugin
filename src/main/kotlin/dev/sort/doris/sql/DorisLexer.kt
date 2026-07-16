@@ -59,9 +59,26 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
             }
             isCastAs(baseLexer) -> handleCastAs(baseLexer)
             isRegexpFunctionCall(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_IDENT)
+            isDoubleQuotedToken(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_STRING_TOKEN)
             else -> super.lookAhead(baseLexer)
         }
     }
+
+    /**
+     * `"…"` is ALWAYS a string literal in Doris — backticks are the only identifier quoting, and
+     * the ANSI_QUOTES sql_mode is a server no-op (user-confirmed against the engine). MysqlLexer
+     * instead lexes it as a delimited IDENTIFIER — the SAME token type backticks get
+     * (SQL_IDENT_DELIMITED), so the check keys on the opening character. Only the token TYPE is
+     * remapped: MysqlLexer's DQ token boundaries already match Doris string semantics (multi-line
+     * content and backslash-escaped `\"` lex within one token; unterminated quotes become
+     * SQL_UNCLOSED_TOKEN, which is left alone) — pinned by DorisDqStringLexTest. Downstream this
+     * makes `'query' = "select …"` parse as string = string (real literal PSI, correct string
+     * coloring, no bogus identifier diagnostics to suppress).
+     */
+    private fun isDoubleQuotedToken(base: Lexer): Boolean =
+        base.tokenType == SqlTokens.SQL_IDENT_DELIMITED &&
+            base.tokenStart < base.tokenEnd &&
+            base.bufferSequence[base.tokenStart] == '"'
 
     /**
      * Doris cast targets the MySQL grammar rejects. The generated `valid_cast_type_element` rule

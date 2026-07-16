@@ -201,10 +201,8 @@
              highlighter would otherwise paint as comments — the highlighting lexer IS the parser
              lexer on this platform. TextAttributes only; no PSI or parser impact. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisMaskedSpanRecolorAnnotator"/>
-        <!-- Cosmetic: "..." is ALWAYS a string in Doris, but the MySQL substrate colors it as an
-             ANSI quoted identifier — paint string color back over it (throwaway once the lexer
-             remaps the token itself). -->
-        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisDoubleQuotedStringRecolorAnnotator"/>
+        <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
              pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
