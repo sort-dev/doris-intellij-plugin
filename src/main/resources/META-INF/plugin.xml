@@ -55,6 +55,18 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.9.0</b> — native double-quoted strings; SQL highlighting inside <code>query()</code>.
+        <ul>
+            <li><b>Double-quoted string handling is now native:</b> <code>"..."</code> lexes as a
+                real string literal — correct string coloring everywhere (multi-line included),
+                honest statement structure, and property pairs like <code>'k' = "v"</code> parse
+                as string = string. (0.8.0 suppressed the false errors and painted over the color;
+                0.9.0 removes the mis-lex at the root. Backtick identifiers are unaffected.)</li>
+            <li><b>Generic SQL syntax highlighting inside <code>query()</code> payload strings:</b>
+                the SQL in the <code>'query'</code> property of the <code>query()</code> table
+                function is now colored (keywords, identifiers, numbers; both quote styles,
+                multi-line) so embedded remote queries read as SQL instead of one solid string.</li>
+        </ul>
         <b>0.8.0</b> — double-quoted strings behave like Doris strings.
         <ul>
             <li>Double-quoted values — e.g.
