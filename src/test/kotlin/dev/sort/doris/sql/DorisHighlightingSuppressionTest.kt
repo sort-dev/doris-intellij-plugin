@@ -343,6 +343,44 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         assertHasInfo(infos, "Unable to resolve column 'b'")
     }
 
+    /**
+     * Dogfood 2026-07-15: Doris accepts single- OR double-quoted TVF property values, but the MySQL
+     * substrate lexes "..." as a quoted IDENTIFIER (ANSI style), so a double-quoted value became an
+     * unresolved reference. Mixed quoting ('key' = "value", the shape that bit) must stay quiet,
+     * including when the value embeds single quotes.
+     */
+    fun testTvfDoubleQuotedPropertyValuesQuiet() {
+        val infos = highlight(
+            """
+            SELECT *
+            FROM QUERY(
+                'catalog' = 'ch_cat',
+                'query' = "select d, sum(v) from stats.imps where d >= '2026-01-01' group by d"
+            );
+            """.trimIndent(),
+        )
+        assertNoInfo(infos, "Unable to resolve")
+        assertNoInfo(infos, "Identifier is too long")
+        if (infos.isNotEmpty()) {
+            fail("expected NO visible highlights, got: " + infos.joinToString { "'${it.description}'" })
+        }
+    }
+
+    /** Double-quoted tokens are strings in Doris even OUTSIDE TVF arg lists — never identifiers. */
+    fun testDoubleQuotedStringInSelectListQuiet() {
+        val long = "x".repeat(80)
+        val infos = highlight("SELECT \"$long\" FROM (SELECT 1 AS a) t;")
+        assertNoInfo(infos, "Unable to resolve")
+        assertNoInfo(infos, "Identifier is too long")
+    }
+
+    /** The identifier-length inspection itself stays alive for REAL (backtick) identifiers. */
+    fun testBacktickIdentifierTooLongStaysRed() {
+        val long = "x".repeat(80)
+        val infos = highlight("SELECT 1 AS `$long`;")
+        assertHasInfo(infos, "Identifier is too long")
+    }
+
     private companion object {
         const val REPLAY_FLAG = "doris.replay.poc"
         const val COUNT_MISMATCH = "value(s) expected, got"

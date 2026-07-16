@@ -55,9 +55,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>0.7.1</b> — internal-API cleanup flagged by Marketplace verification (one platform
-        accessor replaced with its public equivalent). No functional changes.
-        <br/>
+        <b>0.7.1</b> — small fixes.
+        <ul>
+            <li>Double-quoted table-function property values — e.g.
+                <code>query('catalog' = 'c', 'query' = "select ...")</code> — no longer show the
+                false <i>"Identifier is too long"</i> / unresolved errors. Doris reads
+                <code>"..."</code> as a string literal; the underlying MySQL grammar read it as an
+                ANSI quoted identifier. Real (backtick) identifier checks are unaffected.</li>
+            <li>Internal-API cleanup flagged by Marketplace verification (one platform accessor
+                replaced with its public equivalent).</li>
+        </ul>
         <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
         <ul>
             <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax

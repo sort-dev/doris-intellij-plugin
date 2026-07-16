@@ -96,6 +96,17 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             if (element != null && isDorisUnresolvedFalsePositive(element)) return false
         }
         if (description.contains(UNRESOLVED_COLUMN) && isTvfFalsePositive(file, highlightInfo)) return false
+        // Dogfood 2026-07-15: Doris (MySQL-default sql_mode) reads "..." as a STRING LITERAL, but
+        // the MySQL substrate lexes it as an ANSI quoted IDENTIFIER — so a double-quoted TVF
+        // property value like 'query' = "select ..." became an "identifier", tripping the MySQL
+        // 64-char identifier-length inspection (and, outside TVF arg lists, unresolved-reference).
+        // A double-quoted token is never a real identifier in Doris, so any identifier-shaped
+        // complaint about one is structurally wrong. Backtick identifiers keep both inspections.
+        if ((description.contains(IDENTIFIER_TOO_LONG) || description.contains(UNRESOLVED_PREFIX)) &&
+            isDoubleQuotedToken(file, highlightInfo)
+        ) {
+            return false
+        }
         // M9 (flag-ON only): references into enumerated-but-not-introspected catalogs are
         // OUT-OF-SCOPE, not wrong — suppress instead of red-flooding. Nonexistent names under
         // INTROSPECTED namespaces (incl. internal) keep their error.
@@ -400,6 +411,14 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             dev.sort.doris.catalog.DorisOutOfScope.Classification.OUT_OF_SCOPE
     }
 
+    /** Is the highlighted range a double-quoted token ("..." — a string literal in Doris)? */
+    private fun isDoubleQuotedToken(file: PsiFile, info: HighlightInfo): Boolean {
+        val text = file.text
+        if (info.startOffset !in text.indices || info.endOffset > text.length) return false
+        if (info.endOffset - info.startOffset < 2) return false
+        return text[info.startOffset] == '"' && text[info.endOffset - 1] == '"'
+    }
+
     private fun isTvfFalsePositive(file: PsiFile, info: HighlightInfo): Boolean {
         val element = file.findElementAt(info.startOffset) ?: return false
 
@@ -429,6 +448,10 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     private companion object {
         private const val UNRESOLVED_COLUMN = "Unable to resolve column"
         private const val UNRESOLVED_PREFIX = "Unable to resolve"
+
+        // MysqlIdentifierLengthInspection: "Identifier is too long (should not exceed 64
+        // characters)". Structurally wrong on "..." tokens (strings in Doris); see accept().
+        private const val IDENTIFIER_TOO_LONG = "Identifier is too long"
 
         // SqlInsertValuesInspection's message (SqlBundle "incorrect.values.number"):
         // "{0} value(s) expected, got {1}". Match the stable middle, the numbers vary.
