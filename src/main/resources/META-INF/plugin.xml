@@ -55,6 +55,22 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.0.0</b> — Stop tells the truth on statements Doris can't cancel, and hands your console back.
+        <ul>
+            <li><b>Uncancellable INSERT / CTAS are detected, not faked:</b> Doris cannot actually
+                stop a running <code>INSERT</code> or <code>CREATE TABLE AS SELECT</code> once it
+                has started — the server accepts the cancel but the statement keeps running. Stop
+                now verifies whether the cancel really took; when it didn't, instead of hanging on
+                <i>"Cancelling…"</i> forever it tells you the statement is still running, gives you
+                its <code>QueryId</code> to follow with <code>SHOW PROCESSLIST</code> /
+                <code>SHOW LOAD</code>, and offers to <b>detach just this console and reconnect</b>
+                so you can keep working (your other consoles on the same data source are
+                untouched). The detection is behavioral, so it disappears on its own once the
+                server can cancel these statements.</li>
+            <li><b>Cancelling a multi-statement script stops the whole script:</b> pressing Stop no
+                longer lets the next queued statement launch — the remaining statements are
+                dropped along with the running one.</li>
+        </ul>
         <b>0.9.0</b> — native double-quoted strings; SQL highlighting inside <code>query()</code>.
         <ul>
             <li><b>Double-quoted string handling is now native:</b> <code>"..."</code> lexes as a

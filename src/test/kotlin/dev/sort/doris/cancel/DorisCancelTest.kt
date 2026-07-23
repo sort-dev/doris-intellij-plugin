@@ -6,6 +6,7 @@ import java.sql.SQLException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -281,6 +282,67 @@ class DorisCancelTest {
     fun `stock fallback is needed only when our path did nothing`() {
         assertTrue(DorisCancel.needsStockFallback(DorisCancel.KillOutcome.NOTHING))
         assertFalse(DorisCancel.needsStockFallback(DorisCancel.KillOutcome.KILLED))
+        // STILL_RUNNING is handled by the detach dialog, never by stock (stock can't stop it either).
+        assertFalse(DorisCancel.needsStockFallback(DorisCancel.KillOutcome.STILL_RUNNING))
+    }
+
+    // --- detach strategy flag ----------------------------------------------------------------
+
+    @Test
+    fun `detach is graceful by default and physical only on explicit true`() {
+        val old = System.getProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY)
+        try {
+            System.clearProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY)
+            assertFalse(DorisCancel.detachPhysical)
+            System.setProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY, "true")
+            assertTrue(DorisCancel.detachPhysical)
+            System.setProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY, "TRUE")
+            assertTrue(DorisCancel.detachPhysical)
+            System.setProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY, "false")
+            assertFalse(DorisCancel.detachPhysical)
+            System.setProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY, "banana")
+            assertFalse(DorisCancel.detachPhysical)
+        } finally {
+            if (old == null) System.clearProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY)
+            else System.setProperty(DorisCancel.DETACH_PHYSICAL_PROPERTY, old)
+        }
+    }
+
+    // --- uncancellable statement classification (message specificity only) -------------------
+
+    @Test
+    fun `leading client-info comment is stripped before classifying`() {
+        assertEquals("", DorisCancel.stripLeadingComment(null))
+        assertEquals("", DorisCancel.stripLeadingComment("   "))
+        assertEquals(
+            "INSERT INTO t SELECT 1",
+            DorisCancel.stripLeadingComment("/* ApplicationName=DataGrip, DorisTraceId=dg-9f2c41d87ab34e0b */ INSERT INTO t SELECT 1"),
+        )
+        // No comment: text passes through untouched.
+        assertEquals("SELECT 1", DorisCancel.stripLeadingComment("SELECT 1"))
+        // Unterminated comment: don't chop the string to nothing.
+        assertEquals("/* oops INSERT", DorisCancel.stripLeadingComment("/* oops INSERT"))
+    }
+
+    @Test
+    fun `statement kind is recognised past the trace-id comment`() {
+        val comment = "/* ApplicationName=DataGrip, DorisTraceId=dg-9f2c41d87ab34e0b */ "
+        assertEquals("INSERT", DorisCancel.describeStatementKind(comment + "INSERT INTO acme_dw.t SELECT * FROM s"))
+        assertEquals("INSERT", DorisCancel.describeStatementKind("insert into t values (1)"))
+        assertEquals("UPDATE", DorisCancel.describeStatementKind(comment + "UPDATE t SET a = 1"))
+        assertEquals("DELETE", DorisCancel.describeStatementKind("DELETE FROM t WHERE a = 1"))
+        assertEquals("CREATE TABLE AS SELECT", DorisCancel.describeStatementKind("CREATE TABLE t2 AS SELECT * FROM t1"))
+    }
+
+    @Test
+    fun `statement kind is null for cancellable or unknown statements`() {
+        // SELECTs cancel fine on Doris — no special message.
+        assertNull(DorisCancel.describeStatementKind("SELECT * FROM t"))
+        assertNull(DorisCancel.describeStatementKind("/* DorisTraceId=dg-9f2c41d87ab34e0b */ SELECT count(*) FROM big"))
+        assertNull(DorisCancel.describeStatementKind(null))
+        assertNull(DorisCancel.describeStatementKind(""))
+        // Plain CREATE without a query body is fast/DDL — not the slow uncancellable case.
+        assertNull(DorisCancel.describeStatementKind("CREATE TABLE t (a INT)"))
     }
 
     // --- dbms guard --------------------------------------------------------------------------

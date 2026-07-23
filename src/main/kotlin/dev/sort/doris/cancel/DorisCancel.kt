@@ -53,6 +53,19 @@ object DorisCancel {
     val enabled: Boolean
         get() = isEnabledValue(System.getProperty(PROPERTY))
 
+    /**
+     * Detach strategy for an uncancellable statement (see [KillOutcome.STILL_RUNNING]). Default is
+     * the graceful platform disconnect (a `DataRequest.Disconnect` through the console's own data
+     * producer — the same seam `SessionsUtil.disconnect` uses). If the IDE bake shows the graceful
+     * disconnect cannot force through the console thread while it is blocked in the master-forward
+     * RPC, set `-Ddoris.cancel.detach.physical=true` to instead close the console's `RemoteConnection`
+     * directly, which interrupts the blocked socket read. Read per-access, same rationale as [enabled].
+     */
+    const val DETACH_PHYSICAL_PROPERTY: String = "doris.cancel.detach.physical"
+
+    val detachPhysical: Boolean
+        get() = "true".equals(System.getProperty(DETACH_PHYSICAL_PROPERTY), ignoreCase = true)
+
     /** All cancel-path log lines carry this prefix so a runtime tester can `grep idea.log`. */
     const val LOG_PREFIX: String = "DorisCancel:"
 
@@ -243,16 +256,62 @@ object DorisCancel {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Outcome of our server-side kill attempt. [KILLED] (or already-finished) means the success
-     * path — the console statement unblocks when the server errors it, so the stock cancel is
-     * **suppressed**. [NOTHING] means we definitively did nothing (no guid, no running tagged row,
-     * ambiguous, or the helper failed) — the stock cancel then runs as the best remaining effort
-     * and its "Deactivate the Data Source?" dialog is legitimate.
+     * Outcome of our server-side kill attempt.
+     *
+     * - [KILLED] (or already-finished) — the success path: the row is gone after the kill, so the
+     *   console statement unblocks when the server errors it and the stock cancel is **suppressed**.
+     * - [NOTHING] — our server path definitively did nothing (no guid, no running tagged row,
+     *   ambiguous, or the helper failed). The stock cancel then runs as the best remaining effort,
+     *   but only if the bare client-side cancel (fired before the kill; see
+     *   `DorisCancelRunningStatementsAction.cancelPendingClientWork`) did not already settle the
+     *   session; then its "Deactivate the Data Source?" dialog is legitimate.
+     * - [STILL_RUNNING] — the FE *accepted* `KILL QUERY` (returned OK) but a re-scan a moment later
+     *   still finds the same `QueryId` running: the upstream Nereids INSERT/CTAS cancel bug (the FE's
+     *   `StmtExecutor.cancel` only cancels the query coordinator, never the insert coordinator
+     *   registered in `QeProcessorImpl`; verified 4.1.3 + master). Nothing client- or server-side can
+     *   stop it, so we neither retry nor fall back to stock — instead we offer the user a detach so
+     *   they get their console back while the statement finishes on the server.
      */
-    enum class KillOutcome { KILLED, NOTHING }
+    enum class KillOutcome { KILLED, NOTHING, STILL_RUNNING }
 
     /** Whether a [KillOutcome] means we should fall back to the stock cancel. */
     fun needsStockFallback(outcome: KillOutcome): Boolean = outcome == KillOutcome.NOTHING
+
+    // ---------------------------------------------------------------------------------------
+    // Uncancellable-statement classification (message specificity only — never a gate)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Best-effort human label for the *kind* of an uncancellable statement, read from its
+     * processlist `Info` text — used ONLY to make the detach dialog specific ("this INSERT" vs
+     * "this statement"). Never used to decide whether a kill will work: that decision is always the
+     * behavioural verify-after-kill re-scan, so a classifier miss just yields a slightly-less-specific
+     * message, never a wrong action.
+     *
+     * Strips a leading Connector/J block client-info comment (our trace-id marker rides in there)
+     * before matching the first keyword. Pure + unit-tested.
+     */
+    fun describeStatementKind(info: String?): String? {
+        val sql = stripLeadingComment(info).trimStart()
+        if (sql.isEmpty()) return null
+        val head = sql.uppercase()
+        return when {
+            head.startsWith("INSERT") -> "INSERT"
+            head.startsWith("UPDATE") -> "UPDATE"
+            head.startsWith("DELETE") -> "DELETE"
+            // CREATE TABLE ... AS SELECT / CREATE TABLE ... LIKE — the write half is the slow, killable-in-name-only part.
+            head.startsWith("CREATE") && (head.contains(" AS ") || head.contains(" SELECT")) -> "CREATE TABLE AS SELECT"
+            else -> null
+        }
+    }
+
+    /** Strip a single leading SQL block comment, e.g. Connector/J's client-info comment. */
+    fun stripLeadingComment(info: String?): String {
+        val s = info?.trimStart() ?: return ""
+        if (!s.startsWith("/*")) return s
+        val end = s.indexOf("*/")
+        return if (end < 0) s else s.substring(end + 2).trimStart()
+    }
 
     /** Session ids with a Doris cancel currently dispatched (its helper kill in flight). */
     private val inFlightCancels: MutableSet<Long> =
