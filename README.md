@@ -20,6 +20,16 @@ boundaries** so "run statement at caret" grabs the wrong thing. This plugin adds
 `DorisSQL` dialect (built on the MySQL foundation) that keeps those boundaries correct and layers on
 Doris-specific completion and validation.
 
+Part of our SQL-tooling family alongside:
+
+* [**Doris SQL Dialect** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
+* [**SQL Dialect Transpiler** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
+* [**DuckDB SQL** (embedded+Quack) for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
+* [**Trino native DuckLake Catalog** with full Read/Write support](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
+* [**Trino Duckbridge** - remote access to DuckDB via Quack](https://github.com/brikk/duckbridge)
+* [**Trino - Doris connector**](https://github.com/brikk/trino-doris-connector)
+* [**brikk-house** - Data engineering platform](https://github.com/brikk/brikk-house) (coming soon)
+
 ## Features
 
 - **Correct statement & run-block boundaries** for Doris constructs the MySQL grammar mis-parses:
