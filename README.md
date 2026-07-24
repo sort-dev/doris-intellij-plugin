@@ -207,7 +207,7 @@ its regular Doris behavior — pipe features stay dormant. Escape hatch:
 ```
 
 The build targets the DataGrip 2026.1 SDK (`datagrip("2026.1.3")`), downloaded automatically on the
-first build. Kotlin 2.3.0, JVM target 21.
+first build. Kotlin 2.4.10, JVM target 21.
 
 ## The bundled Doris parser
 
