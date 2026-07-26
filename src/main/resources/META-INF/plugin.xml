@@ -55,7 +55,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>1.1.0</b> — editor fixes: SELECT-list aliases in HAVING / GROUP BY / ORDER BY, positional ordinals, and correct line comments.
+        <b>1.1.0</b> — editor fixes: SELECT-list aliases in HAVING / GROUP BY / ORDER BY, positional ordinals, correct line comments, and a working Explain Plan.
         <ul>
             <li><b>Column aliases resolve and complete in HAVING / GROUP BY / ORDER BY:</b> a
                 SELECT-list alias (e.g. <code>count(*) AS n</code>) can now be referenced in these
@@ -78,6 +78,12 @@
                 <code>&#45;&#45;&#32;</code> (with the trailing space Doris requires — a bare
                 <code>&#45;&#45;</code> is not a valid comment and highlighted as code), comments
                 every line of a selection, and round-trips — matching standard SQL.</li>
+            <li><b>Explain Plan works:</b> the <b>Explain Plan</b> action now runs
+                <code>EXPLAIN &lt;query&gt;</code> and shows the plan in a resizable popup —
+                monospaced and scrolling both ways, with <i>Copy All</i> and <i>Close</i>, so the
+                plan reads the way it does in the Doris CLI (indentation intact). Previously the
+                menu item did nothing: Doris returns a line-per-row text plan that the stock
+                graphical diagram could not render.</li>
         </ul>
         <b>1.0.0</b> — Stop tells the truth on statements Doris can't cancel, and hands your console back.
         <ul>
