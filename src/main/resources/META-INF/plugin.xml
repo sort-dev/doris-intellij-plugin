@@ -67,6 +67,9 @@
                 in GROUP BY or ORDER BY is now understood as an ordinal reference to the Nth select
                 item (and resolves to it), rather than a plain number — matching MySQL and improving
                 grouping analysis.</li>
+            <li><b>Explain Plan works:</b> the console's <b>Explain Plan</b> action now runs
+                Doris's native <code>EXPLAIN &lt;query&gt;</code> and shows the text plan (previously
+                the menu item did nothing — Doris had no plan provider registered).</li>
         </ul>
         <b>1.0.0</b> — Stop tells the truth on statements Doris can't cancel, and hands your console back.
         <ul>
@@ -286,6 +289,11 @@
              (tasks/catalogs/...; see DorisTypeSystem/DorisTableFunctions). Always on. -->
         <typeSystem dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisTypeSystem"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
+
+        <!-- Explain Plan: raw text plan only (EXPLAIN <query>), the form Doris plans are read in.
+             The graphical plan-tree variant reports unsupported, so the console's "Explain Plan
+             (Raw)" item is the one that shows and works. See DorisExplainPlanProvider. -->
+        <explainPlanProvider dbms="DORIS" implementationClass="dev.sort.doris.plan.DorisExplainPlanProvider"/>
 
         <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
              `doris.catalogs.experimental` system property; see dev.sort.doris.DorisCatalogs).
