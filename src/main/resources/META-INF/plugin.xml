@@ -363,6 +363,8 @@
         <action id="Console.Jdbc.ExplainPlan"
                 class="dev.sort.doris.plan.DorisExplainPlanAction"
                 overrides="true"
+                text="Explain Plan"
+                description="Show the plan for the current statement"
                 icon="DatabaseIcons.ConsoleShowPlan"/>
 
     </actions>
