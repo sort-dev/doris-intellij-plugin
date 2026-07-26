@@ -7,9 +7,10 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.DorisDbms
 
 /**
- * Wiring for option C: the "Explain Plan" action shows for Doris (provider reports it supported) and
- * is overridden by [DorisExplainPlanAction], which runs `EXPLAIN <query>` as a query (text in the
- * grid) instead of the graphical diagram. Running the query + grid display are the live-Doris bake.
+ * Wiring: the "Explain Plan" action shows for Doris (provider reports it supported) and is
+ * overridden by [DorisExplainPlanAction], which runs `EXPLAIN <query>` over a helper connection and
+ * shows the plan text in a scrollable popup instead of the graphical diagram. Running the EXPLAIN +
+ * the popup render are the live-Doris bake.
  */
 class DorisExplainPlanWiringTest : BasePlatformTestCase() {
 
