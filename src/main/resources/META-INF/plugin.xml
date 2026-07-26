@@ -55,7 +55,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>1.1.0</b> — editor fixes: SELECT-list aliases in HAVING / GROUP BY / ORDER BY, positional ordinals, a working Explain Plan, and correct line comments.
+        <b>1.1.0</b> — editor fixes: SELECT-list aliases in HAVING / GROUP BY / ORDER BY, positional ordinals, and correct line comments.
         <ul>
             <li><b>Column aliases resolve and complete in HAVING / GROUP BY / ORDER BY:</b> a
                 SELECT-list alias (e.g. <code>count(*) AS n</code>) can now be referenced in these
@@ -67,9 +67,6 @@
                 in GROUP BY or ORDER BY is now understood as an ordinal reference to the Nth select
                 item (and resolves to it), rather than a plain number — matching MySQL and improving
                 grouping analysis.</li>
-            <li><b>Explain Plan works:</b> the console's <b>Explain Plan</b> action now runs
-                Doris's native <code>EXPLAIN &lt;query&gt;</code> and shows the text plan (previously
-                the menu item did nothing — Doris had no plan provider registered).</li>
             <li><b>Line comments fixed:</b> commenting (Ctrl+/) now inserts a proper
                 <code>&#45;&#45;&#32;</code> (with the trailing space Doris requires — a bare
                 <code>&#45;&#45;</code> is not a valid comment and highlighted as code), comments
@@ -300,11 +297,6 @@
              (tasks/catalogs/...; see DorisTypeSystem/DorisTableFunctions). Always on. -->
         <typeSystem dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisTypeSystem"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
-
-        <!-- Explain Plan: raw text plan only (EXPLAIN <query>), the form Doris plans are read in.
-             The graphical plan-tree variant reports unsupported, so the console's "Explain Plan
-             (Raw)" item is the one that shows and works. See DorisExplainPlanProvider. -->
-        <explainPlanProvider dbms="DORIS" implementationClass="dev.sort.doris.plan.DorisExplainPlanProvider"/>
 
         <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
              `doris.catalogs.experimental` system property; see dev.sort.doris.DorisCatalogs).
