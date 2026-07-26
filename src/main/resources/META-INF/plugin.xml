@@ -298,6 +298,11 @@
         <typeSystem dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisTypeSystem"/>
         <errorHandler dbms="DORIS" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
 
+        <!-- Explain Plan is deferred for Doris (needs a native EXPLAIN-text plan-model parser). This
+             provider reports it unsupported so the graphical "Explain Plan" action is HIDDEN, rather
+             than falling back to MySQL's provider and showing a dead item. See DorisExplainPlanProvider. -->
+        <explainPlanProvider dbms="DORIS" implementationClass="dev.sort.doris.plan.DorisExplainPlanProvider"/>
+
         <!-- Experimental multi-catalog model (Gate 1 / Milestone 1, gated by the
              `doris.catalogs.experimental` system property; see dev.sort.doris.DorisCatalogs).
              All five registrations are DUAL-MODE: with the flag OFF each delegates to the exact
