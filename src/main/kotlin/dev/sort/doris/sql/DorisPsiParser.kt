@@ -133,6 +133,13 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
             "EXPORT" -> true // EXPORT TABLE ... TO "s3://..." WITH S3/HDFS/BROKER — pure Doris
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
+            // Doris-only statement leads MySQL has no shape for. Verified (statement-boundary sweep):
+            // without this the parse leaves loose tokens + a PsiErrorElement and NO statement wrapper,
+            // so the run-block cannot select them — the same class of bug as CREATE INVERTED INDEX.
+            "CLEAN" -> true // CLEAN LABEL <l> FROM db / CLEAN ALL PROFILE / CLEAN ALL QUERY STATS
+            "UNSET" -> true // UNSET [scope] VARIABLE x / UNSET DEFAULT STORAGE VAULT
+            "LOAD" -> wordAt(builder, 1) == "LABEL" // Doris broker/spark load; LOAD DATA stays MySQL
+            "ANALYZE" -> wordAt(builder, 1) == "DATABASE" // ANALYZE TABLE ... stays MySQL (valid there)
             // Doris compute/workload-group USE (`USE @etl`, `USE db@etl`): MySQL reads the '@...' as
             // a user-variable reference inside its USE statement, which then red-flags as an
             // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
