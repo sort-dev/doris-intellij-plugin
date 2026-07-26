@@ -22,10 +22,13 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "UNSET DEFAULT STORAGE VAULT;",
         "LOAD LABEL db.lbl (DATA INFILE(\"s3://x\") INTO TABLE t) WITH S3 (\"k\"=\"v\");",
         "ANALYZE DATABASE db;",
-        // CREATE FUNCTION with a Doris scope/kind modifier (MySQL only knows plain CREATE FUNCTION).
+        // Doris UDF / alias functions — plain, scope-modified, and kind-modified forms all break
+        // MySQL's CREATE FUNCTION grammar (which wants RETURN|BEGIN, not PROPERTIES / a modifier).
+        "CREATE FUNCTION my_udf(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
         "CREATE GLOBAL FUNCTION my_udf(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
         "CREATE AGGREGATE FUNCTION my_agg(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
         "CREATE ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
+        "CREATE GLOBAL ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
     )
 
     /**
@@ -36,6 +39,8 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
     private val staysMysql = mapOf(
         "ANALYZE TABLE t;" to "MYSQL_ANALYZE_TABLE_STATEMENT",
         "LOAD DATA INFILE 'f' INTO TABLE t;" to "MYSQL_LOAD_DATA_DML_INSTRUCTION",
+        // Plain MySQL CREATE FUNCTION (no modifier, no PROPERTIES) is valid there — keep it typed.
+        "CREATE FUNCTION f() RETURNS INT RETURN 1;" to "SQL_CREATE_FUNCTION_STATEMENT",
     )
 
     fun testDorisOnlyLeadsAreOneCleanStatement() {
