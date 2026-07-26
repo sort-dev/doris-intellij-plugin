@@ -67,6 +67,10 @@
                 in GROUP BY or ORDER BY is now understood as an ordinal reference to the Nth select
                 item (and resolves to it), rather than a plain number — matching MySQL and improving
                 grouping analysis.</li>
+            <li><b>Full-text index DDL is recognized:</b> <code>CREATE</code> / <code>DROP</code> /
+                <code>SHOW INVERTED INDEX ANALYZER</code> / <code>TOKENIZER</code> /
+                <code>TOKEN_FILTER</code> now parse as a single statement, so the run-block selects
+                and executes them (previously they had no statement boundary).</li>
             <li><b>Line comments fixed:</b> commenting (Ctrl+/) now inserts a proper
                 <code>&#45;&#45;&#32;</code> (with the trailing space Doris requires — a bare
                 <code>&#45;&#45;</code> is not a valid comment and highlighted as code), comments

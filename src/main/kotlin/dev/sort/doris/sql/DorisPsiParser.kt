@@ -157,11 +157,14 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
                 // clause with a parenthesised bag. Gate on SET immediately followed by '(' so MySQL's
                 // `ALTER ... ALTER COLUMN c SET DEFAULT x` keeps its typed statement.
                 statementContainsWordThen(builder, "SET", "(")
+            // INVERTED = Doris DROP INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER <name>.
             "DROP" -> wordAt(builder, 1) in setOf("MATERIALIZED", "RESOURCE", "CATALOG", "REPOSITORY",
-                "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE")
-            "SHOW" -> statementContainsAny(builder, "MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",
-                "FRONTENDS", "PROC", "TABLET", "TABLETS", "PARTITIONS", "DYNAMIC", "STREAM", "WORKLOAD",
-                "STORAGE", "STAGES", "DATA", "SYNC")
+                "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE", "INVERTED")
+            // INVERTED = Doris SHOW INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER.
+            "SHOW" -> wordAt(builder, 1) == "INVERTED" ||
+                statementContainsAny(builder, "MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",
+                    "FRONTENDS", "PROC", "TABLET", "TABLETS", "PARTITIONS", "DYNAMIC", "STREAM", "WORKLOAD",
+                    "STORAGE", "STAGES", "DATA", "SYNC")
             "PARTITION", "DISTRIBUTED", "PROPERTIES", "ROLLUP", "DUPLICATE", "AGGREGATE", "UNIQUE" -> true
             else -> false
         }
@@ -172,6 +175,11 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         val third = wordAt(builder, 2)
         if (second == "MATERIALIZED" && third == "VIEW") return true
         if (second == "ROUTINE" && third == "LOAD") return true
+        // CREATE INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER <name> [PROPERTIES(...)] — Doris
+        // full-text index components. MySQL's CREATE grammar errors at INVERTED and leaves no
+        // statement wrapper (loose CREATE + PsiErrorElement + DUMMY_BLOCKs), so the run-block can't
+        // select the statement. Consume it as one lenient Doris statement instead.
+        if (second == "INVERTED" && third == "INDEX") return true
         // CREATE DATABASE ... PROPERTIES(...) (external/managed props) — MySQL splits at PROPERTIES.
         if (second == "DATABASE") return statementContainsAny(builder, "PROPERTIES")
         if (createTableKeywordOffset(builder) != null) {
