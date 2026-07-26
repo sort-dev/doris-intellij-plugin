@@ -1,43 +1,49 @@
 package dev.sort.doris.plan
 
+import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.plan.ExplainPlanProvider
 import com.intellij.database.plan.PlanModel
+import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
 import com.intellij.database.util.Version
 import com.intellij.util.Consumer
 import dev.sort.doris.DorisDbms
+import java.util.EnumSet
 
 /**
- * Reports Explain Plan as **not supported** for Doris, so the console's "Explain Plan" action is
- * HIDDEN rather than shown-and-broken. This is a deliberate stub, not the feature.
+ * ROUGH DRAFT — DO NOT SHIP AS-IS. Doris Explain Plan for the new-UI graphical view.
  *
- * ## Why this exists
+ * The new-UI "Explain Plan" is a node-diagram built from a [PlanModel] (the legacy raw-text path is
+ * disabled by the `database.explain.plan.new.ui` registry flag, default on). So we must supply a
+ * PlanModel. Rather than the platform's stack-based `AbstractPlanModelBuilder`/`RawPlanData`
+ * machinery (fiddly, JSON-oriented), this takes the **direct** route: extend [ExplainPlanProvider],
+ * override [createExplainRequest] with a [DataRequest.RawRequest] whose `processRaw` runs
+ * `EXPLAIN <query>` on the connection (the same `JdbcNativeUtil` pattern the cancel code uses),
+ * then builds the [PlanModel] ourselves and hands it to the consumer — mirroring what
+ * `AbstractExplainPlanProvider$1.processRaw` does internally.
  *
- * Explain Plan resolves an [ExplainPlanProvider] via `ExplainPlanProvider.EP.forDbms(dbms)`. With no
- * provider registered for `DORIS`, that lookup falls back to MySQL's provider (via
- * `extensionFallback DORIS -> MYSQL`), whose [isSupported] is `true` — so "Explain Plan" appears in
- * the menu but does nothing, because MySQL's plan SQL and its structured parser cannot read Doris's
- * distributed fragment/plan-node text. `ExplainActionBase.update` does
- * `setEnabledAndVisible(isSupported)`, so returning `false` here removes the dead item entirely.
+ * ## Model shape (v1: flat, per the hunch that Doris/MySQL just wants one node per line)
  *
- * ## Deferred, not abandoned
+ * Doris `EXPLAIN` returns a single text column, one plan line per row (`PLAN FRAGMENT 0`,
+ * `1:VHASH JOIN`, `|----2:VEXCHANGE`, `0:VOlapScanNode`, ...). [buildPlanModel] currently makes a
+ * flat tree: a ROOT node with one OPERATION child per non-blank line (line text = node title, full
+ * line = tooltip via rawDescription). Cardinality/cost columns are marked unsupported (plain EXPLAIN
+ * has none). Nesting by the `|----`/indentation structure is a small follow-up if the flat list
+ * reads poorly.
  *
- * A working Explain Plan needs the graphical (new-UI) path: [isSupported] = `true` plus a real
- * [PlanModel] built from Doris's `EXPLAIN <query>` text — a `RawPlanData` subclass to run it and an
- * `AbstractPlanModelBuilder` (or a direct `PlanModel.GenericNode` tree) to parse the plan. That is a
- * Doris-specific parser that can only be verified against a live connection, so it is deferred. When
- * it lands, flip [isSupported] to `true` and implement [createExplainRequest]. (The raw path is not
- * an option: `ExplainActionBase$Raw` is gated off by the `database.explain.plan.new.ui` registry
- * flag, which defaults on, so raw Explain actions are hidden in current DataGrip regardless.)
+ * ## Verification status
+ *
+ * [buildPlanModel] is pure and unit-tested. The query-run + new-UI rendering can only be verified on
+ * a live Doris connection in `runIde` — that is the bake. `isSupported` = plain EXPLAIN only (no
+ * "Explain Analyse": Doris EXPLAIN does not run the query).
  */
 class DorisExplainPlanProvider : ExplainPlanProvider(DorisDbms.DORIS) {
 
-    override fun isSupported(version: Version, analyze: Boolean): Boolean = false
+    override fun isSupported(version: Version, analyze: Boolean): Boolean = !analyze
 
     override fun isRawSupported(version: Version, analyze: Boolean): Boolean = false
 
-    /** Unreachable — both support checks are `false`, so no Explain action is ever enabled. */
     override fun createExplainRequest(
         owner: DataRequest.OwnerEx,
         consumer: Consumer<in PlanModel>,
@@ -45,9 +51,52 @@ class DorisExplainPlanProvider : ExplainPlanProvider(DorisDbms.DORIS) {
         sql: String,
         analyze: Boolean,
     ): DataRequest.RawRequest =
-        throw UnsupportedOperationException("Explain Plan is not yet supported for Doris")
+        object : DataRequest.RawRequest(owner) {
+            override fun processRaw(context: DataRequest.Context, connection: DatabaseConnectionCore) {
+                consumer.consume(buildPlanModel(runExplain(connection, sql)))
+            }
+        }
 
-    /** Unreachable — see [createExplainRequest]. */
+    /** Raw text path is disabled by the platform's new-UI flag; never invoked. */
     override fun createRawExplainTask(dataSource: LocalDataSource, analyze: Boolean): RawExplainTask =
-        throw UnsupportedOperationException("Explain Plan is not yet supported for Doris")
+        throw UnsupportedOperationException("Doris uses the structured explain path only")
+
+    /** Run `EXPLAIN <sql>` and join the single text column into one plan string. */
+    private fun runExplain(connection: DatabaseConnectionCore, sql: String): String {
+        val statement = JdbcNativeUtil.computeRemote { connection.remoteConnection.createStatement() }
+            ?: return ""
+        return try {
+            val rs = JdbcNativeUtil.computeRemote { statement.executeQuery("EXPLAIN $sql") } ?: return ""
+            try {
+                val sb = StringBuilder()
+                while (JdbcNativeUtil.computeRemote { rs.next() } == true) {
+                    val line = JdbcNativeUtil.computeRemote { rs.getString(1) } ?: ""
+                    if (sb.isNotEmpty()) sb.append('\n')
+                    sb.append(line)
+                }
+                sb.toString()
+            } finally {
+                JdbcNativeUtil.performSafe { rs.close() }
+            }
+        } finally {
+            JdbcNativeUtil.closeRemoteStatementSafe(statement)
+        }
+    }
+
+    companion object {
+        /** Pure + testable: Doris EXPLAIN text -> a flat PlanModel (ROOT with one node per plan line). */
+        fun buildPlanModel(text: String): PlanModel {
+            val root = PlanModel.GenericNode(PlanModel.NodeType.ROOT, "Explain Plan")
+            val children = text.split("\n")
+                .filter { it.isNotBlank() }
+                .map { line ->
+                    PlanModel.GenericNode(PlanModel.NodeType.OPERATION, line.trim())
+                        .also { it.rawDescription = line }
+                }
+                .toTypedArray()
+            root.children = children
+            // Plain EXPLAIN carries no rows/cost/startup numbers — mark those columns unsupported.
+            return PlanModel(root, false, EnumSet.allOf(PlanModel.Feature::class.java))
+        }
+    }
 }
