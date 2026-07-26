@@ -55,7 +55,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>1.1.0</b> — SELECT-list aliases work in HAVING / GROUP BY / ORDER BY, and positional ordinals are understood.
+        <b>1.1.0</b> — editor fixes: SELECT-list aliases in HAVING / GROUP BY / ORDER BY, positional ordinals, a working Explain Plan, and correct line comments.
         <ul>
             <li><b>Column aliases resolve and complete in HAVING / GROUP BY / ORDER BY:</b> a
                 SELECT-list alias (e.g. <code>count(*) AS n</code>) can now be referenced in these
