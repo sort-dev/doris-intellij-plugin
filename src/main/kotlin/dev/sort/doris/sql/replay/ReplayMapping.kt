@@ -385,4 +385,17 @@ internal object ReplayMapping {
 
     /** SQL_NUMERIC_LITERAL wraps a bare integer terminal inside LIMIT (30-limit-offset-variants.tree). */
     val NUMERIC_LITERAL: IElementType = SQL_NUMERIC_LITERAL
+
+    /**
+     * SQL_POSITIONAL_REFERENCE wraps a bare integer in a GROUP BY / ORDER BY item (`GROUP BY 1`),
+     * where MySQL models the ordinal as a reference to the Nth select item rather than a numeric
+     * literal. The platform emits this from its OWN GROUP/ORDER grammar; our delegated GROUP/ORDER
+     * items would otherwise parse the integer as a plain SQL_NUMERIC_LITERAL, so [CstReplayer] emits
+     * this structurally instead of delegating (mirrors the bare-`*` carve-out).
+     */
+    val POSITIONAL_REFERENCE: IElementType =
+        com.intellij.sql.psi.SqlCompositeElementTypes.SQL_POSITIONAL_REFERENCE
+
+    /** ANTLR parents whose delegated `expression` item is a positional ordinal when it is a bare integer. */
+    val POSITIONAL_ITEM_PARENTS: Set<String> = setOf("ExpressionWithOrderContext", "SortItemContext")
 }

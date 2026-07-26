@@ -55,6 +55,19 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.1.0</b> — SELECT-list aliases work in HAVING / GROUP BY / ORDER BY, and positional ordinals are understood.
+        <ul>
+            <li><b>Column aliases resolve and complete in HAVING / GROUP BY / ORDER BY:</b> a
+                SELECT-list alias (e.g. <code>count(*) AS n</code>) can now be referenced in these
+                clauses — <code>HAVING n &gt; 10</code> — with working code completion and
+                navigation, exactly as in MySQL. This also silences the spurious
+                <i>"aggregate-free conditions in HAVING … might be inefficient"</i> warning that
+                appeared when a HAVING condition referenced an aggregate through its alias.</li>
+            <li><b>Positional <code>GROUP BY 1</code> / <code>ORDER BY 2</code>:</b> a bare integer
+                in GROUP BY or ORDER BY is now understood as an ordinal reference to the Nth select
+                item (and resolves to it), rather than a plain number — matching MySQL and improving
+                grouping analysis.</li>
+        </ul>
         <b>1.0.0</b> — Stop tells the truth on statements Doris can't cancel, and hands your console back.
         <ul>
             <li><b>Uncancellable INSERT / CTAS are detected, not faked:</b> Doris cannot actually
@@ -232,6 +245,12 @@
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <!-- Exposes SELECT-list aliases as resolution/completion targets in HAVING / GROUP BY /
+             ORDER BY. The platform gates this behind a hardcoded MySQL-family Dbms allowlist that a
+             plugin dialect cannot join; this re-issues the platform's own selectClause scope call
+             for DORIS. See DorisSelectAliasResolveExtension. The EP has no dbms filter, so the
+             implementation self-gates to DORIS. -->
+        <sql.resolveExtension implementation="dev.sort.doris.sql.DorisSelectAliasResolveExtension"/>
         <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
              pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
         <completion.confidence language="DorisSQL" order="first"

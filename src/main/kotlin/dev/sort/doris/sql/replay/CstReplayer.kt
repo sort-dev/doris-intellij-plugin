@@ -227,11 +227,21 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
             cls == "MvPartitionContext" && !containsContext(ctx, "FunctionCallExpressionContext")
         if (isDelegationExpr(parentClass, ruleNameOf(ctx, ruleNames)) && hasTokens(ctx) && !mvPartitionBareColumn) {
             val bareStar = bareStarOf(ctx)
+            val positionalInt =
+                if (parentClass in ReplayMapping.POSITIONAL_ITEM_PARENTS) positionalIntegerOf(ctx) else null
             if (bareStar != null) {
                 // Bare `*` / `t.*` are select-all, which the platform models as SQL_COLUMN_REFERENCE
                 // rather than a value expression (golden 21). Emit it as structure, don't delegate.
                 out.add(Node(absStart + bareStar.start.startIndex, absStart + bareStar.stop.stopIndex,
                     SQL_COLUMN_REFERENCE, seq[0]++))
+            } else if (positionalInt != null) {
+                // `GROUP BY 1` / `ORDER BY 1`: MySQL models a bare integer ordinal as a
+                // SQL_POSITIONAL_REFERENCE (a reference to the Nth select item), not a numeric
+                // literal. Delegating would parse `1` as SQL_NUMERIC_LITERAL, so emit the reference
+                // structurally instead (mirrors the bare-`*` carve-out above). `1 + 1` is a real
+                // expression, not an ordinal, so positionalIntegerOf declines it and it delegates.
+                out.add(Node(absStart + positionalInt.start.startIndex, absStart + positionalInt.stop.stopIndex,
+                    ReplayMapping.POSITIONAL_REFERENCE, seq[0]++))
             } else {
                 delegations[absStart + ctx.start.startIndex] = absStart + ctx.stop.stopIndex
             }
@@ -607,6 +617,27 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
                 return if (hasRuleChild) null else c
             }
             val ruleKids = (0 until c.childCount).mapNotNull { c.getChild(it) as? ParserRuleContext }
+            if (ruleKids.size != 1) return null
+            c = ruleKids[0]
+        }
+    }
+
+    /**
+     * If [exprCtx] is a bare positive-integer literal (`1`, `42` — an ordinal, no sign, no operators),
+     * return the innermost leaf context so the caller can model it as SQL_POSITIONAL_REFERENCE.
+     * Descends the single-rule-child chain (as [bareStarOf]) and, at the bottom, accepts only a leaf
+     * whose sole terminal is all digits. Anything with a branch (`1 + 1`), a sign (`-1`), or a
+     * non-integer literal returns null and is left to normal expression delegation.
+     */
+    private fun positionalIntegerOf(exprCtx: ParserRuleContext): ParserRuleContext? {
+        var c: ParserRuleContext = exprCtx
+        while (true) {
+            val ruleKids = (0 until c.childCount).mapNotNull { c.getChild(it) as? ParserRuleContext }
+            if (ruleKids.isEmpty()) {
+                val terms = (0 until c.childCount).mapNotNull { c.getChild(it) as? TerminalNode }
+                val text = terms.singleOrNull()?.text
+                return if (text != null && text.isNotEmpty() && text.all(Char::isDigit)) c else null
+            }
             if (ruleKids.size != 1) return null
             c = ruleKids[0]
         }
