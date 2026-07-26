@@ -72,7 +72,8 @@
                 (previously they had no statement boundary) — <code>CREATE</code> / <code>DROP</code> /
                 <code>SHOW INVERTED INDEX ANALYZER</code> / <code>TOKENIZER</code> /
                 <code>TOKEN_FILTER</code>, <code>CLEAN</code>, <code>UNSET</code>,
-                <code>LOAD LABEL</code>, and <code>ANALYZE DATABASE</code>.</li>
+                <code>LOAD LABEL</code>, <code>ANALYZE DATABASE</code>, and
+                <code>CREATE [GLOBAL] [AGGREGATE|ALIAS] FUNCTION</code>.</li>
             <li><b>Line comments fixed:</b> commenting (Ctrl+/) now inserts a proper
                 <code>&#45;&#45;&#32;</code> (with the trailing space Doris requires — a bare
                 <code>&#45;&#45;</code> is not a valid comment and highlighted as code), comments
@@ -355,6 +356,13 @@
                 description="Cancel running and queued statements"
                 use-shortcut-of="Stop"
                 icon="AllIcons.Actions.Suspend"/>
+
+        <!-- Explain Plan: for Doris, run EXPLAIN <query> as a query so the plan shows as text rows in
+             the grid (the graphical diagram is a poor fit for Doris's text plan). Non-Doris dbms fall
+             through to the stock graphical behaviour. See DorisExplainPlanAction. -->
+        <action id="Console.Jdbc.ExplainPlan"
+                class="dev.sort.doris.plan.DorisExplainPlanAction"
+                overrides="true"/>
 
     </actions>
 </idea-plugin>

@@ -187,6 +187,13 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // statement wrapper (loose CREATE + PsiErrorElement + DUMMY_BLOCKs), so the run-block can't
         // select the statement. Consume it as one lenient Doris statement instead.
         if (second == "INVERTED" && third == "INDEX") return true
+        // CREATE [GLOBAL|SESSION|LOCAL] [AGGREGATE|ALIAS|TABLES]? FUNCTION ... — Doris UDF / alias
+        // functions. MySQL only knows plain `CREATE FUNCTION ... RETURNS`, so any scope/kind modifier
+        // (GLOBAL/AGGREGATE/ALIAS/...) errors at that word and leaves no statement wrapper. Plain
+        // `CREATE FUNCTION` is left to MySQL (its stored-function form is valid there).
+        if (second in setOf("GLOBAL", "SESSION", "LOCAL", "AGGREGATE", "ALIAS", "TABLES") &&
+            statementContainsAny(builder, "FUNCTION")
+        ) return true
         // CREATE DATABASE ... PROPERTIES(...) (external/managed props) — MySQL splits at PROPERTIES.
         if (second == "DATABASE") return statementContainsAny(builder, "PROPERTIES")
         if (createTableKeywordOffset(builder) != null) {

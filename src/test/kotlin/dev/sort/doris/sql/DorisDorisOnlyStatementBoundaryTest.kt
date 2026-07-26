@@ -22,6 +22,10 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "UNSET DEFAULT STORAGE VAULT;",
         "LOAD LABEL db.lbl (DATA INFILE(\"s3://x\") INTO TABLE t) WITH S3 (\"k\"=\"v\");",
         "ANALYZE DATABASE db;",
+        // CREATE FUNCTION with a Doris scope/kind modifier (MySQL only knows plain CREATE FUNCTION).
+        "CREATE GLOBAL FUNCTION my_udf(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
+        "CREATE AGGREGATE FUNCTION my_agg(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
+        "CREATE ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
     )
 
     /**
