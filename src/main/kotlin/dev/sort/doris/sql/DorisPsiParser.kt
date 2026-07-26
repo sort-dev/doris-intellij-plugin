@@ -165,8 +165,11 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
                 // `ALTER ... ALTER COLUMN c SET DEFAULT x` keeps its typed statement.
                 statementContainsWordThen(builder, "SET", "(")
             // INVERTED = Doris DROP INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER <name>.
+            // DROP [GLOBAL|SESSION|LOCAL] FUNCTION: the scope modifier is Doris-only, so MySQL errors
+            // at it with no statement wrapper (plain DROP FUNCTION is valid MySQL and stays typed).
             "DROP" -> wordAt(builder, 1) in setOf("MATERIALIZED", "RESOURCE", "CATALOG", "REPOSITORY",
-                "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE", "INVERTED")
+                "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE", "INVERTED") ||
+                (wordAt(builder, 1) in setOf("GLOBAL", "SESSION", "LOCAL") && statementContainsAny(builder, "FUNCTION"))
             // INVERTED = Doris SHOW INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER.
             "SHOW" -> wordAt(builder, 1) == "INVERTED" ||
                 statementContainsAny(builder, "MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",

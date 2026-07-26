@@ -19,6 +19,8 @@ class DorisInvertedIndexStatementTest : BasePlatformTestCase() {
         "CREATE INVERTED INDEX TOKENIZER my_tok PROPERTIES(\"type\"=\"ngram\");",
         "CREATE INVERTED INDEX TOKEN_FILTER my_tf PROPERTIES(\"type\"=\"lowercase\");",
         "DROP INVERTED INDEX ANALYZER my_analyzer;",
+        "DROP INVERTED INDEX TOKENIZER my_tok;",
+        "DROP INVERTED INDEX TOKEN_FILTER my_tf;",
         "SHOW INVERTED INDEX ANALYZER;",
     )
 

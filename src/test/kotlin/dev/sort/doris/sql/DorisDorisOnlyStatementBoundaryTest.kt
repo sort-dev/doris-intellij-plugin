@@ -29,6 +29,8 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "CREATE AGGREGATE FUNCTION my_agg(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
         "CREATE ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
         "CREATE GLOBAL ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
+        // DROP with a Doris scope modifier (plain DROP FUNCTION is valid MySQL — see staysMysql).
+        "DROP GLOBAL FUNCTION my_udf(INT);",
     )
 
     /**
@@ -41,6 +43,8 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "LOAD DATA INFILE 'f' INTO TABLE t;" to "MYSQL_LOAD_DATA_DML_INSTRUCTION",
         // Plain MySQL CREATE FUNCTION (no modifier, no PROPERTIES) is valid there — keep it typed.
         "CREATE FUNCTION f() RETURNS INT RETURN 1;" to "SQL_CREATE_FUNCTION_STATEMENT",
+        // Plain DROP FUNCTION is valid MySQL — the scope-modifier gate must not steal it.
+        "DROP FUNCTION my_udf;" to "SQL_GENERIC_DROP_STATEMENT",
     )
 
     fun testDorisOnlyLeadsAreOneCleanStatement() {
