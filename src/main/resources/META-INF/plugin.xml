@@ -70,6 +70,10 @@
             <li><b>Explain Plan works:</b> the console's <b>Explain Plan</b> action now runs
                 Doris's native <code>EXPLAIN &lt;query&gt;</code> and shows the text plan (previously
                 the menu item did nothing — Doris had no plan provider registered).</li>
+            <li><b>Line comments fixed:</b> commenting (Ctrl+/) now inserts a proper
+                <code>&#45;&#45;&#32;</code> (with the trailing space Doris requires — a bare
+                <code>&#45;&#45;</code> is not a valid comment and highlighted as code), comments
+                every line of a selection, and round-trips — matching standard SQL.</li>
         </ul>
         <b>1.0.0</b> — Stop tells the truth on statements Doris can't cancel, and hands your console back.
         <ul>
@@ -233,7 +237,14 @@
         <sql.dialect dbms="DORIS" implementationClass="dev.sort.doris.sql.DorisSqlDialect" order="first"/>
         <lang.parserDefinition language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisParserDefinition"/>
         <lang.syntaxHighlighterFactory language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisSyntaxHighlighterFactory"/>
-        <lang.commenter language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCommenter"/>
+        <!-- Line/block comments: the platform's SelfManagingCommenter (the same one ClickHouse,
+             Redshift, DB2, ... use), NOT a hand-rolled Commenter. It inserts a dash-dash line comment
+             WITH the trailing space that a valid Doris/MySQL line comment requires (a bare dash-dash
+             with no whitespace is not a comment and highlights as code), and owns comment/uncomment so
+             Ctrl+/ over a block comments every line and round-trips. (Not MysqlCommenter: it defaults
+             Ctrl+/ to the '#' style.) -->
+        <lang.commenter language="DorisSQL"
+                        implementationClass="com.intellij.database.sql.common.core.psi.impl.support.SqlNestedCommenter"/>
         <!-- Non-Concat quote handler: keeps Enter-inside-a-string a plain newline (Doris strings
              are multi-line); without this DorisSQL inherits base-SQL's Concat handler and Enter
              splits the string into '…' || '…'. Same opt-out JetBrains' MySQL dialect uses. -->
