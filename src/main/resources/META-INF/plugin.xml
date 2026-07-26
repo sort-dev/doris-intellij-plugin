@@ -362,7 +362,8 @@
              through to the stock graphical behaviour. See DorisExplainPlanAction. -->
         <action id="Console.Jdbc.ExplainPlan"
                 class="dev.sort.doris.plan.DorisExplainPlanAction"
-                overrides="true"/>
+                overrides="true"
+                icon="DatabaseIcons.ConsoleShowPlan"/>
 
     </actions>
 </idea-plugin>

@@ -31,6 +31,7 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "CREATE GLOBAL ALIAS FUNCTION my_alias(INT) WITH PARAMETER(x) AS x + 1;",
         // DROP with a Doris scope modifier (plain DROP FUNCTION is valid MySQL — see staysMysql).
         "DROP GLOBAL FUNCTION my_udf(INT);",
+        "DROP GLOBAL ALIAS FUNCTION my_alias(INT);",
     )
 
     /**
