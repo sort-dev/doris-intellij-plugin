@@ -65,6 +65,16 @@ class DorisCatalogQueriesTest : BasePlatformTestCase() {
         assertTrue(columns.contains("TABLE_SCHEMA = ?"))
     }
 
+    fun testFallbackRestoreProbe() {
+        // R1 (REVIEW-kimi3.md): the fallback captures the session's current catalog *before*
+        // SWITCH so the introspector can switch back afterwards, instead of leaving the pooled
+        // connection switched for its next borrower.
+        assertEquals(
+            DorisCatalogQueries.SELECT_CURRENT_CATALOG,
+            DorisCatalogQueries.READ_CURRENT_CATALOG.sourceText,
+        )
+    }
+
     fun testViewTypeClassification() {
         assertTrue(DorisCatalogQueries.isViewType("VIEW"))
         assertTrue(DorisCatalogQueries.isViewType("view"))

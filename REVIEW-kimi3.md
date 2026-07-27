@@ -23,6 +23,11 @@ tested.
 
 *Fix direction: wrap fallback in try/finally, re-`SWITCH` back.*
 
+**FIXED** (branch `fix/kimi-R1-switch`): `runCatalogScopedOrFallback` now captures the session's
+current catalog (`select current_catalog()`) before the `SWITCH` and re-`SWITCH`es in a
+`finally` — best-effort, logged, and targeting the connect-time default `internal` when the
+probe fails. Restore failures are logged but never mask the fallback result.
+
 ## MEDIUM
 
 ### R2 — `catch (Throwable)` swallows `ProcessCanceledException` in introspection
