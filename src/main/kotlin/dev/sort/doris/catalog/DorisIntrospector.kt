@@ -43,7 +43,8 @@ import dev.sort.doris.DorisCatalogs
  * catalog-qualified `information_schema` reads, which never mutate connection session state — safe
  * on pooled/shared/keep-alive connections, no per-catalog phase ordering, half the round trips.
  * `SWITCH <catalog>` + unqualified queries survive only as a **per-catalog fallback** for older
- * Doris versions where the qualified forms fail (see [runCatalogScopedOrFallback]).
+ * Doris versions where the qualified forms fail (see [runCatalogScopedOrFallback]); the fallback
+ * restores the session's pre-switch catalog on the way out (R1).
  *
  * Note on the Ms-family rationale in the Gate 1 log: SQL Server's `MsIntrospector` literally
  * switches into each database (`USE`) before reading it. We still reuse the Ms family's *seam
@@ -410,8 +411,13 @@ class DorisIntrospector(
      * Doris without `SHOW DATABASES FROM` / `<catalog>.information_schema` support), log a
      * `DorisCatalogs:` warning and retry with `SWITCH <catalog>` + the unqualified [fallback].
      * Only this fallback path mutates connection session state (the current catalog); the primary
-     * path never does. A failure of the fallback itself propagates to the per-catalog/per-schema
-     * catch, which logs and skips just that catalog/schema.
+     * path never does — and since R1 the fallback restores it again: the session's current
+     * catalog is captured *before* the switch and re-`SWITCH`ed in a `finally`, so the pooled
+     * connection is returned to its next borrower exactly as it was found (REVIEW-kimi3.md R1;
+     * previously a completed or failed fallback could leave a console inheriting our catalog).
+     * If the capture probe fails, the restore targets the connect-time default and says so in
+     * the log (see [restoreOriginalCatalog]). A failure of the fallback itself propagates to the
+     * per-catalog/per-schema catch, which logs and skips just that catalog/schema.
      */
     private fun <T> runCatalogScopedOrFallback(
         transaction: DBTransaction,
@@ -428,8 +434,61 @@ class DorisIntrospector(
                     "(older Doris?)",
                 t,
             )
+            val originalCatalog = readCurrentCatalog(transaction)
             transaction.command(DorisCatalogQueries.switchCatalog(catalog)).run()
-            fallback(transaction)
+            try {
+                fallback(transaction)
+            } finally {
+                restoreOriginalCatalog(transaction, originalCatalog)
+            }
+        }
+    }
+
+    /**
+     * R1: best-effort read of the session's current catalog before the fallback's `SWITCH`, so it
+     * can be restored afterwards. Null (with an info log) if the probe fails — the restore then
+     * targets the connect-time default, see [restoreOriginalCatalog].
+     */
+    private fun readCurrentCatalog(transaction: DBTransaction): String? {
+        return try {
+            transaction.query(DorisCatalogQueries.READ_CURRENT_CATALOG).run()
+                ?.firstOrNull()?.takeUnless { it.isBlank() }
+        } catch (t: Throwable) {
+            DorisCatalogs.info(
+                "current-catalog probe failed before SWITCH (${t.message}); " +
+                    "the restore will target the connect-time default",
+            )
+            null
+        }
+    }
+
+    /**
+     * R1: undo the fallback's session-state mutation on a pooled connection. Runs in the
+     * fallback's `finally`, so it also fires when the fallback query throws. Best-effort: a
+     * failed restore is logged, never thrown — it must not mask the fallback's own result or
+     * failure. When [original] is unknown (probe failed), restores to
+     * [DorisCatalogScopes.INTERNAL_CATALOG] — the connect-time default every new Doris session
+     * starts in (the same assumption the search-path read-back and the `IsCurrent` fallback
+     * already make).
+     */
+    private fun restoreOriginalCatalog(transaction: DBTransaction, original: String?) {
+        val target = original ?: DorisCatalogScopes.INTERNAL_CATALOG
+        try {
+            transaction.command(DorisCatalogQueries.switchCatalog(target)).run()
+            if (original == null) {
+                DorisCatalogs.warn(
+                    "fallback restore: original catalog unknown (probe failed); " +
+                        "SWITCHed back to the connect-time default '$target'",
+                )
+            } else {
+                DorisCatalogs.info("fallback restore: SWITCHed back to '$target'")
+            }
+        } catch (t: Throwable) {
+            DorisCatalogs.warn(
+                "failed to restore session catalog to '$target' after fallback; " +
+                    "the pooled connection may be left switched to a fallback catalog",
+                t,
+            )
         }
     }
 

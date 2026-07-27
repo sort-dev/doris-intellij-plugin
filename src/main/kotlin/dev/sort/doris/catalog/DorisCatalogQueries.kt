@@ -112,10 +112,21 @@ object DorisCatalogQueries {
     /**
      * `SWITCH <catalog>` — **fallback only**. Mutates connection session state (the current
      * catalog), which is exactly why the primary path avoids it: on pooled/shared/keep-alive
-     * connections the mutated state leaks across the connection's users and forces per-catalog
-     * phase ordering. Used only when the qualified forms fail for a catalog.
+     * connections the mutated state would otherwise leak across the connection's users and force
+     * per-catalog phase ordering. Used only when the qualified forms fail for a catalog; the
+     * introspector captures the session's current catalog first ([READ_CURRENT_CATALOG]) and
+     * switches back to it after the fallback query completes (REVIEW-kimi3.md R1).
      */
     fun switchCatalog(catalogName: String): String = "SWITCH " + quote(catalogName)
+
+    /**
+     * R1 (REVIEW-kimi3.md): the restore probe for the SWITCH fallback — capture the session's
+     * current catalog *before* switching so the introspector can switch back afterwards, leaving
+     * the pooled connection exactly as it was found. Same single-string-column layout as
+     * `SHOW DATABASES`.
+     */
+    val READ_CURRENT_CATALOG: SqlQuery<Array<String>> =
+        SqlQuery(SELECT_CURRENT_CATALOG, DATABASES_LAYOUT)
 
     /** Fallback for [listDatabasesIn]: `SHOW DATABASES` against the SWITCHed current catalog. */
     val LIST_DATABASES_CURRENT: SqlQuery<Array<String>> =
