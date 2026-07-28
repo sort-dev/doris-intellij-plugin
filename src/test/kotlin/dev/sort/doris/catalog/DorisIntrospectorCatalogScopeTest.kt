@@ -8,6 +8,7 @@ import com.intellij.database.remote.jdba.core.ResultLayout
 import com.intellij.database.remote.jdba.sql.SqlCommand
 import com.intellij.database.remote.jdba.sql.SqlQuery
 import com.intellij.database.remote.jdba.sql.SqlScript
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -98,6 +99,48 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
             fallback = { "OK" },
         )
         assertEquals("OK", result)
+    }
+
+    /**
+     * R2 (REVIEW-kimi3.md): a cancelled *primary* query must propagate — not be mistaken for an
+     * "older Doris" signal and trigger a spurious SWITCH + fallback.
+     */
+    fun testPrimaryCancellationPropagatesWithoutFallback() {
+        val tx = RecordingTransaction(currentCatalog = { arrayOf("orig_cat") })
+        var thrown: ProcessCanceledException? = null
+        try {
+            runCatalogScopedOrFallback<String>(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw ProcessCanceledException() },
+                fallback = { fail("fallback must not run when the primary query is cancelled"); "" },
+            )
+            fail("expected ProcessCanceledException to propagate")
+        } catch (e: ProcessCanceledException) {
+            thrown = e
+        }
+        assertNotNull(thrown)
+        assertTrue("no SWITCH should be issued on cancellation", tx.commands.isEmpty())
+    }
+
+    /**
+     * R2: a cancel during the current-catalog probe (which runs *before* the SWITCH-in) must
+     * propagate cleanly, leaving the connection untouched.
+     */
+    fun testProbeCancellationPropagatesBeforeSwitch() {
+        val tx = RecordingTransaction(currentCatalog = { throw ProcessCanceledException() })
+        var thrown: ProcessCanceledException? = null
+        try {
+            runCatalogScopedOrFallback<String>(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { fail("fallback must not run when the probe is cancelled"); "" },
+            )
+            fail("expected ProcessCanceledException to propagate")
+        } catch (e: ProcessCanceledException) {
+            thrown = e
+        }
+        assertNotNull(thrown)
+        assertTrue("no SWITCH should be issued when the probe is cancelled", tx.commands.isEmpty())
     }
 
     /**

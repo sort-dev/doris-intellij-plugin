@@ -12,10 +12,10 @@ import java.util.Locale
 
 /**
  * Wraps DataGrip's SQL syntax highlighter and upgrades any bare identifier whose text is a
- * Doris keyword to keyword color. We delegate lexing to the SQL92 lexer, which only knows
- * standard SQL keywords, so Doris-only keywords (SHOW, DISTRIBUTED, BUCKETS, PROPERTIES, ...)
- * otherwise come through as plain identifiers. Every non-keyword token keeps its original SQL
- * coloring via the wrapped highlighter.
+ * Doris keyword to keyword color. We delegate lexing to the MySQL base lexer (`MysqlDialectBase`;
+ * see [DorisSqlDialect]), which knows standard SQL and MySQL keywords, so Doris-only keywords
+ * (DISTRIBUTED, BUCKETS, PROPERTIES, ...) otherwise come through as plain identifiers. Every
+ * non-keyword token keeps its original SQL coloring via the wrapped highlighter.
  *
  * This is lexical (context-free): non-reserved keywords such as NAME/VALUE/TYPE are colored
  * even when used as identifiers. Context-sensitive keyword handling arrives with the

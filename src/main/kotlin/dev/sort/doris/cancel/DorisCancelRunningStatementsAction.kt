@@ -13,6 +13,7 @@ import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
 import com.intellij.database.run.audit.CancelProgressAuditor
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.ui.Messages
 import com.intellij.util.TimeoutUtil
 
@@ -179,6 +180,8 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                 cancelPendingClientWork(session)
                 killOnServer(session, dataSourceId, resolved.guids)
                     .withConnections(resolved.connections)
+            } catch (pce: ProcessCanceledException) {
+                throw pce
             } catch (t: Throwable) {
                 DorisCancel.warn("session '${session.title}': kill dispatch threw: ${t.message}")
                 CancelResult(DorisCancel.KillOutcome.NOTHING)
@@ -191,11 +194,15 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
 
                 DorisCancel.KillOutcome.STILL_RUNNING ->
                     ApplicationManager.getApplication().invokeLater {
+                        // Runs seconds after the kill round-trip; the project may be gone by now, and
+                        // offerDetach shows a modal — guard disposal like DorisIntrospector does (R5).
+                        if (session.project.isDisposed) return@invokeLater
                         offerDetach(session, result)
                     }
 
                 DorisCancel.KillOutcome.NOTHING ->
                     ApplicationManager.getApplication().invokeLater {
+                        if (session.project.isDisposed) return@invokeLater
                         if (!session.isCancelled && !session.isIdle) {
                             DorisCancel.info(
                                 "session '${session.title}': our path found nothing to kill and the " +
@@ -337,7 +344,14 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         }
     }
 
-    /** Bridge so the stock (super) cancel can be invoked from an async continuation. */
+    /**
+     * Bridge so the stock (super) cancel can be invoked from an async continuation.
+     *
+     * R5 note: [e] was captured at action-invocation time and is replayed here up to several seconds
+     * later — technically past an `AnActionEvent`'s intended lifetime. We accept the replay (the stock
+     * fallback needs an event and one cannot be faithfully reconstructed off the EDT continuation) but
+     * gate it on `project.isDisposed` at both call sites so a disposed project never reaches stock.
+     */
     private fun runStockCancel(e: AnActionEvent, session: DatabaseSession) {
         super.performAction(e, session)
     }
@@ -496,6 +510,8 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                 val candidates = collectRunningCandidates(helper, guids)
                 killSingleCandidate(helper, candidates, context, guids)
             }
+        } catch (pce: ProcessCanceledException) {
+            throw pce
         } catch (t: Throwable) {
             DorisCancel.warn("helper connection for kill failed: ${t.message}")
             CancelResult(DorisCancel.KillOutcome.NOTHING)

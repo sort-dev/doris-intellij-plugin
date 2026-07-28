@@ -17,6 +17,7 @@ import com.intellij.database.model.ModelFactory
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.families.ModNamingFamily
 import com.intellij.database.util.TreePattern
+import com.intellij.openapi.progress.ProcessCanceledException
 import dev.sort.doris.DorisCatalogs
 
 /**
@@ -151,6 +152,8 @@ class DorisIntrospector(
             override fun listDatabases(tran: DBTransaction): List<DorisCatalogQueries.CatalogRow> {
                 val rows = try {
                     tran.query(DorisCatalogQueries.LIST_CATALOGS).run().orEmpty()
+                } catch (pce: ProcessCanceledException) {
+                    throw pce
                 } catch (t: Throwable) {
                     DorisCatalogs.warn("SHOW CATALOGS failed; no catalogs will be listed", t)
                     emptyList()
@@ -227,6 +230,8 @@ class DorisIntrospector(
                             database.schemas.createOrGet(name)
                         }
                     }
+                } catch (pce: ProcessCanceledException) {
+                    throw pce
                 } catch (t: Throwable) {
                     DorisCatalogs.warn("catalog '$catalog' schema listing failed; skipping catalog", t)
                 }
@@ -343,6 +348,8 @@ class DorisIntrospector(
             DorisCatalogs.info(
                 "catalog '$catalog' db '$schemaName' -> $tableCount tables, $viewCount views",
             )
+        } catch (pce: ProcessCanceledException) {
+            throw pce
         } catch (t: Throwable) {
             DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
         }
@@ -487,6 +494,8 @@ class DorisSingleDatabaseIntrospector(
     override fun getDefaultScope(): TreePattern {
         val current = try {
             getCurrentDatabase()
+        } catch (pce: ProcessCanceledException) {
+            throw pce
         } catch (t: Throwable) {
             DorisCatalogs.warn("could not determine current database for default scope", t)
             null
@@ -533,6 +542,10 @@ internal fun <T> runCatalogScopedOrFallback(
 ): T {
     return try {
         primary(transaction)
+    } catch (pce: ProcessCanceledException) {
+        // A cancelled primary query is not an "older Doris" signal — abort rather than issue a
+        // spurious SWITCH + fallback on the way out (R2, REVIEW-kimi3.md).
+        throw pce
     } catch (t: Throwable) {
         DorisCatalogs.warn(
             "catalog '$catalog': qualified $what query failed; falling back to SWITCH + unqualified " +
@@ -558,6 +571,9 @@ internal fun readCurrentCatalog(transaction: DBTransaction): String? {
     return try {
         transaction.query(DorisCatalogQueries.READ_CURRENT_CATALOG).run()
             ?.firstOrNull()?.takeUnless { it.isBlank() }
+    } catch (pce: ProcessCanceledException) {
+        // Runs before any SWITCH, so a cancel here can propagate cleanly (nothing to restore) (R2).
+        throw pce
     } catch (t: Throwable) {
         DorisCatalogs.info(
             "current-catalog probe failed before SWITCH (${t.message}); " +
@@ -589,6 +605,9 @@ internal fun restoreOriginalCatalog(transaction: DBTransaction, original: String
             DorisCatalogs.info("fallback restore: SWITCHed back to '$target'")
         }
     } catch (t: Throwable) {
+        // Deliberately catches Throwable *including* ProcessCanceledException (unlike the R2 sites
+        // above): this runs in the fallback's `finally` and must never replace the fallback's own
+        // result or exception. A cancel is picked up at the next progress checkpoint instead.
         DorisCatalogs.warn(
             "failed to restore session catalog to '$target' after fallback; " +
                 "the pooled connection may be left switched to a fallback catalog",
