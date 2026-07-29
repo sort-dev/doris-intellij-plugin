@@ -298,6 +298,7 @@
              connection: mints a per-connection trace id, binds it via SET session_context,
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
+        <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisBuiltinFunctionInterceptor"/>
 
         <!-- DORIS PIPES: "table not introspected" banner for pipe statements. -->
         <editorNotificationProvider implementation="dev.sort.doris.pipes.DorisPipesNotificationProvider"/>

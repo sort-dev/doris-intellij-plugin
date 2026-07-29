@@ -507,7 +507,13 @@ class DorisCompletionContributor : CompletionContributor() {
             // from the catalog — presentation only; we never *gate* on kind (aggregate-vs-scalar
             // validity is too context-dependent to decide reliably mid-typing).
             val sink = result.caseInsensitive()
+            // Reconcile the brikk baseline to the connected server (DorisBuiltinFunctionInterceptor
+            // harvested `SHOW BUILTIN FUNCTIONS` once per data source). No harvest for this file's
+            // data source (unattached file, older server, harvest failed) => the brikk baseline
+            // stands, so `isServed`/`extraNames` are no-ops.
+            val dataSourceId = DorisBuiltinCatalog.dataSourceIdFor(parameters.originalFile)
             for ((upperName, info) in DorisFunctions.INFO_BY_NAME) {
+                if (!DorisBuiltinCatalog.isServed(upperName, dataSourceId)) continue // server lacks it
                 var element = LookupElementBuilder.create(upperName.lowercase())
                     .withIcon(iconFor(info.kind))
                     .withInsertHandler(CALL_PARENS)
@@ -519,6 +525,19 @@ class DorisCompletionContributor : CompletionContributor() {
                 }
                 element = element.withTypeText(info.returnType ?: typeTextFor(info.kind), true)
                 sink.addElement(element)
+            }
+            // Builtins the connected server reports that the brikk baseline lacks (version skew):
+            // offered as bare names — the server gives no signatures. Skip any that the TVF loop
+            // below already covers.
+            val tvfNames = DorisTableFunctions.allNames.mapTo(HashSet()) { it.uppercase() }
+            for (extra in DorisBuiltinCatalog.extraNames(DorisFunctions.NAMES, dataSourceId)) {
+                if (extra in tvfNames) continue
+                sink.addElement(
+                    LookupElementBuilder.create(extra.lowercase())
+                        .withIcon(iconFor(DorisFunctions.Kind.SCALAR))
+                        .withTypeText(typeTextFor(DorisFunctions.Kind.SCALAR), true)
+                        .withInsertHandler(CALL_PARENS)
+                )
             }
             // TVF names missing from the generated catalog (registry names are FROM-queryable only;
             // the non-queryable stream-load functions are never registered).
