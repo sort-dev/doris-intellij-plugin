@@ -49,6 +49,19 @@ object DorisBuiltinCatalog {
         return s - brikkNames
     }
 
+    /**
+     * Whether a platform builtin-function lookup [upperName] should be HIDDEN from completion for
+     * [dataSourceId] — the server-authoritative suppression of MySQL-only builtins (e.g. regexp_like).
+     * Only when we have a server harvest (offline stays as-is, per the design), the server doesn't
+     * serve it, AND Doris doesn't recognize it ([known], from brikk's isKnown covering functions +
+     * grammar builtins). Never suppresses without harvested data.
+     */
+    fun suppresses(upperName: String, dataSourceId: String?, known: Boolean): Boolean {
+        if (known) return false
+        val s = served(dataSourceId) ?: return false // no harvest → offline as-is, suppress nothing
+        return upperName !in s
+    }
+
     /** The data-source id backing [file]'s running console, or null for an unattached file. */
     fun dataSourceIdFor(file: PsiFile): String? {
         val vf = file.viewProvider.virtualFile

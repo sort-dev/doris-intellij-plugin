@@ -53,6 +53,15 @@ object DorisFunctions {
     /** All Doris built-in function names and aliases, upper-cased. */
     val NAMES: Set<String> get() = INFO_BY_NAME.keys
 
+    /**
+     * Whether Doris recognizes [name] — a catalog function/alias OR a grammar-shaped reserved word
+     * (`cast`, `extract`, `convert`, …) that is not a registry function but is still valid Doris
+     * syntax. Delegates to brikk-sql's `isKnown` (functions ∪ aliases ∪ grammarBuiltins,
+     * case-insensitive). Used to keep those grammar builtins when suppressing the platform's
+     * MySQL-only builtins from completion (they never appear in `SHOW BUILTIN FUNCTIONS`).
+     */
+    fun isKnown(name: String): Boolean = DORIS_FUNCTION_CATALOG.isKnown(name)
+
     private fun FunctionDef.toInfo(): Info {
         val rep = overloads.firstOrNull()
         val params = rep?.let { o ->

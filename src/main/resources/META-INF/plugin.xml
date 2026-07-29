@@ -276,6 +276,8 @@
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMysqlFunctionFilter"/>
         <!-- Exposes SELECT-list aliases as resolution/completion targets in HAVING / GROUP BY /
              ORDER BY. The platform gates this behind a hardcoded MySQL-family Dbms allowlist that a
              plugin dialect cannot join; this re-issues the platform's own selectClause scope call
