@@ -507,13 +507,18 @@ class DorisCompletionContributor : CompletionContributor() {
             // from the catalog — presentation only; we never *gate* on kind (aggregate-vs-scalar
             // validity is too context-dependent to decide reliably mid-typing).
             val sink = result.caseInsensitive()
-            for ((upperName, kind) in DorisFunctions.BY_NAME) {
-                sink.addElement(
-                    LookupElementBuilder.create(upperName.lowercase())
-                        .withIcon(iconFor(kind))
-                        .withTypeText(typeTextFor(kind), true)
-                        .withInsertHandler(CALL_PARENS)
-                )
+            for ((upperName, info) in DorisFunctions.INFO_BY_NAME) {
+                var element = LookupElementBuilder.create(upperName.lowercase())
+                    .withIcon(iconFor(info.kind))
+                    .withInsertHandler(CALL_PARENS)
+                // Signature from brikk-sql, MySQL-style: "name(ARGTYPES)" tail + return type on the
+                // right. Functions with no static overload (table-valued / dynamic) stay bare names.
+                if (info.params != null) {
+                    val more = if (info.overloadCount > 1) "  +${info.overloadCount - 1}" else ""
+                    element = element.withTailText("(${info.params})$more", true)
+                }
+                element = element.withTypeText(info.returnType ?: typeTextFor(info.kind), true)
+                sink.addElement(element)
             }
             // TVF names missing from the generated catalog (registry names are FROM-queryable only;
             // the non-queryable stream-load functions are never registered).
