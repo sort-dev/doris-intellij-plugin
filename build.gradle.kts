@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.2.0"
+version = "1.3.0"
 
 repositories {
     // brikk-sql-metadata (function catalogs) is a released artifact on Maven Central — no extra

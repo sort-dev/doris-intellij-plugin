@@ -55,6 +55,26 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.0</b> — smarter function completion and fresher introspection.
+        <ul>
+            <li><b>Function completion shows signatures.</b> Doris built-in functions now complete
+                with their argument types and return type (e.g. <code>regexp_count(VARCHAR, VARCHAR)</code>
+                &rarr; <code>INT</code>), MySQL-style, from the Doris function catalog.</li>
+            <li><b>Completion matches your connected server.</b> On connect the plugin reads the
+                server's <code>SHOW BUILTIN FUNCTIONS</code> and reconciles the offered list to that
+                Doris version — functions your server doesn't have are dropped, ones it adds appear.</li>
+            <li><b>No more non-Doris functions.</b> Functions inherited from the underlying MySQL
+                dialect that Doris doesn't have (<code>regexp_like</code>, the <code>ST_*</code> /
+                <code>MBR*</code> geometry family, GTID / lock / crypto helpers, ...) are no longer
+                suggested.</li>
+            <li><b>Introspection replaces instead of merging.</b> Recreating a view or table with a
+                different set of columns — or dropping a table / view / database — now updates the
+                database tree and completion instead of leaving the old columns and objects behind.</li>
+            <li><b>Reliability:</b> a cancelled introspection no longer persists a half-populated
+                model; unreachable external catalogs no longer flood the log with failed retries;
+                and the catalog-scoped introspection fallback restores the pooled connection's
+                catalog on older Doris (no wrong-catalog for the next user of that connection).</li>
+        </ul>
         <b>1.2.0</b> — a working Explain Plan, plus Doris UDF / alias function statements.
         <ul>
             <li><b>Explain Plan works:</b> the <b>Explain Plan</b> action now runs
