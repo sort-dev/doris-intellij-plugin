@@ -46,9 +46,13 @@ class DorisBuiltinFunctionInterceptor : DatabaseConnectionInterceptor {
         }
         if (names.isNotEmpty()) {
             DorisBuiltinCatalog.record(dataSourceId, names)
+            // DIAGNOSTIC (wip): does the server's own list contain the probe names? If st_area/
+            // mbrcontains ARE served, keeping them in completion is correct, not a filter bug.
+            val probes = listOf("REGEXP_LIKE", "ST_AREA", "ST_POINT", "MBRCONTAINS", "MBR_CONTAINS")
+                .associateWith { it in names }
             DorisCatalogs.info(
                 "harvested ${names.size} builtin function names from " +
-                    "'${connection.connectionPoint.dataSource.name}' (ds=$dataSourceId)",
+                    "'${connection.connectionPoint.dataSource.name}' (ds=$dataSourceId); probes=$probes",
             )
         }
     }
