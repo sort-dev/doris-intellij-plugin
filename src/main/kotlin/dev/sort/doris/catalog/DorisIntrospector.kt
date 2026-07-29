@@ -507,6 +507,15 @@ internal fun <T> runCatalogScopedOrFallback(
         // spurious SWITCH + fallback on the way out (R2, REVIEW-kimi3.md).
         throw pce
     } catch (t: Throwable) {
+        // A connectivity/transport failure is likewise NOT an "older Doris, try the unqualified
+        // form" signal — it means the catalog is unreachable (common for external federated
+        // catalogs whose backing store can't be reached). The SWITCH + current-catalog probe +
+        // unqualified fallback would all fail the same way, so skip straight to the caller's
+        // per-catalog/per-schema handler instead of running (and loudly logging) a doomed fallback.
+        if (isConnectivityError(t)) {
+            DorisCatalogs.debug("catalog '$catalog': $what query failed on an unreachable connection; skipping (no fallback)")
+            throw t
+        }
         DorisCatalogs.warn(
             "catalog '$catalog': qualified $what query failed; falling back to SWITCH + unqualified " +
                 "(older Doris?)",
@@ -523,8 +532,36 @@ internal fun <T> runCatalogScopedOrFallback(
 }
 
 /**
+ * Whether [t] (or any cause) is a connectivity/transport failure rather than a SQL-level "the FE
+ * doesn't understand this" error. Doris's out-of-process JDBC surfaces these as RMI-style wrappers
+ * ("Connection refused to host: …; nested exception is: java.net.ConnectException"), so we match on
+ * both the network exception TYPES and the well-known message markers walking the cause chain.
+ */
+internal fun isConnectivityError(t: Throwable): Boolean {
+    val seen = HashSet<Throwable>()
+    var cur: Throwable? = t
+    while (cur != null && seen.add(cur)) {
+        when (cur) {
+            is java.net.ConnectException, is java.net.SocketException,
+            is java.net.UnknownHostException, is java.net.NoRouteToHostException,
+            -> return true
+        }
+        val m = cur.message?.lowercase().orEmpty()
+        if ("connection refused" in m || "communications link failure" in m ||
+            "connection reset" in m || "no route to host" in m ||
+            "connect timed out" in m || "connection is closed" in m ||
+            "could not create connection" in m
+        ) {
+            return true
+        }
+        cur = cur.cause
+    }
+    return false
+}
+
+/**
  * R1: best-effort read of the session's current catalog before the fallback's `SWITCH`, so it
- * can be restored afterwards. Null (with an info log) if the probe fails — the restore then
+ * can be restored afterwards. Null (with a debug log) if the probe fails — the restore then
  * targets the connect-time default, see [restoreOriginalCatalog].
  */
 internal fun readCurrentCatalog(transaction: DBTransaction): String? {
@@ -535,7 +572,7 @@ internal fun readCurrentCatalog(transaction: DBTransaction): String? {
         // Runs before any SWITCH, so a cancel here can propagate cleanly (nothing to restore) (R2).
         throw pce
     } catch (t: Throwable) {
-        DorisCatalogs.info(
+        DorisCatalogs.debug(
             "current-catalog probe failed before SWITCH (${t.message}); " +
                 "the restore will target the connect-time default",
         )

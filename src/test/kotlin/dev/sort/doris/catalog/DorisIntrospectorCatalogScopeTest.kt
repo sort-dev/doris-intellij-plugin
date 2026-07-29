@@ -144,6 +144,37 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
     }
 
     /**
+     * A connectivity/transport failure (unreachable catalog) must propagate WITHOUT running the
+     * SWITCH fallback — it's not an "older Doris" signal, and the fallback would fail the same way
+     * (and flood the log). Same abort-not-fallback family as the PCE case.
+     */
+    fun testConnectivityErrorPropagatesWithoutFallback() {
+        val tx = RecordingTransaction(currentCatalog = { arrayOf("orig_cat") })
+        var thrown: Throwable? = null
+        try {
+            runCatalogScopedOrFallback<String>(
+                tx, "ext_cat", "information_schema.tables",
+                primary = { throw RuntimeException("Connection refused to host: 127.0.0.1; nested exception is: java.net.ConnectException") },
+                fallback = { fail("fallback must not run for an unreachable catalog"); "" },
+            )
+            fail("expected the connectivity error to propagate")
+        } catch (e: RuntimeException) {
+            thrown = e
+        }
+        assertNotNull(thrown)
+        assertTrue("no SWITCH should be issued for a connectivity error", tx.commands.isEmpty())
+    }
+
+    fun testIsConnectivityErrorClassifier() {
+        assertTrue(isConnectivityError(java.net.ConnectException("refused")))
+        assertTrue(isConnectivityError(RuntimeException(java.net.SocketException("reset"))))
+        assertTrue(isConnectivityError(RuntimeException("Connection refused to host: 127.0.0.1")))
+        assertTrue(isConnectivityError(RuntimeException("Communications link failure")))
+        // A genuine "older Doris / unsupported" SQL error is NOT connectivity → fallback still runs.
+        assertFalse(isConnectivityError(RuntimeException("Syntax error: SHOW DATABASES FROM not supported")))
+    }
+
+    /**
      * Minimal recording [DBTransaction]: captures every `command(String)` (the SWITCHes) and the
      * one `query(SqlQuery)` (the current-catalog probe) in order. [currentCatalog] supplies the
      * probe result (or throws to simulate an old server without `current_catalog()`);

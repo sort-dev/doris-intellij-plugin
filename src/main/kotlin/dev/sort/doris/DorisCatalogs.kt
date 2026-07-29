@@ -64,6 +64,8 @@ object DorisCatalogs {
 
     fun info(message: String) = log.info("$LOG_PREFIX $message")
 
+    fun debug(message: String) = log.debug("$LOG_PREFIX $message")
+
     fun warn(message: String, t: Throwable? = null) =
         if (t != null) log.warn("$LOG_PREFIX $message", t) else log.warn("$LOG_PREFIX $message")
 }
