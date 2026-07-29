@@ -224,11 +224,18 @@ class DorisIntrospector(
                     // Queries above run OUTSIDE the model lock; family mutations run inside the
                     // sanctioned write context (0.4.0 P1 `Session not started` fix, see
                     // [DorisModelWrite] for the bytecode trail).
+                    // `names` is the catalog's COMPLETE database list, so bracket the family with
+                    // the platform's sync-pending sweep: mark every existing schema pending,
+                    // createOrGet clears the mark on each live one, and removeSyncPendingChildren
+                    // drops any that vanished server-side. Without this the family only ever grows —
+                    // dropped databases would linger in the tree and completion (REVIEW: staleness).
                     DorisModelWrite.write(model) {
+                        database.schemas.markChildrenAsSyncPending()
                         for (name in names) {
                             if (name.isNullOrBlank()) continue
                             database.schemas.createOrGet(name)
                         }
+                        database.schemas.removeSyncPendingChildren()
                     }
                 } catch (pce: ProcessCanceledException) {
                     throw pce
@@ -329,6 +336,12 @@ class DorisIntrospector(
             // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
             // [DorisModelWrite] for the bytecode trail).
             DorisModelWrite.write(model) {
+                // `tables` is the schema's COMPLETE table/view list — bracket both families with the
+                // sync-pending sweep so dropped tables/views are pruned, not just accumulated
+                // (createOrGet clears the mark on each live one; removeSyncPendingChildren drops the
+                // rest). Empty is a valid answer here (schema with nothing left), so no size guard.
+                schema.tables.markChildrenAsSyncPending()
+                schema.views.markChildrenAsSyncPending()
                 for (t in tables) {
                     val name = t.TABLE_NAME ?: continue
                     if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
@@ -344,6 +357,8 @@ class DorisIntrospector(
                         tableCount++
                     }
                 }
+                schema.tables.removeSyncPendingChildren()
+                schema.views.removeSyncPendingChildren()
             }
             DorisCatalogs.info(
                 "catalog '$catalog' db '$schemaName' -> $tableCount tables, $viewCount views",
@@ -387,29 +402,6 @@ class DorisIntrospector(
                 "post-introspection refresh: dataSourceChanged fired for '${dataSource.name}' " +
                     "(PSI caches cleared, open-editor highlighting restarts)",
             )
-        }
-    }
-
-    /**
-     * Attaches the `information_schema.columns` rows to a table's or view's column family — shared
-     * by both branches since M10 (M5 item 2 semantics: stored type from COLUMN_TYPE/DATA_TYPE via
-     * the platform's lenient factory, Doris exotics stay unresolved-but-named; ordinal positions).
-     */
-    private fun attachColumns(
-        columns: com.intellij.database.model.families.ModPositioningNamingFamily<
-            out com.intellij.database.model.basic.BasicModTableOrViewColumn,
-            >,
-        rows: List<DorisCatalogQueries.ColumnRow>?,
-    ) {
-        for (col in rows.orEmpty()) {
-            val colName = col.COLUMN_NAME ?: continue
-            val column = columns.createOrGet(colName)
-            DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
-                ?.let { dasType -> column.setStoredType(dasType) }
-            val pos = col.ORDINAL_POSITION
-            if (pos in 1..Short.MAX_VALUE.toLong()) {
-                column.setPosition(pos.toShort())
-            }
         }
     }
 
@@ -592,6 +584,41 @@ internal fun readCurrentCatalog(transaction: DBTransaction): String? {
  * starts in (the same assumption the search-path read-back and the `IsCurrent` fallback
  * already make).
  */
+/**
+ * Attaches the `information_schema.columns` rows to a table's or view's column family — shared by
+ * the table and view branches since M10 (M5 item 2 semantics: stored type from COLUMN_TYPE/DATA_TYPE
+ * via the platform's lenient factory, Doris exotics stay unresolved-but-named; ordinal positions).
+ *
+ * Prunes as well as adds: brackets the family with the platform sync-pending sweep so a column that
+ * no longer exists after the table/view is recreated with a different shape is dropped, not merged
+ * (REVIEW: recreate view foo(abc) as foo(def) previously showed abc+def in completion). Top-level +
+ * `internal` (no introspector state) so [DorisIntrospectorColumnSyncTest] can drive it against a real
+ * Ms column family; the call site in the class resolves to it unqualified.
+ */
+internal fun attachColumns(
+    columns: com.intellij.database.model.families.ModPositioningNamingFamily<
+        out com.intellij.database.model.basic.BasicModTableOrViewColumn,
+        >,
+    rows: List<DorisCatalogQueries.ColumnRow>?,
+) {
+    // null => this table had no rows in the columns result (ambiguous — could be an incomplete
+    // fetch); leave existing columns untouched rather than risk wiping a live table's columns.
+    // A non-null (even empty) result is authoritative, so run the sync-pending sweep.
+    if (rows == null) return
+    columns.markChildrenAsSyncPending()
+    for (col in rows) {
+        val colName = col.COLUMN_NAME ?: continue
+        val column = columns.createOrGet(colName)
+        DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
+            ?.let { dasType -> column.setStoredType(dasType) }
+        val pos = col.ORDINAL_POSITION
+        if (pos in 1..Short.MAX_VALUE.toLong()) {
+            column.setPosition(pos.toShort())
+        }
+    }
+    columns.removeSyncPendingChildren()
+}
+
 internal fun restoreOriginalCatalog(transaction: DBTransaction, original: String?) {
     val target = original ?: DorisCatalogScopes.INTERNAL_CATALOG
     try {
