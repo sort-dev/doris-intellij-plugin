@@ -224,19 +224,10 @@ class DorisIntrospector(
                     // Queries above run OUTSIDE the model lock; family mutations run inside the
                     // sanctioned write context (0.4.0 P1 `Session not started` fix, see
                     // [DorisModelWrite] for the bytecode trail).
-                    // `names` is the catalog's COMPLETE database list, so bracket the family with
-                    // the platform's sync-pending sweep: mark every existing schema pending,
-                    // createOrGet clears the mark on each live one, and removeSyncPendingChildren
-                    // drops any that vanished server-side. Without this the family only ever grows —
-                    // dropped databases would linger in the tree and completion (REVIEW: staleness).
-                    DorisModelWrite.write(model) {
-                        database.schemas.markChildrenAsSyncPending()
-                        for (name in names) {
-                            if (name.isNullOrBlank()) continue
-                            database.schemas.createOrGet(name)
-                        }
-                        database.schemas.removeSyncPendingChildren()
-                    }
+                    // `names` is the catalog's COMPLETE database list; attachSchemas brackets the
+                    // family with the sync-pending sweep so dropped databases are pruned, not just
+                    // accumulated (REVIEW: staleness).
+                    DorisModelWrite.write(model) { attachSchemas(database, names) }
                 } catch (pce: ProcessCanceledException) {
                     throw pce
                 } catch (t: Throwable) {
@@ -330,38 +321,15 @@ class DorisIntrospector(
                 },
             ).orEmpty().groupBy { it.TABLE_NAME }
 
-            var tableCount = 0
-            var viewCount = 0
             // Queries above run OUTSIDE the model lock; table/view/column family mutations run
             // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
             // [DorisModelWrite] for the bytecode trail).
+            var counts = TableViewCounts(0, 0)
             DorisModelWrite.write(model) {
-                // `tables` is the schema's COMPLETE table/view list — bracket both families with the
-                // sync-pending sweep so dropped tables/views are pruned, not just accumulated
-                // (createOrGet clears the mark on each live one; removeSyncPendingChildren drops the
-                // rest). Empty is a valid answer here (schema with nothing left), so no size guard.
-                schema.tables.markChildrenAsSyncPending()
-                schema.views.markChildrenAsSyncPending()
-                for (t in tables) {
-                    val name = t.TABLE_NAME ?: continue
-                    if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-                        // M10 Part A: views get their columns attached exactly like tables. Doris
-                        // serves view columns in information_schema.columns (live-verified), and the
-                        // Ms model's MsViewColumn shares the table column surface
-                        // (BasicModTableOrViewColumn) — the M1/M5 loop just never entered this branch
-                        // with the column rows, which killed completion on every view.
-                        attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
-                        viewCount++
-                    } else {
-                        attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
-                        tableCount++
-                    }
-                }
-                schema.tables.removeSyncPendingChildren()
-                schema.views.removeSyncPendingChildren()
+                counts = attachTablesAndViews(schema, tables, columnsByTable)
             }
             DorisCatalogs.info(
-                "catalog '$catalog' db '$schemaName' -> $tableCount tables, $viewCount views",
+                "catalog '$catalog' db '$schemaName' -> ${counts.tables} tables, ${counts.views} views",
             )
         } catch (pce: ProcessCanceledException) {
             throw pce
@@ -617,6 +585,56 @@ internal fun attachColumns(
         }
     }
     columns.removeSyncPendingChildren()
+}
+
+/** Table/view counts from one [attachTablesAndViews] pass, for the introspection log line. */
+internal data class TableViewCounts(val tables: Int, val views: Int)
+
+/**
+ * Refresh a catalog's database (schema) family to exactly [names] — the platform sync-pending sweep,
+ * so databases dropped server-side are pruned rather than accumulated. `names` is the catalog's
+ * COMPLETE `SHOW DATABASES` list. Top-level + `internal` (no introspector state) for
+ * [DorisIntrospectorObjectSyncTest]; the call site resolves to it unqualified.
+ */
+internal fun attachSchemas(database: MsDatabase, names: Array<out String>) {
+    database.schemas.markChildrenAsSyncPending()
+    for (name in names) {
+        if (name.isBlank()) continue
+        database.schemas.createOrGet(name)
+    }
+    database.schemas.removeSyncPendingChildren()
+}
+
+/**
+ * Refresh a schema's table and view families from its COMPLETE `information_schema.tables` list,
+ * attaching each object's columns ([attachColumns]) and pruning tables/views that vanished
+ * server-side (the sync-pending sweep on both families). Views share the table column surface
+ * (MsViewColumn / BasicModTableOrViewColumn); Doris serves view columns in information_schema too.
+ * Empty is a valid answer (schema with nothing left), so no size guard. Returns the counts for the
+ * log line. Top-level + `internal` (no introspector state) for [DorisIntrospectorObjectSyncTest].
+ */
+internal fun attachTablesAndViews(
+    schema: MsSchema,
+    tables: List<DorisCatalogQueries.TableRow>,
+    columnsByTable: Map<String?, List<DorisCatalogQueries.ColumnRow>>,
+): TableViewCounts {
+    schema.tables.markChildrenAsSyncPending()
+    schema.views.markChildrenAsSyncPending()
+    var tableCount = 0
+    var viewCount = 0
+    for (t in tables) {
+        val name = t.TABLE_NAME ?: continue
+        if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
+            attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
+            viewCount++
+        } else {
+            attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
+            tableCount++
+        }
+    }
+    schema.tables.removeSyncPendingChildren()
+    schema.views.removeSyncPendingChildren()
+    return TableViewCounts(tableCount, viewCount)
 }
 
 internal fun restoreOriginalCatalog(transaction: DBTransaction, original: String?) {
