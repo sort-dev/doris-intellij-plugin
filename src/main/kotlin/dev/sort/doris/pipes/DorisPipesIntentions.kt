@@ -57,7 +57,7 @@ internal object DorisPipesUi {
 
     fun preview(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
-        when (val result = DorisPipesEngine.transpile(chunk.text)) {
+        when (val result = DorisPipesEngine.transpile(chunk)) {
             is DorisPipesEngine.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
             is DorisPipesEngine.Transpile.Err -> notify(
                 project,
@@ -73,6 +73,10 @@ internal object DorisPipesUi {
 
     fun runToStage(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
+        if (chunk.boundaryError != null) {
+            notify(project, "Cannot determine pipe statement boundary", chunk.boundaryError, NotificationType.ERROR)
+            return
+        }
         val console = consoleFor(project, file) ?: run {
             notify(
                 project,

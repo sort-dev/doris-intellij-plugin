@@ -36,6 +36,10 @@ object DorisPipesEngine {
         object NotPipe : Transpile
     }
 
+    /** Automatic statement detection must not execute a prefix of an unterminated construct. */
+    fun transpile(chunk: DorisPipes.Chunk): Transpile =
+        chunk.boundaryError?.let { Transpile.Err(null, null, it) } ?: transpile(chunk.text)
+
     /**
      * Parse [text] as Doris (the engine's Doris dialect accepts pipe syntax natively), and if it
      * is a pipe program, produce the executable (desugared) Doris SQL + its SourceMap in one
@@ -160,7 +164,7 @@ object DorisPipesEngine {
         val out = ArrayList<DorisSyntaxError>()
         for (chunk in DorisPipes.chunks(text)) {
             if (!chunk.text.contains(DorisPipes.MARKER)) continue
-            when (val r = runCatching { transpile(chunk.text) }.getOrElse { return emptyList() }) {
+            when (val r = runCatching { transpile(chunk) }.getOrElse { return emptyList() }) {
                 is Transpile.Err -> {
                     val relLine = r.line ?: 1
                     out.add(

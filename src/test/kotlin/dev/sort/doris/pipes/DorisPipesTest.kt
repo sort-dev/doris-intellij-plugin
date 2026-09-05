@@ -98,10 +98,150 @@ class DorisPipesTest {
         val fromOffset = text.indexOf("FROM")
         val chunk = DorisPipes.chunkAt(text, fromOffset)!!
         assertTrue(chunk.text.contains(DorisPipes.MARKER))
-        // Caret at the very end of the pipe chunk (right after ';') still resolves to it.
-        assertEquals(chunk, DorisPipes.chunkAt(text, chunk.endOffset))
+        // The delimiter belongs to the pipe; its exclusive end belongs to the next chunk.
+        assertEquals(chunk, DorisPipes.chunkAt(text, chunk.endOffset - 1))
+        assertEquals(DorisPipes.chunks(text).last(), DorisPipes.chunkAt(text, chunk.endOffset))
         // Caret in the trailing statement resolves to that one instead.
         assertFalse(DorisPipes.chunkAt(text, text.indexOf("SELECT 2"))!!.text.contains(DorisPipes.MARKER))
+    }
+
+    @Test
+    fun `only delimiter tokens split statements`() {
+        val statements = listOf(
+            "FROM t |> WHERE s = 'a;b' |> LIMIT 5;",
+            "FROM t |> WHERE s = 'a'';b' |> LIMIT 5;",
+            "FROM t |> WHERE s = 'a\\';b' |> LIMIT 5;",
+            "FROM t |> WHERE s = 'a\\\\' |> LIMIT 5;",
+            "FROM t |> WHERE s = \"a;\"\"b\" |> LIMIT 5;",
+            "FROM t |> WHERE s = \"a\\\";b\" |> LIMIT 5;",
+            "FROM `ta;ble` |> SELECT `co``;lumn`;",
+            "FROM t |> SELECT `\$\$identifier`;",
+            "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;",
+            "FROM t |> SELECT * --comment;\n|> WHERE tenant_id = 7;",
+            "FROM t |> SELECT * -- continued\\\n; still comment\n|> LIMIT 5;",
+            "FROM t |> SELECT * /* ; */ |> WHERE tenant_id = 7;",
+            "FROM t |> SELECT * /* outer /* ; */ ; outer */ |> LIMIT 5;",
+            "FROM t |> SELECT /*+ SET_VAR(query_timeout=5) ; */ * |> LIMIT 5;",
+            "CREATE FUNCTION f() RETURNS STRING AS \$\$code; more code;\$\$;",
+            "CREATE JOB j ON SCHEDULE AT CURRENT_TIMESTAMP DO INSERT INTO t SELECT 'a;b';",
+        )
+        for (statement in statements) {
+            val text = "SELECT 0;\n$statement\nSELECT 2;"
+            val chunks = DorisPipes.chunks(text)
+            assertEquals(statement, 3, chunks.size)
+            assertEquals("\n$statement", chunks[1].text)
+            assertEquals(2, chunks[1].startLine)
+            assertEquals(2 + statement.count { it == '\n' }, chunks[1].endLine)
+            assertEquals(null, chunks[1].boundaryError)
+            for (chunk in chunks) {
+                assertEquals(chunk.text, text.substring(chunk.startOffset, chunk.endOffset))
+            }
+        }
+    }
+
+    @Test
+    fun `comment semicolon never removes the filtering stage from automatic execution input`() {
+        val statement = "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;"
+        val text = "SELECT 0;\n$statement\nSELECT 2;"
+        val expectedSql = (DorisPipesEngine.transpile(statement) as DorisPipesEngine.Transpile.Ok).dorisSql
+        for (caret in text.indexOf("FROM") until text.indexOf("\nSELECT 2")) {
+            val chunk = DorisPipes.chunkAt(text, caret)!!
+            assertEquals("caret=$caret", "\n$statement", chunk.text)
+            val result = DorisPipesEngine.transpile(chunk)
+            assertTrue("caret=$caret: $result", result is DorisPipesEngine.Transpile.Ok)
+            val sql = (result as DorisPipesEngine.Transpile.Ok).dorisSql
+            assertEquals(expectedSql, sql)
+            assertTrue(sql.contains("tenant_id = 7"))
+        }
+    }
+
+    @Test
+    fun `quoted semicolon preserves full translation and stage prefix`() {
+        val statement = "FROM t\n|> WHERE s = 'a;b'\n|> SELECT s\n|> LIMIT 5;"
+        val text = "SELECT 0;\n$statement\nSELECT 2;"
+        val chunk = DorisPipes.chunkAt(text, text.indexOf("a;b"))!!
+        assertEquals("\n$statement", chunk.text)
+        assertEquals(
+            (DorisPipesEngine.transpile(statement) as DorisPipesEngine.Transpile.Ok).dorisSql,
+            (DorisPipesEngine.transpile(chunk) as DorisPipesEngine.Transpile.Ok).dorisSql,
+        )
+        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, chunk.text.indexOf("SELECT"))!!
+        assertEquals(3, prefix.stage)
+        assertEquals(4, prefix.totalStages)
+        assertEquals("FROM t\n|> WHERE s = 'a;b'\n|> SELECT s", prefix.text.trim())
+        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Ok)
+        assertTrue(DorisPipesEngine.pipeSyntaxErrors(text).isEmpty())
+    }
+
+    @Test
+    fun `unterminated constructs keep the unresolved tail and block automatic transpilation`() {
+        for (opener in listOf("'", "\"", "`", "/*", "/*+", "/* outer /* inner */", "\$\$")) {
+            val tail = "\nFROM t |> SELECT * $opener unfinished;\n|> WHERE tenant_id = 7;\nSELECT 2;"
+            val text = "SELECT 0;$tail"
+            val chunks = DorisPipes.chunks(text)
+            assertEquals(opener, 2, chunks.size)
+            val chunk = chunks[1]
+            assertEquals(tail, chunk.text)
+            assertEquals(text.length, chunk.endOffset)
+            assertTrue(opener, chunk.boundaryError != null)
+            assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+            assertEquals(chunk, DorisPipes.chunkAt(text, text.indexOf("WHERE")))
+            assertEquals(chunk, DorisPipes.chunkAt(text, text.length))
+        }
+    }
+
+    @Test
+    fun `unclosed dollar string cannot expose a later pipeline as a new statement`() {
+        val text = "SELECT \$\$unfinished;\nFROM secret |> SELECT *;"
+        val chunk = DorisPipes.chunkAt(text, text.indexOf("FROM"))!!
+        assertEquals(text, chunk.text)
+        assertTrue(chunk.boundaryError != null)
+        assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+    }
+
+    @Test
+    fun `caret membership is half open with an EOF exception`() {
+        for (text in listOf("FROM t |> LIMIT 1;SELECT 2;", "SELECT 2;FROM t |> LIMIT 1;")) {
+            val chunks = DorisPipes.chunks(text)
+            val boundary = chunks[0].endOffset
+            assertEquals(chunks[0], DorisPipes.chunkAt(text, boundary - 1))
+            assertEquals(chunks[1], DorisPipes.chunkAt(text, boundary))
+            assertEquals(chunks[1], DorisPipes.chunkAt(text, text.length))
+            assertEquals(null, DorisPipes.chunkAt(text, -1))
+            assertEquals(null, DorisPipes.chunkAt(text, text.length + 1))
+        }
+        assertTrue(DorisPipes.chunks(" \n\t").isEmpty())
+        assertEquals(null, DorisPipes.chunkAt("", 0))
+        val withoutSemicolon = "FROM t |> LIMIT 1"
+        assertEquals(withoutSemicolon, DorisPipes.chunkAt(withoutSemicolon, withoutSemicolon.length)?.text)
+        for (trailing in listOf("", " ", "\n", "\r\n  ")) {
+            val statement = "FROM t |> LIMIT 1;"
+            assertEquals(statement, DorisPipes.chunkAt(statement + trailing, statement.length)?.text)
+        }
+    }
+
+    @Test
+    fun `document offsets stay UTF16 after supplementary characters`() {
+        val text = "SELECT '\uD83D\uDE00;';\r\n  FROM t\n|> WHERE s = '\uD83D\uDE00;\nvalue';SELECT 2;"
+        val chunks = DorisPipes.chunks(text)
+        assertEquals(3, chunks.size)
+        val chunk = chunks[1]
+        assertEquals(text.indexOf("\r\n"), chunk.startOffset)
+        assertEquals(text.indexOf("SELECT 2"), chunk.endOffset)
+        assertEquals(2, chunk.startLine)
+        assertEquals(4, chunk.endLine)
+        assertEquals(chunk.text, text.substring(chunk.startOffset, chunk.endOffset))
+        assertEquals(chunk, DorisPipes.chunkAt(text, text.indexOf("value")))
+        assertEquals(chunks[2], DorisPipes.chunkAt(text, text.indexOf("SELECT 2")))
+    }
+
+    @Test
+    fun `transaction keywords and malformed syntax do not merge independent statements`() {
+        val text = "BEGIN;FROM t |> SELECT * EXCEPT(x;SELECT 2;COMMIT;"
+        assertEquals(
+            listOf("BEGIN;", "FROM t |> SELECT * EXCEPT(x;", "SELECT 2;", "COMMIT;"),
+            DorisPipes.chunks(text).map { it.text },
+        )
     }
 
     @Test

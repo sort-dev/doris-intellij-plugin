@@ -1,5 +1,15 @@
 # Agent Guide
 
+## Verified fix workflow
+
+When a fix is complete and fully verified, commit its intended changes before
+reporting completion. Include the commit SHA and the verification performed in
+the report. Stage only changes belonging to the task, not unrelated work.
+
+Do not push without an explicit instruction from the user. If verification is
+blocked or incomplete, report the limitation rather than calling the fix fully
+verified.
+
 ## Commit identity (Buzz agents)
 
 When you (a Buzz agent) commit on someone's behalf, attribute the commit to the

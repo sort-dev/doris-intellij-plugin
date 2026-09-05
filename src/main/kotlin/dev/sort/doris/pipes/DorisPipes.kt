@@ -1,6 +1,9 @@
 package dev.sort.doris.pipes
 
 import com.intellij.openapi.diagnostic.Logger
+import org.antlr.v4.runtime.Token
+import org.apache.doris.nereids.DorisLexer
+import org.apache.doris.sqlparser.DorisSqlParser
 
 /**
  * Doris Pipes SPIKE (branch `pipes-spike`; IDEAS-brikk-integration.md §3): author GoogleSQL
@@ -9,14 +12,11 @@ import com.intellij.openapi.diagnostic.Logger
  * ([DorisPipesRunQueryAction]), and the editor stops red-flagging pipe statements while showing
  * the engine's own (position-accurate) pipe syntax errors instead ([dev.sort.doris.sql.DorisErrorAnnotator]).
  *
- * Everything engine-facing lives in THIS file so the spike's engine dependency has one seam.
- * Verified engine baseline: brikk-sql >= 0.5.1 (see IDEAS §3 "Verified against 0.5.0/0.5.1").
+ * Engine-facing code lives in [DorisPipesEngine], behind the optional-dependency gate.
  *
- * ## Spike-grade simplifications (fine for dogfood, not for shipping)
- *  - Statement chunking is a naive `;` split ([chunks]) — a `;` inside a string literal mis-splits
- *    (cosmetic only: it can mis-scope error suppression, never execution — execution uses the
- *    platform's own statement model).
- *  - Pipe detection is `text.contains("|>")` pre-gated, with the engine's parse as the authority.
+ * Statement ranges use the bundled Doris lexer, independently of the optional engine. Execution,
+ * preview, completion, and syntax diagnostics share these ranges. Pipe detection still uses a
+ * textual pre-gate, with the engine's parse as the authority at execution time.
  */
 object DorisPipes {
 
@@ -71,16 +71,15 @@ object DorisPipes {
 
 
     // ---------------------------------------------------------------------------------------
-    // Statement chunking (annotator support)
+    // Shared statement ranges
     // ---------------------------------------------------------------------------------------
 
     /**
-     * A `;`-separated chunk of console text. [startLine] is the 1-based line of the chunk's FIRST
-     * NON-WHITESPACE character — [transpile] trims leading blank lines, so the engine's relative
-     * line 1 corresponds exactly to [startLine] (this is what makes error translation exact).
-     * [startOffset]/[endOffset] are absolute document offsets (end exclusive) so the execute
-     * interceptor can find the chunk under the caret WITHOUT the platform's statement PSI (which
-     * the unmasked pipe syntax mangles — the spike's known statement-boundary limitation).
+     * An exact document slice, including leading trivia and its terminating semicolon, if any.
+     * [startLine] is the 1-based line of the first non-whitespace character, matching the engine's
+     * trimmed input. Offsets are UTF-16 document offsets, with [endOffset] exclusive.
+     * [boundaryError] marks an unterminated lexical construct: the unresolved remainder stays in
+     * one chunk and must not be executed as a guessed prefix.
      */
     data class Chunk(
         val text: String,
@@ -88,44 +87,89 @@ object DorisPipes {
         val endLine: Int,
         val startOffset: Int,
         val endOffset: Int,
+        val boundaryError: String?,
     )
 
-    /** Naive `;` split preserving line numbers + offsets (see class KDoc for the spike-grade caveat). */
+    /** Split only on Doris delimiter tokens, never semicolons inside literals or comments. */
     fun chunks(text: String): List<Chunk> {
         val out = ArrayList<Chunk>()
-        val current = StringBuilder()
+        val lexer = DorisSqlParser().newLexer(text)
         var line = 1
         var firstContentLine = -1
         var chunkStartOffset = 0
-        fun flush(endLine: Int, endOffsetExclusive: Int) {
-            if (current.isNotBlank()) {
+        var boundaryError: String? = null
+        fun flush(endOffsetExclusive: Int) {
+            if (firstContentLine != -1) {
                 out.add(
                     Chunk(
-                        text = current.toString(),
-                        startLine = if (firstContentLine == -1) endLine else firstContentLine,
-                        endLine = endLine,
+                        text = text.substring(chunkStartOffset, endOffsetExclusive),
+                        startLine = firstContentLine,
+                        endLine = line,
                         startOffset = chunkStartOffset,
                         endOffset = endOffsetExclusive,
+                        boundaryError = boundaryError,
                     ),
                 )
             }
-            current.setLength(0)
             firstContentLine = -1
             chunkStartOffset = endOffsetExclusive
         }
-        for ((i, ch) in text.withIndex()) {
-            current.append(ch)
-            if (firstContentLine == -1 && !ch.isWhitespace()) firstContentLine = line
-            if (ch == ';') flush(line, i + 1)
-            if (ch == '\n') line++
+        var offset = 0
+        var codePointOffset = 0
+        while (true) {
+            val token = lexer.nextToken()
+            if (token.type == Token.EOF) break
+            // ANTLR uses code-point indices; editors and String.substring use UTF-16 indices.
+            val tokenEnd = token.stopIndex + 1
+            var end = text.offsetByCodePoints(offset, tokenEnd - codePointOffset)
+            boundaryError = when {
+                token.type == DorisLexer.COMMENT_START || token.type == DorisLexer.HINT_START ->
+                    "Unterminated SQL comment; cannot determine the complete statement."
+                token.type == DorisLexer.BRACKETED_COMMENT -> {
+                    // Recovery can close an outer comment at the inner comment's terminator.
+                    var depth = 0
+                    var i = offset
+                    while (i < end - 1) {
+                        when {
+                            text.startsWith("/*", i) -> { depth++; i += 2 }
+                            text.startsWith("*/", i) -> { depth--; i += 2 }
+                            else -> i++
+                        }
+                    }
+                    if (depth != 0) "Unterminated nested SQL comment; cannot determine the complete statement."
+                    else null
+                }
+                token.type == DorisLexer.UNRECOGNIZED &&
+                    (token.text == "'" || token.text == "\"" || token.text == "`") ->
+                    "Unterminated SQL string or quoted identifier; cannot determine the complete statement."
+                token.type == DorisLexer.IDENTIFIER && token.text.startsWith("\$\$") ->
+                    "Cannot determine the complete statement at \$\$: close the dollar-quoted string " +
+                        "or backtick-quote the identifier."
+                else -> null
+            }
+            // The lexer recovers unclosed constructs as ordinary tokens. Do not let semicolons
+            // in that recovery stream create an apparently valid, truncated executable chunk.
+            if (boundaryError != null) end = text.length
+            for (i in offset until end) {
+                if (firstContentLine == -1 && !text[i].isWhitespace()) firstContentLine = line
+                if (text[i] == '\n') line++
+            }
+            offset = end
+            codePointOffset = tokenEnd
+            if (boundaryError != null) break
+            if (token.type == DorisLexer.SEMICOLON) flush(end)
         }
-        flush(line, text.length)
+        flush(text.length)
         return out
     }
 
-    /** The chunk whose span contains document [offset] (a caret at a chunk's very end counts). */
-    fun chunkAt(text: String, offset: Int): Chunk? =
-        chunks(text).firstOrNull { offset >= it.startOffset && offset <= it.endOffset }
+    /** Half-open membership; just after the last statement's terminator still belongs to that statement. */
+    fun chunkAt(text: String, offset: Int): Chunk? {
+        if (offset !in 0..text.length) return null
+        val chunks = chunks(text)
+        return chunks.firstOrNull { offset >= it.startOffset && offset < it.endOffset }
+            ?: chunks.lastOrNull()?.takeIf { offset == it.endOffset }
+    }
 
 
     // ---------------------------------------------------------------------------------------

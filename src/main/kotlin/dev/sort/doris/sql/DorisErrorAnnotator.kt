@@ -37,7 +37,8 @@ class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSy
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
         val base = if (!DorisPipes.enabled || !text.contains(DorisPipes.MARKER)) feErrors
         else runCatching {
-            feErrors.filterNot { DorisPipes.lineInsidePipeChunk(text, it.line) } +
+            val pipeChunks = DorisPipes.chunks(text).filter { it.text.contains(DorisPipes.MARKER) }
+            feErrors.filterNot { error -> pipeChunks.any { error.line in it.startLine..it.endLine } } +
                 DorisPipesEngine.pipeSyntaxErrors(text)
         }.getOrDefault(feErrors)
         // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map

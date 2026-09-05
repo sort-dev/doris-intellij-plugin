@@ -19,14 +19,9 @@ import dev.sort.doris.DorisDbms
  * entry after `actionPerformed` for every execute variant — and again at the model-level overload
  * as a belt-and-braces (both delegate to the same idempotent [PipesExecuteInterceptor]).
  *
- * ## Why the pipe text comes from the DOCUMENT, not the platform's ScriptModel
- * The spike does no `|>` lexer masking, so the substrate PSI mangles a pipe program's statement
- * boundaries (observed live: no/wrong execution-block highlight). The platform's
- * statement-under-caret model therefore hands FRAGMENTS. The interceptor instead takes the
- * editor SELECTION if there is one, else the `;`-separated chunk of raw document text around the
- * caret ([DorisPipes.chunkAt]) — correct regardless of the broken PSI. (The block-highlight
- * cosmetics remain wrong in the spike; fixing that means teaching the parser pipe statement
- * boundaries — a P1 item, noted in IDEAS §3.)
+ * Explicit selections are used unchanged. Without a selection, [DorisPipes.chunkAt] finds the
+ * complete statement with the bundled Doris tokenizer, sharing ranges with preview, completion,
+ * and syntax diagnostics. This avoids relying on MySQL PSI recovery for Doris lexical forms.
  *
  * Behavior:
  *  - Doris console + pipes flag on + chunk is a valid pipe program (engine verdict): transpile to
@@ -98,21 +93,19 @@ private object PipesExecuteInterceptor {
         if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
         val editor = info.editor ?: return false
 
-        // Selection wins (run-selection semantics); else the raw-text chunk around the caret.
-        val selStart: Int
-        val text: String
-        if (editor.selectionModel.hasSelection()) {
-            text = editor.selectionModel.selectedText ?: return false
-            selStart = editor.selectionModel.selectionStart
+        // Selection wins unchanged; only automatic ranges carry a lexical-boundary guard.
+        val chunk = if (editor.selectionModel.hasSelection()) {
+            null
         } else {
-            val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return false
-            text = chunk.text
-            selStart = chunk.startOffset
+            DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return false
         }
+        val text = chunk?.text ?: editor.selectionModel.selectedText ?: return false
+        val selStart = chunk?.startOffset ?: editor.selectionModel.selectionStart
         if (!text.contains(DorisPipes.MARKER)) return false
         DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
 
-        return when (val result = DorisPipesEngine.transpile(text)) {
+        val result = if (chunk != null) DorisPipesEngine.transpile(chunk) else DorisPipesEngine.transpile(text)
+        return when (result) {
             is DorisPipesEngine.Transpile.NotPipe -> false
             is DorisPipesEngine.Transpile.Err -> {
                 DorisPipesExecution.notifyTranspileError(console, result)
