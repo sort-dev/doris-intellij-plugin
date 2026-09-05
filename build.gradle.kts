@@ -1,3 +1,5 @@
+import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.4.10"
@@ -45,7 +47,8 @@ dependencies {
         // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
         // (e.g. SqlFileElementType's package) is incompatible with 261. Remote SDK so any clone/CI
         // can build without a local IDE install.
-        datagrip("2026.1.3")
+        val localIde = providers.gradleProperty("doris.localIde")
+        if (localIde.isPresent) local(localIde) else datagrip("2026.1.3")
         bundledPlugin("com.intellij.database")
         // Required transitively in the TEST runtime: the database plugin's intellij.json.backend
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
@@ -82,9 +85,9 @@ intellijPlatform {
             // BOTH supported generations — the compat acceptance gate is zero compatibility
             // problems on each (COMPAT-262.md):
             // 261 (current line, what we compile against):
-            ide("DB", "2026.1.3")
+            create("DB", "2026.1.3") {}
             // 262 (2026.2 EAP that enumerated the breakages):
-            ide("IU", "262.8665.81")
+            create("IU", "262.8665.81") {}
         }
     }
     publishing {
@@ -124,9 +127,30 @@ tasks {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+}
+
+// Separate worker JVMs/sandboxes for B1's installed and genuinely absent provider checks.
+val b1Provider = providers.gradleProperty("b1.provider").orNull
+if (b1Provider != null) {
+    require(b1Provider in setOf("installed", "absent")) { "b1.provider must be installed or absent" }
+    tasks.named<PrepareSandboxTask>("prepareTestSandbox") {
+        sandboxSuffix.set("-test-b1-$b1Provider")
+        if (b1Provider == "absent") exclude("sql-transpiler-intellij-plugin/**")
+    }
+    tasks.named<Test>("test") {
+        systemProperty("b1.provider", b1Provider)
+        systemProperty(
+            "idea.load.plugins.id",
+            "com.intellij.database,dev.sort.doris-intellij-plugin" +
+                if (b1Provider == "installed") ",dev.sort.sql-transpiler-intellij-plugin" else "",
+        )
+        if (b1Provider == "absent") {
+            // Test discovery also scans classpath descriptors. Keep engine libraries for helper tests,
+            // but remove the provider plugin itself as well as its sandbox distribution.
+            classpath = classpath.filter { it.name != "sql-transpiler-intellij-plugin-0.2.0.jar" }
+        }
     }
 }
 

@@ -4,86 +4,102 @@ import com.intellij.database.actions.RunQueryAction
 import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.database.datagrid.DataRequest
-import com.intellij.database.script.ScriptModel
+import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.ActionWithDelegate
+import com.intellij.openapi.actionSystem.ActionWrapperUtil
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.PerformWithDocumentsCommitted
+import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.fileEditor.TextEditor
 import dev.sort.doris.DorisDbms
 
 /**
- * Replaces the FOUR stock console execute actions (`Console.Jdbc.Execute[.2/.3/.Selection]`,
- * `overrides="true"` in plugin.xml) — the transpile-on-run half of the Doris Pipes SPIKE
- * (see [DorisPipes]).
- *
- * Interception happens at [RunQueryAction]'s EVENT-level `invokeImpl` overload — the first common
- * entry after `actionPerformed` for every execute variant — and again at the model-level overload
- * as a belt-and-braces (both delegate to the same idempotent [PipesExecuteInterceptor]).
- *
- * Explicit selections are used unchanged. Without a selection, [DorisPipes.chunkAt] finds the
- * complete statement with the bundled Doris tokenizer, sharing ranges with preview, completion,
- * and syntax diagnostics. This avoids relying on MySQL PSI recovery for Doris lexical forms.
- *
- * Behavior:
- *  - Doris console + pipes flag on + chunk is a valid pipe program (engine verdict): transpile to
- *    canonical Doris SQL and submit through the session's own request bus — results land in the
- *    normal grid, and the output log shows the generated Doris SQL (the §3 trust surface).
- *  - Engine rejects a pipe-looking chunk: error balloon with the engine's line/col; stock is NOT
- *    invoked (the server would only produce a worse error for pipe text).
- *  - Anything else (non-Doris, flag off, no pipe marker, any spike-path failure): stock execution.
+ * A composable Execute replacement. The immediate previous action is captured at registration,
+ * never looked up by ID at execution time. Remaining a [RunQueryAction] preserves the platform's
+ * Execute classification; the index preserves live variant settings.
  */
-class DorisPipesRunQueryAction : RunQueryAction.Alt1() {
-    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
+internal open class DorisPipesRunQueryAction(
+    index: Int,
+    private val previous: AnAction,
+    private val intercept: (AnActionEvent, DatabaseSettings.ExecOption) -> Boolean = PipesExecuteInterceptor::handle,
+) : RunQueryAction(index), ActionWithDelegate<AnAction>, PerformWithDocumentsCommitted {
+    init {
+        copyFrom(previous)
     }
 
-    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
+    override fun getDelegate(): AnAction = previous
+
+    override fun update(e: AnActionEvent) = previous.update(e)
+
+    override fun getActionUpdateThread(): ActionUpdateThread = previous.actionUpdateThread
+
+    override fun isDumbAware(): Boolean = previous.isDumbAware
+
+    override fun isInInjectedContext(): Boolean = previous.isInInjectedContext
+
+    override fun isPerformWithDocumentsCommitted(): Boolean =
+        PerformWithDocumentsCommitted.isPerformWithDocumentsCommitted(previous)
+
+    override fun actionPerformed(e: AnActionEvent) {
+        if (!intercept(e, getExecOption())) ActionWrapperUtil.actionPerformed(e, this, previous)
     }
 }
 
-/** Same interception for the settings-variant `Console.Jdbc.Execute.2`. */
-class DorisPipesRunQueryAction2 : RunQueryAction.Alt2() {
-    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
-    }
+internal class DorisPipesRunSelectionAction(
+    previous: AnAction,
+    intercept: (AnActionEvent, DatabaseSettings.ExecOption) -> Boolean = PipesExecuteInterceptor::handle,
+) : DorisPipesRunQueryAction(-1, previous, intercept) {
+    // Stock Selection uses fixed defaults, independent of the user's three Execute variants.
+    private val selectionOption = DatabaseSettings.ExecOption().apply { execSelection = 1 }
 
-    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
-    }
+    override fun getExecOption(): DatabaseSettings.ExecOption = selectionOption
 }
 
-/** Same interception for the settings-variant `Console.Jdbc.Execute.3`. */
-class DorisPipesRunQueryAction3 : RunQueryAction.Alt3() {
-    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
-    }
-
-    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
-    }
-}
-
-/** Same interception for `Console.Jdbc.Execute.Selection` (run selection as one statement). */
-class DorisPipesRunSelectionAction : RunQueryAction.RunSelectionExactlyAsOneStatement() {
-    override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(e, console, info)
-    }
-
-    override fun invokeImpl(console: JdbcConsole?, model: ScriptModel<*>, info: JdbcConsoleProvider.Info) {
-        if (!PipesExecuteInterceptor.handle(console, info)) super.invokeImpl(console, model, info)
-    }
-}
+/** Structure-view actions can supply FILE_EDITOR without supplying EDITOR. */
+internal fun editorForPipeExecution(e: AnActionEvent): Editor? = e.getData(CommonDataKeys.EDITOR)
+    ?: (e.getData(PlatformCoreDataKeys.FILE_EDITOR) as? TextEditor)?.editor
 
 private object PipesExecuteInterceptor {
 
+    fun handle(e: AnActionEvent, option: DatabaseSettings.ExecOption): Boolean {
+        if (!DorisPipes.enabled) return false
+        val console = JdbcConsole.findConsole(e) ?: return false
+        if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) return false
+        val editor = editorForPipeExecution(e) ?: return false
+        val text = editor.selectionModel.selectedText
+            ?: DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset)?.text ?: return false
+        if (!text.contains(DorisPipes.MARKER)) return false
+
+        // Reuse stock document/Info preparation, including structure-view handling. The result is
+        // invocation-local: preparation may return without reaching invokeImpl, or reenter Execute.
+        var handled = false
+        object : RunQueryAction(1) {
+            // The stock method is OverrideOnly: invoke it from the corresponding override.
+            override fun actionPerformed(e: AnActionEvent) = super.actionPerformed(e)
+
+            override fun getExecOption(): DatabaseSettings.ExecOption = option
+
+            override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+                handled = handle(console, info)
+            }
+        }.actionPerformed(e)
+        return handled
+    }
+
     /**
      * True = a pipe program was handled (executed or error-ballooned) — the caller must NOT run
-     * stock. False = not ours; run stock. Never throws (any failure logs and returns false).
+     * the previous action. False = delegate. The existing failure fallback is tracked as B10.
      */
     fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean = try {
         doHandle(console, info)
     } catch (t: Throwable) {
-        DorisPipes.warn("pipe execute path failed; falling back to stock: ${t.message}", t)
+        DorisPipes.warn("pipe execute path failed; delegating execution: ${t.message}", t)
         false
     }
 

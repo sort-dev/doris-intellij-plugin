@@ -1,0 +1,30 @@
+// Opt-in runtime checks against 262 SDK descriptors, which build plugin 2.10.2 cannot read.
+// The normal build remains pinned. Compile/instrument with 261 before using this script.
+settingsEvaluated { settings ->
+    settings.pluginManagement.resolutionStrategy.eachPlugin {
+        if (requested.id.id == 'org.jetbrains.intellij.platform') {
+            useVersion('2.18.1')
+        }
+    }
+}
+
+allprojects {
+    afterEvaluate {
+        def pluginIds = tasks.named('prepareTestSandbox').get().sandboxSystemDirectory
+            .file('plugins/pluginsXMLIds.json')
+        tasks.named('test') {
+            // The fixture flattens plugin classloaders. Use the SDK's Jackson rather than the
+            // provider's older private copies, which break 262's cached Marketplace JSON reader.
+            classpath = classpath.filter {
+                !(it.name.startsWith('jackson-') && it.name.endsWith('-2.16.1.jar'))
+            }
+            doFirst {
+                // Action registration consults Marketplace telemetry metadata. Keep this unrelated
+                // cache deterministic instead of reusing a partially downloaded sandbox file.
+                def cache = pluginIds.get().asFile
+                cache.parentFile.mkdirs()
+                cache.text = '[]'
+            }
+        }
+    }
+}

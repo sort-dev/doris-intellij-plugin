@@ -209,6 +209,11 @@ its regular Doris behavior — pipe features stay dormant. Escape hatch:
 -Ddoris.pipes=false                     # VM option; default (unset) = pipes ON when engine present
 ```
 
+Pipe integration uses cooperative Execute delegation so other dialect plugins can
+handle their own queries. Installing or removing the integration requires an IDE
+restart. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
+rather than copying independent global Execute overrides.
+
 ## Building from source
 
 ```bash

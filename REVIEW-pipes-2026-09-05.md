@@ -9,7 +9,7 @@ and DuckDB pipe implementations, and independent Doris defects.
 - Use `B1`, `B2`, etc. in requests, branches, tests, and follow-up discussion.
   For example, "do B2" means implement B2 and verify its completion criteria.
 - IDs are permanent. Do not renumber them when priorities change or fixes land.
-- B2 is FIXED. Other findings remain OPEN unless their entries say otherwise.
+- B1 and B2 are FIXED. Other findings remain OPEN unless their entries say otherwise.
   Update each finding's status and record verification when fixed.
 - B21 is a conditional coexistence risk, not an observed failure with the current siblings.
 - V1 through V3 identify review observations and verification limits, not fix requests.
@@ -20,7 +20,7 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 | ID | Severity | Finding | Original response |
 | --- | --- | --- | --- |
-| B1 | P1 | Competing global Execute overrides | Finding 1 |
+| B1 | P1 | Competing global Execute overrides, FIXED | Finding 1 |
 | B2 | P1 | Raw semicolon splitting truncates executable queries, FIXED | Finding 2 |
 | B3 | P1 | Lossy translation warnings are ignored | Finding 3 |
 | B4 | P1 | Catalog-mode DDL uses SQL Server generation | Finding 4 |
@@ -46,7 +46,7 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 This order weights current query correctness and the planned multi-plugin rollout.
 It is a recommended work order, not a change to the stable finding IDs.
-B2 was completed on 2026-09-05. B1 is next among the remaining items in this list.
+B1 and B2 were completed on 2026-09-05. B3 is next among the remaining items in this list.
 
 Complexity includes implementation and regression verification, not just patch size.
 Low means a local behavior change with focused tests. Medium means shared consumers
@@ -71,9 +71,9 @@ complete implementation of the missing operations.
 
 ## B1: Competing global Execute overrides
 
-Status: OPEN. Severity: P1.
+Status: FIXED, 2026-09-05. Original severity: P1.
 
-Evidence: [doris-pipes.xml:26](src/main/resources/META-INF/doris-pipes.xml#L26)
+Review-baseline evidence: [doris-pipes.xml:26](src/main/resources/META-INF/doris-pipes.xml#L26)
 replaces four global Execute actions. Unclaimed queries call the stock superclass
 at [DorisPipesRunQueryAction.kt:39](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L39),
 not the previously registered handler. Independent Trino or DuckDB replacements
@@ -84,6 +84,53 @@ Completion criteria: coordinated dispatch or verified delegation preserves each
 dialect's handling and stock handling for unclaimed SQL. Test competing handlers,
 all four actions, feature-disabled behavior, and optional dependency absence.
 The current sibling plugins were not observed registering competing Execute handlers.
+
+Implementation and verification:
+
+- Removed the four XML Execute replacements. The optional descriptor now registers
+  a synchronous startup customizer that resolves and captures the immediate previous
+  action for each ID before replacement. The platform's single base-action slot is
+  not used as a delegation chain.
+- Unclaimed requests call the captured predecessor with the original event. The
+  wrapper preserves presentation, shortcuts, update-thread policy, dumb awareness,
+  injected context, document-commit policy, live variant settings, and Selection's
+  fixed options. Non-Doris contexts and statements without a pipe marker delegate
+  before Doris's preparation step.
+- Own pipe candidates reuse stock preparation through a per-invocation action,
+  avoiding shared mutable invocation state. Structure-view FILE_EDITOR fallback
+  is preserved. Returning from preparation without reaching the hook still delegates.
+- A delegate-aware promoter preserves Execute priority under 262's concrete-package
+  precheck, including when another cooperating wrapper is above Doris.
+- The non-dynamic customizer makes installing/removing optional pipe integration
+  restart-bound. This is intentional; arbitrary hot removal from immutable action
+  chains is not supported.
+- [PIPE-EXECUTION-CONTRACT.md](PIPE-EXECUTION-CONTRACT.md) documents the rules for
+  Trino/DuckDB and reproduction commands. Every peer must cooperate; a later plugin
+  that still calls stock superclasses can break its own delegation chain. No sibling
+  repository changes or new shared plugin dependency were required.
+- `mise exec -- ./gradlew test`: 298 tests passed.
+- Full tests with `-Pb1.provider=installed` and `-Pb1.provider=absent`: 298 passed
+  in each mode. Absent mode excludes the provider distribution and descriptor-bearing
+  JAR, rather than merely toggling its enabled flag.
+- The 10 B1 tests passed on DataGrip DB-262.10315.24 with provider installed and
+  absent, running the 261-compiled/instrumented classes. Tests cover all four actions
+  and all six simulated Doris/Trino/DuckDB registration orders, plus UI-state,
+  option, selection, structure-editor, promotion, and restart behavior.
+- `mise exec -- ./gradlew test verifyPlugin -Pb1.provider=installed`: compatible
+  with DB-261.24374.56 and IU-262.8665.81, with no binary compatibility problems
+  or override-only violations. Internal/experimental/deprecated API notices remain;
+  the customizer API must be rechecked when upgrading supported SDK generations.
+- The opt-in 262 test init script uses a newer build plugin for SDK metadata,
+  removes old provider-private Jackson copies from the flattened test classpath,
+  and seeds only the sandbox's Marketplace telemetry cache. Normal build dependencies
+  and the user's IDE installation are unchanged. Direct recompilation against the
+  latest 262 SDK still encounters the existing DorisIntrospector abstract-method
+  source-API difference; the runtime matrix intentionally tests the supported
+  261-built artifact instead.
+- No live JDBC execution or end-to-end Trino/DuckDB pipe feature test was performed.
+  These peers have not implemented the feature yet. The matrix verifies the action
+  cooperation contract, not production plugin-classloader isolation or all execution
+  semantics. B10, B11, B12, B13, and B21 remain open.
 
 ## B2: Raw semicolon splitting truncates executable queries
 
@@ -440,4 +487,4 @@ on a version-number assumption.
   or all shipping-default behavior. See [build.gradle.kts:106-123](build.gradle.kts#L106).
 
 At completion of the original code review, the worktree was clean. V3 records that
-review's checks. Subsequent implementation and verification are recorded under B2.
+review's checks. Subsequent implementation and verification are recorded under B1 and B2.
