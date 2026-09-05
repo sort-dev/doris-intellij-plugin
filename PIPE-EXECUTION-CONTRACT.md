@@ -4,6 +4,24 @@ This is the DORIS-B1 contract for dialect plugins that intercept the IDE's Execu
 actions. It applies to the 261 and 262 platform generations. Use the qualified
 name DORIS-B1 across repositories; other repositories have their own B1 findings.
 
+## Planned dependency migration
+
+[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) is the
+new high-priority direction: each dialect plugin will bundle a versioned shared
+transpilation library and expose its own PIPE enable/disable UI. This means sharing
+library code, not copying SQL Transpiler's implementation into each repository.
+SQL Transpiler remains the separate cross-dialect conversion, preview, and `.bsql`
+workspace product, not a required library-provider plugin.
+
+The captured-predecessor delegation rules below still apply. The optional-provider
+registration, lifecycle, and test instructions describe the current B1 implementation;
+B22 must adapt them rather than preserve provider presence as the feature gate.
+The UI toggle and action registration/lifecycle are separate concerns.
+
+[B23](REVIEW-pipes-2026-09-05.md#b23-project-dependency-driven-pipe-auto-enablement)
+records later project-dependency-driven auto-enablement. Its dependency signal,
+scope, and interaction with explicit user choices are TBD. It is not part of B22.
+
 ## Registration
 
 Do not copy the old four `<action overrides="true">` registrations. Register a

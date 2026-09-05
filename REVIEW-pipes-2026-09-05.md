@@ -12,9 +12,24 @@ and DuckDB pipe implementations, and independent Doris defects.
 - B1 and B2 are FIXED. Other findings remain OPEN unless their entries say otherwise.
   Update each finding's status and record verification when fixed.
 - B21 is a conditional coexistence risk, not an observed failure with the current siblings.
+- B22 is a planned architecture change. B23 is deferred design work, not part of B22.
 - V1 through V3 identify review observations and verification limits, not fix requests.
 - Source line numbers refer to the review baseline and may move after fixes.
 - This document does not supersede `REVIEW-kimi3.md` or reuse that review's R IDs.
+
+## Current TODOs
+
+This queue includes the dependency-direction decision made after B1 was completed.
+The original review priorities below remain a historical snapshot.
+
+| Order | ID | Work | Status |
+| --- | --- | --- | --- |
+| 1 | B22 | Embed the shared transpilation library and add a separate PIPE UI toggle | High priority, planned |
+| 2 | B3 | Block lossy translations and expose warnings | Open |
+| 3 | B4 | Replace or constrain SQL Server DDL generation | Open |
+| 4 | B5 | Preserve cached catalogs when refresh fails | Open |
+| 5 | B10 | Stop execution after a claimed pipe failure | Open |
+| Later | B23 | Auto-enable PIPE for projects that require it through a dependency | Deferred, design TBD |
 
 ## Finding index
 
@@ -41,12 +56,70 @@ and DuckDB pipe implementations, and independent Doris defects.
 | B19 | P2 | Valid multi-host JDBC URLs fail validation | Further findings, row 4 |
 | B20 | P3 | EXTEND lacks pipe keyword coloring | Further findings, row 5 |
 | B21 | P2, conditional | Cancel and Explain share the override conflict pattern | Porting implications |
+| B22 | High priority, planned | Embed the engine and add a PIPE toggle | Follow-up architecture decision |
+| B23 | Deferred, TBD | Project-dependency-driven PIPE auto-enablement | Follow-up architecture decision |
+
+## B22: Embed the engine and add a PIPE toggle
+
+Status: PLANNED, high priority. Implementation has not started.
+
+The agreed direction is to bundle a versioned shared transpilation library in each
+dialect plugin, instead of using the SQL Transpiler plugin as the library provider.
+Share released library code, not copies of SQL Transpiler's implementation across
+the Doris, Trino, and DuckDB repositories. The Maven artifacts already exist:
+SQL Transpiler currently imports `dev.brikk.house:brikk-sql-jvm:0.6.0` alongside
+the metadata and verification artifacts. Use its build as the dependency reference
+and its actions as the behavioral reference for the integrations being adapted.
+Select and verify the required modules and compatible versions during implementation;
+creating a new shared library or publishing new artifacts is not a prerequisite.
+
+SQL Transpiler remains an independent product for cross-dialect conversion,
+previews, and `.bsql` workspaces. Installing it must no longer be a prerequisite
+for a dialect plugin's PIPE feature, nor the switch that enables that feature.
+
+Scope and completion criteria:
+
+- Bundle the shared versioned library directly and remove the provider-plugin
+  dependency and classloader-presence gate once the library replacement is working.
+- Add a dedicated UI control to turn PIPE on and off independently of SQL
+  Transpiler. UI placement, default state, persistence scope, and the existing VM
+  property's future role remain to be decided, not assumed by this TODO.
+- Apply the feature setting consistently to pipe parsing/highlighting, diagnostics,
+  completion, preview, and execution. Disabling PIPE must preserve ordinary SQL
+  behavior and delegation to other dialect handlers.
+- Preserve B1's captured-predecessor execution contract. Adapt startup registration
+  so it no longer depends on the optional provider descriptor; keep handler
+  registration/lifecycle separate from whether PIPE is enabled. Revisit the current
+  provider-based lifecycle documentation and test setup as part of this migration.
+- Audit bundled transitive dependencies, licensing, artifact size, and classloader
+  isolation when multiple dialect plugins each carry the library. Do not introduce
+  an equivalent shared IDE-plugin dependency under a different name.
+- Verify PIPE enabled/disabled with SQL Transpiler both installed and absent, and
+  verify coexistence with the sibling dialect plugins. Retain B1/B2 regressions and
+  test the actual bundled library version.
+- Keep the enablement decision centralized so a later project-requirement policy
+  can feed it. Do not implement dependency detection or automatic enablement here;
+  that is B23.
+
+## B23: Project-dependency-driven PIPE auto-enablement
+
+Status: DEFERRED. Design TBD; not included in B22 implementation.
+
+Later, projects that require PIPE through a dependency should be able to enable
+the feature automatically. What declares that requirement, how dependencies are
+detected, project-versus-global scope, and precedence relative to an explicit user
+choice are all TBD. Record those decisions before implementation; do not substitute
+SQL text heuristics or SQL Transpiler installation for a project dependency signal.
+
+Keep this future requirement in mind when designing B22's setting and enablement
+logic, without selecting a dependency format or implementing an auto-enable policy now.
 
 ## Initial top five priorities
 
 This order weights current query correctness and the planned multi-plugin rollout.
 It is a recommended work order, not a change to the stable finding IDs.
-B1 and B2 were completed on 2026-09-05. B3 is next among the remaining items in this list.
+B1 and B2 were completed on 2026-09-05. The current queue above now leads with B22;
+this original list predates the decision to embed the transpilation library.
 
 Complexity includes implementation and regression verification, not just patch size.
 Low means a local behavior change with focused tests. Medium means shared consumers
