@@ -1,4 +1,4 @@
-<idea-plugin>
+<idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
     <id>dev.sort.doris-intellij-plugin</id>
     <name>SQL Dialect for Apache Doris</name>
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
@@ -22,9 +22,9 @@
             <li><b>Doris Pipes (optional).</b> Write GoogleSQL-style pipe syntax
                 (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) directly in Doris consoles —
                 it transpiles to standard Doris SQL on run, with per-stage completion, run-to-stage,
-                generated-SQL preview, and errors mapped back to the pipe line you wrote. Lights up
-                when the free <b>SQL Transpiler</b> plugin
-                (<code>dev.sort.sql-transpiler-intellij-plugin</code>) is installed</li>
+                generated-SQL preview, and errors mapped back to the pipe line you wrote.
+                Enable it per project under <b>Settings &rarr; Tools &rarr; Apache Doris PIPE</b>.
+                Disabled by default; no SQL Transpiler plugin installation is required</li>
             <li><b>Automatic targeted introspection.</b> Reference a table in a catalog or schema
                 that hasn't been introspected yet and the plugin introspects just that schema in the
                 background — no more hunting for the right refresh checkbox</li>
@@ -262,11 +262,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
-    <!-- PATH B: Doris Pipes lights up ONLY when the brikk SQL Transpiler plugin (which bundles the
-         brikk-sql engine) is installed — its classloader supplies the engine classes, and the
-         pipe-only actions/intentions live in the optional descriptor. Without it, the base plugin
-         is byte-for-byte the engine-free Doris dialect (auto-introspection stays: engine-free). -->
-    <depends optional="true" config-file="doris-pipes.xml">dev.sort.sql-transpiler-intellij-plugin</depends>
+    <xi:include href="/META-INF/doris-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
     <extensions defaultExtensionNs="com.intellij">
         <database.driversConfig config="config/doris-drivers.xml"/>

@@ -290,7 +290,7 @@ class DorisCompletionContributor : CompletionContributor() {
             context: ProcessingContext,
             result: CompletionResultSet
         ) {
-            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            if (!dev.sort.doris.pipes.DorisPipes.isEnabled(parameters.originalFile.project)) return
             val file = parameters.originalFile
             if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return
             val text = file.text
@@ -457,7 +457,7 @@ class DorisCompletionContributor : CompletionContributor() {
             context: ProcessingContext,
             result: CompletionResultSet
         ) {
-            if (!dev.sort.doris.pipes.DorisPipes.enabled) return
+            if (!dev.sort.doris.pipes.DorisPipes.isEnabled(parameters.originalFile.project)) return
             if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
             val text = parameters.originalFile.text
             val offset = parameters.offset.coerceAtMost(text.length)

@@ -1,4 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
+import java.util.jar.JarInputStream
+import java.util.zip.ZipFile
 
 plugins {
     id("java")
@@ -9,9 +11,30 @@ plugins {
 group = "dev.sort.doris"
 version = "1.3.0"
 
+val brikkSqlVersion = "0.9.0"
+require(!providers.gradleProperty("b1.provider").isPresent) {
+    "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
+}
+val sqlTranspilerTestMode = providers.gradleProperty("test.sqlTranspiler").orNull
+require(sqlTranspilerTestMode in listOf(null, "installed", "absent")) {
+    "test.sqlTranspiler must be installed or absent"
+}
+val siblingPluginZips = listOf("trino", "duckdb").mapNotNull { dialect ->
+    providers.gradleProperty("test.${dialect}PluginZip").orNull?.let { path ->
+        val zip = file(path)
+        require(zip.isFile) { "Missing $dialect plugin ZIP: $path" }
+        dialect to zip
+    }
+}
+val testPluginIds = buildList {
+    add("com.intellij.database")
+    add("dev.sort.doris-intellij-plugin")
+    if (sqlTranspilerTestMode == "installed") add("dev.sort.sql-transpiler-intellij-plugin")
+    siblingPluginZips.forEach { (dialect, _) -> add("dev.sort.$dialect-intellij-plugin") }
+}.joinToString(",")
+
 repositories {
-    // brikk-sql-metadata (function catalogs) is a released artifact on Maven Central — no extra
-    // repository or authentication needed.
+    // Both the shared engine and function catalogs are published on Maven Central.
     mavenCentral()
     intellijPlatform {
         defaultRepositories()
@@ -30,18 +53,21 @@ dependencies {
     implementation(files("vendor/lib/doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar"))
     implementation("org.antlr:antlr4-runtime:4.13.1")
 
-    // brikk-sql-metadata: the featherweight (128 KB) function-catalog contract — DORIS_FUNCTION_CATALOG
-    // (names, aliases, kind, overloads, isTableFunction, sinceVersion). Bundle ONLY this jar; exclude
-    // its transitives (kotlin-stdlib + kotlinx-serialization core/json) because the IntelliJ platform
-    // already ships them at runtime (verified in the 261 and 262 lib/ dirs), so bundling them would
-    // add ~1.5 MB for nothing. See IDEAS-brikk-integration.md.
-    implementation("dev.brikk.house:brikk-sql-metadata-jvm:0.9.0") {
-        exclude(group = "org.jetbrains.kotlin")
-        exclude(group = "org.jetbrains.kotlinx")
+    // Embed only the core engine and metadata, not verification libraries or database drivers.
+    // The supported IDEs supply compatible Kotlin/serialization APIs; do not bundle duplicates.
+    implementation("dev.brikk.house:brikk-sql-jvm:$brikkSqlVersion") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+    }
+    implementation("dev.brikk.house:brikk-sql-metadata-jvm:$brikkSqlVersion") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
     }
     // Compile-time only: lets the compiler resolve the @Serializable types on the metadata classes.
     // NOT bundled (the platform provides kotlinx-serialization at runtime); no version conflict.
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
     intellijPlatform {
         // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
@@ -54,18 +80,16 @@ dependencies {
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
         // in unit tests and the DorisSQL language never registers.
         bundledPlugin("com.intellij.modules.json")
-        // PATH B: the brikk-sql ENGINE comes from the published transpiler plugin — compile-time
-        // visibility + sandbox/test presence via the Marketplace coordinate; at runtime the
-        // optional <depends> in plugin.xml wires its classloader when the user has it installed.
-        // The Doris plugin itself stays engine-free (metadata-only), per IDEAS §2/§3.
-        plugin("dev.sort.sql-transpiler-intellij-plugin:0.2.0")
+        // Companion only in the opt-in coexistence test lane, never a production library provider.
+        if (sqlTranspilerTestMode == "installed") plugin("dev.sort.sql-transpiler-intellij-plugin:0.2.0")
+        siblingPluginZips.forEach { (_, zip) -> localPlugin(zip) }
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 }
 
 intellijPlatform {
-    // We ship no custom settings UI, so skip the searchable-options index step (it launches a
-    // headless IDE, which fails while DataGrip is open, and slows builds). JetBrains-recommended.
+    // The project configurable supplies its searchable name. Avoid launching a second IDE just
+    // to index checkbox text; that can contend with an already-running DataGrip instance.
     buildSearchableOptions = false
 
     pluginConfiguration {
@@ -96,6 +120,9 @@ intellijPlatform {
 }
 
 tasks {
+    processResources {
+        from(files("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")) { into("META-INF") }
+    }
     // Stable artifact name (no version suffix) so install-from-disk always points at the same file.
     buildPlugin {
         archiveVersion = ""
@@ -110,7 +137,8 @@ tasks {
         useJUnit()
         // The light test fixture doesn't enable the database plugin by default; without it our
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
-        systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin")
+        systemProperty("idea.load.plugins.id", testPluginIds)
+        systemProperty("test.siblingPlugins", siblingPluginZips.joinToString(",") { it.first })
 
         // Gate 1 dual golden corpus (DorisGoldenCorpusTest): absolute paths to the SQL corpus and
         // the recorded golden trees. Passing -Pgolden.record=true flips the test into record mode.
@@ -131,26 +159,84 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEa
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
 }
 
-// Separate worker JVMs/sandboxes for B1's installed and genuinely absent provider checks.
-val b1Provider = providers.gradleProperty("b1.provider").orNull
-if (b1Provider != null) {
-    require(b1Provider in setOf("installed", "absent")) { "b1.provider must be installed or absent" }
+val verifyEmbeddedPipes by tasks.registering {
+    group = "verification"
+    description = "Checks the self-contained PIPE engine and notices in the distribution."
+    val distribution = tasks.named<Zip>("buildPlugin").flatMap { it.archiveFile }
+    val pluginJarName = tasks.named<org.gradle.jvm.tasks.Jar>("composedJar").flatMap { it.archiveFileName }
+    val libraries = setOf(
+        "brikk-sql-jvm-$brikkSqlVersion.jar", "brikk-sql-metadata-jvm-$brikkSqlVersion.jar",
+        "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar",
+    )
+    dependsOn("buildPlugin")
+    inputs.file(distribution)
+    doLast {
+        ZipFile(distribution.get().asFile).use { zip ->
+            val jars = zip.entries().asSequence().filter { it.name.endsWith(".jar") }.toList()
+            val expected = libraries + pluginJarName.get()
+            check(jars.size == expected.size && jars.map { it.name.substringAfterLast('/') }.toSet() == expected) {
+                "Unexpected bundled libraries: ${jars.map { it.name }}"
+            }
+            val ownJar = jars.single { it.name.substringAfterLast('/') == pluginJarName.get() }
+            val resources = mutableMapOf<String, String>()
+            JarInputStream(zip.getInputStream(ownJar)).use { jar ->
+                while (true) {
+                    val entry = jar.nextJarEntry ?: break
+                    if (entry.name in setOf("META-INF/LICENSE", "META-INF/NOTICE", "META-INF/THIRD_PARTY_NOTICES.md", "META-INF/plugin.xml")) {
+                        resources[entry.name] = jar.readBytes().toString(Charsets.UTF_8)
+                    }
+                }
+            }
+            check(resources.keys.size == 4) { "Missing packaged notices or descriptor: ${resources.keys}" }
+            val notices = resources.getValue("META-INF/THIRD_PARTY_NOTICES.md")
+            check(listOf("brikk-sql", "Toby Mao", "ANTLR", "Permission is hereby granted").all { it in notices })
+            check(!Regex("""<depends\b[^>]*>\s*dev\.sort\.sql-transpiler-intellij-plugin\s*</depends>""")
+                .containsMatchIn(resources.getValue("META-INF/plugin.xml"))) { "SQL Transpiler is still a provider dependency" }
+        }
+        logger.lifecycle("Embedded PIPE libraries and distribution notices verified")
+    }
+}
+tasks.named("check") { dependsOn(verifyEmbeddedPipes) }
+
+// Separate workers/sandboxes verify independence from the optional companion product.
+if (sqlTranspilerTestMode != null) {
     tasks.named<PrepareSandboxTask>("prepareTestSandbox") {
-        sandboxSuffix.set("-test-b1-$b1Provider")
-        if (b1Provider == "absent") exclude("sql-transpiler-intellij-plugin/**")
+        sandboxSuffix.set("-test-pipes-$sqlTranspilerTestMode")
     }
     tasks.named<Test>("test") {
-        systemProperty("b1.provider", b1Provider)
-        systemProperty(
-            "idea.load.plugins.id",
-            "com.intellij.database,dev.sort.doris-intellij-plugin" +
-                if (b1Provider == "installed") ",dev.sort.sql-transpiler-intellij-plugin" else "",
-        )
-        if (b1Provider == "absent") {
-            // Test discovery also scans classpath descriptors. Keep engine libraries for helper tests,
-            // but remove the provider plugin itself as well as its sandbox distribution.
-            classpath = classpath.filter { it.name != "sql-transpiler-intellij-plugin-0.2.0.jar" }
+        systemProperty("test.sqlTranspiler", sqlTranspilerTestMode)
+        if (sqlTranspilerTestMode == "installed") {
+            // Fixtures flatten plugin classloaders. Exercise Doris's own core/metadata, not the
+            // companion's private versions. Production plugins retain independent classloaders.
+            classpath = classpath.filter {
+                !(it.path.contains("/sql-transpiler-intellij-plugin/") &&
+                    (it.name.startsWith("brikk-sql-jvm-") || it.name.startsWith("brikk-sql-metadata-jvm-")))
+            }
         }
+    }
+}
+
+if (providers.gradleProperty("test.pluginIsolation").orNull == "true") {
+    val mainOutputs = sourceSets.main.get().output.files.map { it.absoluteFile }.toSet() +
+        layout.buildDirectory.dir("instrumented/instrumentCode").get().asFile.absoluteFile
+    tasks.named<Test>("test") {
+        include("**/DorisPipesIsolationTest.class")
+        systemProperty("test.pluginIsolation", "true")
+        classpath = classpath.filter {
+            it.absoluteFile !in mainOutputs &&
+                !it.path.contains("/sql-transpiler-intellij-plugin/") &&
+                !it.path.contains("/trino-intellij-plugin/") &&
+                !it.path.contains("/duckdb-intellij-plugin/") &&
+                !it.name.startsWith("doris-intellij-plugin-") &&
+                !it.name.startsWith("doris-fe-sql-parser-") &&
+                !it.name.startsWith("brikk-sql-") &&
+                it.name != "antlr4-runtime-4.13.1.jar"
+        }
+        // Keep the platform fixture core-loaded, but load product distributions with their real
+        // PluginClassLoaders. An argument provider overrides the Gradle plugin's worker defaults.
+        jvmArgumentProviders.add(CommandLineArgumentProvider {
+            listOf("-Didea.force.use.core.classloader=true", "-Didea.use.core.classloader.for.plugin.path=false")
+        })
     }
 }
 

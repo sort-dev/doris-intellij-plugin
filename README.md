@@ -49,8 +49,8 @@ Part of our SQL-tooling family alongside:
   See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
 - **Doris Pipes** (0.7.0, optional): write GoogleSQL-style pipe syntax in Doris consoles and run it
   against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
-  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Lights up
-  when the free SQL Transpiler plugin is installed.
+  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote.
+  Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
   See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
 - **Automatic targeted introspection** (0.7.0): reference a table in a catalog or schema that
   hasn't been introspected yet and the plugin widens the introspection scope to just that schema
@@ -200,18 +200,26 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
   plugin maps them back through the transpiler's source map to the exact line and column of your
   pipe program (balloon + editor squiggle).
 
-**Enabling it**: install the free **SQL Transpiler** plugin
-(`dev.sort.sql-transpiler-intellij-plugin`) from the Marketplace and restart the IDE (the
-restart lets the platform wire the two plugins together). Without it, this plugin simply keeps
-its regular Doris behavior — pipe features stay dormant. Escape hatch:
+**Enabling it**: open **Settings → Tools → Apache Doris PIPE** and select
+**Enable PIPE syntax in this project**. The setting defaults off and is stored in
+the project's workspace settings. Apply refreshes existing Doris editors without
+changing their text or requiring an IDE restart.
+
+The plugin bundles the published **brikk-sql engine and metadata 0.9.0**. SQL Transpiler
+is not required and installing it does not enable PIPE. It remains an independent
+product for cross-dialect conversion, previews, and `.bsql` workspaces.
+
+Existing PIPE users must enable the project checkbox after upgrading. The legacy VM
+option remains an emergency veto; setting it to `true` does not enable an unchecked
+project setting:
 
 ```
--Ddoris.pipes=false                     # VM option; default (unset) = pipes ON when engine present
+-Ddoris.pipes=false                     # disables PIPE regardless of the project checkbox
 ```
 
 Pipe integration uses cooperative Execute delegation so other dialect plugins can
-handle their own queries. Installing or removing the integration requires an IDE
-restart. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
+handle their own queries. Installing or removing the plugin requires an IDE restart;
+changing the PIPE setting does not. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
 rather than copying independent global Execute overrides.
 
 ## Building from source

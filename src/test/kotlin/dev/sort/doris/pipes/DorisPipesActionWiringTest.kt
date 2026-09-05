@@ -9,37 +9,33 @@ import com.intellij.openapi.extensions.PluginId
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class DorisPipesActionWiringTest : BasePlatformTestCase() {
-    fun testOptionalDescriptorRegistersOnlyWithTheProvider() {
-        val mode = System.getProperty("b1.provider")
+    fun testActionsRegisterIndependentlyOfTheCompanionAndProjectSetting() {
+        val mode = System.getProperty("test.sqlTranspiler")
         val provider = PluginManagerCore.getPlugin(PluginId.getId(PROVIDER))
         val installed = mode == "installed"
         if (installed) {
             assertNotNull(provider)
             assertTrue(provider!!.isEnabled)
-        } else if (mode == "absent") {
+        } else {
             assertNull("provider descriptor must be absent, not merely disabled", provider)
         }
+        assertFalse("PIPE must default off even when the companion is installed", DorisPipes.isEnabled(project))
         val stockClasses = listOf("Alt1", "Alt2", "Alt3", "RunSelectionExactlyAsOneStatement")
         for ((index, id) in DorisPipesActionConfiguration.EXECUTE_IDS.withIndex()) {
             val action = ActionManager.getInstance().getAction(id)!!
-            if (installed) {
-                val expected = if (index == 3) "DorisPipesRunSelectionAction" else "DorisPipesRunQueryAction"
-                assertEquals("dev.sort.doris.pipes.$expected", action.javaClass.name)
-                val previous = (action as ActionWithDelegate<*>).delegate!!
-                assertEquals("com.intellij.database.actions.RunQueryAction\$${stockClasses[index]}", previous.javaClass.name)
-            } else {
-                assertEquals("com.intellij.database.actions.RunQueryAction\$${stockClasses[index]}", action.javaClass.name)
-            }
+            val expected = if (index == 3) "DorisPipesRunSelectionAction" else "DorisPipesRunQueryAction"
+            assertEquals("dev.sort.doris.pipes.$expected", action.javaClass.name)
+            val previous = (action as ActionWithDelegate<*>).delegate
+            assertEquals("com.intellij.database.actions.RunQueryAction\$${stockClasses[index]}", previous.javaClass.name)
         }
     }
 
     fun testInstalledPipeSupportIsRestartBound() {
-        if (System.getProperty("b1.provider") != "installed") return
         val ep = ApplicationManager.getApplication().extensionArea
             .getExtensionPoint<Any>("com.intellij.actionConfigurationCustomizer")
         assertFalse(ep.isDynamic)
         assertTrue(ep.extensionList.any { it.javaClass.name == "dev.sort.doris.pipes.DorisPipesActionConfiguration" })
-        for (id in listOf("dev.sort.doris-intellij-plugin", PROVIDER)) {
+        for (id in listOf("dev.sort.doris-intellij-plugin")) {
             val descriptor = PluginManagerCore.getPlugin(PluginId.getId(id))!!
             // The reason-returning validator was renamed and its parameter changed in 262.
             val validator = DynamicPlugins::class.java.methods.firstOrNull {

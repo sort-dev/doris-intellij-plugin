@@ -10,12 +10,8 @@ import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
 
 /**
- * The ONLY class that references brikk-sql ENGINE types (Path B). The engine arrives via the
- * optional transpiler-plugin dependency, so this class may be classloaded ONLY behind
- * [DorisPipes.enabled] (which includes the engine-reachability probe). This split exists because
- * JVM verification resolves `catch` clause types at class-verification time — a
- * `catch (ParseError)` in an always-loaded class is a startup NoClassDefFoundError when the
- * transpiler plugin is absent (dogfood, Path B round 1).
+ * Adapter for the bundled brikk-sql engine. IDE entry points consult the project setting;
+ * these SQL/schema operations remain independent of project state and UI lifecycle.
  */
 object DorisPipesEngine {
 

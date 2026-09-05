@@ -1,13 +1,14 @@
 <idea-plugin>
-    <!-- Doris Pipes — loaded ONLY when dev.sort.sql-transpiler-intellij-plugin is installed
-         (optional depends in plugin.xml). Everything engine-dependent registers here; the base
-         plugin stays engine-free. -->
+    <!-- Always included. Project settings gate PIPE behavior, not action registration. -->
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Capture and wrap the previous Execute actions synchronously after XML registration.
-             This non-dynamic EP makes pipe-support installation/removal restart-bound. -->
+             Plugin installation/removal is restart-bound; project setting changes are not. -->
         <actionConfigurationCustomizer implementation="dev.sort.doris.pipes.DorisPipesActionConfiguration"/>
         <actionPromoter implementation="dev.sort.doris.pipes.DorisPipesActionPromoter" order="first"/>
+        <projectConfigurable id="dev.sort.doris.pipes" displayName="Apache Doris PIPE"
+                             parentId="tools" nonDefaultProject="true"
+                             instance="dev.sort.doris.pipes.DorisPipesConfigurable"/>
         <!-- DORIS PIPES: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
              "run stages up to caret" (execute-to-stage-N; a stage prefix is a valid pipe program). -->
         <intentionAction>

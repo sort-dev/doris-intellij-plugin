@@ -9,10 +9,10 @@ and DuckDB pipe implementations, and independent Doris defects.
 - Use `B1`, `B2`, etc. in requests, branches, tests, and follow-up discussion.
   For example, "do B2" means implement B2 and verify its completion criteria.
 - IDs are permanent. Do not renumber them when priorities change or fixes land.
-- B1 and B2 are FIXED. Other findings remain OPEN unless their entries say otherwise.
+- B1 and B2 are FIXED; B22 is COMPLETE. Other findings remain OPEN unless their entries say otherwise.
   Update each finding's status and record verification when fixed.
 - B21 is a conditional coexistence risk, not an observed failure with the current siblings.
-- B22 is a planned architecture change. B23 is deferred design work, not part of B22.
+- B22 implements the embedded engine and project toggle. B23 remains deferred design work.
 - V1 through V3 identify review observations and verification limits, not fix requests.
 - Source line numbers refer to the review baseline and may move after fixes.
 - This document does not supersede `REVIEW-kimi3.md` or reuse that review's R IDs.
@@ -21,14 +21,14 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 This queue includes the dependency-direction decision made after B1 was completed.
 The original review priorities below remain a historical snapshot.
+B22 is complete; B3 is the next open priority.
 
 | Order | ID | Work | Status |
 | --- | --- | --- | --- |
-| 1 | B22 | Embed the shared transpilation library and add a separate PIPE UI toggle | High priority, planned |
-| 2 | B3 | Block lossy translations and expose warnings | Open |
-| 3 | B4 | Replace or constrain SQL Server DDL generation | Open |
-| 4 | B5 | Preserve cached catalogs when refresh fails | Open |
-| 5 | B10 | Stop execution after a claimed pipe failure | Open |
+| 1 | B3 | Block lossy translations and expose warnings | Open |
+| 2 | B4 | Replace or constrain SQL Server DDL generation | Open |
+| 3 | B5 | Preserve cached catalogs when refresh fails | Open |
+| 4 | B10 | Stop execution after a claimed pipe failure | Open |
 | Later | B23 | Auto-enable PIPE for projects that require it through a dependency | Deferred, design TBD |
 
 ## Finding index
@@ -56,12 +56,12 @@ The original review priorities below remain a historical snapshot.
 | B19 | P2 | Valid multi-host JDBC URLs fail validation | Further findings, row 4 |
 | B20 | P3 | EXTEND lacks pipe keyword coloring | Further findings, row 5 |
 | B21 | P2, conditional | Cancel and Explain share the override conflict pattern | Porting implications |
-| B22 | High priority, planned | Embed the engine and add a PIPE toggle | Follow-up architecture decision |
+| B22 | Complete | Embed the engine and add a PIPE toggle | Follow-up architecture decision |
 | B23 | Deferred, TBD | Project-dependency-driven PIPE auto-enablement | Follow-up architecture decision |
 
 ## B22: Embed the engine and add a PIPE toggle
 
-Status: PLANNED, high priority. Implementation has not started.
+Status: COMPLETE, 2026-09-05.
 
 The agreed direction is to bundle a versioned shared transpilation library in each
 dialect plugin, instead of using the SQL Transpiler plugin as the library provider.
@@ -82,8 +82,9 @@ Scope and completion criteria:
 - Bundle the shared versioned library directly and remove the provider-plugin
   dependency and classloader-presence gate once the library replacement is working.
 - Add a dedicated UI control to turn PIPE on and off independently of SQL
-  Transpiler. UI placement, default state, persistence scope, and the existing VM
-  property's future role remain to be decided, not assumed by this TODO.
+  Transpiler. The chosen policy is per project, disabled by default. The checkbox
+  is under Settings > Tools > Apache Doris PIPE and is stored in workspace.xml.
+  The existing `-Ddoris.pipes=false` property remains a veto, never a force-on switch.
 - Apply the feature setting consistently to pipe parsing/highlighting, diagnostics,
   completion, preview, and execution. Disabling PIPE must preserve ordinary SQL
   behavior and delegation to other dialect handlers.
@@ -100,6 +101,46 @@ Scope and completion criteria:
 - Keep the enablement decision centralized so a later project-requirement policy
   can feed it. Do not implement dependency detection or automatic enablement here;
   that is B23.
+
+Implementation and verification:
+
+- Bundled `brikk-sql-jvm:0.9.0` and `brikk-sql-metadata-jvm:0.9.0`. Maven Central
+  reported 0.9.0 as the latest stable release of both artifacts. The core module
+  supplies the existing PIPE APIs without the verification module or native engines.
+- Removed SQL Transpiler from the production dependency graph and removed engine
+  availability probing. PIPE registrations are now unconditionally included;
+  the project setting gates behavior rather than mutating B1's action chain.
+- Updated parsing, completion, semantic suppression, diagnostics, preview, and
+  execution gates to use the owning project. The external annotator captures the
+  policy and execution mark before background work and rejects stale-policy results.
+  Execution marks are now project-owned transient data.
+- Added immutable persisted settings with explicit XML field annotation, Apply/Reset
+  behavior, and deferred reparse/diagnostic refresh. Existing unsaved document text,
+  caret, selection, and registered action objects remain unchanged by toggling.
+- Preserved the VM false-valued emergency veto. Existing PIPE users must opt in
+  through the checkbox after upgrading; companion installation no longer enables it.
+- Added distribution checks and packaged notices for brikk, its upstream-derived
+  code/data, and ANTLR. The archive contains exactly the plugin JAR, core, metadata,
+  the existing Doris parser, and ANTLR, with no copied provider runtime libraries.
+- Full 261 tests passed with SQL Transpiler absent and installed: 310 tests in each
+  configuration. The 44 targeted PIPE tests passed on DB-262.10315.24 in both modes,
+  using the 261-built classes. These cover settings, persistence serialization,
+  background reload, rapid toggles, deferred disposal, cached/open PSI refresh,
+  stale annotations, completion, intentions, B1/B2 behavior, shapes, and source maps.
+- Isolation checks used real manager-owned PluginClassLoaders for Doris and SQL
+  Transpiler, not the flattened helper-test classpath. Both engines transpiled in
+  memory with separate core/metadata identities, including Doris 0.9.0 alongside
+  the companion's 0.6.0. Checks passed on 261 and 262 with SQL Transpiler present
+  and absent, plus current Trino 0.2.0 and DuckDB 0.2.0 distributions loaded and
+  parsing ordinary SQL. Sibling source/configuration files were not modified.
+- `verifyEmbeddedPipes` passed. `verifyPlugin` reported compatibility with
+  DB-261.24374.56 and IU-262.8665.81. Existing internal/experimental/deprecated API
+  notices remain; there were no binary compatibility problems.
+- Current reproduction commands are in [PIPE-EXECUTION-CONTRACT.md](PIPE-EXECUTION-CONTRACT.md).
+  Use `test.sqlTranspiler`, not the former `b1.provider` switch. The latter now
+  fails with a migration message instead of silently selecting the wrong test mode.
+- No live JDBC query execution or dependency-driven automatic enablement was added
+  or tested. B23 and the other open review findings remain separate work.
 
 ## B23: Project-dependency-driven PIPE auto-enablement
 
@@ -118,8 +159,8 @@ logic, without selecting a dependency format or implementing an auto-enable poli
 
 This order weights current query correctness and the planned multi-plugin rollout.
 It is a recommended work order, not a change to the stable finding IDs.
-B1 and B2 were completed on 2026-09-05. The current queue above now leads with B22;
-this original list predates the decision to embed the transpilation library.
+B1, B2, and B22 were completed on 2026-09-05. The current queue above leads with B3;
+this original list predates the completed embedded-library migration.
 
 Complexity includes implementation and regression verification, not just patch size.
 Low means a local behavior change with focused tests. Medium means shared consumers
@@ -560,4 +601,4 @@ on a version-number assumption.
   or all shipping-default behavior. See [build.gradle.kts:106-123](build.gradle.kts#L106).
 
 At completion of the original code review, the worktree was clean. V3 records that
-review's checks. Subsequent implementation and verification are recorded under B1 and B2.
+review's checks. Subsequent implementation and verification are recorded under B1, B2, and B22.

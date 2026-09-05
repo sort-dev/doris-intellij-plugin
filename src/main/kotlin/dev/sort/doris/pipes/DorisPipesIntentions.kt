@@ -35,7 +35,7 @@ import javax.swing.JTextArea
 internal object DorisPipesUi {
 
     fun pipeChunkAtCaret(file: PsiFile, editor: Editor): DorisPipes.Chunk? {
-        if (!DorisPipes.enabled || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
+        if (!DorisPipes.isEnabled(file.project) || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
         val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return null
         return chunk.takeIf { it.text.contains(DorisPipes.MARKER) }
     }

@@ -21,21 +21,26 @@ import org.apache.doris.sqlparser.DorisSqlParser
  * the authoritative Doris grammar (fe-sql-parser) off the EDT and reports every syntax error
  * at its real location — this is what makes genuine Doris DDL/DML mistakes light up.
  */
-class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSyntaxError>>() {
+class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisErrorAnnotator.Result>() {
+    data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null)
+    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>)
 
-    override fun collectInformation(file: PsiFile): Pair<String, String>? {
+    override fun collectInformation(file: PsiFile): Input? {
         if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
         val text = file.text
-        return if (text.isBlank()) null else file.viewProvider.virtualFile.url to text
+        if (text.isBlank()) return null
+        val enabled = DorisPipes.isEnabled(file.project)
+        val mark = if (enabled) DorisPipes.execMarkFor(file.project, file.viewProvider.virtualFile.url, text) else null
+        return Input(text, enabled, mark)
     }
 
-    override fun doAnnotate(collectedInfo: Pair<String, String>): List<DorisSyntaxError> {
-        val (url, text) = collectedInfo
+    override fun doAnnotate(collectedInfo: Input): Result {
+        val (text, pipesEnabled, execMark) = collectedInfo
         val feErrors = validate(text)
         // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
         // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
-        val base = if (!DorisPipes.enabled || !text.contains(DorisPipes.MARKER)) feErrors
+        val base = if (!pipesEnabled || !text.contains(DorisPipes.MARKER)) feErrors
         else runCatching {
             val pipeChunks = DorisPipes.chunks(text).filter { it.text.contains(DorisPipes.MARKER) }
             feErrors.filterNot { error -> pipeChunks.any { error.line in it.startLine..it.endLine } } +
@@ -43,21 +48,23 @@ class DorisErrorAnnotator : ExternalAnnotator<Pair<String, String>, List<DorisSy
         }.getOrDefault(feErrors)
         // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
         // offsets); invalidated by any edit (doc-hash) or the next run for this file.
-        val exec = if (!DorisPipes.enabled) emptyList() else runCatching {
-            DorisPipes.execMarkFor(url, text)?.let { m ->
+        val exec = if (!pipesEnabled) emptyList() else runCatching {
+            execMark?.let { m ->
                 val pre = text.substring(0, m.start.coerceIn(0, text.length))
                 val line = pre.count { it == '\n' } + 1
                 val col = m.start - (pre.lastIndexOf('\n') + 1)
                 listOf(DorisSyntaxError(line, col, (m.end - m.start).coerceAtLeast(1), "Doris (server): ${m.message}"))
             }.orEmpty()
         }.getOrDefault(emptyList())
-        return base + exec
+        return Result(pipesEnabled, base + exec)
     }
 
-    override fun apply(file: PsiFile, annotationResult: List<DorisSyntaxError>, holder: AnnotationHolder) {
-        if (annotationResult.isEmpty()) return
+    override fun apply(file: PsiFile, annotationResult: Result, holder: AnnotationHolder) {
+        // A setting change can finish while the background pass is still running.
+        if (annotationResult.pipesEnabled != DorisPipes.isEnabled(file.project)) return
+        if (annotationResult.errors.isEmpty()) return
         val document = file.viewProvider.document ?: return
-        for (error in annotationResult) {
+        for (error in annotationResult.errors) {
             val range = error.toTextRange(document) ?: continue
             holder.newAnnotation(HighlightSeverity.ERROR, error.message)
                 .range(range)

@@ -68,8 +68,8 @@ internal fun editorForPipeExecution(e: AnActionEvent): Editor? = e.getData(Commo
 private object PipesExecuteInterceptor {
 
     fun handle(e: AnActionEvent, option: DatabaseSettings.ExecOption): Boolean {
-        if (!DorisPipes.enabled) return false
         val console = JdbcConsole.findConsole(e) ?: return false
+        if (!DorisPipes.isEnabled(console.project)) return false
         if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) return false
         val editor = editorForPipeExecution(e) ?: return false
         val text = editor.selectionModel.selectedText
@@ -104,7 +104,7 @@ private object PipesExecuteInterceptor {
     }
 
     private fun doHandle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean {
-        if (console == null || !DorisPipes.enabled) return false
+        if (console == null || !DorisPipes.isEnabled(console.project)) return false
         val session = console.session
         if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
         val editor = info.editor ?: return false
@@ -218,7 +218,7 @@ internal object DorisPipesExecution {
         // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
         // the reported transpiled position back to the user's pipe text.
         // A new run supersedes the previous run's editor mark for this file.
-        anchor?.file?.let { DorisPipes.clearExecMark(it.url) }
+        anchor?.file?.let { DorisPipes.clearExecMark(console.project, it.url) }
         registerRun(
             console, request, dorisSql, originalText, transpile,
             anchor?.file, anchor?.trimAnchor ?: 0, anchor?.docHash ?: 0,
@@ -287,6 +287,7 @@ internal object DorisPipesExecution {
         val file = run.markFile
         if (file != null && mapped.startOffset != null && mapped.endOffset != null) {
             DorisPipes.setExecMark(
+                run.console.project,
                 file.url,
                 DorisPipes.ExecMark(
                     start = run.markAnchor + mapped.startOffset,

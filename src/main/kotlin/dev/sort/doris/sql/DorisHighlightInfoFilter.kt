@@ -54,7 +54,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
         // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
         // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
-        if (dev.sort.doris.pipes.DorisPipes.enabled &&
+        if (dev.sort.doris.pipes.DorisPipes.isEnabled(file.project) &&
             !description.startsWith("Doris Pipes:") &&
             isInsidePipeStatement(file, highlightInfo)
         ) {

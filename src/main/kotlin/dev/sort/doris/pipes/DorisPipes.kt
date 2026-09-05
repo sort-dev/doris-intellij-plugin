@@ -1,6 +1,8 @@
 package dev.sort.doris.pipes
 
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
@@ -12,36 +14,21 @@ import org.apache.doris.sqlparser.DorisSqlParser
  * ([DorisPipesRunQueryAction]), and the editor stops red-flagging pipe statements while showing
  * the engine's own (position-accurate) pipe syntax errors instead ([dev.sort.doris.sql.DorisErrorAnnotator]).
  *
- * Engine-facing code lives in [DorisPipesEngine], behind the optional-dependency gate.
+ * Engine-facing code lives in [DorisPipesEngine]; the shared engine is bundled with this plugin.
  *
- * Statement ranges use the bundled Doris lexer, independently of the optional engine. Execution,
+ * Statement ranges use the bundled Doris lexer, independently of project enablement. Execution,
  * preview, completion, and syntax diagnostics share these ranges. Pipe detection still uses a
  * textual pre-gate, with the engine's parse as the authority at execution time.
  */
 object DorisPipes {
 
-    /** System property switch, same convention as catalogs/cancel: only an explicit "false" disables. */
+    /** Retained emergency veto. A true value never enables an unchecked project setting. */
     const val PROPERTY: String = "doris.pipes"
 
     fun isEnabledValue(raw: String?): Boolean = !"false".equals(raw, ignoreCase = true)
 
-    /**
-     * PATH B: the engine arrives via the OPTIONAL transpiler-plugin dependency
-     * (`dev.sort.sql-transpiler-intellij-plugin`). When it isn't installed, every pipe feature
-     * must vanish cleanly — [enabled] is the single gate all pipe code paths already check, so
-     * it also requires the engine classes to be reachable through our classloader (checked once).
-     * Auto-introspection is deliberately NOT behind this gate — it is engine-free.
-     */
-    val engineAvailable: Boolean by lazy {
-        runCatching {
-            Class.forName("dev.brikk.house.sql.shape.SqlFragment", false, DorisPipes::class.java.classLoader)
-        }.isSuccess.also {
-            if (!it) info("brikk-sql engine not present (transpiler plugin not installed) — pipe features disabled")
-        }
-    }
-
-    val enabled: Boolean
-        get() = engineAvailable && isEnabledValue(System.getProperty(PROPERTY))
+    fun isEnabled(project: Project?): Boolean = project != null && !project.isDisposed && !project.isDefault &&
+        isEnabledValue(System.getProperty(PROPERTY)) && project.service<DorisPipesSettings>().enabled
 
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"
@@ -179,15 +166,16 @@ object DorisPipes {
     /** Absolute-document-offset span + message; [docHash] invalidates the mark on ANY edit. */
     data class ExecMark(val start: Int, val end: Int, val message: String, val docHash: Int)
 
-    private val execMarks = java.util.Collections.synchronizedMap(HashMap<String, ExecMark>())
+    fun setExecMark(project: Project, url: String, mark: ExecMark) {
+        if (!project.isDisposed) project.service<DorisPipesSettings>().execMarks[url] = mark
+    }
 
-    fun setExecMark(url: String, mark: ExecMark) { execMarks[url] = mark }
-
-    fun clearExecMark(url: String) { execMarks.remove(url) }
+    fun clearExecMark(project: Project, url: String) { project.service<DorisPipesSettings>().execMarks.remove(url) }
 
     /** The current mark for [url], or null when the document changed since the run. */
-    fun execMarkFor(url: String, currentText: String): ExecMark? =
-        execMarks[url]?.takeIf { it.docHash == currentText.hashCode() && it.end <= currentText.length }
+    fun execMarkFor(project: Project, url: String, currentText: String): ExecMark? =
+        project.service<DorisPipesSettings>().execMarks[url]
+            ?.takeIf { it.docHash == currentText.hashCode() && it.end <= currentText.length }
 
     // ---------------------------------------------------------------------------------------
     // Server-error map-back (MVP: token-text heuristic; real fix = generated-position provenance)

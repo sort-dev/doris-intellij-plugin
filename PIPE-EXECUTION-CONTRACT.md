@@ -4,19 +4,26 @@ This is the DORIS-B1 contract for dialect plugins that intercept the IDE's Execu
 actions. It applies to the 261 and 262 platform generations. Use the qualified
 name DORIS-B1 across repositories; other repositories have their own B1 findings.
 
-## Planned dependency migration
+## Embedded library and enablement
 
-[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) is the
-new high-priority direction: each dialect plugin will bundle a versioned shared
-transpilation library and expose its own PIPE enable/disable UI. This means sharing
-library code, not copying SQL Transpiler's implementation into each repository.
-SQL Transpiler remains the separate cross-dialect conversion, preview, and `.bsql`
-workspace product, not a required library-provider plugin.
+[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) bundles
+`dev.brikk.house:brikk-sql-jvm:0.9.0` and `brikk-sql-metadata-jvm:0.9.0`, the latest
+stable releases confirmed on Maven Central on 2026-09-05. SQL Transpiler remains the
+separate cross-dialect conversion, preview, and `.bsql` product. It is not a library
+provider or a prerequisite for Doris PIPE support. No verification library or native
+database engine is bundled just to obtain the core PIPE APIs.
 
-The captured-predecessor delegation rules below still apply. The optional-provider
-registration, lifecycle, and test instructions describe the current B1 implementation;
-B22 must adapt them rather than preserve provider presence as the feature gate.
-The UI toggle and action registration/lifecycle are separate concerns.
+The per-project checkbox under Settings > Tools > Apache Doris PIPE defaults off.
+It is stored in workspace.xml, not inferred from installed plugins. The legacy
+`-Ddoris.pipes=false` veto remains; a true value does not force enablement. Setting
+changes reparse cached/open Doris files and restart diagnostics without editing SQL.
+Actions remain registered in either state, with interception gated on the owning
+project. The captured-predecessor delegation rules below still apply.
+
+Each product owns its embedded library through its plugin classloader. Do not pass
+brikk AST, metadata, or transpilation-result objects between plugins. B1's shared
+boundary uses platform action types, not brikk-specific types. Share the published
+library code, not copies of SQL Transpiler's implementation.
 
 [B23](REVIEW-pipes-2026-09-05.md#b23-project-dependency-driven-pipe-auto-enablement)
 records later project-dependency-driven auto-enablement. Its dependency signal,
@@ -26,7 +33,8 @@ scope, and interaction with explicit user choices are TBD. It is not part of B22
 
 Do not copy the old four `<action overrides="true">` registrations. Register a
 synchronous `ActionConfigurationCustomizer.SyncHeavyCustomizeStrategy` in the
-optional transpiler-dependent descriptor instead. Capture the current action
+plugin descriptor instead. Doris unconditionally includes `doris-pipes.xml`.
+Capture the current action
 with the supplied manager's `getAction(id)` before calling `replaceAction`.
 
 ```kotlin
@@ -103,9 +111,10 @@ not accidentally bypass the 262 precheck.
 
 ## Lifecycle
 
-The customizer extension point is non-dynamic. Installing, removing, or changing
-the optional pipe integration requires an IDE restart. Keep it in the optional
-descriptor so the dialect remains engine-free without the provider.
+The customizer extension point is non-dynamic. Installing, removing, or updating
+the plugin requires an IDE restart. Changing the per-project PIPE setting does not:
+keep registration fixed and gate handler participation rather than replacing actions
+when a checkbox changes. SQL Transpiler installation/removal is independent of Doris.
 
 Do not add a naive hot-unload restoration callback. Restoring a predecessor can
 clobber a later plugin's replacement, and immutable chains can retain removed
@@ -125,16 +134,29 @@ Cancel and Explain Plan remain separate B21 work. SQL Transpiler's explicit
 
 ## Verification commands
 
-The normal build and test baseline remain unchanged. Each provider-mode invocation
-uses a separate worker and sandbox. Absent mode excludes both the provider's sandbox
-distribution and its descriptor-bearing JAR from the worker classpath; engine
-libraries remain available to helper tests.
+The normal build has no SQL Transpiler dependency. Each companion-mode invocation
+uses a separate worker and sandbox. Installed mode adds the companion only for
+verification; absent mode does not resolve or borrow any of its libraries.
+`verifyEmbeddedPipes` checks the distribution's exact library set, bundled notices,
+and removal of the provider dependency. It is also part of `check`.
 
 ```bash
-mise exec -- ./gradlew test
-mise exec -- ./gradlew test -Pb1.provider=installed --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest
-mise exec -- ./gradlew test -Pb1.provider=absent --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest
+mise exec -- ./gradlew test verifyEmbeddedPipes
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=absent
+mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed
+mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=absent
 ```
+
+The isolation lane keeps the platform test fixture core-loaded but loads the actual
+product distributions with separate PluginClassLoaders. It checks class ownership,
+different engine/metadata identities, and in-memory transpilation by both engines.
+Other tests use the normal flattened fixture classpath and explicitly select Doris's
+engine/metadata instead of the companion's private versions.
+
+To include already-built sibling distributions, pass `-Ptest.trinoPluginZip=/path/to/trino.zip`
+and `-Ptest.duckdbPluginZip=/path/to/duckdb.zip` in the isolation lane. Supplied paths
+must exist. These are test-only inputs; the Doris build does not build or modify peers.
 
 For a 262 runtime check, first compile and instrument with the default 261 SDK.
 Then select a local 262 SDK and use the opt-in init script, which selects build
@@ -148,12 +170,16 @@ It seeds an empty Marketplace telemetry-ID cache in the test sandbox to avoid
 depending on background downloads or stale partial cache files during registration.
 
 ```bash
-mise exec -- ./gradlew test -Pb1.provider=installed --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest
-mise exec -- ./gradlew test -Pb1.provider=installed -Pdoris.localIde=/absolute/path/to/262-sdk --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
-mise exec -- ./gradlew test -Pb1.provider=absent -Pdoris.localIde=/absolute/path/to/262-sdk --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed -Pdoris.localIde=/absolute/path/to/262-sdk --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest --tests dev.sort.doris.pipes.DorisPipesSettingsTest --tests dev.sort.doris.pipes.DorisPipesBoundaryTest --tests dev.sort.doris.pipes.DorisPipesTest --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
+mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed -Pdoris.localIde=/absolute/path/to/262-sdk --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
 ```
 
+Repeat the 262 commands with `-Ptest.sqlTranspiler=absent`. The former `b1.provider`
+property is no longer a verification switch; use `test.sqlTranspiler`.
+
 These tests check action registration, all six simulated three-dialect installation
-orders, all four variants, delegation/state/shortcut behavior, provider absence,
-and restart restrictions. They do not execute SQL against a database or replace
+orders, all four variants, delegation/state/shortcut behavior, companion independence,
+project enablement/persistence/reparsing, embedded-engine ownership, and restart
+restrictions. They do not execute SQL against a database or replace
 end-to-end testing of the eventual Trino and DuckDB pipe implementations.

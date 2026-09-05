@@ -46,7 +46,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // statement bounding box / statement-under-caret / gutter anchors all break (observed in
         // dogfood round 2). One statement node to the ';' restores all of those; inner structure
         // stays deliberately absent (engine-side validation via DorisErrorAnnotator).
-        if (dev.sort.doris.pipes.DorisPipes.enabled && containsPipeMarker(builder)) {
+        if (dev.sort.doris.pipes.DorisPipes.isEnabled(builder.project) && containsPipeMarker(builder)) {
             return parseLenientStatement(builder, SQL_STATEMENT)
         }
         if (DorisReplay.enabled && wantsReplay(builder)) {

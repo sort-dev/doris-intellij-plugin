@@ -4,6 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
+import dev.brikk.house.sql.metadata.FunctionDef
+import dev.brikk.house.sql.shape.SqlFragment
+import kotlinx.serialization.json.Json
 
 /** Pure-logic coverage for the pipes SPIKE seam (engine calls run headless — no IDE needed). */
 class DorisPipesTest {
@@ -15,6 +19,30 @@ class DorisPipesTest {
         |> ORDER BY c DESC
         |> LIMIT 10
     """.trimIndent()
+
+    @Test
+    fun `embedded core and metadata use the latest pinned artifact and platform serialization`() {
+        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvm-0.9.0.jar"))
+        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvm-0.9.0.jar"))
+        val function = DORIS_FUNCTION_CATALOG.functions.first()
+        val encoded = Json.encodeToString(FunctionDef.serializer(), function)
+        assertEquals(function, Json.decodeFromString(FunctionDef.serializer(), encoded))
+    }
+
+    @Test
+    fun `embedded core provides stage scopes and exact source maps`() {
+        val text = "FROM t |> EXTEND id + 1 AS n |> SELECT n"
+        val scope = DorisPipesEngine.stageScopeAt(text, text.indexOf("SELECT"), "t", listOf("id"))
+        assertTrue(scope.toString(), scope?.containsAll(listOf("id", "n")) == true)
+        val original = "FROM t |> WHERE missing_column > 0 |> SELECT missing_column"
+        val result = DorisPipesEngine.transpile(original) as DorisPipesEngine.Transpile.Ok
+        val lines = result.dorisSql.lines()
+        val line = lines.indexOfFirst { it.contains("missing_column > 0") }
+        assertTrue(result.dorisSql, line >= 0)
+        val col = lines[line].indexOf("missing_column")
+        val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $col)", result.result!!)!!
+        assertTrue(original.substring(mapped.startOffset!!, mapped.endOffset!! + 1).contains("missing_column"))
+    }
 
     @Test
     fun `flag parsing matches the catalogs-cancel convention`() {

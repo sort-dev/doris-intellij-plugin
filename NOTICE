@@ -4,8 +4,21 @@ Copyright 2026 Sortdev SRL
 This product is licensed under the Apache License, Version 2.0.
 See the LICENSE file for the full license text.
 
-This product bundles and/or adapts third-party software, each licensed under the
-Apache License, Version 2.0. See THIRD_PARTY_NOTICES.md for details and attributions:
+This product bundles and/or adapts third-party software and registry data under
+the Apache License, Version 2.0, MIT License, and BSD 3-Clause License. These
+components remain subject to their respective licenses. See THIRD_PARTY_NOTICES.md
+for details, attributions, and the full MIT and BSD license notices:
 
-  - Apache Doris (fe/fe-sql-parser) — Copyright The Apache Software Foundation
-  - StarRocks Support (github.com/ycyz97/starrocks-datagrip-plugin)
+  - Apache Doris (fe/fe-sql-parser, logo, and function metadata) - Apache-2.0;
+    Copyright The Apache Software Foundation
+  - brikk-sql and brikk-sql-metadata 0.9.0 (github.com/brikk/brikk-house) - Apache-2.0;
+    published by Jayson Minard and Sortdev SRL, with third-party-derived portions
+  - SQLGlot (upstream of brikk-sql) - MIT; Copyright (c) 2026 Toby Mao
+  - polyglot (DataFusion dialect reference for brikk-sql) - MIT;
+    Copyright (c) 2026 TobiLG <github@tobilg.com>
+  - Trino (function registry metadata) - Apache-2.0
+  - DuckDB (function registry metadata) - MIT;
+    Copyright 2018-2025 Stichting DuckDB Foundation
+  - ANTLR 4 Runtime 4.13.1 - BSD-3-Clause;
+    Copyright (c) 2012-2022 The ANTLR Project. All rights reserved.
+  - StarRocks Support (github.com/ycyz97/starrocks-datagrip-plugin) - Apache-2.0

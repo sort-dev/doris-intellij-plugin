@@ -12,6 +12,189 @@ parsing and validation.
 - Copyright: The Apache Software Foundation
 - License: Apache License, Version 2.0
 
+The bundled artifact is `doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar`, built from
+Apache Doris commit `7027772afcbf36972662ad0c71dfc9f47bb13f4e`. Its `META-INF/NOTICE`
+contains the following notice:
+
+```text
+Doris FE SQL Parser
+Copyright 2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+```
+
+## brikk-sql and brikk-sql-metadata 0.9.0 (bundled)
+
+This plugin bundles the core SQL engine and function metadata libraries from brikk-house:
+
+- `dev.brikk.house:brikk-sql-jvm:0.9.0`
+- `dev.brikk.house:brikk-sql-metadata-jvm:0.9.0`
+- Project: https://github.com/brikk/brikk-house
+- Developers listed in the published POMs: Jayson Minard and Sortdev SRL
+- License: Apache License, Version 2.0, with third-party-derived portions described below
+
+The provenance below refers to the published 0.9.0 artifacts, not newer unreleased
+brikk-house sources. Source artifacts are available from Maven Central:
+
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.9.0/brikk-sql-jvm-0.9.0-sources.jar
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.9.0/brikk-sql-metadata-jvm-0.9.0-sources.jar
+
+## SQLGlot (ported and generated code in brikk-sql)
+
+brikk-sql is a Kotlin port of SQLGlot by Toby Mao and contributors. It includes ported
+tokenizer, parser, AST, SQL generator, optimizer, and dialect code, as well as generated
+token tables, AST catalogs, and function registries. The published 0.9.0 generated source
+headers identify SQLGlot upstream version `v30.12.0-44-g93d16591`, commit `93d16591`.
+
+- Project: https://github.com/tobymao/sqlglot
+- License: MIT License
+- License source: https://raw.githubusercontent.com/tobymao/sqlglot/93d16591/LICENSE
+
+```text
+MIT License
+
+Copyright (c) 2026 Toby Mao
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## polyglot (DataFusion dialect reference in brikk-sql)
+
+The published 0.9.0 `DatafusionDialect.kt` and `DatafusionGenerator.kt` credit polyglot's
+`crates/polyglot-sql/src/dialects/datafusion.rs` for dialect flags and SQL transformations.
+Those headers do not identify the polyglot revision. This attribution concerns the bundled
+dialect implementation, not brikk-house's test fixtures.
+
+- Project: https://github.com/tobilg/polyglot
+- License: MIT License
+- License source: https://raw.githubusercontent.com/tobilg/polyglot/main/LICENSE
+
+```text
+MIT License
+
+Copyright (c) 2026 TobiLG <github@tobilg.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Apache Doris (registry metadata in brikk-sql-metadata)
+
+`GeneratedDorisFunctionCatalog.kt` in version 0.9.0 contains function names, aliases,
+kinds, signatures, and nullability metadata extracted from Apache Doris's runtime
+registry and function classes. Its header identifies upstream version
+`v0.8.2-31011-gd8fd23f7f38` and the sources `fe/fe-core/.../catalog/Builtin*Functions.java`
+and the function classes' `SIGNATURES` fields and `ComputeNullable` markers.
+Its available `sinceVersion` values come from the oldest `apache/doris-website`
+versioned documentation containing a function, meaning "first documented in", not
+necessarily "introduced in".
+
+- Projects: https://github.com/apache/doris and https://github.com/apache/doris-website
+- Copyright: The Apache Software Foundation
+- License: Apache License, Version 2.0
+
+## Trino (registry metadata in brikk-sql-metadata)
+
+`GeneratedTrinoFunctionCatalog.kt` in version 0.9.0 contains function names, signatures,
+and kinds extracted from Trino 483 using `SHOW FUNCTIONS` in the official
+`trinodb/trino:483` container. This is registry data, not bundled Trino engine code.
+
+- Project: https://github.com/trinodb/trino
+- License: Apache License, Version 2.0
+- License source: https://github.com/trinodb/trino/blob/483/LICENSE
+
+## DuckDB (registry metadata in brikk-sql-metadata)
+
+`GeneratedDuckdbFunctionCatalog.kt` in version 0.9.0 contains function names, signatures,
+kinds, and parameter names extracted using the Python DuckDB module's `duckdb_functions()`
+view. Its header identifies DuckDB `v1.5.5`, commit `d8cdaa33fd`. This is registry data,
+not bundled DuckDB engine code.
+
+- Project: https://github.com/duckdb/duckdb
+- License: MIT License
+- License source: https://raw.githubusercontent.com/duckdb/duckdb/d8cdaa33fd/LICENSE
+
+```text
+Copyright 2018-2025 Stichting DuckDB Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## ANTLR 4 Runtime 4.13.1 (bundled)
+
+This plugin bundles `org.antlr:antlr4-runtime:4.13.1`, used by the Apache Doris SQL parser.
+
+- Project: https://github.com/antlr/antlr4
+- License: BSD 3-Clause License
+- License source: https://raw.githubusercontent.com/antlr/antlr4/4.13.1/LICENSE.txt
+
+```text
+Copyright (c) 2012-2022 The ANTLR Project. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+3. Neither name of copyright holders nor the names of its contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
 ## StarRocks Support (`ycyz97/starrocks-datagrip-plugin`) — adapted source
 
 `dev.sort.doris.sql.DorisPsiParser` adapts the lenient statement-parsing approach (statement
@@ -33,5 +216,7 @@ Apache Doris logo, used to identify Apache Doris data sources.
 
 ---
 
-The full text of the Apache License, Version 2.0 is available at
-https://www.apache.org/licenses/LICENSE-2.0
+The full text of the Apache License, Version 2.0 is included in the accompanying
+`LICENSE` file and is also available at https://www.apache.org/licenses/LICENSE-2.0.
+In the packaged plugin, `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` are included
+under `META-INF`.

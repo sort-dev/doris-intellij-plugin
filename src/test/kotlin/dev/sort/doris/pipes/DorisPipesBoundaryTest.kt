@@ -1,26 +1,34 @@
 package dev.sort.doris.pipes
 
 import com.intellij.psi.PsiFileFactory
+import com.intellij.openapi.components.service
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.dialects.SqlDialectMappings
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
+import com.intellij.testFramework.PlatformTestUtil
 
 class DorisPipesBoundaryTest : BasePlatformTestCase() {
     private var previousPipes: String? = null
     private var previousReplay: String? = null
+    private var previousEnabled = false
 
     override fun setUp() {
         super.setUp()
         previousPipes = System.getProperty("doris.pipes")
         previousReplay = System.getProperty("doris.replay.poc")
+        previousEnabled = project.service<DorisPipesSettings>().enabled
         System.setProperty("doris.pipes", "true")
-        assertTrue("fixture must have the pipe engine available", DorisPipes.enabled)
+        project.service<DorisPipesSettings>().enabled = true
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        assertTrue(DorisPipes.isEnabled(project))
     }
 
     override fun tearDown() {
         try {
+            project.service<DorisPipesSettings>().enabled = previousEnabled
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             if (previousPipes == null) System.clearProperty("doris.pipes")
             else System.setProperty("doris.pipes", previousPipes!!)
             if (previousReplay == null) System.clearProperty("doris.replay.poc")
