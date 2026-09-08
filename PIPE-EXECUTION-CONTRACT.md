@@ -8,8 +8,8 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 [B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.11.0` and `brikk-sql-metadata-jvm:0.11.0`, both
-confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.11.0.md)
+`dev.brikk.house:brikk-sql-jvm:0.12.0` and `brikk-sql-metadata-jvm:0.12.0`, both
+confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.12.0.md)
 for the verification scope and intentional refusals for unsafe input boundaries.
 SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library
@@ -26,6 +26,11 @@ The adapter converts the engine's intentional `UnsupportedError` lowering refusa
 to `Transpile.Err`. The normal handled-error branch reports them without submission
 or predecessor execution. Other unexpected interceptor failures and warning-only
 lossy translations remain the separate B10/B3 findings.
+
+In 0.12.0, invalid pipe pagination uses these existing typed errors. Unexpanded
+Doris PIPE RENAME also refuses instead of returning invalid SQL. The engine's
+schema-aware rename API is tested separately; the plugin does not yet supply a
+catalog to its execution path. This does not close the broader B3/B10 policy work.
 
 The per-project checkbox under Settings > Tools > Apache Doris PIPE defaults off.
 It is stored in workspace.xml, not inferred from installed plugins. The legacy

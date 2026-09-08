@@ -28,7 +28,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.11.0")
+            checkEngine(dorisLoader, "jvmMain-0.12.0")
             val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
             val translated = adapter.getMethod("transpile", String::class.java)
                 .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")

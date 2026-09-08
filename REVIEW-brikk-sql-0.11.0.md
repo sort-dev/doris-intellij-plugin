@@ -1,5 +1,8 @@
 # brikk-sql 0.11.0 upgrade verification
 
+This is the 0.11.0 verification record. See [the 0.12.0 report](REVIEW-brikk-sql-0.12.0.md)
+for the subsequent upgrade and its changes to the limitations recorded here.
+
 Status: **upgrade acceptance passed within the verification scope below**. All
 required matrix lanes completed without failing or skipped tests, and no new
 upgrade blocker was found. This report covers the accumulated upgrade from B22 commit

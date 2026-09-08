@@ -5,6 +5,7 @@ import dev.brikk.house.sql.ast.Limit
 import dev.brikk.house.sql.ast.Literal
 import dev.brikk.house.sql.ast.Offset
 import dev.brikk.house.sql.ast.Select
+import dev.brikk.house.sql.ast.Window
 import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.dialects.Dialects
 import dev.brikk.house.sql.optimizer.qualify
@@ -18,7 +19,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
-import org.apache.doris.nereids.exceptions.SyntaxParseException
 import org.junit.Test
 
 /** Upgrade coverage through the plugin adapter. Native parsing checks syntax, not server semantics. */
@@ -233,14 +233,15 @@ class DorisPipesUpgradeTest {
     }
 
     @Test
-    fun `B14 remains open because warning free pipe RENAME fails the native grammar`() {
-        // Characterize the pre-existing defect; this is not an accepted executable translation.
-        val result = generated("FROM t |> RENAME x AS y |> WHERE y > 0 |> LIMIT 5")
-        assertEquals(emptyList<String>(), result.result!!.unsupportedMessages)
-        assertTrue(result.dorisSql, "y > 0" in result.dorisSql)
-        assertTrue(result.dorisSql, "LIMIT 5" in result.dorisSql)
-        val error = assertThrows(SyntaxParseException::class.java) { nativeParser.parseStatement(result.dorisSql) }
-        assertTrue(error.message, error.message!!.contains("RENAME"))
+    fun `pipe RENAME without a schema is a handled refusal instead of invalid SQL`() {
+        val text = "FROM t |> RENAME x AS y |> WHERE y > 0 |> LIMIT 5"
+        val refusal = assertThrows(UnsupportedError::class.java) {
+            SqlFragment(text, "doris").toExecutable("doris", pretty = true)
+        }
+        val result = DorisPipesEngine.transpile(text)
+        assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Err)
+        assertEquals(refusal.message, (result as DorisPipesEngine.Transpile.Err).message)
+        assertTrue(result.message, result.message.contains("RENAME"))
     }
 
     @Test
@@ -484,12 +485,91 @@ class DorisPipesUpgradeTest {
     @Test
     fun `unsafe standalone head OFFSET values are handled refusals`() {
         for (offset in listOf("-1", "1.5", "?", "'1'", "1 + 1", "9223372036854775808")) {
-            // A head OFFSET reaches the new generator check. Malformed |> OFFSET stages still
-            // fail earlier in the inherited literalLong path, tracked separately with B10.
+            // A head OFFSET exercises the generator check rather than pipe-stage validation.
             val result = DorisPipesEngine.transpile("SELECT id FROM t OFFSET $offset |> ORDER BY id")
             assertTrue("OFFSET $offset must not silently change its argument: $result", result is DorisPipesEngine.Transpile.Err)
             assertEquals("Doris OFFSET without LIMIT requires a non-negative signed 64-bit integer literal",
                 (result as DorisPipesEngine.Transpile.Err).message)
         }
+    }
+
+    @Test
+    fun `WHERE consumes earlier LIMIT and OFFSET results rather than filtering their input`() {
+        for (restriction in listOf("LIMIT 2", "OFFSET 1", "LIMIT 2 OFFSET 1")) {
+            val result = supported("FROM t |> ORDER BY id |> $restriction |> WHERE id > 1", "id > 1")
+            val tree = SqlFragment(result.dorisSql, "doris").ast as Select
+            val restricted = tree.findAll(Select::class).single { it.args["limit"] != null || it.args["offset"] != null }
+            assertEquals("Filtering must not move ahead of $restriction", null, restricted.args["where"])
+            assertNotNull("The input ordering belongs with $restriction", restricted.args["order"])
+            assertNotNull("The outer query must retain the requested filter", tree.args["where"])
+        }
+    }
+
+    @Test
+    fun `WHERE after head DISTINCT ON does not change the rows considered for ranking`() {
+        val result = supported(
+            "SELECT DISTINCT ON (category) id, category FROM t ORDER BY id |> WHERE id > 1",
+            "ROW_NUMBER() OVER", "PARTITION BY", "id > 1",
+        )
+        val tree = SqlFragment(result.dorisSql, "doris").ast as Select
+        val ranking = tree.findAll(Window::class).single()
+        assertEquals("The later filter must not enter the ranking input", null,
+            ranking.findAncestor(Select::class)!!.args["where"])
+        assertNotNull(tree.args["where"])
+    }
+
+    @Test
+    fun `ordinary QUALIFY preserves a star without helpers or loss of genuine helper named columns`() {
+        val result = supported(
+            "SELECT * FROM t QUALIFY ROW_NUMBER() OVER (ORDER BY id) < 3 |> SELECT DISTINCT *",
+            "QUALIFY", "ROW_NUMBER() OVER", "DISTINCT",
+        )
+        for (names in listOf(listOf("id", "category"), listOf("id", "category", "_w", "_row_number"))) {
+            val catalog = ShapeCatalog(mapOf("t" to Shape(names.map { ColumnShape(it, "INT", true) })), emptyMap())
+            assertEquals(names, SqlFragment(result.dorisSql, "doris").outputShape(catalog).names())
+        }
+    }
+
+    @Test
+    fun `invalid pipe pagination produces typed handled errors without coercion or overflow`() {
+        val inputs = listOf("LIMIT", "OFFSET").flatMap { stage ->
+            listOf("-1", "1.5", "?", "'1'", "1 + 1", "9223372036854775808").map { "FROM t |> $stage $it" }
+        } + listOf(
+            "FROM t |> OFFSET 9223372036854775807 |> OFFSET 1",
+            "FROM t |> OFFSET", "FROM t |> LIMIT",
+        )
+        for (text in inputs) {
+            val result = DorisPipesEngine.transpile(text)
+            assertTrue("Expected a handled pagination error for $text, got $result", result is DorisPipesEngine.Transpile.Err)
+            assertTrue((result as DorisPipesEngine.Transpile.Err).message.isNotBlank())
+        }
+    }
+
+    @Test
+    fun `an OFFSET stage consumes a prior limited slice while same stage pagination keeps SQL order`() {
+        for ((stages, expectedLimit) in listOf("LIMIT 2 |> OFFSET 1" to "1", "LIMIT 2 OFFSET 1" to "2")) {
+            val result = supported("FROM t |> ORDER BY id |> $stages", "ORDER BY", "LIMIT", "OFFSET")
+            val select = SqlFragment(result.dorisSql, "doris").ast as Select
+            assertEquals(expectedLimit, ((select.args["limit"] as Limit).expressionArg as Literal).name)
+            assertEquals("1", ((select.args["offset"] as Offset).expressionArg as Literal).name)
+        }
+    }
+
+    @Test
+    fun `schema aware RENAME preserves columns filters and limits in native Doris SQL`() {
+        // Core capability only: the plugin's no-schema execution path still refuses RENAME.
+        val columns = linkedMapOf("id" to "INT", "category" to "STRING")
+        val catalog = ShapeCatalog(mapOf("t" to Shape(columns.map { (name, type) -> ColumnShape(name, type, true) })), emptyMap())
+        val sql = SqlFragment("FROM t |> RENAME id AS renamed_id |> WHERE renamed_id > 1 |> LIMIT 2", "doris")
+            .toStandardSql("doris", catalog, expandStars = true)
+        nativeParser.parseStatement(sql)
+        val generated = SqlFragment(sql, "doris")
+        assertEquals(emptyList<String>(), generated.transpileTo("doris").unsupportedMessages)
+        qualify(generated.ast.copy(), dialect = Dialects.forName("doris"),
+            schema = mapOf("t" to columns), validateQualifyColumns = true)
+        assertEquals(listOf("renamed_id", "category"), generated.outputShape(catalog).names())
+        assertTrue(sql, sql.contains("renamed_id > 1"))
+        assertTrue(sql, sql.contains("LIMIT 2"))
+        assertFalse(sql, sql.contains("RENAME"))
     }
 }

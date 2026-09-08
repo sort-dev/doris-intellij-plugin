@@ -11,7 +11,7 @@ plugins {
 group = "dev.sort.doris"
 version = "1.3.0"
 
-val brikkSqlVersion = "0.11.0"
+val brikkSqlVersion = "0.12.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
