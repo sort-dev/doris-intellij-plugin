@@ -21,12 +21,12 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 This queue includes the dependency-direction decision made after B1 was completed.
 The original review priorities below remain a historical snapshot.
-B22 is complete; B3 and B10 are fixed. B4 and B5 remain open priorities.
+B22 is complete; B3, B4 and B10 are fixed. B5 is the next open P1 priority.
 
 | Order | ID | Work | Status |
 | --- | --- | --- | --- |
 | 1 | B3 | Block lossy translations and expose warnings | Fixed |
-| 2 | B4 | Replace or constrain SQL Server DDL generation | Open |
+| 2 | B4 | Replace or constrain SQL Server DDL generation | Fixed by containment |
 | 3 | B5 | Preserve cached catalogs when refresh fails | Open |
 | 4 | B10 | Stop execution after a claimed pipe failure | Fixed |
 | Later | B23 | Auto-enable PIPE for projects that require it through a dependency | Deferred, design TBD |
@@ -38,7 +38,7 @@ B22 is complete; B3 and B10 are fixed. B4 and B5 remain open priorities.
 | B1 | P1 | Competing global Execute overrides, FIXED | Finding 1 |
 | B2 | P1 | Raw semicolon splitting truncates executable queries, FIXED | Finding 2 |
 | B3 | P1 | Lossy translation warnings are ignored, FIXED | Finding 3 |
-| B4 | P1 | Catalog-mode DDL uses SQL Server generation | Finding 4 |
+| B4 | P1 | Catalog-mode DDL uses SQL Server generation, FIXED BY CONTAINMENT | Finding 4 |
 | B5 | P1 | Failed catalog listing removes cached metadata | Finding 5 |
 | B6 | P2 | Literal pipe markers suppress ordinary semantic errors | Finding 6, literal case |
 | B7 | P2 | Line-based suppression hides neighboring statement errors | Finding 6, same-line case |
@@ -324,7 +324,7 @@ notifications escape diagnostic text. See [B3/B10 verification](REVIEW-pipes-B3-
 
 ## B4: Catalog-mode DDL uses SQL Server generation
 
-Status: OPEN. Severity: P1.
+Status: FIXED BY CONTAINMENT. Original severity: P1.
 
 Evidence: [DorisEditorHelpers.kt:59-62](src/main/kotlin/dev/sort/doris/catalog/DorisEditorHelpers.kt#L59)
 delegates to `MsScriptGenerator` for the `Ms*` catalog model. Platform inspection
@@ -337,6 +337,18 @@ Completion criteria: supported catalog-mode operations generate Doris SQL for th
 correct object kind and qualification. Cover catalog/database/table/column DDL,
 especially drop and rename. Disable unsupported operations explicitly rather than
 silently using SQL Server output. Verify both supported IDE generations.
+
+Resolution: catalog mode now advertises every scripting category and capability as
+unsupported. Platform CREATE/DROP/RENAME gates are off for the reused model's catalog,
+database, table, column, view and index nodes. A direct `makeScript` call throws a
+clear unsupported error before producing SQL; source revision returns null. No path
+can reach `MsScriptGenerator`. See [B4 containment verification](REVIEW-pipes-B4.md).
+
+This is containment, not a Doris DDL generator. The introspected model does not
+retain enough information to reproduce CREATE TABLE, column definitions, catalog
+properties or mixed alterations safely. Flat-model mode still selects the original
+MySQL generator. Enabling selected Doris operations later requires a separate model
+and syntax review; do not infer support from this finding's fixed status.
 
 ## B5: Failed catalog listing removes cached metadata
 

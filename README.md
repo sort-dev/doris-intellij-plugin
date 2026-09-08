@@ -226,6 +226,12 @@ project setting:
 -Ddoris.pipes=false                     # disables PIPE regardless of the project checkbox
 ```
 
+Catalog-mode database-tree DDL actions are disabled. The IntelliJ `Ms*` model used
+to represent Doris catalogs omits key Doris table/column properties and maps its
+database node to a Doris catalog; generating SQL Server scripts from that model was
+unsafe. Use reviewed SQL or the server's `SHOW CREATE` output for DDL. The flat-model
+escape hatch retains the prior MySQL generator behavior.
+
 Pipe integration uses cooperative Execute delegation so other dialect plugins can
 handle their own queries. Installing or removing the plugin requires an IDE restart;
 changing the PIPE setting does not. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)

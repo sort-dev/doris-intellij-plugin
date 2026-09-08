@@ -9,13 +9,28 @@ import com.intellij.database.datagrid.HookUpHelper
 import com.intellij.database.dialects.base.BasePredicatesHelper
 import com.intellij.database.dialects.mssql.MsObjectBuilder
 import com.intellij.database.dialects.mssql.MsPredicatesHelper
-import com.intellij.database.dialects.mssql.generator.MsScriptGenerator
 import com.intellij.database.dialects.mysqlbase.MysqlBaseHookUpHelper
 import com.intellij.database.dialects.mysqlbase.MysqlBaseObjectBuilder
 import com.intellij.database.dialects.mysqlbase.MysqlBasePredicatesHelper
 import com.intellij.database.dialects.mysqlbase.generator.MysqlBaseScriptGenerator
 import com.intellij.database.model.SqlObjectBuilder
 import com.intellij.database.script.generator.ScriptGenerator
+import com.intellij.database.script.generator.ScriptCategory
+import com.intellij.database.script.generator.ScriptingCapabilities
+import com.intellij.database.script.generator.ScriptingOption
+import com.intellij.database.script.generator.ScriptingOptions
+import com.intellij.database.script.generator.ScriptingResult
+import com.intellij.database.script.generator.ScriptingTask
+import com.intellij.database.model.DataType
+import com.intellij.database.model.basic.BasicElement
+import com.intellij.database.model.basic.BasicIndex
+import com.intellij.database.model.basic.BasicKey
+import com.intellij.database.model.basic.BasicSourceAware
+import com.intellij.database.model.meta.BasicMetaId
+import com.intellij.database.model.meta.BasicMetaPropertyId
+import com.intellij.database.model.properties.CompositeText
+import com.intellij.database.util.Version
+import com.intellij.openapi.project.Project
 import dev.sort.doris.DorisCatalogs
 
 /*
@@ -37,12 +52,13 @@ import dev.sort.doris.DorisCatalogs
  *     `extensionFallback DORIS -> MYSQL` would have produced (byte-for-byte today's behaviour;
  *     the injected `Dbms` we pass through is the same `DORIS` value the fallback passes — verified
  *     against `DbmsExtension.copyFromFallback`, which forwards the *original* dbms to the bean).
- *   - flag ON  -> delegate is the SQL Server (`Ms*`) implementation, matching the flag-ON `Ms*`
- *     model. (`MsObjectBuilder`/`MsScriptGenerator`/`MsPredicatesHelper` are shipped, public and
- *     instantiable.)
+ *   - flag ON  -> model-compatible helpers use the SQL Server (`Ms*`) implementation, matching
+ *     the flag-ON `Ms*` model. The exception is script generation: SQL Server's DATABASE is a
+ *     database, while ours is a Doris catalog, so catalog-mode DDL is explicitly disabled.
  *
- * Because [DorisCatalogs.enabled] is read once per session, the delegate is fixed for the JVM's
- * lifetime — there is no per-call branching and no way for the two modes to interleave.
+ * Production treats [DorisCatalogs.enabled] as a startup VM option. Each helper chooses its
+ * delegate when the extension instance is created; changing the property requires an IDE restart
+ * so the model and all cached extension instances cannot mix modes.
  *
  * `hookUpHelper` is special: SQL Server ships no `MsHookUpHelper`, and `MysqlBaseHookUpHelper`'s only
  * model cast is **guarded** by an `instanceof MysqlBaseLikeColumn` (verified in bytecode), so it is
@@ -55,11 +71,59 @@ import dev.sort.doris.DorisCatalogs
 class DorisObjectBuilder :
     SqlObjectBuilder by (if (DorisCatalogs.enabled) MsObjectBuilder() else MysqlBaseObjectBuilder())
 
-/** `scriptGenerator dbms="DORIS"` — DDL/script export. */
-class DorisScriptGenerator(dbms: Dbms) :
-    ScriptGenerator by (
-        if (DorisCatalogs.enabled) MsScriptGenerator(dbms) else MysqlBaseScriptGenerator(dbms)
+/** `scriptGenerator dbms="DORIS"` — retain flat-mode MySQL behavior; refuse unsafe catalog DDL. */
+class DorisScriptGenerator private constructor(internal val implementation: ScriptGenerator) :
+    ScriptGenerator by implementation {
+    constructor(dbms: Dbms) : this(
+        if (DorisCatalogs.enabled) RefusingDorisCatalogScriptGenerator(dbms) else MysqlBaseScriptGenerator(dbms),
     )
+}
+
+private object NoDorisCatalogScriptingCapabilities : ScriptingCapabilities {
+    private val unsupported = object : ScriptingCapabilities.VersionedCapability<Boolean> {
+        override fun get(v: Version?) = false
+    }
+
+    override val create get() = unsupported
+    override val createAlone get() = unsupported
+    override val createVersion get() = 0
+    override val drop get() = unsupported
+    override val rename get() = unsupported
+    override val comment get() = unsupported
+    override val alterComment get() = unsupported
+    override val createOrdered get() = unsupported
+    override val alterOrder get() = unsupported
+    override val alterAnything get() = unsupported
+    override val truncate get() = unsupported
+    override val refresh get() = unsupported
+    override val recompile get() = unsupported
+    override val edgeVersions: Iterable<Version> get() = emptyList()
+    override fun get(category: ScriptCategory) = unsupported
+    override fun canCreateWith(prop: BasicMetaId) = unsupported
+    override fun canAlter(prop: BasicMetaId) = unsupported
+    override fun isConditional(prop: BasicMetaId) = false
+    override fun <T : Enum<*>> supportedValues(prop: BasicMetaPropertyId<T>): List<T> = emptyList()
+}
+
+/** The reused Ms model is too lossy to regenerate Doris DDL or even preserve object kinds. */
+private class RefusingDorisCatalogScriptGenerator(dbms: Dbms) : ScriptGenerator {
+    private val formatting = MysqlBaseScriptGenerator(dbms)
+
+    override fun makeScript(project: Project, task: ScriptingTask): ScriptingResult =
+        throw UnsupportedOperationException(
+            "Doris catalog-mode ${task.category.displayName} script generation is disabled: " +
+                "the introspected model cannot preserve Doris DDL semantics",
+        )
+
+    override fun availableOptions(task: ScriptingTask): Set<ScriptingOption<*>>? = null
+    override fun isOptionSupported(option: ScriptingOption<*>) = false
+    override fun capabilities(e: BasicElement): ScriptingCapabilities = NoDorisCatalogScriptingCapabilities
+    override fun isEqual(e1: BasicElement, e2: BasicElement, options: ScriptingOptions) = false
+    override fun reviseSource(project: Project, e: BasicSourceAware): CompositeText? = null
+    override fun prettyPrint(dt: DataType): String = formatting.prettyPrint(dt)
+    override fun isIndexExplicitFor(index: BasicIndex, key: BasicKey) = false
+    override fun isDefaultSize(dt: DataType, version: Version) = formatting.isDefaultSize(dt, version)
+}
 
 /**
  * `predicatesHelper dbms="DORIS"` — data-grid filter predicate producers.
