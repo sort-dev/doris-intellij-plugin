@@ -16,6 +16,17 @@ import org.antlr.v4.runtime.Recognizer
 import org.antlr.v4.runtime.Token
 import org.apache.doris.sqlparser.DorisSqlParser
 
+internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris Pipes:"
+internal const val DORIS_SERVER_DIAGNOSTIC_PREFIX = "Doris (server):"
+
+internal fun withoutPipeChunkErrors(text: String, errors: List<DorisSyntaxError>): List<DorisSyntaxError> {
+    val pipeChunks = DorisPipes.chunks(text).filter { it.hasPipeOperator }
+    return errors.filterNot { error ->
+        val offset = error.startOffsetIn(text)
+        offset != null && pipeChunks.any { offset >= it.startOffset && offset < it.endOffset }
+    }
+}
+
 /**
  * Doris-accurate syntax validation, layered on separately from the SQL92 editor parser
  * (whose own errors are suppressed by [DorisHighlightErrorFilter]). Parses the file text with
@@ -43,8 +54,7 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
         val base = if (!pipesEnabled || !text.contains(DorisPipes.MARKER)) feErrors
         else runPipeCatching {
-            val pipeChunks = DorisPipes.chunks(text).filter { it.hasPipeOperator }
-            feErrors.filterNot { error -> pipeChunks.any { error.line in it.startLine..it.endLine } } +
+            withoutPipeChunkErrors(text, feErrors) +
                 DorisPipesEngine.pipeSyntaxErrors(text)
         }.getOrDefault(feErrors)
         // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
@@ -54,7 +64,14 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
                 val pre = text.substring(0, m.start.coerceIn(0, text.length))
                 val line = pre.count { it == '\n' } + 1
                 val col = m.start - (pre.lastIndexOf('\n') + 1)
-                listOf(DorisSyntaxError(line, col, (m.end - m.start).coerceAtLeast(1), "Doris (server): ${m.message}"))
+                listOf(
+                    DorisSyntaxError(
+                        line,
+                        col,
+                        (m.end - m.start).coerceAtLeast(1),
+                        "$DORIS_SERVER_DIAGNOSTIC_PREFIX ${m.message}",
+                    ),
+                )
             }.orEmpty()
         }.getOrDefault(emptyList())
         return Result(pipesEnabled, base + exec)
@@ -112,12 +129,21 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
 
 /** A single Doris syntax error at a 1-based [line] / 0-based [col], spanning [length] chars. */
 data class DorisSyntaxError(val line: Int, val col: Int, val length: Int, val message: String) {
+    fun startOffsetIn(text: String): Int? {
+        if (line < 1 || col < 0) return null
+        var lineStart = 0
+        repeat(line - 1) {
+            lineStart = text.indexOf('\n', lineStart).takeIf { it >= 0 }?.plus(1) ?: return null
+        }
+        val lineEnd = text.indexOf('\n', lineStart).takeIf { it >= 0 } ?: text.length
+        val contentEnd = if (lineEnd > lineStart && text[lineEnd - 1] == '\r') lineEnd - 1 else lineEnd
+        val codePoints = text.codePointCount(lineStart, contentEnd)
+        return text.offsetByCodePoints(lineStart, col.coerceAtMost(codePoints))
+    }
+
     fun toTextRange(document: Document): TextRange? {
-        val lineIndex = line - 1
-        if (lineIndex < 0 || lineIndex >= document.lineCount) return null
-        val lineStart = document.getLineStartOffset(lineIndex)
-        val lineEnd = document.getLineEndOffset(lineIndex)
-        val start = (lineStart + col).coerceIn(lineStart, lineEnd)
+        val start = startOffsetIn(document.text) ?: return null
+        val lineEnd = document.getLineEndOffset(line - 1)
         val end = (start + length).coerceIn(start, lineEnd)
         // Ensure a non-empty range (e.g. errors reported at end-of-line/EOF).
         return if (end > start) TextRange(start, end)

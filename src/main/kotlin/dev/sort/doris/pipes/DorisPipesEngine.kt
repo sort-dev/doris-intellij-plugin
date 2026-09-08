@@ -9,6 +9,7 @@ import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
+import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import com.intellij.openapi.progress.ProgressManager
 
 /**
@@ -199,7 +200,7 @@ object DorisPipesEngine {
                 line = chunk.startLine + (error.line ?: 1) - 1,
                 col = (error.col ?: 1).coerceAtLeast(0),
                 length = 2,
-                message = "Doris Pipes: ${error.message}",
+                message = "$DORIS_PIPE_DIAGNOSTIC_PREFIX ${error.message}",
             ))
         }
         return out

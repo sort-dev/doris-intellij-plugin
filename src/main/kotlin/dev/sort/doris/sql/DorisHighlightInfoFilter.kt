@@ -15,6 +15,7 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlSetAssignment
 import com.intellij.sql.psi.SqlSetOperatorExpression
 import com.intellij.sql.psi.SqlStatement
+import dev.sort.doris.pipes.DorisPipes
 
 /**
  * Suppresses DataGrip's semantic false-positives on Doris built-ins in Doris files:
@@ -50,12 +51,16 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return true
         val description = highlightInfo.description ?: return true
+        if (description.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) ||
+            description.startsWith(DORIS_SERVER_DIAGNOSTIC_PREFIX)
+        ) {
+            return true
+        }
         // DORIS PIPES: inside a pipe statement the substrate PSI is
         // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
         // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
         // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
-        if (dev.sort.doris.pipes.DorisPipes.isEnabled(file.project) &&
-            !description.startsWith("Doris Pipes:") &&
+        if (DorisPipes.isEnabled(file.project) &&
             isInsidePipeStatement(file, highlightInfo)
         ) {
             return false
@@ -119,11 +124,9 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         return true
     }
 
-    /** DORIS PIPES: is the highlight inside a statement carrying the pipe marker? */
+    /** DORIS PIPES: is the highlight inside a token-aware pipe chunk? */
     private fun isInsidePipeStatement(file: PsiFile, info: HighlightInfo): Boolean {
-        val element = file.findElementAt(info.startOffset) ?: return false
-        val statement = PsiTreeUtil.getParentOfType(element, SqlStatement::class.java, false) ?: return false
-        return statement.text.contains(dev.sort.doris.pipes.DorisPipes.MARKER)
+        return DorisPipes.chunkAt(file.text, info.startOffset)?.hasPipeOperator == true
     }
 
     /** P0: the count-mismatch highlight sits on the feeding query; gate on its statement's text. */

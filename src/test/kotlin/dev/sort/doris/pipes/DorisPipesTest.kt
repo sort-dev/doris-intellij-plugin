@@ -8,6 +8,9 @@ import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
 import dev.brikk.house.sql.metadata.FunctionDef
 import dev.brikk.house.sql.shape.SqlFragment
 import kotlinx.serialization.json.Json
+import dev.sort.doris.sql.DorisErrorAnnotator
+import dev.sort.doris.sql.DorisSyntaxError
+import dev.sort.doris.sql.withoutPipeChunkErrors
 
 /** Pure-logic coverage for the pipes SPIKE seam (engine calls run headless — no IDE needed). */
 class DorisPipesTest {
@@ -118,6 +121,32 @@ class DorisPipesTest {
     @Test
     fun `valid pipe chunks produce no errors`() {
         assertTrue(DorisPipesEngine.pipeSyntaxErrors("SELECT 1;\n$pipe").isEmpty())
+    }
+
+    @Test
+    fun `native errors beside same-line pipe chunks retain their exact statement`() {
+        val annotator = DorisErrorAnnotator()
+        val text = "SELECT FROM; FROM t |> LIMIT 1;"
+        val errors = annotator.doAnnotate(DorisErrorAnnotator.Input(text, pipesEnabled = true)).errors
+        assertTrue(errors.isNotEmpty())
+        assertTrue(errors.none { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors.all { (it.startOffsetIn(text) ?: -1) < text.indexOf(';') })
+
+        val reverse = "FROM t |> LIMIT 1; SELECT \uD83D\uDE00 FROM;"
+        val pipeError = DorisSyntaxError(1, reverse.indexOf("LIMIT"), 5, "pipe parser noise")
+        val nativeOffset = reverse.indexOf("FROM", reverse.indexOf(';'))
+        val nativeError = DorisSyntaxError(1, reverse.codePointCount(0, nativeOffset), 4, "native error")
+        assertEquals(listOf(nativeError), withoutPipeChunkErrors(reverse, listOf(pipeError, nativeError)))
+    }
+
+    @Test
+    fun `later lexical failure does not erase an earlier pipe diagnostic`() {
+        val text = "FROM t |> WHERE; FROM u |> WHERE name = 'unterminated"
+        val errors = DorisPipesEngine.pipeSyntaxErrors(text)
+        assertEquals(2, errors.size)
+        assertTrue(errors.all { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors[0].message, errors[0].line == 1)
+        assertTrue(errors[1].message.contains("Unterminated SQL string"))
     }
 
     @Test

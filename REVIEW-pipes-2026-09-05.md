@@ -41,10 +41,10 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B3 | P1 | Lossy translation warnings are ignored, FIXED | Finding 3 |
 | B4 | P1 | Catalog-mode DDL uses SQL Server generation, FIXED BY CONTAINMENT | Finding 4 |
 | B5 | P1 | Failed catalog listing removes cached metadata, FIXED | Finding 5 |
-| B6 | P2 | Literal pipe markers suppress ordinary semantic errors | Finding 6, literal case |
-| B7 | P2 | Line-based suppression hides neighboring statement errors | Finding 6, same-line case |
-| B8 | P2 | One lexical failure clears all pipe diagnostics | Finding 7 |
-| B9 | P2 | Mapped server errors are suppressed by the plugin's filter | Finding 8 |
+| B6 | P2 | Literal pipe markers suppress ordinary semantic errors, FIXED | Finding 6, literal case |
+| B7 | P2 | Line-based suppression hides neighboring statement errors, FIXED | Finding 6, same-line case |
+| B8 | P2 | One lexical failure clears all pipe diagnostics, FIXED | Finding 7 |
+| B9 | P2 | Mapped server errors are suppressed by the plugin's filter, FIXED | Finding 8 |
 | B10 | P2 | Claimed pipe failures fall back to raw execution, FIXED | Finding 9 |
 | B11 | P2 | Execute scope and variant settings are bypassed | Finding 10, scope |
 | B12 | P2 | Pipe execution bypasses user-parameter processing | Finding 10, parameters |
@@ -374,7 +374,7 @@ catalogs and removes absent ones. See [B5 verification](REVIEW-pipes-B5.md).
 
 ## B6: Literal pipe markers suppress ordinary semantic errors
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisHighlightInfoFilter.kt:123-126](src/main/kotlin/dev/sort/doris/sql/DorisHighlightInfoFilter.kt#L123)
 uses raw statement text while the parser uses token-aware detection. A fixture probe
@@ -388,9 +388,13 @@ Completion criteria: only actual pipe syntax activates pipe suppression. Test
 markers in strings, comments, and quoted identifiers, plus real pipe statements.
 Use the same classification as parsing and statement range handling.
 
+Resolution: semantic suppression now uses the same native-token chunk classification
+as parsing and execution. Markers in strings, comments, dollar strings and quoted
+identifiers do not claim the statement. See [B6-B9 verification](REVIEW-pipes-B6-B9.md).
+
 ## B7: Line-based suppression hides neighboring statement errors
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisErrorAnnotator.kt:38-41](src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L38)
 suppresses native errors by line instead of statement offsets. A fixture probe
@@ -400,9 +404,14 @@ Completion criteria: an error is suppressed only inside the actual pipe statemen
 range. Test ordinary and pipe statements on the same line in both orders. Reuse B2
 boundaries rather than introducing another statement splitter.
 
+Resolution: the annotator converts each parser line/code-point column to a UTF-16
+document offset and suppresses it only when that offset belongs to an actual pipe
+chunk. Same-line neighbors no longer share suppression. See
+[B6-B9 verification](REVIEW-pipes-B6-B9.md).
+
 ## B8: One lexical failure clears all pipe diagnostics
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesEngine.kt:163](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L163)
 returns an empty list from the whole diagnostic pass when any chunk throws. A fixture
@@ -413,9 +422,14 @@ Completion criteria: lexical and other expected input failures produce local
 diagnostics without removing earlier results. Unexpected engine failures remain
 observable, and cancellation propagates. Test multiple erroneous pipe statements.
 
+Resolution: B3/B10 moved recovery inside the per-chunk loop, which fixed the original
+defect. B6-B9 adds the missing regression for an earlier malformed pipeline followed
+by an unterminated pipeline. Both diagnostics survive. See
+[B6-B9 verification](REVIEW-pipes-B6-B9.md).
+
 ## B9: Mapped server errors are suppressed
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisErrorAnnotator.kt:50](src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L50)
 emits `Doris (server):` annotations, but
@@ -426,6 +440,11 @@ real Doris PSI confirmed that the server annotation is rejected.
 Completion criteria: mapped server annotations survive filtering while irrelevant
 native pipe diagnostics remain suppressed. Test both message paths and preserve
 existing mark invalidation on edits or subsequent runs.
+
+Resolution: the filter now accepts both Doris-owned diagnostic prefixes before any
+semantic suppression. Native semantic noise inside real pipe chunks remains hidden,
+while mapped server annotations remain visible. See
+[B6-B9 verification](REVIEW-pipes-B6-B9.md).
 
 ## B10: Claimed pipe failures fall back to raw execution
 
