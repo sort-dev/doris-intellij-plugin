@@ -233,7 +233,9 @@ class DorisPipesActionTest : BasePlatformTestCase() {
         assertFalse(dispatchPipeTranslation(DorisPipesEngine.Transpile.NotPipe, { fail("NotPipe is not an error") }, { fail("NotPipe must delegate"); false }))
         for (submitted in listOf(false, true)) {
             val success = DorisPipesEngine.Transpile.Ok("SELECT 1")
-            assertEquals(submitted, dispatchPipeTranslation(success, { fail("Ok is not an error") }, { assertSame(success, it); submitted }))
+            var submissionErrors = 0
+            assertTrue(dispatchPipeTranslation(success, { submissionErrors++ }, { assertSame(success, it); submitted }))
+            assertEquals(if (submitted) 0 else 1, submissionErrors)
         }
     }
 

@@ -211,6 +211,13 @@ intentional translation refusals, and remaining limitations. SQL Transpiler
 is not required and installing it does not enable PIPE. It remains an independent
 product for cross-dialect conversion, previews, and `.bsql` workspaces.
 
+Execute and Run Stages up to Caret reject translations with unsupported or lossy
+diagnostics. Preview still shows the generated SQL, with every diagnostic in a
+separate read-only panel. Select one statement when executing PIPE; mixed or
+multiple-statement selections are rejected rather than partially executed.
+Failed claimed requests do not retry the original SQL. See the
+[execution safety verification](REVIEW-pipes-B3-B10.md) for coverage and limits.
+
 Existing PIPE users must enable the project checkbox after upgrading. The legacy VM
 option remains an emergency veto; setting it to `true` does not enable an unchecked
 project setting:

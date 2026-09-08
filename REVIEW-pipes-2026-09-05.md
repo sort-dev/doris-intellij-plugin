@@ -9,7 +9,7 @@ and DuckDB pipe implementations, and independent Doris defects.
 - Use `B1`, `B2`, etc. in requests, branches, tests, and follow-up discussion.
   For example, "do B2" means implement B2 and verify its completion criteria.
 - IDs are permanent. Do not renumber them when priorities change or fixes land.
-- B1 and B2 are FIXED; B22 is COMPLETE. Other findings remain OPEN unless their entries say otherwise.
+- B1, B2, B3 and B10 are FIXED; B22 is COMPLETE. Other findings remain OPEN unless their entries say otherwise.
   Update each finding's status and record verification when fixed.
 - B21 is a conditional coexistence risk, not an observed failure with the current siblings.
 - B22 implements the embedded engine and project toggle. B23 remains deferred design work.
@@ -21,14 +21,14 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 This queue includes the dependency-direction decision made after B1 was completed.
 The original review priorities below remain a historical snapshot.
-B22 is complete; B3 is the next open priority.
+B22 is complete; B3 and B10 are fixed. B4 and B5 remain open priorities.
 
 | Order | ID | Work | Status |
 | --- | --- | --- | --- |
-| 1 | B3 | Block lossy translations and expose warnings | Open |
+| 1 | B3 | Block lossy translations and expose warnings | Fixed |
 | 2 | B4 | Replace or constrain SQL Server DDL generation | Open |
 | 3 | B5 | Preserve cached catalogs when refresh fails | Open |
-| 4 | B10 | Stop execution after a claimed pipe failure | Open |
+| 4 | B10 | Stop execution after a claimed pipe failure | Fixed |
 | Later | B23 | Auto-enable PIPE for projects that require it through a dependency | Deferred, design TBD |
 
 ## Finding index
@@ -37,14 +37,14 @@ B22 is complete; B3 is the next open priority.
 | --- | --- | --- | --- |
 | B1 | P1 | Competing global Execute overrides, FIXED | Finding 1 |
 | B2 | P1 | Raw semicolon splitting truncates executable queries, FIXED | Finding 2 |
-| B3 | P1 | Lossy translation warnings are ignored | Finding 3 |
+| B3 | P1 | Lossy translation warnings are ignored, FIXED | Finding 3 |
 | B4 | P1 | Catalog-mode DDL uses SQL Server generation | Finding 4 |
 | B5 | P1 | Failed catalog listing removes cached metadata | Finding 5 |
 | B6 | P2 | Literal pipe markers suppress ordinary semantic errors | Finding 6, literal case |
 | B7 | P2 | Line-based suppression hides neighboring statement errors | Finding 6, same-line case |
 | B8 | P2 | One lexical failure clears all pipe diagnostics | Finding 7 |
 | B9 | P2 | Mapped server errors are suppressed by the plugin's filter | Finding 8 |
-| B10 | P2 | Claimed pipe failures fall back to raw execution | Finding 9 |
+| B10 | P2 | Claimed pipe failures fall back to raw execution, FIXED | Finding 9 |
 | B11 | P2 | Execute scope and variant settings are bypassed | Finding 10, scope |
 | B12 | P2 | Pipe execution bypasses user-parameter processing | Finding 10, parameters |
 | B13 | P2 | Pipe requests can belong to the wrong console client | Finding 10, ownership |
@@ -159,8 +159,8 @@ logic, without selecting a dependency format or implementing an auto-enable poli
 
 This order weights current query correctness and the planned multi-plugin rollout.
 It is a recommended work order, not a change to the stable finding IDs.
-B1, B2, and B22 were completed on 2026-09-05. The current queue above leads with B3;
-this original list predates the completed embedded-library migration.
+B1, B2, and B22 were completed on 2026-09-05; B3 and B10 were fixed subsequently.
+This original list predates those changes; current statuses are recorded above.
 
 Complexity includes implementation and regression verification, not just patch size.
 Low means a local behavior change with focused tests. Medium means shared consumers
@@ -178,8 +178,8 @@ with broader integration tests. These are initial estimates, not delivery promis
 B1 must preserve the contracts called out separately in B11, B12, and B13; its
 redesign must not lock in those defects. A request for B1 alone does not silently
 close those findings without their own verification. B2 supplies the boundaries
-needed by B7 and should be coordinated with B6. B10 is the next execution-safety
-item after this top five. For B4, disabling unsafe operations is a smaller containment
+needed by B7 and should be coordinated with B6. B10 was the next execution-safety
+item after this original top five and is now fixed. For B4, disabling unsafe operations is a smaller containment
 change than full Doris DDL support, but it must be recorded as containment, not a
 complete implementation of the missing operations.
 
@@ -244,7 +244,8 @@ Implementation and verification:
 - No live JDBC execution or end-to-end Trino/DuckDB pipe feature test was performed.
   These peers have not implemented the feature yet. The matrix verifies the action
   cooperation contract, not production plugin-classloader isolation or all execution
-  semantics. B10, B11, B12, B13, and B21 remain open.
+  semantics. At this B1 checkpoint, B10, B11, B12, B13, and B21 remained open;
+  B10 was fixed later as recorded in its entry.
 
 ## B2: Raw semicolon splitting truncates executable queries
 
@@ -297,15 +298,16 @@ Implementation and verification:
 - No live database request submission was exercised. Tests verify the selected
   execution input and its generated SQL, not a live JDBC round trip. This is not
   a replacement for the PSI parser or its general error-recovery behavior.
-- B10's generic exception/raw-fallback issue remains open. B8's specific unclosed
+- At this B2 checkpoint, B10's generic exception/raw-fallback issue remained open;
+  see its later fix below. B8's specific unclosed
   quote case is now guarded, but its catch-all can still discard diagnostics on
   other engine failures, so B8 also remains open.
 
 ## B3: Lossy translation warnings are ignored
 
-Status: OPEN. Severity: P1.
+Status: FIXED. Original severity: P1.
 
-Evidence: [DorisPipesEngine.kt:44-50](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L44)
+Original evidence: [DorisPipesEngine.kt:44-50](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L44)
 returns success without checking `unsupportedMessages`. The bundled engine turns
 `FROM t |> SELECT LAST_DAY(d, YEAR)` into an expression using `LAST_DAY(d)` and
 reports `Date parts are not supported in LAST_DAY.` Execution and preview discard
@@ -314,6 +316,11 @@ that warning. An `APPROX_COUNT_DISTINCT` accuracy argument is another confirmed 
 Completion criteria: nonempty unsupported diagnostics prevent automatic execution
 and remain visible in preview. Cover normal Execute and run-to-stage, and retain
 ordinary warning-free execution. Do not assume this fixes B14.
+
+Resolution: the shared execution dispatch blocks every nonempty unsupported-message
+list, and submission independently requires a matching warning-free engine result.
+Preview preserves generated SQL and all diagnostics in separate components; error
+notifications escape diagnostic text. See [B3/B10 verification](REVIEW-pipes-B3-B10.md).
 
 ## B4: Catalog-mode DDL uses SQL Server generation
 
@@ -402,9 +409,9 @@ existing mark invalidation on edits or subsequent runs.
 
 ## B10: Claimed pipe failures fall back to raw execution
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesRunQueryAction.kt:88-92](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L88)
+Original evidence: [DorisPipesRunQueryAction.kt:88-92](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L88)
 maps any thrown failure to "not handled." An unterminated string raises `TokenError`;
 a selection containing two pipe statements raises `ShapeError`. Both escape the
 engine wrapper's `ParseError` catch and reach stock execution with raw pipe input.
@@ -413,6 +420,14 @@ Completion criteria: distinguish unclaimed SQL from claimed-but-failed pipe SQL.
 The latter never invokes raw fallback, including submission setup failures. Handle
 multi-statement selections explicitly and propagate cancellation. Test that no
 request is submitted after a claimed translation failure.
+
+Resolution: the internal catch-and-delegate and anchored-to-unanchored retry were
+removed. Missing clients are handled failures. Actual PIPE tokens establish a
+candidate; unsupported mixed/multiple selections reject explicitly. Cancellation
+propagates through execution and optional PIPE recovery. See
+[B3/B10 verification](REVIEW-pipes-B3-B10.md) for real-console/recording-bus coverage
+and the distinction between pre-submission failure and an accepted request whose
+producer then throws.
 
 ## B11: Execute scope and variant settings are bypassed
 

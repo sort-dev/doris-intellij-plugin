@@ -3,9 +3,27 @@ package dev.sort.doris.pipes
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.util.text.StringUtil
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
+import java.util.concurrent.CancellationException
+
+/** Optional PIPE features may recover from exceptions, but never from cancellation or JVM errors. */
+internal inline fun <T> runPipeCatching(action: () -> T): Result<T> = try {
+    Result.success(action())
+} catch (cancelled: ProcessCanceledException) {
+    throw cancelled
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (failure: Exception) {
+    Result.failure(failure)
+}
+
+internal fun pipeNotificationHtml(text: String): String =
+    StringUtil.escapeXmlEntities(StringUtil.convertLineSeparators(text)).replace("\n", "<br>")
 
 /**
  * Doris Pipes SPIKE (branch `pipes-spike`; IDEAS-brikk-integration.md §3): author GoogleSQL
@@ -18,7 +36,7 @@ import org.apache.doris.sqlparser.DorisSqlParser
  *
  * Statement ranges use the bundled Doris lexer, independently of project enablement. Execution,
  * preview, completion, and syntax diagnostics share these ranges. Pipe detection still uses a
- * textual pre-gate, with the engine's parse as the authority at execution time.
+ * textual pre-gate for editing; execution checks native lexer tokens before parsing.
  */
 object DorisPipes {
 
@@ -32,6 +50,9 @@ object DorisPipes {
 
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"
+
+    /** Quoted/commented markers do not claim ordinary SQL, even when that SQL is malformed. */
+    fun containsPipeOperator(text: String): Boolean = text.contains(MARKER) && chunks(text).any { it.hasPipeOperator }
 
     /**
      * A chunk counts as pipe territory when it carries `|>` OR its first content word is FROM —
@@ -75,6 +96,8 @@ object DorisPipes {
         val startOffset: Int,
         val endOffset: Int,
         val boundaryError: String?,
+        val hasPipeOperator: Boolean,
+        val hasSql: Boolean,
     )
 
     /** Split only on Doris delimiter tokens, never semicolons inside literals or comments. */
@@ -85,6 +108,8 @@ object DorisPipes {
         var firstContentLine = -1
         var chunkStartOffset = 0
         var boundaryError: String? = null
+        var hasPipeOperator = false
+        var hasSql = false
         fun flush(endOffsetExclusive: Int) {
             if (firstContentLine != -1) {
                 out.add(
@@ -95,17 +120,30 @@ object DorisPipes {
                         startOffset = chunkStartOffset,
                         endOffset = endOffsetExclusive,
                         boundaryError = boundaryError,
+                        hasPipeOperator = hasPipeOperator,
+                        hasSql = hasSql,
                     ),
                 )
             }
             firstContentLine = -1
             chunkStartOffset = endOffsetExclusive
+            hasPipeOperator = false
+            hasSql = false
         }
         var offset = 0
         var codePointOffset = 0
+        var pipeEnd = -1
         while (true) {
+            ProgressManager.checkCanceled()
             val token = lexer.nextToken()
             if (token.type == Token.EOF) break
+            if (token.channel == Token.DEFAULT_CHANNEL && token.type != DorisLexer.SEMICOLON) {
+                hasSql = true
+                // The native lexer splits |> into | and >. A longer >-prefixed token can
+                // follow | in a malformed PIPE stage; it still must not fall back to raw SQL.
+                if (pipeEnd == token.startIndex && token.text.startsWith(">")) hasPipeOperator = true
+            }
+            pipeEnd = if (token.type == DorisLexer.PIPE) token.stopIndex + 1 else -1
             // ANTLR uses code-point indices; editors and String.substring use UTF-16 indices.
             val tokenEnd = token.stopIndex + 1
             var end = text.offsetByCodePoints(offset, tokenEnd - codePointOffset)

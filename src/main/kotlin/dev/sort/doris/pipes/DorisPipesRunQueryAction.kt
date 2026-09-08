@@ -17,6 +17,7 @@ import com.intellij.openapi.actionSystem.PerformWithDocumentsCommitted
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.TextEditor
+import com.intellij.openapi.progress.ProgressManager
 import dev.sort.doris.DorisDbms
 
 /**
@@ -76,7 +77,14 @@ internal fun dispatchPipeTranslation(
         reportError(result)
         true
     }
-    is DorisPipesEngine.Transpile.Ok -> submit(result)
+    is DorisPipesEngine.Transpile.Ok -> {
+        val error = result.executionError
+        if (error != null) reportError(error)
+        else if (!submit(result)) reportError(DorisPipesEngine.Transpile.Err(
+            null, null, "PIPE query could not be submitted: no attached console client. The original SQL was not executed.",
+        ))
+        true // A claimed PIPE never delegates, even when submission cannot start.
+    }
 }
 
 private object PipesExecuteInterceptor {
@@ -88,7 +96,7 @@ private object PipesExecuteInterceptor {
         val editor = editorForPipeExecution(e) ?: return false
         val text = editor.selectionModel.selectedText
             ?: DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset)?.text ?: return false
-        if (!text.contains(DorisPipes.MARKER)) return false
+        if (!DorisPipes.containsPipeOperator(text)) return false
 
         // Reuse stock document/Info preparation, including structure-view handling. The result is
         // invocation-local: preparation may return without reaching invokeImpl, or reenter Execute.
@@ -108,22 +116,16 @@ private object PipesExecuteInterceptor {
 
     /**
      * True = a pipe program was handled (executed or error-ballooned) — the caller must NOT run
-     * the previous action. False = delegate. The existing failure fallback is tracked as B10.
+     * the previous action. False is reserved for unclaimed input. Exceptions propagate to the
+     * IDE; neither cancellation nor a failed claimed request grants permission for raw fallback.
      */
-    fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean = try {
-        doHandle(console, info)
-    } catch (t: Throwable) {
-        DorisPipes.warn("pipe execute path failed; delegating execution: ${t.message}", t)
-        false
-    }
-
-    private fun doHandle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean {
+    fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean {
         if (console == null || !DorisPipes.isEnabled(console.project)) return false
         val session = console.session
         if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
         val editor = info.editor ?: return false
 
-        // Selection wins unchanged; only automatic ranges carry a lexical-boundary guard.
+        // Selection wins unchanged; the engine applies lexical and single-statement checks to it.
         val chunk = if (editor.selectionModel.hasSelection()) {
             null
         } else {
@@ -131,7 +133,7 @@ private object PipesExecuteInterceptor {
         }
         val text = chunk?.text ?: editor.selectionModel.selectedText ?: return false
         val selStart = chunk?.startOffset ?: editor.selectionModel.selectionStart
-        if (!text.contains(DorisPipes.MARKER)) return false
+        if (chunk?.hasPipeOperator == false || (chunk == null && !DorisPipes.containsPipeOperator(text))) return false
         DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
 
         val result = if (chunk != null) DorisPipesEngine.transpile(chunk) else DorisPipesEngine.transpile(text)
@@ -144,7 +146,7 @@ private object PipesExecuteInterceptor {
                 val vf = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
                 val range = com.intellij.openapi.util.TextRange(trimAnchor, selStart + text.trimEnd().length)
                 DorisPipesExecution.submit(
-                    console, translated.dorisSql, text, translated.result,
+                    console, translated, text,
                     PipeAnchor(editor, range, vf, trimAnchor, editor.document.text.hashCode()),
                 )
             },
@@ -197,33 +199,34 @@ internal object DorisPipesExecution {
             .getNotificationGroup("Doris Pipes")
             .createNotification(
                 "PIPE translation failed$where",
-                err.message,
+                pipeNotificationHtml(err.message),
                 NotificationType.ERROR,
             )
             .notify(console.project)
     }
 
-    /** Submit [dorisSql] through the console session's own request bus. False = no attached client. */
+    /** False means no attached client, never permission to delegate a claimed PIPE request. */
     fun submit(
         console: JdbcConsole,
-        dorisSql: String,
+        translation: DorisPipesEngine.Transpile.Ok,
         originalText: String,
-        transpile: dev.brikk.house.sql.shape.TranspileResult? = null,
         anchor: PipeAnchor? = null,
     ): Boolean {
+        check(translation.executionError == null) { translation.executionError!!.message }
+        val transpile = checkNotNull(translation.result) { "PIPE submission requires the engine's translation result" }
+        check(transpile.sql == translation.dorisSql) { "PIPE SQL does not match its translation result" }
+        val dorisSql = translation.dorisSql
+        ProgressManager.checkCanceled()
         val session = console.session
         val client = session.clientsWithFile.firstOrNull()
-            ?: return false // no attached console client — let stock produce its own error
+            ?: return false
         DorisPipes.info(
             "session '${session.title}': pipe program (${originalText.length} chars) -> executing " +
                 "canonical Doris SQL (${dorisSql.length} chars)",
         )
-        // Anchored request (spinner/gutter coupling) when we know the editor span; plain request
-        // as the fallback so an anchoring failure can never break execution itself.
+        // An anchoring failure must stop this request, not retry it without editor coupling.
         val request: DataRequest = anchor?.let { a ->
-            runCatching {
-                PipeQueryRequest(client, dorisSql, session.connectionPoint.dbms, a.editor, a.range) as DataRequest
-            }.getOrNull()
+            PipeQueryRequest(client, dorisSql, session.connectionPoint.dbms, a.editor, a.range)
         } ?: DataRequest.newRequest(client, dorisSql, session.connectionPoint.dbms)
         // Server errors travel the AUDIT stream, not the request promise (task #19 finding): a
         // per-bus DataAuditor watches error(ctx, info) for OUR requests (identity match) and maps
@@ -234,6 +237,7 @@ internal object DorisPipesExecution {
             console, request, dorisSql, originalText, transpile,
             anchor?.file, anchor?.trimAnchor ?: 0, anchor?.docHash ?: 0,
         )
+        ProgressManager.checkCanceled()
         session.messageBus.dataProducer.processRequest(request)
         return true
     }
@@ -272,14 +276,14 @@ internal object DorisPipesExecution {
                     info: com.intellij.database.connection.throwable.info.ErrorInfo,
                 ) {
                     val run = runs[context.request] ?: return
-                    runCatching { balloonMappedError(run, info) }
+                    runPipeCatching { balloonMappedError(run, info) }
                 }
             })
         }
     }
 
     private fun balloonMappedError(run: PipeRun, info: com.intellij.database.connection.throwable.info.ErrorInfo) {
-        val message = runCatching { info.message }.getOrNull() ?: return
+        val message = runPipeCatching { info.message }.getOrNull() ?: return
         if (!message.contains("(line ")) return
         val mapped = run.transpile?.let { DorisPipesEngine.mapServerErrorExact(message, it) }
             ?: DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
@@ -308,7 +312,7 @@ internal object DorisPipesExecution {
                 ),
             )
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-                runCatching {
+                runPipeCatching {
                     com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(run.console.project).restart()
                 }
             }

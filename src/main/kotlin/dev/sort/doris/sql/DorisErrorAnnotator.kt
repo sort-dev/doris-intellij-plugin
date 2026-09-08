@@ -8,6 +8,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesEngine
+import dev.sort.doris.pipes.runPipeCatching
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.DefaultErrorStrategy
 import org.antlr.v4.runtime.RecognitionException
@@ -41,14 +42,14 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
         // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
         val base = if (!pipesEnabled || !text.contains(DorisPipes.MARKER)) feErrors
-        else runCatching {
-            val pipeChunks = DorisPipes.chunks(text).filter { it.text.contains(DorisPipes.MARKER) }
+        else runPipeCatching {
+            val pipeChunks = DorisPipes.chunks(text).filter { it.hasPipeOperator }
             feErrors.filterNot { error -> pipeChunks.any { error.line in it.startLine..it.endLine } } +
                 DorisPipesEngine.pipeSyntaxErrors(text)
         }.getOrDefault(feErrors)
         // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
         // offsets); invalidated by any edit (doc-hash) or the next run for this file.
-        val exec = if (!pipesEnabled) emptyList() else runCatching {
+        val exec = if (!pipesEnabled) emptyList() else runPipeCatching {
             execMark?.let { m ->
                 val pre = text.substring(0, m.start.coerceIn(0, text.length))
                 val line = pre.count { it == '\n' } + 1
@@ -101,10 +102,8 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
             parser.addErrorListener(collector)
             parser.errorHandler = DefaultErrorStrategy() // recover past errors so we report all of them
 
-            try {
+            runPipeCatching {
                 parser.multiStatements()           // console text is one or more ';'-separated statements
-            } catch (t: Exception) {
-                // DefaultErrorStrategy recovers; guard against any residual throw so highlighting never dies.
             }
             return errors
         }

@@ -15,6 +15,9 @@ import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.PsiFile
 import dev.sort.doris.sql.DorisSqlDialect
 import java.awt.Dimension
+import java.awt.BorderLayout
+import javax.swing.JComponent
+import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
 
@@ -37,28 +40,28 @@ internal object DorisPipesUi {
     fun pipeChunkAtCaret(file: PsiFile, editor: Editor): DorisPipes.Chunk? {
         if (!DorisPipes.isEnabled(file.project) || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
         val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return null
-        return chunk.takeIf { it.text.contains(DorisPipes.MARKER) }
+        return chunk.takeIf { it.hasPipeOperator }
     }
 
     /** The running console attached to exactly this file (matched via the session client's file). */
     fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
         val vf = file.viewProvider.virtualFile
         return JdbcConsoleProvider.getRunningConsoles(project).firstOrNull { console ->
-            runCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
+            runPipeCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
         }
     }
 
     private fun notify(project: Project, title: String, content: String, type: NotificationType) {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
-            .createNotification(title, content, type)
+            .createNotification(title, pipeNotificationHtml(content), type)
             .notify(project)
     }
 
     fun preview(project: Project, editor: Editor, file: PsiFile) {
         val chunk = pipeChunkAtCaret(file, editor) ?: return
         when (val result = DorisPipesEngine.transpile(chunk)) {
-            is DorisPipesEngine.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
+            is DorisPipesEngine.Transpile.Ok -> showSqlPopup(editor, result)
             is DorisPipesEngine.Transpile.Err -> notify(
                 project,
                 "Pipe program could not be translated" +
@@ -91,18 +94,25 @@ internal object DorisPipesUi {
             notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
             return
         }
-        when (val result = DorisPipesEngine.transpile(prefix.text)) {
-            is DorisPipesEngine.Transpile.Ok -> {
+        dispatchPipeTranslation(
+            DorisPipesEngine.transpile(prefix.text),
+            reportError = { error -> notify(
+                project,
+                "Stage prefix could not be executed" + (error.line?.let { " (line $it, col ${error.col})" } ?: ""),
+                error.message,
+                NotificationType.ERROR,
+            ) },
+            submit = { result ->
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
                 val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
                 val range = com.intellij.openapi.util.TextRange(
                     trimAnchor, chunk.startOffset + prefix.text.trimEnd().length)
-                if (DorisPipesExecution.submit(
-                        console, result.dorisSql, prefix.text, result.result,
+                val submitted = DorisPipesExecution.submit(
+                        console, result, prefix.text,
                         PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
                             editor.document.text.hashCode()),
                     )
-                ) {
+                if (submitted) {
                     notify(
                         project,
                         "Running pipe stages 1–${prefix.stage} of ${prefix.totalStages}",
@@ -110,23 +120,19 @@ internal object DorisPipesUi {
                         NotificationType.INFORMATION,
                     )
                 }
-            }
-            is DorisPipesEngine.Transpile.Err -> notify(
-                project,
-                "Stage prefix could not be translated" +
-                    (result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""),
-                result.message,
-                NotificationType.ERROR,
-            )
-            is DorisPipesEngine.Transpile.NotPipe ->
-                notify(project, "Not a pipe program", "The statement parses as plain SQL.", NotificationType.INFORMATION)
+                submitted
+            },
+        ).also { handled ->
+            if (!handled) notify(project, "Not a pipe program", "The statement parses as plain SQL.", NotificationType.INFORMATION)
         }
     }
 
-    private fun showSqlPopup(editor: Editor, title: String, sql: String) {
+    /** Container and SQL focus target. Warnings stay separate from copyable generated SQL. */
+    internal fun createPreviewContent(editor: Editor, result: DorisPipesEngine.Transpile.Ok): Pair<JComponent, JComponent> {
+        val sql = result.dorisSql
         val project = editor.project
         // DorisSQL-highlighted read-only editor component; JTextArea fallback if it can't build.
-        val component: javax.swing.JComponent = runCatching {
+        val component: JComponent = runPipeCatching {
             com.intellij.ui.LanguageTextField(DorisSqlDialect.INSTANCE, project, sql, false).apply {
                 isViewer = true
                 setCaretPosition(0)
@@ -140,9 +146,25 @@ internal object DorisPipesUi {
         val scroll = JScrollPane(component).apply {
             preferredSize = Dimension(640, 360.coerceAtMost(80 + 18 * sql.lines().size))
         }
+        val content = JPanel(BorderLayout()).apply {
+            add(scroll, BorderLayout.CENTER)
+            result.executionError?.let { error ->
+                val warnings = JTextArea(error.message).apply {
+                    isEditable = false
+                    lineWrap = true
+                    wrapStyleWord = true
+                }
+                add(JScrollPane(warnings).apply { preferredSize = Dimension(640, 120) }, BorderLayout.NORTH)
+            }
+        }
+        return content to component
+    }
+
+    private fun showSqlPopup(editor: Editor, result: DorisPipesEngine.Transpile.Ok) {
+        val (content, focusTarget) = createPreviewContent(editor, result)
         JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(scroll, component)
-            .setTitle(title)
+            .createComponentPopupBuilder(content, focusTarget)
+            .setTitle(if (result.executionError == null) "Generated Doris SQL" else "Generated Doris SQL (execution blocked)")
             .setResizable(true)
             .setMovable(true)
             .setRequestFocus(true)
