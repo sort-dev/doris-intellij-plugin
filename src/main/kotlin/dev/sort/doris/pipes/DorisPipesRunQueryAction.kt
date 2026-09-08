@@ -65,6 +65,20 @@ internal class DorisPipesRunSelectionAction(
 internal fun editorForPipeExecution(e: AnActionEvent): Editor? = e.getData(CommonDataKeys.EDITOR)
     ?: (e.getData(PlatformCoreDataKeys.FILE_EDITOR) as? TextEditor)?.editor
 
+/** Keep the handled/delegate decision testable without creating a live JDBC console. */
+internal fun dispatchPipeTranslation(
+    result: DorisPipesEngine.Transpile,
+    reportError: (DorisPipesEngine.Transpile.Err) -> Unit,
+    submit: (DorisPipesEngine.Transpile.Ok) -> Boolean,
+): Boolean = when (result) {
+    is DorisPipesEngine.Transpile.NotPipe -> false
+    is DorisPipesEngine.Transpile.Err -> {
+        reportError(result)
+        true
+    }
+    is DorisPipesEngine.Transpile.Ok -> submit(result)
+}
+
 private object PipesExecuteInterceptor {
 
     fun handle(e: AnActionEvent, option: DatabaseSettings.ExecOption): Boolean {
@@ -121,23 +135,20 @@ private object PipesExecuteInterceptor {
         DorisPipes.info("execute intercept: candidate pipe chunk (${text.length} chars)")
 
         val result = if (chunk != null) DorisPipesEngine.transpile(chunk) else DorisPipesEngine.transpile(text)
-        return when (result) {
-            is DorisPipesEngine.Transpile.NotPipe -> false
-            is DorisPipesEngine.Transpile.Err -> {
-                DorisPipesExecution.notifyTranspileError(console, result)
-                true // handled: running the raw pipe text would only produce a worse server error
-            }
-            is DorisPipesEngine.Transpile.Ok -> {
+        return dispatchPipeTranslation(
+            result,
+            reportError = { DorisPipesExecution.notifyTranspileError(console, it) },
+            submit = { translated ->
                 // Engine offsets are relative to the TRIMMED text (transpile trims before parsing).
                 val trimAnchor = selStart + (text.length - text.trimStart().length)
                 val vf = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
                 val range = com.intellij.openapi.util.TextRange(trimAnchor, selStart + text.trimEnd().length)
                 DorisPipesExecution.submit(
-                    console, result.dorisSql, text, result.result,
+                    console, translated.dorisSql, text, translated.result,
                     PipeAnchor(editor, range, vf, trimAnchor, editor.document.text.hashCode()),
                 )
-            }
-        }
+            },
+        )
     }
 }
 
@@ -185,8 +196,8 @@ internal object DorisPipesExecution {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
             .createNotification(
-                "Parse error$where",
-                "The parser reported: \"${err.message}\"",
+                "PIPE translation failed$where",
+                err.message,
                 NotificationType.ERROR,
             )
             .notify(console.project)

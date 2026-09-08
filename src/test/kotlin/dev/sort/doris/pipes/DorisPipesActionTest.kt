@@ -209,6 +209,34 @@ class DorisPipesActionTest : BasePlatformTestCase() {
         assertEquals(0, calls)
     }
 
+    fun testEngineSafetyRefusalReportsWithoutSubmittingOrDelegating() {
+        var calls = 0
+        var reports = 0
+        var submissions = 0
+        val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { calls++ } }
+        val text = "FROM t AS a |> FULL OUTER JOIN u AS b ON a.id = b.id |> LIMIT 2 |> SELECT a.id"
+        for (variant in 1..4) {
+            wrap(variant, previous) { _, _ ->
+                dispatchPipeTranslation(
+                    DorisPipesEngine.transpile(text),
+                    reportError = { error ->
+                        reports++
+                        assertTrue(error.message.contains("Cannot preserve a pipe SELECT/DISTINCT input boundary"))
+                    },
+                    submit = { submissions++; false },
+                )
+            }.actionPerformed(event("doris", true))
+        }
+        assertEquals(4, reports)
+        assertEquals(0, submissions)
+        assertEquals(0, calls)
+        assertFalse(dispatchPipeTranslation(DorisPipesEngine.Transpile.NotPipe, { fail("NotPipe is not an error") }, { fail("NotPipe must delegate"); false }))
+        for (submitted in listOf(false, true)) {
+            val success = DorisPipesEngine.Transpile.Ok("SELECT 1")
+            assertEquals(submitted, dispatchPipeTranslation(success, { fail("Ok is not an error") }, { assertSame(success, it); submitted }))
+        }
+    }
+
     fun testShortcutPromotionSurvivesAChainWithNoDatabasePackageCandidate() {
         val component = object : JPanel(), PlaceProvider {
             override fun getPlace(): String = "StructureViewPopup"

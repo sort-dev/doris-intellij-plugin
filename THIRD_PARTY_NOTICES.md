@@ -24,32 +24,47 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 ```
 
-## brikk-sql and brikk-sql-metadata 0.9.0 (bundled)
+## brikk-sql and brikk-sql-metadata 0.11.0 (bundled)
 
 This plugin bundles the core SQL engine and function metadata libraries from brikk-house:
 
-- `dev.brikk.house:brikk-sql-jvm:0.9.0`
-- `dev.brikk.house:brikk-sql-metadata-jvm:0.9.0`
+- `dev.brikk.house:brikk-sql-jvm:0.11.0`
+- `dev.brikk.house:brikk-sql-metadata-jvm:0.11.0`
 - Project: https://github.com/brikk/brikk-house
 - Developers listed in the published POMs: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0, with third-party-derived portions described below
 
-The provenance below refers to the published 0.9.0 artifacts, not newer unreleased
-brikk-house sources. Source artifacts are available from Maven Central:
+The provenance below refers to the published 0.11.0 artifacts. Their Kotlin source
+contents match brikk-house commit `b58d024e33e1a13fffac8ef060ff5d471f063fca`, under
+`brikk-sql/brikk-sql/` and `brikk-sql/brikk-sql-metadata/`. Publication used the
+`release/0.11.0` branch, not a release tag, in
+[workflow run 34067451147](https://github.com/brikk/brikk-house/actions/runs/34067451147).
+The later README update at `c2a8007554a832ef4c25cd21d6b3eeca5a8d5df2` is not the
+publication commit. Gradle module metadata names the bundled files
+`brikk-sql-jvmMain-0.11.0.jar` and `brikk-sql-metadata-jvmMain-0.11.0.jar`, and the
+source files `brikk-sql-jvmMain-0.11.0-sources.jar` and
+`brikk-sql-metadata-jvmMain-0.11.0-sources.jar`. Maven download URLs use `jvm`
+instead of `jvmMain`.
+The third-party source pins and function catalogs are unchanged from 0.10.0.
+Source artifacts are available from Maven Central:
 
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.9.0/brikk-sql-jvm-0.9.0-sources.jar
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.9.0/brikk-sql-metadata-jvm-0.9.0-sources.jar
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.11.0/brikk-sql-jvm-0.11.0-sources.jar
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.11.0/brikk-sql-metadata-jvm-0.11.0-sources.jar
 
 ## SQLGlot (ported and generated code in brikk-sql)
 
 brikk-sql is a Kotlin port of SQLGlot by Toby Mao and contributors. It includes ported
 tokenizer, parser, AST, SQL generator, optimizer, and dialect code, as well as generated
-token tables, AST catalogs, and function registries. The published 0.9.0 generated source
-headers identify SQLGlot upstream version `v30.12.0-44-g93d16591`, commit `93d16591`.
+token tables, AST catalogs, and function registries. In the published 0.11.0 sources,
+generated token tables, AST catalogs, and typing metadata identify SQLGlot upstream
+version `v30.17.0-93-gdcc36544a`, commit `dcc36544a`. `GeneratedFunctionRegistry.kt`
+and `Tokenizer.kt` still cite `v30.12.0-44-g93d16591`, commit `93d16591`; these older
+stamps are retained here rather than asserting that every source header names the newer
+pin. The function registry's contents changed after 0.9.0 despite its unchanged header.
 
 - Project: https://github.com/tobymao/sqlglot
 - License: MIT License
-- License source: https://raw.githubusercontent.com/tobymao/sqlglot/93d16591/LICENSE
+- License source: https://raw.githubusercontent.com/tobymao/sqlglot/dcc36544a/LICENSE
 
 ```text
 MIT License
@@ -77,7 +92,7 @@ SOFTWARE.
 
 ## polyglot (DataFusion dialect reference in brikk-sql)
 
-The published 0.9.0 `DatafusionDialect.kt` and `DatafusionGenerator.kt` credit polyglot's
+The published 0.11.0 `DatafusionDialect.kt` and `DatafusionGenerator.kt` credit polyglot's
 `crates/polyglot-sql/src/dialects/datafusion.rs` for dialect flags and SQL transformations.
 Those headers do not identify the polyglot revision. This attribution concerns the bundled
 dialect implementation, not brikk-house's test fixtures.
@@ -112,7 +127,7 @@ SOFTWARE.
 
 ## Apache Doris (registry metadata in brikk-sql-metadata)
 
-`GeneratedDorisFunctionCatalog.kt` in version 0.9.0 contains function names, aliases,
+`GeneratedDorisFunctionCatalog.kt` in version 0.11.0 contains function names, aliases,
 kinds, signatures, and nullability metadata extracted from Apache Doris's runtime
 registry and function classes. Its header identifies upstream version
 `v0.8.2-31011-gd8fd23f7f38` and the sources `fe/fe-core/.../catalog/Builtin*Functions.java`
@@ -121,13 +136,17 @@ Its available `sinceVersion` values come from the oldest `apache/doris-website`
 versioned documentation containing a function, meaning "first documented in", not
 necessarily "introduced in".
 
+The core library's Doris-specific DDL parser and generator extensions also reference
+Apache Doris's `DorisParser.g4` grammar. These extensions are distinct from the
+SQLGlot-derived Doris dialect and the separately bundled `fe-sql-parser` JAR.
+
 - Projects: https://github.com/apache/doris and https://github.com/apache/doris-website
 - Copyright: The Apache Software Foundation
 - License: Apache License, Version 2.0
 
 ## Trino (registry metadata in brikk-sql-metadata)
 
-`GeneratedTrinoFunctionCatalog.kt` in version 0.9.0 contains function names, signatures,
+`GeneratedTrinoFunctionCatalog.kt` in version 0.11.0 contains function names, signatures,
 and kinds extracted from Trino 483 using `SHOW FUNCTIONS` in the official
 `trinodb/trino:483` container. This is registry data, not bundled Trino engine code.
 
@@ -137,7 +156,7 @@ and kinds extracted from Trino 483 using `SHOW FUNCTIONS` in the official
 
 ## DuckDB (registry metadata in brikk-sql-metadata)
 
-`GeneratedDuckdbFunctionCatalog.kt` in version 0.9.0 contains function names, signatures,
+`GeneratedDuckdbFunctionCatalog.kt` in version 0.11.0 contains function names, signatures,
 kinds, and parameter names extracted using the Python DuckDB module's `duckdb_functions()`
 view. Its header identifies DuckDB `v1.5.5`, commit `d8cdaa33fd`. This is registry data,
 not bundled DuckDB engine code.
@@ -154,6 +173,57 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## ClickHouse (registry metadata in brikk-sql-metadata)
+
+`GeneratedClickhouseFunctionCatalog.kt` in version 0.11.0 contains function names,
+kinds, and aliases extracted from ClickHouse 26.5.1.1's `system.functions` registry.
+Its header identifies `vendor/data/clickhouse-functions-26.5.1.1.tsv` as the input.
+The registry exposes no signatures, so overload lists are empty. This is registry
+data, not bundled ClickHouse engine code.
+
+- Project: https://github.com/ClickHouse/ClickHouse
+- Copyright: 2016-2026 ClickHouse, Inc.
+- License: Apache License, Version 2.0
+
+## StarRocks (registry metadata in brikk-sql-metadata)
+
+`GeneratedStarrocksFunctionCatalog.kt` in version 0.11.0 contains function names,
+signatures, and kinds extracted from StarRocks 4.1.4 using `SHOW FULL BUILTIN FUNCTIONS`.
+Its header identifies `current_version() = 4.1.4-4a9848e` and the Docker image
+`starrocks/allin1-ubuntu:4.1.4` at digest
+`sha256:faf7ce9c24d9c29c9431b4e8cbd4bb7a74cd169907c63f0c5ebaacc7f9df276b`.
+Variadic markers come from the source registry's `functions.py`; window-function
+classification comes from `FunctionSet.java`'s `onlyAnalyticUsedFunctions`.
+This is extracted metadata, not bundled StarRocks engine code. The core StarRocks
+dialect is part of the SQLGlot port described above.
+
+- Project: https://github.com/StarRocks/starrocks
+- Copyright: 2021-present StarRocks, Inc. All rights reserved.
+- License: Apache License, Version 2.0
+- License source: https://raw.githubusercontent.com/StarRocks/starrocks/4a9848e/LICENSE.txt
+
+The source registry's `FunctionSet.java` also retains Apache Doris attribution.
+The relevant StarRocks and Doris portions of StarRocks's `NOTICE.txt` at that revision
+are reproduced below:
+
+```text
+StarRocks
+
+Copyright 2021-present, StarRocks Inc.
+
+---------------------------
+apache-doris-incubating NOTICE
+---------------------------
+Apache Doris (incubating)
+Copyright 2018-2021 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+Based on source code originally developed by
+Baidu (http://www.baidu.com/).
 ```
 
 ## ANTLR 4 Runtime 4.13.1 (bundled)

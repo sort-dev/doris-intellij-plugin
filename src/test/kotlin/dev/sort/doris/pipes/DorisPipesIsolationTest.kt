@@ -28,7 +28,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "0.9.0")
+            checkEngine(dorisLoader, "jvmMain-0.11.0")
             val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
             val translated = adapter.getMethod("transpile", String::class.java)
                 .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")
@@ -40,7 +40,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
                 val companionLoader = companion!!.pluginClassLoader!!
                 assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", companionLoader.javaClass.name)
                 assertNotSame(dorisLoader, companionLoader)
-                checkEngine(companionLoader, "0.6.0")
+                checkEngine(companionLoader, "jvm-0.6.0")
                 for (type in listOf("dev.brikk.house.sql.shape.SqlFragment", "dev.brikk.house.sql.metadata.FunctionDef")) {
                     assertNotSame(dorisLoader.loadClass(type), companionLoader.loadClass(type))
                 }
@@ -65,12 +65,13 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertSame(action, ActionManager.getInstance().getAction("Console.Jdbc.Execute"))
     }
 
-    private fun checkEngine(loader: ClassLoader, version: String) {
+    private fun checkEngine(loader: ClassLoader, artifactSuffix: String) {
         val type = loader.loadClass("dev.brikk.house.sql.shape.SqlFragment")
         assertSame(loader, type.classLoader)
-        assertTrue(type.getResource("SqlFragment.class").toString().contains("brikk-sql-jvm-$version.jar"))
+        assertTrue(type.getResource("SqlFragment.class").toString().contains("brikk-sql-$artifactSuffix.jar"))
         val metadata = loader.loadClass("dev.brikk.house.sql.metadata.FunctionDef")
         assertSame(loader, metadata.classLoader)
+        assertTrue(metadata.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-$artifactSuffix.jar"))
         val fragment = type.getConstructor(String::class.java, String::class.java)
             .newInstance("FROM t |> SELECT a |> LIMIT 1", "doris")
         val result = type.getMethod("toExecutable", String::class.java, Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)

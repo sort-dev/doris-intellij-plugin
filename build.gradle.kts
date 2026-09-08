@@ -11,7 +11,7 @@ plugins {
 group = "dev.sort.doris"
 version = "1.3.0"
 
-val brikkSqlVersion = "0.9.0"
+val brikkSqlVersion = "0.11.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
@@ -57,11 +57,15 @@ dependencies {
     // The supported IDEs supply compatible Kotlin/serialization APIs; do not bundle duplicates.
     implementation("dev.brikk.house:brikk-sql-jvm:$brikkSqlVersion") {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
         exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
         exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
     }
     implementation("dev.brikk.house:brikk-sql-metadata-jvm:$brikkSqlVersion") {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
         exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
         exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
     }
@@ -165,8 +169,12 @@ val verifyEmbeddedPipes by tasks.registering {
     val distribution = tasks.named<Zip>("buildPlugin").flatMap { it.archiveFile }
     val pluginJarName = tasks.named<org.gradle.jvm.tasks.Jar>("composedJar").flatMap { it.archiveFileName }
     val libraries = setOf(
-        "brikk-sql-jvm-$brikkSqlVersion.jar", "brikk-sql-metadata-jvm-$brikkSqlVersion.jar",
+        "brikk-sql-jvmMain-$brikkSqlVersion.jar", "brikk-sql-metadata-jvmMain-$brikkSqlVersion.jar",
         "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar",
+    )
+    val requiredNotices = listOf(
+        "brikk-sql-jvm:$brikkSqlVersion", "brikk-sql-metadata-jvm:$brikkSqlVersion",
+        "Toby Mao", "ANTLR", "Permission is hereby granted", "ClickHouse", "StarRocks",
     )
     dependsOn("buildPlugin")
     inputs.file(distribution)
@@ -176,6 +184,19 @@ val verifyEmbeddedPipes by tasks.registering {
             val expected = libraries + pluginJarName.get()
             check(jars.size == expected.size && jars.map { it.name.substringAfterLast('/') }.toSet() == expected) {
                 "Unexpected bundled libraries: ${jars.map { it.name }}"
+            }
+            // The IDE's bundled JBR may be newer than the supported Java 21 minimum.
+            for (library in jars) {
+                JarInputStream(zip.getInputStream(library)).use { jar ->
+                    while (true) {
+                        val entry = jar.nextJarEntry ?: break
+                        if (!entry.name.endsWith(".class")) continue
+                        val header = jar.readNBytes(8)
+                        check(header.size == 8) { "Truncated class: ${library.name}/${entry.name}" }
+                        val major = ((header[6].toInt() and 0xff) shl 8) or (header[7].toInt() and 0xff)
+                        check(major <= 65) { "Java 21 incompatible bytecode $major: ${library.name}/${entry.name}" }
+                    }
+                }
             }
             val ownJar = jars.single { it.name.substringAfterLast('/') == pluginJarName.get() }
             val resources = mutableMapOf<String, String>()
@@ -189,7 +210,7 @@ val verifyEmbeddedPipes by tasks.registering {
             }
             check(resources.keys.size == 4) { "Missing packaged notices or descriptor: ${resources.keys}" }
             val notices = resources.getValue("META-INF/THIRD_PARTY_NOTICES.md")
-            check(listOf("brikk-sql", "Toby Mao", "ANTLR", "Permission is hereby granted").all { it in notices })
+            check(requiredNotices.all { it in notices }) { "Embedded engine notices are missing or stale" }
             check(!Regex("""<depends\b[^>]*>\s*dev\.sort\.sql-transpiler-intellij-plugin\s*</depends>""")
                 .containsMatchIn(resources.getValue("META-INF/plugin.xml"))) { "SQL Transpiler is still a provider dependency" }
         }

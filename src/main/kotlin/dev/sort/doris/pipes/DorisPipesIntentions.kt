@@ -61,7 +61,7 @@ internal object DorisPipesUi {
             is DorisPipesEngine.Transpile.Ok -> showSqlPopup(editor, "Generated Doris SQL", result.dorisSql)
             is DorisPipesEngine.Transpile.Err -> notify(
                 project,
-                "Pipe program has a syntax error" +
+                "Pipe program could not be translated" +
                     (result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""),
                 result.message,
                 NotificationType.ERROR,
@@ -113,7 +113,7 @@ internal object DorisPipesUi {
             }
             is DorisPipesEngine.Transpile.Err -> notify(
                 project,
-                "Stage prefix has a syntax error" +
+                "Stage prefix could not be translated" +
                     (result.line?.let { " (line ${result.line}, col ${result.col})" } ?: ""),
                 result.message,
                 NotificationType.ERROR,

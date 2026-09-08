@@ -6,12 +6,26 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 ## Embedded library and enablement
 
-[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) bundles
-`dev.brikk.house:brikk-sql-jvm:0.9.0` and `brikk-sql-metadata-jvm:0.9.0`, the latest
-stable releases confirmed on Maven Central on 2026-09-05. SQL Transpiler remains the
+[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
+the embedded engine with 0.9.0. The plugin now bundles
+`dev.brikk.house:brikk-sql-jvm:0.11.0` and `brikk-sql-metadata-jvm:0.11.0`, both
+confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.11.0.md)
+for the verification scope and intentional refusals for unsafe input boundaries.
+SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library
 provider or a prerequisite for Doris PIPE support. No verification library or native
 database engine is bundled just to obtain the core PIPE APIs.
+
+The engine's stage offsets, source offsets, and generated-output columns use UTF-16.
+Doris server errors report zero-based code-point columns. Before exact map-back,
+the adapter converts the position on the generated line to a one-based UTF-16
+column. It retains the original server position for reporting and rejects invalid
+coordinates rather than allowing them to wrap onto another generated line.
+
+The adapter converts the engine's intentional `UnsupportedError` lowering refusals
+to `Transpile.Err`. The normal handled-error branch reports them without submission
+or predecessor execution. Other unexpected interceptor failures and warning-only
+lossy translations remain the separate B10/B3 findings.
 
 The per-project checkbox under Settings > Tools > Apache Doris PIPE defaults off.
 It is stored in workspace.xml, not inferred from installed plugins. The legacy
@@ -141,11 +155,11 @@ verification; absent mode does not resolve or borrow any of its libraries.
 and removal of the provider dependency. It is also part of `check`.
 
 ```bash
-mise exec -- ./gradlew test verifyEmbeddedPipes
-mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed
-mise exec -- ./gradlew test -Ptest.sqlTranspiler=absent
-mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed
-mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=absent
+mise exec -- ./gradlew test verifyEmbeddedPipes --rerun-tasks
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed --rerun-tasks
+mise exec -- ./gradlew test -Ptest.sqlTranspiler=absent --rerun-tasks
+mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed --rerun-tasks
+mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=absent --rerun-tasks
 ```
 
 The isolation lane keeps the platform test fixture core-loaded but loads the actual
@@ -177,6 +191,14 @@ mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=ins
 
 Repeat the 262 commands with `-Ptest.sqlTranspiler=absent`. The former `b1.provider`
 property is no longer a verification switch; use `test.sqlTranspiler`.
+
+For engine upgrades, also select `DorisPipesUpgradeTest` and
+`DorisEmbeddedDdlUpgradeTest` in the 262 targeted command and pass `--rerun-tasks`.
+Keep the Unicode regression assertions active. Repeat `DorisPipesSettingsTest` in
+separate workers to check deferred reparse synchronization. A successful packaging
+or classloader check does not override failed semantic/offset tests.
+`verifyEmbeddedPipes` also checks every bundled class against the Java 21 bytecode
+ceiling, since tests on a newer bundled JBR would not catch a raised runtime minimum.
 
 These tests check action registration, all six simulated three-dialect installation
 orders, all four variants, delegation/state/shortcut behavior, companion independence,

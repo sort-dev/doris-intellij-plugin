@@ -1,6 +1,7 @@
 package dev.sort.doris.pipes
 
 import dev.brikk.house.sql.ast.PipeQuery
+import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.parser.ParseError
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
@@ -52,6 +53,9 @@ object DorisPipesEngine {
     } catch (e: ParseError) {
         val first = e.errors.firstOrNull()
         Transpile.Err(first?.line, first?.col, first?.description ?: (e.message ?: "pipe parse error"))
+    } catch (e: UnsupportedError) {
+        // An intentional lowering refusal is handled, never permission to execute raw PIPE SQL.
+        Transpile.Err(null, null, e.message ?: "Unsupported PIPE translation")
     }
 
     // ---------------------------------------------------------------------------------------
@@ -83,14 +87,18 @@ object DorisPipesEngine {
 
     /**
      * EXACT map-back via the engine SourceMap ([TranspileResult.mapErrorToSource], strict mode:
-     * null when no positioned node covers the offset). Doris reports ANTLR 0-based `pos`; the
-     * engine contract is 1-based col — the +1 is OURS, permanently (upstream doc'd).
+     * null when no positioned node covers the offset). Doris reports a 0-based code-point
+     * `pos`; the engine expects a 1-based UTF-16 column. Normalize on the generated line.
      */
     fun mapServerErrorExact(message: String, result: TranspileResult): DorisPipes.MappedError? {
         val match = DorisPipes.SERVER_POSITION.find(message) ?: return null
-        val line = match.groupValues[1].toInt()
-        val pos = match.groupValues[2].toInt()
-        val sp = runCatching { result.mapErrorToSource(line, pos + 1) }.getOrNull() ?: return null
+        val line = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val pos = match.groupValues[2].toIntOrNull() ?: return null
+        val outputLine = result.sql.splitToSequence('\n').elementAtOrNull(line - 1) ?: return null
+        val sp = runCatching {
+            val utf16Pos = outputLine.offsetByCodePoints(0, pos)
+            result.mapErrorToSource(line, utf16Pos + 1)
+        }.getOrNull() ?: return null
         val origLine = if (sp.lineStart > 0) sp.lineStart else sp.line
         return DorisPipes.MappedError(
             token = null,
