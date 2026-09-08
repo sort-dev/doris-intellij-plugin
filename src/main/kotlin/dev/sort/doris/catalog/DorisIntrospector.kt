@@ -151,14 +151,16 @@ class DorisIntrospector(
         return object : DatabaseLister<DorisCatalogQueries.CatalogRow, MsDatabase>() {
             override fun listDatabases(tran: DBTransaction): List<DorisCatalogQueries.CatalogRow> {
                 val rows = try {
-                    tran.query(DorisCatalogQueries.LIST_CATALOGS).run().orEmpty()
+                    checkNotNull(tran.performQuery(DorisCatalogQueries.LIST_CATALOGS)) {
+                        "SHOW CATALOGS returned no result"
+                    }.also { validateCatalogInventory(it) }
                 } catch (pce: ProcessCanceledException) {
                     throw pce
-                } catch (t: Throwable) {
-                    DorisCatalogs.warn("SHOW CATALOGS failed; no catalogs will be listed", t)
-                    emptyList()
+                } catch (failure: Exception) {
+                    DorisCatalogs.warn("SHOW CATALOGS failed; preserving previously introspected catalogs", failure)
+                    throw failure
                 }
-                val names = rows.mapNotNull { it.CatalogName }
+                val names = rows.map { it.CatalogName!! }
                 DorisCatalogs.info("SHOW CATALOGS -> $names")
                 // M8: definitive per-catalog trail — how the (already expanded) scope classifies
                 // each catalog. EXPLICIT_* deep-introspects; ENUMERATED_DEFAULT stays shallow.
@@ -176,7 +178,7 @@ class DorisIntrospector(
                             "until a catalog is selected in the schemas pane",
                     )
                 }
-                return rows.filter { it.CatalogName != null }
+                return rows
             }
 
             override fun applyDatabase(
@@ -203,6 +205,19 @@ class DorisIntrospector(
                 }
                 return row.CatalogName == DorisCatalogScopes.INTERNAL_CATALOG
             }
+        }
+    }
+
+    private fun validateCatalogInventory(rows: List<DorisCatalogQueries.CatalogRow>) {
+        require(rows.all { !it.CatalogName.isNullOrBlank() }) {
+            "SHOW CATALOGS returned a row without CatalogName"
+        }
+        // Doris can distinguish case here, but the reused Ms family cannot retain both names.
+        require(rows.map { it.CatalogName!!.lowercase() }.toSet().size == rows.size) {
+            "SHOW CATALOGS returned duplicate catalog names"
+        }
+        require(rows.map { it.CatalogId }.toSet().size == rows.size) {
+            "SHOW CATALOGS returned duplicate catalog IDs"
         }
     }
 

@@ -232,6 +232,10 @@ database node to a Doris catalog; generating SQL Server scripts from that model 
 unsafe. Use reviewed SQL or the server's `SHOW CREATE` output for DDL. The flat-model
 escape hatch retains the prior MySQL generator behavior.
 
+Catalog refresh failures preserve the last successfully introspected catalog tree.
+Only a validated successful inventory is reconciled; a genuine successful empty
+`SHOW CATALOGS` result still removes catalogs that no longer exist.
+
 Pipe integration uses cooperative Execute delegation so other dialect plugins can
 handle their own queries. Installing or removing the plugin requires an IDE restart;
 changing the PIPE setting does not. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)

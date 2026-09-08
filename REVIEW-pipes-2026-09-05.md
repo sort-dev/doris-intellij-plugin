@@ -21,13 +21,14 @@ and DuckDB pipe implementations, and independent Doris defects.
 
 This queue includes the dependency-direction decision made after B1 was completed.
 The original review priorities below remain a historical snapshot.
-B22 is complete; B3, B4 and B10 are fixed. B5 is the next open P1 priority.
+B22 is complete; B3, B4, B5 and B10 are fixed. The remaining findings are P2/P3
+or deferred/conditional work and should be re-triaged before selecting the next task.
 
 | Order | ID | Work | Status |
 | --- | --- | --- | --- |
 | 1 | B3 | Block lossy translations and expose warnings | Fixed |
 | 2 | B4 | Replace or constrain SQL Server DDL generation | Fixed by containment |
-| 3 | B5 | Preserve cached catalogs when refresh fails | Open |
+| 3 | B5 | Preserve cached catalogs when refresh fails | Fixed |
 | 4 | B10 | Stop execution after a claimed pipe failure | Fixed |
 | Later | B23 | Auto-enable PIPE for projects that require it through a dependency | Deferred, design TBD |
 
@@ -39,7 +40,7 @@ B22 is complete; B3, B4 and B10 are fixed. B5 is the next open P1 priority.
 | B2 | P1 | Raw semicolon splitting truncates executable queries, FIXED | Finding 2 |
 | B3 | P1 | Lossy translation warnings are ignored, FIXED | Finding 3 |
 | B4 | P1 | Catalog-mode DDL uses SQL Server generation, FIXED BY CONTAINMENT | Finding 4 |
-| B5 | P1 | Failed catalog listing removes cached metadata | Finding 5 |
+| B5 | P1 | Failed catalog listing removes cached metadata, FIXED | Finding 5 |
 | B6 | P2 | Literal pipe markers suppress ordinary semantic errors | Finding 6, literal case |
 | B7 | P2 | Line-based suppression hides neighboring statement errors | Finding 6, same-line case |
 | B8 | P2 | One lexical failure clears all pipe diagnostics | Finding 7 |
@@ -352,7 +353,7 @@ and syntax review; do not infer support from this finding's fixed status.
 
 ## B5: Failed catalog listing removes cached metadata
 
-Status: OPEN. Severity: P1.
+Status: FIXED. Original severity: P1.
 
 Evidence: [DorisIntrospector.kt:153-159](src/main/kotlin/dev/sort/doris/catalog/DorisIntrospector.kt#L153)
 returns an empty inventory on a failed `SHOW CATALOGS`. Platform database-list
@@ -363,6 +364,13 @@ delete server data.
 Completion criteria: failed enumeration preserves the last successful model and
 reports failure. A successful empty inventory still reconciles normally. Test a
 populated model with failed enumeration, successful enumeration, and cancellation.
+
+Resolution: `SHOW CATALOGS` now uses the platform's stock traced query helper and
+lets failures abort before the family sweep. Null, missing/blank names, duplicate
+names the reused model cannot distinguish, and duplicate IDs fail validation before
+reconciliation. Query and cancellation exceptions preserve their identity. A
+successful empty list remains authoritative; successful replacement renews existing
+catalogs and removes absent ones. See [B5 verification](REVIEW-pipes-B5.md).
 
 ## B6: Literal pipe markers suppress ordinary semantic errors
 
