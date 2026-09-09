@@ -2,6 +2,8 @@ package dev.sort.doris.pipes
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
@@ -45,6 +47,69 @@ class DorisPipesTest {
         val col = lines[line].indexOf("missing_column")
         val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $col)", result.result!!)!!
         assertTrue(original.substring(mapped.startOffset!!, mapped.endOffset!! + 1).contains("missing_column"))
+    }
+
+    @Test
+    fun `stage scope cache compares structural keys instead of integer hashes`() {
+        fun scope(alias: String) = DorisPipesEngine.stageScopeAt(
+            "FROM t |> EXTEND 1 AS $alias |> SELECT *",
+            "FROM t |> EXTEND 1 AS $alias |> SELECT *".indexOf("SELECT"),
+            "t",
+            listOf("id"),
+        )
+        assertEquals("FB".hashCode(), "Ea".hashCode())
+        assertEquals(listOf("id", "FB"), scope("FB"))
+        assertEquals(listOf("id", "Ea"), scope("Ea"))
+        assertEquals(listOf("id", "Ea"), scope("Ea"))
+        assertEquals(listOf("id", "FB"), scope("FB"))
+    }
+
+    @Test
+    fun `stage scopes expose only aliases produced before the caret stage`() {
+        val text = "FROM t |> EXTEND 1 AS n |> SELECT n |> LIMIT 1"
+        assertEquals(listOf("id"), DorisPipesEngine.stageScopeAt(text, text.indexOf("FROM"), "t", listOf("id")))
+        assertEquals(listOf("id"), DorisPipesEngine.stageScopeAt(text, text.indexOf("EXTEND"), "t", listOf("id")))
+        assertEquals(listOf("id", "n"), DorisPipesEngine.stageScopeAt(text, text.indexOf("SELECT"), "t", listOf("id")))
+        assertEquals(listOf("n"), DorisPipesEngine.stageScopeAt(text, text.indexOf("LIMIT"), "t", listOf("id")))
+    }
+
+    @Test
+    fun `visible code excludes future aliases comments and strings`() {
+        val text = "FROM t |> WHERE future.id = 1 |> AS future " +
+            "|> SELECT '-- |> AS fake', \$\$JOIN u AS fake2\$\$ /* |> AS fake3 */, `|> AS fake4` " +
+            "|> AS `visible_alias`"
+        val beforeAlias = DorisPipes.codeBefore(text, text.indexOf("future.id"))
+        assertFalse(beforeAlias.contains("AS future"))
+        val afterAlias = DorisPipes.codeBefore(text, text.indexOf("SELECT"))
+        assertTrue(afterAlias.contains("AS future"))
+        assertFalse(afterAlias.contains("AS fake"))
+        val all = DorisPipes.codeBefore(text, text.length)
+        assertFalse(all.contains("AS fake"))
+        assertFalse(all.contains("AS fake2"))
+        assertFalse(all.contains("AS fake3"))
+        assertFalse(all.contains("AS fake4"))
+        assertTrue(all.contains("AS `visible_alias`"))
+        for (unfinished in listOf(
+            "FROM t |> SELECT ' |> AS fake",
+            "FROM t /* |> AS fake",
+            "FROM t /* outer /* inner */ |> AS fake",
+        )) {
+            assertFalse(DorisPipes.codeBefore(unfinished, unfinished.length).contains("AS fake"))
+        }
+    }
+
+    @Test
+    fun `bare FROM translation is restricted to the first-stage scope`() {
+        assertSame(DorisPipesEngine.Transpile.NotPipe, DorisPipesEngine.transpile("FROM t"))
+        val scoped = DorisPipesEngine.transpile("FROM t", allowNamedParameters = true, allowFirstFromStage = true)
+        assertTrue(scoped.toString(), scoped is DorisPipesEngine.Transpile.Ok)
+        scoped as DorisPipesEngine.Transpile.Ok
+        assertNull(scoped.executionError)
+        assertTrue(scoped.dorisSql, scoped.dorisSql.contains("FROM t"))
+        assertSame(
+            DorisPipesEngine.Transpile.NotPipe,
+            DorisPipesEngine.transpile("SELECT 1", allowNamedParameters = true, allowFirstFromStage = true),
+        )
     }
 
     @Test

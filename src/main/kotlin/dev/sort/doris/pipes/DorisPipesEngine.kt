@@ -58,9 +58,13 @@ object DorisPipesEngine {
      */
     fun transpile(text: String): Transpile = transpile(text, allowNamedParameters = true)
 
-    internal fun transpile(text: String, allowNamedParameters: Boolean): Transpile {
+    internal fun transpile(
+        text: String,
+        allowNamedParameters: Boolean,
+        allowFirstFromStage: Boolean = false,
+    ): Transpile {
         val chunks = DorisPipes.chunks(text)
-        if (chunks.none { it.hasPipeOperator }) return Transpile.NotPipe
+        if (chunks.none { it.hasPipeOperator } && !allowFirstFromStage) return Transpile.NotPipe
         chunks.firstOrNull { it.boundaryError != null }?.let {
             return Transpile.Err(null, null, it.boundaryError!!)
         }
@@ -69,7 +73,7 @@ object DorisPipesEngine {
         }
         return try {
             val fragment = SqlFragment(text.trim().removeSuffix(";"), "doris")
-            if (fragment.ast !is PipeQuery) {
+            if (fragment.ast !is PipeQuery && !(allowFirstFromStage && fragment.hasFromFirstQuery)) {
                 Transpile.NotPipe
             } else {
                 val result = fragment.toExecutable("doris", pretty = true)
@@ -178,10 +182,11 @@ object DorisPipesEngine {
     // Per-stage scopes (engine stageShapes, 1:1 with PipeStageSplitter incl. FROM = element 0)
     // ---------------------------------------------------------------------------------------
 
-    private val shapeCache =
-        java.util.Collections.synchronizedMap(object : LinkedHashMap<Int, List<Shape>>(16, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<Shape>>) = size > 32
-        })
+    private data class ShapeKey(val sql: String, val baseTable: String?, val baseColumns: List<String>?)
+    private val shapeCacheLock = Any()
+    private val shapeCache = object : LinkedHashMap<ShapeKey, List<Shape>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ShapeKey, List<Shape>>) = size > 32
+    }
 
     /**
      * Column names in scope for completion at chunk-relative [relOffset]: element `k-1` of
@@ -194,10 +199,12 @@ object DorisPipesEngine {
     fun stageScopeAt(chunkText: String, relOffset: Int, baseTable: String?, baseColumns: List<String>?): List<String>? =
         runPipeCatching {
             val prefix = stagePrefixAt(chunkText, relOffset) ?: return null
-            val k = prefix.stage - 1 // stagePrefixAt is 1-based; contract indices are 0-based
-            if (k <= 0) return baseColumns // inside FROM: only the base relation exists
-            val key = 31 * chunkText.hashCode() + (baseColumns?.hashCode() ?: 0)
-            val shapes = shapeCache.getOrPut(key) {
+            val inputShapeIndex = prefix.stage - 2
+            if (inputShapeIndex < 0) return baseColumns // inside FROM: only the base relation exists
+            val normalizedSql = chunkText.trim().removeSuffix(";")
+            val key = ShapeKey(normalizedSql, baseTable, baseColumns?.toList())
+            val cached = synchronized(shapeCacheLock) { shapeCache[key] }
+            val shapes = cached ?: run {
                 val catalog = if (baseTable != null && !baseColumns.isNullOrEmpty()) {
                     val shape = Shape(baseColumns.map { ColumnShape(it, "UNKNOWN", null) })
                     val names = buildMap {
@@ -208,13 +215,15 @@ object DorisPipesEngine {
                 } else {
                     ShapeCatalog(emptyMap(), emptyMap())
                 }
-                SqlFragment(chunkText.trim().removeSuffix(";"), "doris").stageShapes(catalog)
+                val computed = SqlFragment(normalizedSql, "doris").stageShapes(catalog)
+                synchronized(shapeCacheLock) { shapeCache[key] ?: computed.also { shapeCache[key] = it } }
             }
-            val scope = shapes.getOrNull(k - 1)?.names() ?: return baseColumns
+            val scope = shapes.getOrNull(inputShapeIndex)?.names() ?: return null
             // Drop engine post-processing names (_col_N): they exist only in the DESUGARED SQL —
             // a user cannot type them in pipe syntax (alias the expression to name it instead).
             val typeable = scope.filter { it != "*" && !it.matches(Regex("_col_\\d+")) }
-            if (typeable.isEmpty()) baseColumns else typeable
+            if ("*" in scope) (baseColumns.orEmpty() + typeable).distinct().takeIf { it.isNotEmpty() }
+            else typeable
         }.getOrNull()
 
     // ---------------------------------------------------------------------------------------

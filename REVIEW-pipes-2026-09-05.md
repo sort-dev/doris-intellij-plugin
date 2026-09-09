@@ -51,9 +51,9 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B13 | P2 | Pipe requests can belong to the wrong console client, FIXED | Finding 10, ownership |
 | B14 | P2 | Successful generation can produce invalid Doris SQL, FIXED | Finding 11 |
 | B15 | P2 | Definition retrieval loses catalog identity | Finding 12 |
-| B16 | P2 | Run-to-caret cannot execute the initial FROM stage | Further findings, row 1 |
-| B17 | P2 | Hash-only completion cache returns another pipeline's columns | Further findings, row 2 |
-| B18 | P2 | Completion exposes aliases from future stages | Further findings, row 3 |
+| B16 | P2 | Run-to-caret cannot execute the initial FROM stage, FIXED | Further findings, row 1 |
+| B17 | P2 | Hash-only completion cache returns another pipeline's columns, FIXED | Further findings, row 2 |
+| B18 | P2 | Completion exposes aliases from future stages, FIXED | Further findings, row 3 |
 | B19 | P2 | Valid multi-host JDBC URLs fail validation | Further findings, row 4 |
 | B20 | P3 | EXTEND lacks pipe keyword coloring | Further findings, row 5 |
 | B21 | P2, conditional | Cancel and Explain share the override conflict pattern | Porting implications |
@@ -563,7 +563,7 @@ in different catalogs and batches spanning catalogs without leaking connection s
 
 ## B16: The initial FROM stage cannot run alone
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesIntentions.kt:85-90](src/main/kotlin/dev/sort/doris/pipes/DorisPipesIntentions.kt#L85)
 passes the first-stage prefix to a wrapper requiring a top-level `PipeQuery`.
@@ -573,9 +573,15 @@ Completion criteria: run-to-caret in stage 1 executes the known pipeline's FROM
 prefix. Do not broaden normal interception to arbitrary FROM-first SQL in other
 dialects. Test stage 1 and later stages.
 
+Resolution: run-to-stage passes an explicit first-stage mode through its fixed-range
+`PipeScriptModel`. That mode permits a marker-free `FROM` only after the enclosing
+Doris pipeline was claimed and retains parameter, warning and native-output gates.
+Normal Execute still returns `NotPipe` for bare `FROM`. See
+[B16-B18 verification](REVIEW-pipes-B16-B18.md).
+
 ## B17: Hash-only completion cache returns the wrong columns
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesEngine.kt:127-139](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L127)
 uses a combined integer hash without comparing the inputs. These pipelines collide:
@@ -591,9 +597,14 @@ Completion criteria: cache keys compare all inputs used to compute shapes,
 including base-table identity. Add the FB/Ea collision regression and preserve
 bounded cache size.
 
+Resolution: the bounded LRU now keys on normalized SQL, base-table identity and an
+immutable base-column list. Access-order reads and writes use one explicit lock;
+shape computation occurs outside it. Stage input indices and wildcard degradation
+are explicit. See [B16-B18 verification](REVIEW-pipes-B16-B18.md).
+
 ## B18: Completion exposes aliases from future stages
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisCompletionContributor.kt:184-206](src/main/kotlin/dev/sort/doris/sql/DorisCompletionContributor.kt#L184)
 searches the entire pipeline for `|> AS` and JOIN aliases. Completion for `future.`
@@ -602,6 +613,11 @@ in an earlier WHERE stage can use an alias declared only in a later `|> AS futur
 Completion criteria: qualified completion only uses aliases visible at the caret's
 stage. Test before and after AS and JOIN declarations, and do not interpret alias-like
 text in comments or literals as declarations.
+
+Resolution: PIPE AS, JOIN and fallback alias searches now use native-token-visible
+text ending at the caret. Strings, dollar strings, comments, complex backtick tokens
+and unterminated lexical tails are blanked. Future declarations are absent by
+construction. See [B16-B18 verification](REVIEW-pipes-B16-B18.md).
 
 ## B19: Valid multi-host JDBC URLs fail validation
 

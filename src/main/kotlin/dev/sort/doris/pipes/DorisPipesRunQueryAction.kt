@@ -187,8 +187,9 @@ internal class PipeTranslationFailure(val error: DorisPipesEngine.Transpile.Err)
 private fun requirePipeTranslation(
     text: String,
     allowNamedParameters: Boolean = true,
+    allowFirstFromStage: Boolean = false,
 ): DorisPipesEngine.Transpile.Ok {
-    return when (val result = DorisPipesEngine.transpile(text, allowNamedParameters)) {
+    return when (val result = DorisPipesEngine.transpile(text, allowNamedParameters, allowFirstFromStage)) {
         is DorisPipesEngine.Transpile.Ok -> {
             result.executionError?.let { throw PipeTranslationFailure(it) }
             result
@@ -220,12 +221,13 @@ internal class PipePlan<E>(
 internal class PipeScriptModel<E>(
     private val delegate: ScriptModel<E>,
     private val editor: Editor,
+    private val allowFirstFromStage: Boolean = false,
 ) : ScriptModel<E>() {
     private val delegateParameters = snapshotParameters(delegate.parameters())
     val plans: List<PipePlan<E>> = delegate.statements().mapNotNull { statement ->
         val text = statement.query()
-        if (!DorisPipes.containsPipeOperator(text)) return@mapNotNull null
-        val translation = requirePipeTranslation(text)
+        if (!DorisPipes.containsPipeOperator(text) && !allowFirstFromStage) return@mapNotNull null
+        val translation = requirePipeTranslation(text, allowFirstFromStage = allowFirstFromStage)
         val offset = statement.rangeOffset().coerceAtLeast(0).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         val range = statement.range().shiftRight(offset)
         val trimAnchor = range.startOffset + (text.length - text.trimStart().length)
@@ -269,7 +271,8 @@ internal class PipeScriptModel<E>(
     }
 
     override fun isActual(): Boolean = delegate.isActual
-    override fun subModel(range: TextRange?): ScriptModel<E> = PipeScriptModel(delegate.subModel(range), editor)
+    override fun subModel(range: TextRange?): ScriptModel<E> =
+        PipeScriptModel(delegate.subModel(range), editor, allowFirstFromStage)
     override fun everything(): JBIterable<E> = delegate.everything()
     override fun statements(): JBIterable<out ScriptModel.StatementIt<E>> = delegate.statements().transform { statement ->
         byStatement[key(statement)]?.let { PipeStatement(it) } ?: statement
@@ -282,7 +285,7 @@ internal class PipeScriptModel<E>(
     override fun getLanguage(): com.intellij.lang.Language = delegate.language
     override fun <EE : Any?> rawTransform(
         transform: com.intellij.util.Function<in com.intellij.psi.SyntaxTraverser<E>, out com.intellij.psi.SyntaxTraverser<EE>>,
-    ): ScriptModel<EE> = PipeScriptModel(delegate.rawTransform(transform), editor)
+    ): ScriptModel<EE> = PipeScriptModel(delegate.rawTransform(transform), editor, allowFirstFromStage)
 
     private inner class PipeStatement(private val plan: PipePlan<E>) : ScriptModel.StatementIt<E> {
         override fun query(): String = plan.translation.dorisSql
@@ -295,6 +298,7 @@ internal class PipeScriptModel<E>(
                 requirePipeTranslation(
                     ScriptModelUtilCore.statementText(this, storage, condition),
                     allowNamedParameters = false,
+                    allowFirstFromStage = allowFirstFromStage,
                 )
             } catch (failure: PipeTranslationFailure) {
                 throw TranslateException("Doris Pipes: ${failure.error.message}", failure)

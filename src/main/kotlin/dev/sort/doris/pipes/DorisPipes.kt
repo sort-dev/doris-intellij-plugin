@@ -272,9 +272,53 @@ object DorisPipes {
         }.map { it.range }
     }
 
+    /** Token-visible text before [endOffset], with comments and string contents blanked. */
+    internal fun codeBefore(text: String, endOffset: Int): String {
+        val end = endOffset.coerceIn(0, text.length)
+        val visible = CharArray(end) { ' ' }
+        val tokens = DorisSqlParser().newLexer(text).allTokens
+        for (token in tokens) {
+            if (token.type == DorisLexer.COMMENT_START || token.type == DorisLexer.HINT_START ||
+                (token.type == DorisLexer.UNRECOGNIZED && token.text in setOf("'", "\"", "`")) ||
+                (token.type == DorisLexer.IDENTIFIER && token.text.startsWith("\$\$"))
+            ) {
+                break
+            }
+            if (token.type == DorisLexer.BRACKETED_COMMENT) {
+                val start = text.offsetByCodePoints(0, token.startIndex).coerceAtMost(end)
+                val tokenEnd = text.offsetByCodePoints(start, token.stopIndex + 1 - token.startIndex).coerceAtMost(end)
+                var depth = 0
+                var index = start
+                while (index < tokenEnd - 1) {
+                    when {
+                        text.startsWith("/*", index) -> { depth++; index += 2 }
+                        text.startsWith("*/", index) -> { depth--; index += 2 }
+                        else -> index++
+                    }
+                }
+                if (depth != 0) break
+                continue
+            }
+            if (token.channel != Token.DEFAULT_CHANNEL || token.type in NON_CODE_TOKEN_TYPES) continue
+            if (token.type == DorisLexer.BACKQUOTED_IDENTIFIER && !SIMPLE_BACKTICK.matches(token.text)) continue
+            val start = text.offsetByCodePoints(0, token.startIndex).coerceAtMost(end)
+            val tokenEnd = text.offsetByCodePoints(start, token.stopIndex + 1 - token.startIndex).coerceAtMost(end)
+            for (index in start until tokenEnd) visible[index] = text[index]
+        }
+        return visible.concatToString()
+    }
+
     private val PARAMETER_NAME = Regex("[A-Za-z_][A-Za-z0-9_]*")
     private val PARAMETER_PARSER = DorisSqlParser()
     private val TYPE_CONSTRUCTORS = setOf("STRUCT", "ARRAY", "MAP")
+    private val SIMPLE_BACKTICK = Regex("`[A-Za-z_][A-Za-z0-9_]*`")
+    private val NON_CODE_TOKEN_TYPES = setOf(
+        DorisLexer.STRING_LITERAL,
+        DorisLexer.DOLLAR_QUOTED_STRING,
+        DorisLexer.COMMENT_START,
+        DorisLexer.HINT_START,
+        DorisLexer.BRACKETED_COMMENT,
+    )
 
 
     // ---------------------------------------------------------------------------------------

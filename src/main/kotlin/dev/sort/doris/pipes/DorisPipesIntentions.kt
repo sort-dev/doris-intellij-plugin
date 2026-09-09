@@ -97,7 +97,7 @@ internal object DorisPipesUi {
             chunk.startOffset + prefix.text.trimEnd().length,
         )
         val model = try {
-            PipeScriptModel(console.scriptModel.subModel(range), editor)
+            PipeScriptModel(console.scriptModel.subModel(range), editor, allowFirstFromStage = prefix.stage == 1)
         } catch (failure: PipeTranslationFailure) {
             notify(project, "Stage prefix could not be executed", failure.error.message, NotificationType.ERROR)
             return

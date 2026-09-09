@@ -32,6 +32,11 @@ request. `Transpile.Ok` means SQL was generated, not permission to submit it.
 Preview retains the original SQL/result and displays diagnostics separately.
 Notification boundaries escape plain diagnostic text as HTML.
 
+Run-to-stage may translate a marker-free initial `FROM` prefix only after the enclosing
+Doris pipeline has been claimed. Normal Execute still requires a native `|>` token.
+Stage-shape caches compare normalized SQL, base relation and immutable base columns;
+completion alias scans use only token-visible text before the caret.
+
 In 0.12.0, invalid pipe pagination uses these existing typed errors. Unexpanded
 Doris PIPE RENAME also refuses instead of returning invalid SQL. The engine's
 schema-aware rename API is tested separately; the plugin does not yet supply a

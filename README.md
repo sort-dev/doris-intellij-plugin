@@ -195,7 +195,7 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
   flowing *into* that stage — aliases from earlier stages, join relations, and qualified
   `alias.column` references included, fed by your introspected data source.
 - **Run to any stage**: right-click → **Doris Pipes → Run Stages up to Caret** executes just the
-  pipeline prefix at your caret — the natural way to debug a pipeline stage by stage. **Preview
+  pipeline prefix at your caret, including the initial `FROM` stage. **Preview
   Generated SQL** shows the transpiled statement, syntax-highlighted, before you commit to running
   anything.
 - **Errors where you wrote them**: server errors carry positions in the *generated* SQL; the

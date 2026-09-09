@@ -181,8 +181,9 @@ class DorisCompletionContributor : CompletionContributor() {
             fromQualified: String?,
             fromColumns: List<String>?,
         ): Boolean {
+            val visibleText = dev.sort.doris.pipes.DorisPipes.codeBefore(chunkText, rel)
             // `|> AS e` — the piped relation: its columns are the stage scope at the caret.
-            if (PIPE_AS.findAll(chunkText).any { it.groupValues[1].equals(qual, true) }) {
+            if (PIPE_AS.findAll(visibleText).any { it.groupValues[1].equals(qual, true) }) {
                 val scope = dev.sort.doris.pipes.DorisPipesEngine
                     .stageScopeAt(chunkText, rel, fromQualified, fromColumns) ?: fromColumns ?: return false
                 for (name in scope) {
@@ -198,7 +199,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 return true
             }
             // JOIN relations: alias match, or the bare table name as implicit qualifier.
-            for (m in JOIN_REL.findAll(chunkText)) {
+            for (m in JOIN_REL.findAll(visibleText)) {
                 val path = m.groupValues[1].split('.').map { it.trim('`') }
                 val alias = m.groupValues[2].takeIf { it.isNotBlank() }
                 val matches = (alias?.equals(qual, true) == true) || path.last().equals(qual, true)
@@ -306,7 +307,8 @@ class DorisCompletionContributor : CompletionContributor() {
 
             // Base relation: the FROM table's das columns (introspected model — the DbDataSource
             // wrapper, NOT the LocalDataSource, whose table list is silently empty; round 6).
-            val qualified = FROM_TABLE.find(chunk.text)?.groupValues?.get(1)?.let { q ->
+            val code = dev.sort.doris.pipes.DorisPipes.codeBefore(chunk.text, chunk.text.length)
+            val qualified = FROM_TABLE.find(code)?.groupValues?.get(1)?.let { q ->
                 q.split('.').joinToString(".") { it.trim('`') }
             }
             val dasColumns: List<String>? = runCatching {
@@ -398,7 +400,7 @@ class DorisCompletionContributor : CompletionContributor() {
             // chunk) — exactly the columns in scope at the caret's stage, das-fed so the base
             // relation resolves to real names. Fixes the "alias offered before in scope" over-offer.
             val scope = dev.sort.doris.pipes.DorisPipesEngine.stageScopeAt(chunk.text, rel, qualified, dasColumns)
-            if (!scope.isNullOrEmpty()) {
+            if (scope != null) {
                 for (name in scope) {
                     sink.addElement(
                         PrioritizedLookupElement.withPriority(
@@ -413,7 +415,7 @@ class DorisCompletionContributor : CompletionContributor() {
             }
 
             // Fallback (engine scope unavailable): aliases before the caret + raw das columns.
-            for (m in AS_ALIAS.findAll(chunk.text.substring(0, rel))) {
+            for (m in AS_ALIAS.findAll(dev.sort.doris.pipes.DorisPipes.codeBefore(chunk.text, rel))) {
                 sink.addElement(
                     PrioritizedLookupElement.withPriority(
                         LookupElementBuilder.create(m.groupValues[1])

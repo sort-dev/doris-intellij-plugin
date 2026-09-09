@@ -478,6 +478,30 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testRunToStageExecutesTheInitialFromStageOnly() {
+        val prefix = "FROM offline_rows"
+        val sql = "$prefix |> WHERE id > 0 |> SELECT id"
+        val translated = DorisPipesEngine.transpile(
+            prefix,
+            allowNamedParameters = true,
+            allowFirstFromStage = true,
+        ) as DorisPipesEngine.Transpile.Ok
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("offline_rows"))
+            for (menu in listOf(false, true)) {
+                fixture.runToStage(menu)
+                val request = fixture.requests.last() as DataRequest.QueryRequest
+                assertEquals(translated.dorisSql, request.query)
+                assertFalse(request.query, "WHERE" in request.query || "|>" in request.query)
+                assertEquals(TextRange(0, prefix.length), (request as DataRequest.CoupledWithEditor).range)
+                assertSame(fixture.console, request.owner)
+                assertEquals(sql, fixture.editor.document.text)
+            }
+            assertEquals(2, fixture.requests.size)
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
     fun testPreviewShowsReadOnlySqlAndEveryWarningAsSeparatePlainText() {
         val generated = DorisPipesEngine.transpile(warningPrograms.first()) as DorisPipesEngine.Transpile.Ok
         val extraWarnings = listOf("first line\nsecond line", "<b>not HTML</b> & <script>not executable</script>")
