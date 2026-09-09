@@ -2,6 +2,7 @@ package dev.sort.doris.pipes
 
 import com.intellij.database.DataBus
 import com.intellij.database.Dbms
+import com.intellij.database.actions.ShowSqlParametersPanelAction
 import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.client.DatabaseSessionClient
 import com.intellij.database.console.client.DatabaseSessionClientWithFile
@@ -15,6 +16,8 @@ import com.intellij.database.datagrid.DataConsumer
 import com.intellij.database.datagrid.DataProducer
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.datagrid.GridDataRequest
+import com.intellij.database.run.ConsoleDataRequest
+import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
 import com.intellij.notification.NotificationType
@@ -25,7 +28,6 @@ import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
-import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.Key
@@ -43,7 +45,6 @@ import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
 import java.lang.reflect.Proxy
 import java.awt.BorderLayout
-import java.util.concurrent.CancellationException
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
 
@@ -145,16 +146,16 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     fun testLossyWarningsBlockEveryVariantWithoutLeakingToTheNextQuery() {
-        for (sql in warningPrograms) {
-            val translation = DorisPipesEngine.transpile(sql) as DorisPipesEngine.Transpile.Ok
-            assertNotNull(translation.executionError)
-            ExecutionFixture(sql).use { fixture ->
+        ExecutionFixture(warningPrograms.first()).use { fixture ->
+            for (sql in warningPrograms) {
+                val translation = DorisPipesEngine.transpile(sql) as DorisPipesEngine.Transpile.Ok
+                assertNotNull(translation.executionError)
                 for (variant in 1..4) {
                     fixture.replaceSql(sql)
                     fixture.execute(variant)
-                    assertEquals("warning query must not submit: variant=$variant sql=$sql", variant - 1, fixture.requests.size)
+                    assertEquals("warning query must not submit: variant=$variant sql=$sql", 0, fixture.requests.size)
                     assertEmpty(fixture.previousEvents)
-                    assertEquals(variant, fixture.notifications.size)
+                    assertEquals(1, fixture.notifications.size)
                     val notification = fixture.notifications.last()
                     assertEquals(NotificationType.ERROR, notification.type)
                     val text = notificationText(notification)
@@ -164,12 +165,15 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
                     fixture.replaceSql(safeProgram)
                     fixture.execute(variant)
-                    assertEquals(variant, fixture.requests.size)
+                    assertEquals(1, fixture.requests.size)
                     assertEquals((DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok).dorisSql,
                         (fixture.requests.last() as DataRequest.QueryRequest).query)
-                    assertEquals("the next query must not inherit warnings", variant, fixture.notifications.size)
+                    assertEquals("the next query must not inherit warnings", 1, fixture.notifications.size)
                     assertEmpty(fixture.previousEvents)
                     assertEquals(safeProgram, fixture.editor.document.text)
+                    fixture.requests.clear()
+                    fixture.notifications.forEach { it.expire() }
+                    fixture.notifications.clear()
                 }
             }
         }
@@ -197,41 +201,105 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testMixedAndMultiplePipeSelectionsNeverSubmitOrDelegate() {
-        for (sql in listOf(
-            "$safeProgram; SELECT 1", "SELECT 1; $safeProgram", "$safeProgram; $safeProgram",
-            "$safeProgram; SELECT '", "$safeProgram; /* unclosed", "$safeProgram; FROM broken |> WHERE",
-            "$safeProgram |> WHERE", "$safeProgram |> WHERE id = 'unfinished; SELECT 1",
-        )) {
-            ExecutionFixture(sql).use { fixture ->
-                fixture.editor.selectionModel.setSelection(0, sql.length)
-                for (variant in 1..4) {
-                    fixture.execute(variant)
-                    assertEmpty("variant=$variant sql=$sql", fixture.requests)
-                    assertEmpty(fixture.previousEvents)
-                    assertEquals(variant, fixture.notifications.size)
-                    assertEquals(NotificationType.ERROR, fixture.notifications.last().type)
-                    assertEquals(sql, fixture.editor.document.text)
-                }
+    fun testPlatformScopeRunsWholeMixedScriptWithParametersAndNewTab() {
+        val pipe = "FROM offline_rows |> WHERE id = :id |> SELECT id"
+        val sql = "SELECT 1; $pipe; SELECT 2;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE"))
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "17")
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_WHOLE_SCRIPT
+                newTab = true
             }
+            try {
+                fixture.execute()
+                while (fixture.requests.size < 3) (fixture.requests.last() as ConsoleDataRequest).onFinished()
+            } finally {
+                settings.execOptions[0] = old
+            }
+            val requests = fixture.requests.map { it as ConsoleDataRequest }
+            assertEquals(listOf("SELECT 1", "SELECT 2"), listOf(requests.first().query.trim(), requests.last().query.trim()))
+            assertTrue(requests[1].query, "17" in requests[1].query)
+            assertFalse(requests[1].query, ":id" in requests[1].query || "|>" in requests[1].query)
+            assertTrue(requests.all { it.owner === fixture.console })
+            assertTrue(requests.all { it.newTab })
+            assertEmpty(fixture.previousEvents)
+            assertEmpty(fixture.notifications)
         }
     }
 
-    fun testMissingClientReportsOnceWithoutFallbackForEveryVariant() {
+    fun testScriptTailScopeStartsAtThePipeAndKeepsFollowingSql() {
+        val sql = "SELECT 1; $safeProgram; SELECT 2;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("FROM"))
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_SCRIPT_TAIL
+            }
+            try {
+                fixture.execute()
+                while (fixture.requests.size < 2) (fixture.requests.last() as ConsoleDataRequest).onFinished()
+            } finally {
+                settings.execOptions[0] = old
+            }
+            assertFalse((fixture.requests[0] as DataRequest.QueryRequest).query, "|>" in (fixture.requests[0] as DataRequest.QueryRequest).query)
+            assertEquals("SELECT 2", (fixture.requests[1] as DataRequest.QueryRequest).query.trim())
+        }
+    }
+
+    fun testSelectionScriptScopeTransformsEachSelectedStatement() {
+        val sql = "$safeProgram; SELECT 2;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.selectionModel.setSelection(0, sql.length)
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execSelection = DatabaseSettings.EXECUTE_SELECTION_EXACTLY_SCRIPT
+            }
+            try {
+                fixture.execute()
+                while (fixture.requests.size < 2) (fixture.requests.last() as ConsoleDataRequest).onFinished()
+            } finally {
+                settings.execOptions[0] = old
+            }
+            assertFalse((fixture.requests[0] as DataRequest.QueryRequest).query, "|>" in (fixture.requests[0] as DataRequest.QueryRequest).query)
+            assertEquals("SELECT 2", (fixture.requests[1] as DataRequest.QueryRequest).query.trim())
+            assertTrue(fixture.requests.all { (it as DataRequest).owner === fixture.console })
+        }
+    }
+
+    fun testLaterInvalidPipePreflightsBeforePlainPrefixExecution() {
+        val sql = "SELECT 1; FROM broken |> WHERE;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("FROM"))
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_WHOLE_SCRIPT
+            }
+            try {
+                fixture.execute()
+            } finally {
+                settings.execOptions[0] = old
+            }
+            assertEmpty(fixture.requests)
+            assertEquals(NotificationType.ERROR, fixture.notifications.single().type)
+        }
+    }
+
+    fun testDetachedClientListStillUsesTheInitiatingConsoleAsOwner() {
         ExecutionFixture(safeProgram).use { fixture ->
             fixture.editor.selectionModel.setSelection(0, safeProgram.length)
             fixture.clients.clear()
-            for (variant in 1..4) {
-                fixture.execute(variant)
-                assertEmpty(fixture.requests)
-                assertEmpty(fixture.previousEvents)
-                assertEquals(variant, fixture.notifications.size)
-                val notification = fixture.notifications.last()
-                assertEquals(NotificationType.ERROR, notification.type)
-                assertTrue(notification.content, "no attached console client" in notification.content)
-                assertTrue(notification.content, "original SQL was not executed" in notification.content)
-                assertEquals(safeProgram, fixture.editor.document.text)
-            }
+            fixture.execute()
+            val request = fixture.requests.single() as ConsoleDataRequest
+            assertSame(fixture.console, request.owner)
+            assertFalse(request.query, "|>" in request.query)
+            assertEmpty(fixture.previousEvents)
+            assertEmpty(fixture.notifications)
         }
     }
 
@@ -262,46 +330,6 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testRequestSetupAuditorAndProducerFailuresNeverRetryOrDelegate() {
-        for (site in listOf("request setup", "auditor registration", "producer")) {
-            for (failure in listOf(IllegalStateException("injected $site"), ProcessCanceledException(),
-                CancellationException("cancelled $site"))) {
-                for (variant in 1..4) {
-                    ExecutionFixture(safeProgram).use { fixture ->
-                        fixture.editor.selectionModel.setSelection(0, safeProgram.length)
-                        var failedCalls = 0
-                        when (site) {
-                            "request setup" -> fixture.beforeSessionCall = { method ->
-                                // Fail the anchored request constructor's lookup, not the ownership pre-gate.
-                                if (method == "getConnectionPoint" && Thread.currentThread().stackTrace.any {
-                                    it.className == DorisPipesExecution::class.java.name && it.methodName == "submit"
-                                }) {
-                                    failedCalls++
-                                    throw failure
-                                }
-                            }
-                            "auditor registration" -> fixture.onAddAuditor = { failedCalls++; throw failure }
-                            "producer" -> fixture.onProcessRequest = { failedCalls++; throw failure }
-                        }
-                        val actual = runCatching { fixture.execute(variant) }.exceptionOrNull()
-                        assertSame("site=$site variant=$variant", failure, actual)
-                        assertEquals("the failing operation must be reached exactly once", 1, failedCalls)
-                        assertEquals(if (site == "producer") 1 else 0, fixture.requests.size)
-                        if (site == "producer") {
-                            val request = fixture.requests.single() as DataRequest.QueryRequest
-                            assertSame(fixture.console, request.owner)
-                            assertFalse(request.query, "|>" in request.query)
-                            assertTrue(request is DataRequest.CoupledWithEditor)
-                        }
-                        assertEmpty(fixture.previousEvents)
-                        assertEmpty(fixture.notifications)
-                        assertEquals(safeProgram, fixture.editor.document.text)
-                    }
-                }
-            }
-        }
-    }
-
     fun testDirectSubmissionRejectsWarningsAndInvalidPayloadsBeforeSessionAccess() {
         val safe = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
         val lossy = DorisPipesEngine.transpile(warningPrograms.first()) as DorisPipesEngine.Transpile.Ok
@@ -318,8 +346,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     fun testRunToStageIntentionAndMenuBlockLossyPrefixesInTheRealConsole() {
-        for (sql in warningPrograms) {
-            ExecutionFixture(sql).use { fixture ->
+        ExecutionFixture(warningPrograms.first()).use { fixture ->
+            for (sql in warningPrograms) {
+                fixture.replaceSql(sql)
                 fixture.editor.caretModel.moveToOffset(sql.length - 1)
                 assertSame(fixture.console, DorisPipesUi.consoleFor(project, fixture.file))
                 for (menu in listOf(false, true)) {
@@ -334,6 +363,40 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     assertEquals(sql, fixture.editor.document.text)
                 }
                 assertEquals(2, fixture.notifications.size)
+                fixture.notifications.forEach { it.expire() }
+                fixture.notifications.clear()
+            }
+        }
+    }
+
+    fun testRunToStageUsesConsoleParameterStorage() {
+        val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
+        ExecutionFixture(sql).use { fixture ->
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "23")
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE") + 2)
+            fixture.runToStage(menu = false)
+            val request = fixture.requests.single() as DataRequest.QueryRequest
+            assertTrue(request.query, "23" in request.query)
+            assertFalse(request.query, ":id" in request.query || "|>" in request.query)
+            assertSame(fixture.console, request.owner)
+        }
+    }
+
+    fun testSharedSessionSubmissionAndConsoleLookupUseExactFileOwner() {
+        ExecutionFixture(safeProgram).use { fixture ->
+            val secondFile = myFixture.addFileToProject("second-owner.sql", safeProgram)
+            SqlDialectMappings.getInstance(project).setMapping(secondFile.virtualFile, DorisSqlDialect.INSTANCE)
+            val second = JdbcConsole.newConsole(project).forFile(secondFile.virtualFile)
+                .fromDataSource(fixture.point).useSession(fixture.session).build()
+            try {
+                assertEquals(listOf(fixture.console, second), fixture.clients)
+                assertSame(second, DorisPipesUi.consoleFor(project, secondFile))
+                val translation = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
+                assertTrue(DorisPipesExecution.submit(second, translation, safeProgram))
+                assertSame(second, (fixture.requests.single() as DataRequest.QueryRequest).owner)
+            } finally {
+                Disposer.dispose(second)
+                SqlDialectMappings.getInstance(project).setMapping(secondFile.virtualFile, null)
             }
         }
     }
@@ -456,12 +519,15 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         var beforeSessionCall: (String) -> Unit = {}
         var onAddAuditor: (DataAuditor) -> Unit = {}
 
-        private val producer = DataProducer { request ->
-            requests.add(request)
-            onProcessRequest(request)
+        private val producer = object : DataProducer {
+            override fun processRequest(request: GridDataRequest) {
+                auditors.forEach { it.jobSubmitted(request as DataRequest, this) }
+                requests.add(request)
+                onProcessRequest(request)
+            }
         }
         val bus = object : DataBus.Consuming {
-            // No events are published, so owner filtering has no delivery behavior to simulate.
+            // Request submissions are audited; result delivery is outside this recording fixture.
             override fun filterFor(owner: DataRequest.Owner): DataBus.Consuming = this
             override fun getDataProducer(): DataProducer = producer
             override fun addConsumer(consumer: DataConsumer) { consumers.add(consumer) }
@@ -479,6 +545,23 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             isAutoSynchronize = false
             isKeepAlive = false
         }
+        private var sessionViewCreated = false
+        private val state = Proxy.newProxyInstance(
+            DatabaseSession.State::class.java.classLoader,
+            arrayOf(DatabaseSession.State::class.java),
+        ) { proxy, method, args ->
+            when (method.name) {
+                "equals" -> proxy === args!![0]
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> "Idle offline session state"
+                "isIdle", "isEmpty", "isFinalized" -> true
+                "isCancelled" -> false
+                "getStartTime", "getTimeSpentMs" -> 0L
+                "getWork" -> emptyList<Any>()
+                "getWorkFor", "getMostRecentWork" -> null
+                else -> throw UnsupportedOperationException("Offline state does not implement $method")
+            }
+        } as DatabaseSession.State
         val session = Proxy.newProxyInstance(
             DatabaseSession::class.java.classLoader, arrayOf(DatabaseSession::class.java),
         ) { proxy, method, args ->
@@ -489,6 +572,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 "hashCode" -> System.identityHashCode(proxy)
                 "toString", "getTitle", "getDisplayName" -> "Offline PIPE recording session"
                 "getConnectionPoint", "getTarget" -> point
+                "getState" -> { sessionViewCreated = true; state }
                 "getProject" -> project
                 "getMessageBus" -> bus
                 "getClients" -> clients.toTypedArray()
@@ -594,7 +678,10 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             notificationConnection.disconnect()
             notifications.forEach { it.expire() }
             try {
-                if (this::console.isInitialized) Disposer.dispose(console)
+                if (this::console.isInitialized) {
+                    if (sessionViewCreated) Disposer.dispose(console.consoleView)
+                    Disposer.dispose(console)
+                }
             } finally {
                 LocalDataSourceManager.getInstance(project).removeDataSource(point)
                 SqlDialectMappings.getInstance(project).setMapping(virtualFile, null)

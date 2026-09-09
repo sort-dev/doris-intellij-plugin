@@ -46,9 +46,9 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B8 | P2 | One lexical failure clears all pipe diagnostics, FIXED | Finding 7 |
 | B9 | P2 | Mapped server errors are suppressed by the plugin's filter, FIXED | Finding 8 |
 | B10 | P2 | Claimed pipe failures fall back to raw execution, FIXED | Finding 9 |
-| B11 | P2 | Execute scope and variant settings are bypassed | Finding 10, scope |
-| B12 | P2 | Pipe execution bypasses user-parameter processing | Finding 10, parameters |
-| B13 | P2 | Pipe requests can belong to the wrong console client | Finding 10, ownership |
+| B11 | P2 | Execute scope and variant settings are bypassed, FIXED | Finding 10, scope |
+| B12 | P2 | Pipe execution bypasses user-parameter processing, FIXED | Finding 10, parameters |
+| B13 | P2 | Pipe requests can belong to the wrong console client, FIXED | Finding 10, ownership |
 | B14 | P2 | Successful generation can produce invalid Doris SQL | Finding 11 |
 | B15 | P2 | Definition retrieval loses catalog identity | Finding 12 |
 | B16 | P2 | Run-to-caret cannot execute the initial FROM stage | Further findings, row 1 |
@@ -461,8 +461,8 @@ multi-statement selections explicitly and propagate cancellation. Test that no
 request is submitted after a claimed translation failure.
 
 Resolution: the internal catch-and-delegate and anchored-to-unanchored retry were
-removed. Missing clients are handled failures. Actual PIPE tokens establish a
-candidate; unsupported mixed/multiple selections reject explicitly. Cancellation
+removed. Actual PIPE tokens establish a candidate; platform scope selection handles
+mixed and multiple statements, while malformed claimed input still blocks. Cancellation
 propagates through execution and optional PIPE recovery. See
 [B3/B10 verification](REVIEW-pipes-B3-B10.md) for real-console/recording-bus coverage
 and the distinction between pre-submission failure and an accepted request whose
@@ -470,7 +470,7 @@ producer then throws.
 
 ## B11: Execute scope and variant settings are bypassed
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesRunQueryAction.kt:101-129](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L101)
 uses selection-or-caret text without honoring the requested script scope. A whole-script
@@ -482,9 +482,15 @@ preserve order in mixed SQL/pipe scripts, and retain variant options such as new
 behavior. Test current statement, selection, whole script, remaining statements,
 and selection-as-one-statement semantics. Coordinate implementation with B1.
 
+Resolution: the interceptor now lets `JdbcConsoleProvider.chooseStatements` resolve
+the live variant's scope, preflights every pipe in that scope, wraps the selected
+`ScriptModel`, and returns it to stock `JdbcConsole` execution. Ordinary and generated
+queries retain order in the platform request chain, including script-tail, selected
+script and new-tab behavior. See [B11-B13 verification](REVIEW-pipes-B11-B13.md).
+
 ## B12: User-parameter processing is bypassed
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesRunQueryAction.kt:142-148](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L142)
 and [submission at line 186](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L186)
@@ -496,9 +502,14 @@ Completion criteria: recognized user parameters retain normal prompting, values,
 and substitution in pipe execution, including run-to-stage. Verify actual submitted
 SQL rather than merely checking the request's parameter field.
 
+Resolution: pipe `:name` tokens are exposed as platform `ParamIt` entries. JetBrains'
+`ScriptModelUtilCore.statementText` applies prompted/stored values before each pipe is
+transpiled. Execute and run-to-stage tests inspect the submitted SQL. See
+[B11-B13 verification](REVIEW-pipes-B11-B13.md).
+
 ## B13: Requests can belong to the wrong console client
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesRunQueryAction.kt:195](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L195)
 selects the session's first client rather than the initiating console.
@@ -510,6 +521,11 @@ The exact visible tab behavior was not exercised in a live IDE.
 Completion criteria: the submitting console owns the request and matches the
 actual editor file. Test two consoles sharing one session, normal Execute, and
 run-to-stage; verify result routing and editor anchoring.
+
+Resolution: normal Execute now creates stock `ConsoleDataRequest`s through the exact
+initiating `JdbcConsole`. Fixed-scope helper requests use that console directly, and
+file lookup uses `JdbcConsoleProvider.getValidConsole` instead of scanning every client
+in a shared session. See [B11-B13 verification](REVIEW-pipes-B11-B13.md).
 
 ## B14: Successful generation can produce invalid Doris SQL
 

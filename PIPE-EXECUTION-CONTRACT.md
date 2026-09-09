@@ -127,9 +127,9 @@ Execution candidates require actual native-lexer PIPE operator tokens, not marke
 inside literals, comments or quoted identifiers. Lexical recovery stops at the
 existing B2 boundary error; it must not expose a later apparent operator inside an
 unterminated construct. Ordinary input remains unclaimed even if it fails parsing.
-Selections containing any real PIPE operator must contain exactly one SQL statement;
-empty delimiters and comment-only trivia are not extra statements. Unsupported
-mixed/multiple selections are reported without submitting any prefix or neighbor.
+Selections containing real PIPE operators follow the platform's configured selection
+scope. Script selections transform each pipe statement independently and leave ordinary
+statements unchanged. All selected pipes are preflighted before the first request.
 
 ## Shortcut promotion
 
@@ -158,11 +158,11 @@ with removable contributors. That is not this contract.
 
 ## Scope
 
-B1 fixes cooperation and preserves stock execution for unclaimed requests. It does
-not fix Doris's existing claimed-pipe scope, parameter, or request-owner issues
-identified as B11, B12, and B13. B3/B10 now block warning-bearing translations and
-remove the internal exception/raw-submission fallbacks. These changes do not prove
-that warning-free generated SQL has correct semantics, and do not close B11-B14.
+B1 fixes cooperation and preserves stock execution for unclaimed requests. B11-B13
+now retain platform scope, parameter substitution, request chaining, new-tab behavior,
+and initiating-console ownership for claimed requests. B3/B10 block warning-bearing
+translations and remove the internal exception/raw-submission fallbacks. These changes
+do not prove that warning-free generated SQL has correct semantics or close B14.
 Do not copy the remaining execution limitations into siblings unchanged.
 
 Cancel and Explain Plan remain separate B21 work. SQL Transpiler's explicit

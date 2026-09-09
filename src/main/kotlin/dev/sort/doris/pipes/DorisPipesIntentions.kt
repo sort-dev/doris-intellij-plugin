@@ -3,6 +3,7 @@ package dev.sort.doris.pipes
 import com.intellij.codeInsight.intention.IntentionAction
 import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.JdbcConsoleProvider
+import com.intellij.database.script.translator.TranslateException
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -43,13 +44,9 @@ internal object DorisPipesUi {
         return chunk.takeIf { it.hasPipeOperator }
     }
 
-    /** The running console attached to exactly this file (matched via the session client's file). */
-    fun consoleFor(project: Project, file: PsiFile): JdbcConsole? {
-        val vf = file.viewProvider.virtualFile
-        return JdbcConsoleProvider.getRunningConsoles(project).firstOrNull { console ->
-            runPipeCatching { console.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
-        }
-    }
+    /** The valid console that owns exactly this file. */
+    fun consoleFor(project: Project, file: PsiFile): JdbcConsole? =
+        JdbcConsoleProvider.getValidConsole(project, file.viewProvider.virtualFile)
 
     private fun notify(project: Project, title: String, content: String, type: NotificationType) {
         NotificationGroupManager.getInstance()
@@ -94,8 +91,29 @@ internal object DorisPipesUi {
             notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
             return
         }
+        val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
+        val range = com.intellij.openapi.util.TextRange(
+            trimAnchor,
+            chunk.startOffset + prefix.text.trimEnd().length,
+        )
+        val model = try {
+            PipeScriptModel(console.scriptModel.subModel(range), editor)
+        } catch (failure: PipeTranslationFailure) {
+            notify(project, "Stage prefix could not be executed", failure.error.message, NotificationType.ERROR)
+            return
+        }
+        if (!console.beforeExecuteQueries(model)) return
+        val translated = try {
+            model.translated(console.pStorage)
+        } catch (failure: PipeTranslationFailure) {
+            notify(project, "Stage prefix could not be executed", failure.error.message, NotificationType.ERROR)
+            return
+        } catch (failure: TranslateException) {
+            notify(project, "Stage prefix could not be executed", failure.message ?: "Parameter substitution failed", NotificationType.ERROR)
+            return
+        }
         dispatchPipeTranslation(
-            DorisPipesEngine.transpile(prefix.text),
+            translated,
             reportError = { error -> notify(
                 project,
                 "Stage prefix could not be executed" + (error.line?.let { " (line $it, col ${error.col})" } ?: ""),
@@ -104,14 +122,12 @@ internal object DorisPipesUi {
             ) },
             submit = { result ->
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
-                val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
-                val range = com.intellij.openapi.util.TextRange(
-                    trimAnchor, chunk.startOffset + prefix.text.trimEnd().length)
                 val submitted = DorisPipesExecution.submit(
-                        console, result, prefix.text,
-                        PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
-                            editor.document.text.hashCode()),
-                    )
+                    console, result, prefix.text,
+                    PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
+                        editor.document.text.hashCode()),
+                    exactSourceMap = model.plans.single().parameters.isEmpty(),
+                )
                 if (submitted) {
                     notify(
                         project,

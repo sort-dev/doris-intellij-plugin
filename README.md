@@ -49,7 +49,9 @@ Part of our SQL-tooling family alongside:
   See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
 - **Doris Pipes** (0.7.0, optional): write GoogleSQL-style pipe syntax in Doris consoles and run it
   against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
-  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote.
+  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Execute
+  variants keep their configured statement/script scope, new-tab behavior, parameter prompting,
+  and console ownership when ordinary SQL and pipe statements are mixed.
   Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
   See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
 - **Automatic targeted introspection** (0.7.0): reference a table in a catalog or schema that
