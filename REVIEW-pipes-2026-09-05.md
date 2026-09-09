@@ -50,7 +50,7 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B12 | P2 | Pipe execution bypasses user-parameter processing, FIXED | Finding 10, parameters |
 | B13 | P2 | Pipe requests can belong to the wrong console client, FIXED | Finding 10, ownership |
 | B14 | P2 | Successful generation can produce invalid Doris SQL, FIXED | Finding 11 |
-| B15 | P2 | Definition retrieval loses catalog identity | Finding 12 |
+| B15 | P2 | Definition retrieval loses catalog identity, FIXED | Finding 12 |
 | B16 | P2 | Run-to-caret cannot execute the initial FROM stage, FIXED | Further findings, row 1 |
 | B17 | P2 | Hash-only completion cache returns another pipeline's columns, FIXED | Further findings, row 2 |
 | B18 | P2 | Completion exposes aliases from future stages, FIXED | Further findings, row 3 |
@@ -549,7 +549,7 @@ first request. See [B14 verification](REVIEW-pipes-B14.md).
 
 ## B15: Definition retrieval loses catalog identity
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisDefinitionProvider.kt:75-85](src/main/kotlin/dev/sort/doris/DorisDefinitionProvider.kt#L75)
 builds only `schema.table` names. A definition request for `hive.sales.orders` can
@@ -560,6 +560,12 @@ catalog-level `DATABASE` nodes as Doris databases for `SHOW CREATE DATABASE`.
 Completion criteria: definition requests preserve full catalog/database/object
 identity and choose the correct SHOW CREATE operation. Test identical object names
 in different catalogs and batches spanning catalogs without leaking connection state.
+
+Resolution: definition SQL now preserves independently quoted catalog, database and
+object components without changing connection state. Catalog nodes use `SHOW CREATE CATALOG`;
+internal views use `SHOW CREATE VIEW`, while external table-backed views use
+`SHOW CREATE TABLE`. Catalog-model objects fail closed when catalog ancestry is missing;
+flat MySQL model forms remain schema-qualified. See [B15 verification](REVIEW-pipes-B15.md).
 
 ## B16: The initial FROM stage cannot run alone
 

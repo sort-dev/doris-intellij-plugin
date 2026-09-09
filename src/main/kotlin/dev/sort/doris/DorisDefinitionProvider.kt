@@ -2,6 +2,8 @@ package dev.sort.doris
 
 import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dialects.AbstractDefinitionProvider
+import com.intellij.database.dialects.mssql.model.MsSchema
+import com.intellij.database.dialects.mssql.model.MsTableOrView
 import com.intellij.database.model.DasObject
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.remote.jdbc.RemoteResultSet
@@ -48,11 +50,12 @@ class DorisDefinitionProvider : AbstractDefinitionProvider() {
         }
     }
 
-    private fun buildShowCreateSql(obj: DasObject): String {
+    internal fun buildShowCreateSql(obj: DasObject): String {
         return when (obj.kind) {
             ObjectKind.TABLE -> buildShowCreateTableSql(obj)
             ObjectKind.VIEW -> buildShowCreateViewSql(obj)
-            ObjectKind.SCHEMA, ObjectKind.DATABASE -> buildShowCreateDatabaseSql(obj)
+            ObjectKind.SCHEMA -> buildShowCreateDatabaseSql(obj)
+            ObjectKind.DATABASE -> "SHOW CREATE CATALOG ${quoted(obj.name)}"
             else -> error("Unsupported Doris object kind: ${obj.kind}")
         }
     }
@@ -62,29 +65,37 @@ class DorisDefinitionProvider : AbstractDefinitionProvider() {
     }
 
     private fun buildShowCreateViewSql(obj: DasObject): String {
-        return buildQualifiedShowCreate("VIEW", obj)
+        val catalog = catalogName(obj)
+        return buildQualifiedShowCreate(
+            if (catalog != null && !catalog.equals("internal", ignoreCase = true)) "TABLE" else "VIEW",
+            obj,
+        )
     }
 
     private fun buildShowCreateDatabaseSql(obj: DasObject): String {
-        return buildString {
-            append("SHOW CREATE DATABASE ")
-            append(DorisStringUtils.quoteIdentifier(obj.name))
-        }
+        return "SHOW CREATE DATABASE ${qualified(catalogName(obj), obj.name)}"
     }
 
     private fun buildQualifiedShowCreate(objectType: String, obj: DasObject): String {
-        val schemaName = DasUtil.getSchema(obj)?.takeUnless { StringUtil.isEmptyOrSpaces(it) }
-        return buildString {
-            append("SHOW CREATE ")
-            append(objectType)
-            append(' ')
-            if (schemaName != null) {
-                append(DorisStringUtils.quoteIdentifier(schemaName))
-                append('.')
-            }
-            append(DorisStringUtils.quoteIdentifier(obj.name))
-        }
+        val schemaName = DasUtil.getSchema(obj).takeUnless { StringUtil.isEmptyOrSpaces(it) }
+            ?: error("Doris $objectType '${obj.name}' has no database/schema parent")
+        return "SHOW CREATE $objectType ${qualified(catalogName(obj), schemaName, obj.name)}"
     }
+
+    private fun catalogName(obj: DasObject): String? {
+        val catalog = DasUtil.getCatalog(obj).takeUnless(StringUtil::isEmptyOrSpaces)
+        val hasCatalogAncestor = generateSequence(obj.dasParent) { it.dasParent }
+            .any { it.kind == ObjectKind.DATABASE }
+        val requiresCatalog = obj is MsSchema || obj is MsTableOrView || hasCatalogAncestor
+        check(catalog != null || !requiresCatalog) { "Doris object '${obj.name}' has no catalog identity" }
+        return catalog
+    }
+
+    private fun qualified(vararg parts: String?): String = parts
+        .mapNotNull { it?.takeUnless(StringUtil::isEmptyOrSpaces) }
+        .joinToString(".") { quoted(it) }
+
+    private fun quoted(name: String): String = DorisStringUtils.quoteIdentifier(name)
 
     private fun extractDefinition(resultSet: RemoteResultSet): String? {
         if (!resultSet.next()) {
