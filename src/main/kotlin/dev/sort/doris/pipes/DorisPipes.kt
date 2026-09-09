@@ -388,3 +388,13 @@ object DorisPipes {
         chunks(text).any { it.text.contains(MARKER) && line in it.startLine..it.endLine }
 
 }
+
+internal object DorisPipeStageKeywords {
+    val phrases = listOf(
+        "WHERE", "SELECT", "EXTEND", "SET", "DROP", "RENAME", "AGGREGATE", "DISTINCT",
+        "ORDER BY", "LIMIT", "OFFSET", "JOIN", "LEFT JOIN", "LEFT OUTER JOIN",
+        "RIGHT JOIN", "RIGHT OUTER JOIN", "CROSS JOIN",
+        "INNER JOIN", "FULL JOIN", "FULL OUTER JOIN", "UNION ALL", "INTERSECT", "EXCEPT",
+        "WINDOW", "PIVOT", "UNPIVOT", "TABLESAMPLE", "AS", "CALL",
+    )
+}

@@ -289,6 +289,7 @@
              highlighter would otherwise paint as comments — the highlighting lexer IS the parser
              lexer on this platform. TextAttributes only; no PSI or parser impact. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisMaskedSpanRecolorAnnotator"/>
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageKeywordAnnotator"/>
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>

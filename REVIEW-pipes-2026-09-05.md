@@ -55,7 +55,7 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B17 | P2 | Hash-only completion cache returns another pipeline's columns, FIXED | Further findings, row 2 |
 | B18 | P2 | Completion exposes aliases from future stages, FIXED | Further findings, row 3 |
 | B19 | P2 | Valid multi-host JDBC URLs fail validation, FIXED | Further findings, row 4 |
-| B20 | P3 | EXTEND lacks pipe keyword coloring | Further findings, row 5 |
+| B20 | P3 | EXTEND lacks pipe keyword coloring, FIXED | Further findings, row 5 |
 | B21 | P2, conditional | Cancel and Explain share the override conflict pattern | Porting implications |
 | B22 | Complete | Embed the engine and add a PIPE toggle | Follow-up architecture decision |
 | B23 | Deferred, TBD | Project-dependency-driven PIPE auto-enablement | Follow-up architecture decision |
@@ -646,7 +646,7 @@ existing 3306/missing-port warnings across endpoints. See [B19 verification](REV
 
 ## B20: EXTEND lacks keyword coloring
 
-Status: OPEN. Severity: P3.
+Status: FIXED. Original severity: P3.
 
 Evidence: [DorisKeywordHighlighter.kt:35-36](src/main/kotlin/dev/sort/doris/sql/DorisKeywordHighlighter.kt#L35)
 uses the native Doris keyword lists. A fixture probe emitted `EXTEND` as `SQL_IDENT`
@@ -655,6 +655,13 @@ with no keyword attributes, while `AGGREGATE` received keyword coloring.
 Completion criteria: supported pipe-stage keywords receive intended coloring in
 stage position. Preserve literal/comment coloring and test normal identifier uses
 instead of globally promoting every matching word without checking context.
+
+Resolution: a Doris-only annotator now matches exact native `PIPE`/`GT` operator
+tokens and the shared stage-phrase catalog. It applies keyword attributes only to
+stage words that the normal highlighter does not already recognize, so `EXTEND`
+colors at a stage head without globally promoting ordinary identifiers. Completion
+uses the same catalog and stops after a complete stage head. See
+[B20 verification](REVIEW-pipes-B20.md).
 
 ## B21: Cancel and Explain have the same coexistence risk
 

@@ -441,18 +441,11 @@ class DorisCompletionContributor : CompletionContributor() {
     /**
      * DORIS PIPES: stage-operator keywords right after a `|>`. The pipe
      * statement is a lenient token run, so the platform offers nothing there itself. Textual gate:
-     * only immediately after `|>` (optionally one or two partial words in), never elsewhere.
+     * only immediately after `|>` (up to three partial words for JOIN forms), never elsewhere.
      */
     private object PipeStageKeywordProvider : CompletionProvider<CompletionParameters>() {
-        private val STAGE_KEYWORDS = listOf(
-            "WHERE", "SELECT", "EXTEND", "SET", "DROP", "RENAME", "AGGREGATE", "DISTINCT",
-            "ORDER BY", "LIMIT", "JOIN", "LEFT JOIN", "CROSS JOIN", "UNION ALL", "INTERSECT",
-            "EXCEPT", "WINDOW", "PIVOT", "UNPIVOT", "TABLESAMPLE", "AS", "CALL",
-        )
-        // First stage word only — once a complete keyword + space is typed, columns take over.
-        // Second word allowed only for the multi-word keywords (ORDER BY / LEFT JOIN / ...).
-        private val AFTER_PIPE =
-            Regex("""\|>\s*(?:[A-Za-z]*|(?:ORDER|LEFT|CROSS|UNION)\s+[A-Za-z]*)$""", RegexOption.IGNORE_CASE)
+        private val STAGE_KEYWORDS = dev.sort.doris.pipes.DorisPipeStageKeywords.phrases
+        private val AFTER_PIPE = Regex("""(?<!\|)\|>\s*([A-Za-z]*(?:\s+[A-Za-z]*){0,2})$""", RegexOption.IGNORE_CASE)
 
         override fun addCompletions(
             parameters: CompletionParameters,
@@ -464,7 +457,10 @@ class DorisCompletionContributor : CompletionContributor() {
             val text = parameters.originalFile.text
             val offset = parameters.offset.coerceAtMost(text.length)
             val tail = text.substring((offset - 120).coerceAtLeast(0), offset)
-            if (!AFTER_PIPE.containsMatchIn(tail)) return
+            val visibleTail = dev.sort.doris.pipes.DorisPipes.codeBefore(tail, tail.length)
+            val typed = AFTER_PIPE.find(visibleTail)?.groupValues?.get(1)?.trim() ?: return
+            if (visibleTail.lastOrNull()?.isWhitespace() == true && STAGE_KEYWORDS.any { it.equals(typed, true) }) return
+            if (STAGE_KEYWORDS.none { it.startsWith(typed, ignoreCase = true) }) return
             val sink = result.caseInsensitive()
             for (kw in STAGE_KEYWORDS) {
                 sink.addElement(
