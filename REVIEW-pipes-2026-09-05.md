@@ -54,7 +54,7 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B16 | P2 | Run-to-caret cannot execute the initial FROM stage, FIXED | Further findings, row 1 |
 | B17 | P2 | Hash-only completion cache returns another pipeline's columns, FIXED | Further findings, row 2 |
 | B18 | P2 | Completion exposes aliases from future stages, FIXED | Further findings, row 3 |
-| B19 | P2 | Valid multi-host JDBC URLs fail validation | Further findings, row 4 |
+| B19 | P2 | Valid multi-host JDBC URLs fail validation, FIXED | Further findings, row 4 |
 | B20 | P3 | EXTEND lacks pipe keyword coloring | Further findings, row 5 |
 | B21 | P2, conditional | Cancel and Explain share the override conflict pattern | Porting implications |
 | B22 | Complete | Embed the engine and add a PIPE toggle | Follow-up architecture decision |
@@ -627,7 +627,7 @@ construction. See [B16-B18 verification](REVIEW-pipes-B16-B18.md).
 
 ## B19: Valid multi-host JDBC URLs fail validation
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisConfigValidator.kt:48-70](src/main/kotlin/dev/sort/doris/DorisConfigValidator.kt#L48)
 uses `java.net.URI.host`, which is null for valid Connector/J forms such as
@@ -637,6 +637,12 @@ are affected too.
 Completion criteria: accept supported Connector/J connection-string forms without
 false missing-host errors. Test multi-host, load-balancing, host-property, and
 ordinary single-host URLs, plus genuinely malformed input.
+
+Resolution: the validator now scans Connector/J authorities instead of requiring an
+RFC single-host `URI.host`. It accepts plain and per-host credentials, multi-host,
+load-balance/replication, bracketed IPv6, parenthesized host properties and `address=`
+forms. It URL-decodes properties, validates structure and ports, and aggregates the
+existing 3306/missing-port warnings across endpoints. See [B19 verification](REVIEW-pipes-B19.md).
 
 ## B20: EXTEND lacks keyword coloring
 

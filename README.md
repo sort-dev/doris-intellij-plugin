@@ -72,7 +72,8 @@ Part of our SQL-tooling family alongside:
   `CREATE VIEW`/`TABLE`/`MATERIALIZED VIEW`/`JOB` bodies. It falls back to the lenient path on
   anything it can't cleanly type, so it is never *worse* than before.
 - **Ready-to-use data source**: an "Apache Doris" driver template (MySQL Connector/J, default port
-  9030, native-password auth) so you can connect without hand-configuring a MySQL driver.
+  9030, native-password auth) so you can connect without hand-configuring a MySQL driver. Validation
+  accepts Connector/J single-host, multi-host, load-balance, replication, IPv6 and host-property URLs.
 
 ## Requirements
 
