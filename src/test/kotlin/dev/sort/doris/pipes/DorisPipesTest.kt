@@ -79,6 +79,20 @@ class DorisPipesTest {
     }
 
     @Test
+    fun `named parameter ranges distinguish array slices from bracket expressions`() {
+        val text = "arr[1:end_idx], arr[:idx], arr[1 + :offset], arr[1 & :mask], " +
+            "arr[IF(x BETWEEN :lo AND 9, 1, 2)], arr[IF(name LIKE :pattern, 1, 2)], " +
+            "arr[CASE :selector WHEN 1 THEN 2 ELSE 3 END], MAP{'k':date}, " +
+            "MAP{'k' : value}, MAP{'k': IF(flag, :map_value, 0)}, " +
+            "CAST(x AS STRUCT<name : INT>), name LIKE:compact"
+        val parameters = DorisPipes.namedParameterRanges(text).map { text.substring(it.first, it.last + 1) }
+        assertEquals(
+            listOf(":idx", ":offset", ":mask", ":lo", ":pattern", ":selector", ":map_value", ":compact"),
+            parameters,
+        )
+    }
+
+    @Test
     fun `broken pipe program yields positioned Err`() {
         val r = DorisPipesEngine.transpile("FROM t\n|> WHERE\n|> LIMIT 5")
         assertTrue("expected Err, got $r", r is DorisPipesEngine.Transpile.Err)

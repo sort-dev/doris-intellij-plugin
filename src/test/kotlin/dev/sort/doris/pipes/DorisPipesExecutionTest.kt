@@ -179,6 +179,25 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testNativeInvalidGeneratedSqlBlocksEveryVariantWithoutRawFallback() {
+        val sql = "SELECT id FROM offline_rows LIMIT -1 |> ORDER BY 1"
+        val translation = DorisPipesEngine.transpile(sql) as DorisPipesEngine.Transpile.Ok
+        assertEmpty(translation.unsupportedMessages)
+        assertNotNull(translation.validationError)
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.selectionModel.setSelection(0, sql.length)
+            for (variant in 1..4) {
+                fixture.execute(variant)
+                assertEmpty(fixture.requests)
+                assertEmpty(fixture.previousEvents)
+                assertEquals(variant, fixture.notifications.size)
+                assertEquals(NotificationType.ERROR, fixture.notifications.last().type)
+                assertTrue(notificationText(fixture.notifications.last()).contains("generated SQL"))
+                assertEquals(sql, fixture.editor.document.text)
+            }
+        }
+    }
+
     fun testDisabledProjectAndNonDorisConsoleDelegateEveryVariant() {
         for (disabled in listOf(true, false)) {
             ExecutionFixture(safeProgram, if (disabled) "doris" else "mysql").use { fixture ->
@@ -287,6 +306,41 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             }
             assertEmpty(fixture.requests)
             assertEquals(NotificationType.ERROR, fixture.notifications.single().type)
+        }
+    }
+
+    fun testInvalidParameterizedPipeFinalizesBeforePlainPrefixExecution() {
+        val sql = "UPDATE offline_rows SET id = id; SELECT id FROM offline_rows LIMIT :limit |> ORDER BY 1;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("SELECT"))
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("limit", "-1")
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_WHOLE_SCRIPT
+            }
+            try {
+                fixture.execute()
+            } finally {
+                settings.execOptions[0] = old
+            }
+            assertEmpty(fixture.requests)
+            assertEmpty(fixture.previousEvents)
+            assertTrue(notificationText(fixture.notifications.single()).contains("generated SQL"))
+        }
+    }
+
+    fun testArraySliceColonIsNotSubstitutedAsAParameter() {
+        val sql = "FROM offline_rows |> SELECT arr[1:end_idx] AS sliced, arr[1 + :offset] AS item"
+        ExecutionFixture(sql).use { fixture ->
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("end_idx", "5")
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("offset", "5")
+            fixture.editor.selectionModel.setSelection(0, sql.length)
+            fixture.execute()
+            val query = (fixture.requests.single() as DataRequest.QueryRequest).query
+            assertTrue(query, "1:end_idx" in query)
+            assertFalse(query, "arr[15]" in query)
+            assertFalse(query, ":offset" in query)
         }
     }
 

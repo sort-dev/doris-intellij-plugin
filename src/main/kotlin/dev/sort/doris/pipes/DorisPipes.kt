@@ -8,6 +8,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.text.StringUtil
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
+import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
 import org.apache.doris.sqlparser.DorisSqlParser
 import java.util.concurrent.CancellationException
 
@@ -195,6 +196,85 @@ object DorisPipes {
         return chunks.firstOrNull { offset >= it.startOffset && offset < it.endOffset }
             ?: chunks.lastOrNull()?.takeIf { offset == it.endOffset }
     }
+
+    /** UTF-16 ranges for `:name` parameters, excluding Doris colon-bearing syntax. */
+    internal fun namedParameterRanges(text: String): List<IntRange> {
+        val tokens = DorisSqlParser().newLexer(text).allTokens.filter { it.channel == Token.DEFAULT_CHANNEL }
+        data class Candidate(val tokenIndex: Int, val range: IntRange)
+        val candidates = tokens.mapIndexedNotNull { index, colon ->
+            if (colon.type != DorisLexer.COLON) return@mapIndexedNotNull null
+            val name = tokens.getOrNull(index + 1) ?: return@mapIndexedNotNull null
+            if (!PARAMETER_NAME.matches(name.text) || colon.stopIndex + 1 != name.startIndex) {
+                return@mapIndexedNotNull null
+            }
+            val start = text.offsetByCodePoints(0, colon.startIndex)
+            if (start > 0 && text[start - 1] == ':') return@mapIndexedNotNull null
+            val end = text.offsetByCodePoints(start, name.stopIndex + 1 - colon.startIndex)
+            Candidate(index, start until end)
+        }
+        data class Group(val left: Int, val right: Int, val type: Int, val wrapper: (String) -> String)
+        val groups = ArrayList<Group>()
+        val stack = ArrayDeque<Pair<Int, Int>>()
+        for ((index, token) in tokens.withIndex()) {
+            when (token.type) {
+                DorisLexer.LEFT_BRACKET -> stack.addLast(index to DorisLexer.LEFT_BRACKET)
+                DorisLexer.LEFT_BRACE -> stack.addLast(index to DorisLexer.LEFT_BRACE)
+                DorisLexer.LT -> if (stack.lastOrNull()?.second == DorisLexer.LT ||
+                    tokens.getOrNull(index - 1)?.text?.uppercase() in TYPE_CONSTRUCTORS
+                ) {
+                    stack.addLast(index to DorisLexer.LT)
+                }
+                DorisLexer.RIGHT_BRACKET -> if (stack.lastOrNull()?.second == DorisLexer.LEFT_BRACKET) {
+                    groups.add(Group(stack.removeLast().first, index, DorisLexer.LEFT_BRACKET) { content -> "x[$content]" })
+                }
+                DorisLexer.RIGHT_BRACE -> if (stack.lastOrNull()?.second == DorisLexer.LEFT_BRACE) {
+                    groups.add(Group(stack.removeLast().first, index, DorisLexer.LEFT_BRACE) { content -> "MAP{$content}" })
+                }
+                DorisLexer.GT -> if (stack.lastOrNull()?.second == DorisLexer.LT) {
+                    groups.add(Group(stack.removeLast().first, index, DorisLexer.LT) { content -> "CAST(NULL AS STRUCT<$content>)" })
+                }
+            }
+        }
+        return candidates.filterNot { candidate ->
+            val group = groups.filter { candidate.tokenIndex in (it.left + 1)..<it.right }
+                .maxByOrNull { it.left } ?: return@filterNot false
+            if (group.type == DorisLexer.LEFT_BRACE) {
+                var depth = 0
+                var hasEntryColon = false
+                for (index in (group.left + 1)..<candidate.tokenIndex) {
+                    when (tokens[index].type) {
+                        DorisLexer.LEFT_PAREN, DorisLexer.LEFT_BRACKET, DorisLexer.LEFT_BRACE -> depth++
+                        DorisLexer.RIGHT_PAREN, DorisLexer.RIGHT_BRACKET, DorisLexer.RIGHT_BRACE ->
+                            depth = (depth - 1).coerceAtLeast(0)
+                        DorisLexer.COMMA -> if (depth == 0) hasEntryColon = false
+                        DorisLexer.COLON -> if (depth == 0) hasEntryColon = true
+                    }
+                }
+                if (depth == 0 && !hasEntryColon) return@filterNot true
+            }
+            val contentStart = text.offsetByCodePoints(0, tokens[group.left].stopIndex + 1)
+            val contentEnd = text.offsetByCodePoints(contentStart,
+                tokens[group.right].startIndex - tokens[group.left].stopIndex - 1)
+            val content = StringBuilder(text.substring(contentStart, contentEnd))
+            for (other in candidates) {
+                if (other === candidate || other.range.first < contentStart || other.range.last >= contentEnd) continue
+                val start = other.range.first - contentStart
+                val end = other.range.last - contentStart
+                content.setCharAt(start, '0')
+                for (offset in start + 1..end) content.setCharAt(offset, ' ')
+            }
+            try {
+                PARAMETER_PARSER.parseExpression(group.wrapper(content.toString()))
+                true
+            } catch (_: DorisParseException) {
+                false
+            }
+        }.map { it.range }
+    }
+
+    private val PARAMETER_NAME = Regex("[A-Za-z_][A-Za-z0-9_]*")
+    private val PARAMETER_PARSER = DorisSqlParser()
+    private val TYPE_CONSTRUCTORS = setOf("STRUCT", "ARRAY", "MAP")
 
 
     // ---------------------------------------------------------------------------------------

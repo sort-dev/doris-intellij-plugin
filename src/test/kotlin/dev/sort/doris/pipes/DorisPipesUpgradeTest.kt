@@ -13,6 +13,7 @@ import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
+import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
 import org.apache.doris.sqlparser.DorisSqlParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -491,6 +492,54 @@ class DorisPipesUpgradeTest {
             assertEquals("Doris OFFSET without LIMIT requires a non-negative signed 64-bit integer literal",
                 (result as DorisPipesEngine.Transpile.Err).message)
         }
+    }
+
+    @Test
+    fun `warning free native-invalid head pagination is blocked after generation`() {
+        val inputs = listOf(
+            "SELECT id FROM t LIMIT -1 |> ORDER BY 1",
+            "SELECT id FROM t LIMIT '1' |> ORDER BY 1",
+            "SELECT id FROM t LIMIT 1.5 |> ORDER BY 1",
+            "SELECT id FROM t LIMIT ? |> ORDER BY 1",
+            "SELECT id FROM t LIMIT 1 PERCENT |> ORDER BY 1",
+            "SELECT id FROM t LIMIT 1 WITH TIES |> ORDER BY 1",
+            "SELECT id FROM t LIMIT 2 OFFSET -1 |> SELECT id",
+            "SELECT id FROM t LIMIT 2 OFFSET '1' |> ORDER BY id",
+            "SELECT id FROM t LIMIT 2 OFFSET 1.5 |> ORDER BY id",
+            "SELECT id FROM t LIMIT 2 OFFSET ? |> ORDER BY id",
+        )
+        for (text in inputs) {
+            val raw = SqlFragment(text, "doris").toExecutable("doris", pretty = true)
+            assertEquals(text, emptyList<String>(), raw.unsupportedMessages)
+            assertThrows(text, DorisParseException::class.java) { nativeParser.parseStatement(raw.sql) }
+
+            val result = generated(text)
+            assertEquals(text, emptyList<String>(), result.unsupportedMessages)
+            assertNotNull(text, result.validationError)
+            assertTrue(result.executionError!!.message, result.executionError!!.message.contains("generated SQL"))
+            assertEquals(raw.sql, result.dorisSql)
+        }
+
+        val valid = supported("SELECT id FROM t LIMIT 2 OFFSET 1 |> ORDER BY 1", "LIMIT 2", "OFFSET 1")
+        assertEquals(null, valid.executionError)
+    }
+
+    @Test
+    fun `named parameters pass preflight but surviving placeholders fail final validation`() {
+        for (name in listOf("id", "date", "limit")) {
+            val text = "FROM t |> WHERE id = :$name |> SELECT id"
+            val preflight = generated(text)
+            assertEquals(name, null, preflight.executionError)
+            val final = DorisPipesEngine.transpile(text, allowNamedParameters = false) as DorisPipesEngine.Transpile.Ok
+            assertNotNull(name, final.validationError)
+            assertTrue(final.executionError!!.message.contains("generated SQL"))
+        }
+    }
+
+    @Test
+    fun `array slice colons are not treated as named parameters`() {
+        val result = supported("FROM t |> SELECT arr[1:end_idx] AS sliced", "1:end_idx")
+        assertEquals(null, result.executionError)
     }
 
     @Test

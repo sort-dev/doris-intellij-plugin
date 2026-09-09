@@ -49,7 +49,7 @@ or deferred/conditional work and should be re-triaged before selecting the next 
 | B11 | P2 | Execute scope and variant settings are bypassed, FIXED | Finding 10, scope |
 | B12 | P2 | Pipe execution bypasses user-parameter processing, FIXED | Finding 10, parameters |
 | B13 | P2 | Pipe requests can belong to the wrong console client, FIXED | Finding 10, ownership |
-| B14 | P2 | Successful generation can produce invalid Doris SQL | Finding 11 |
+| B14 | P2 | Successful generation can produce invalid Doris SQL, FIXED | Finding 11 |
 | B15 | P2 | Definition retrieval loses catalog identity | Finding 12 |
 | B16 | P2 | Run-to-caret cannot execute the initial FROM stage | Further findings, row 1 |
 | B17 | P2 | Hash-only completion cache returns another pipeline's columns | Further findings, row 2 |
@@ -529,7 +529,7 @@ in a shared session. See [B11-B13 verification](REVIEW-pipes-B11-B13.md).
 
 ## B14: Successful generation can produce invalid Doris SQL
 
-Status: OPEN. Severity: P2.
+Status: FIXED. Original severity: P2.
 
 Evidence: [DorisPipesEngine.kt:49-50](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L49)
 accepts the output of `FROM t |> RENAME x AS y`. The bundled engine generates
@@ -539,6 +539,13 @@ grammar rejects that SQL. This was not tested against a live Doris server.
 Completion criteria: unsupported stages are rejected clearly or expanded correctly;
 generated SQL must pass the chosen Doris capability/output-validation gate before
 execution. Include this warning-free failure and warning-bearing B3 cases.
+
+Resolution: brikk-sql 0.12.0 changed schema-less PIPE RENAME to a typed refusal, but
+warning-free invalid head pagination remained. Every warning-free generated payload
+now passes through the bundled Doris parser. `Transpile.Ok` retains blocked SQL for
+preview, while `executionError` prevents submission. Named parameters are masked only
+during preflight, then all selected pipes are substituted and validated before the
+first request. See [B14 verification](REVIEW-pipes-B14.md).
 
 ## B15: Definition retrieval loses catalog identity
 

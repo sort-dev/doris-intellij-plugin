@@ -11,6 +11,8 @@ import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import com.intellij.openapi.progress.ProgressManager
+import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
+import org.apache.doris.sqlparser.DorisSqlParser
 
 /**
  * Adapter for the bundled brikk-sql engine. IDE entry points consult the project setting;
@@ -26,12 +28,16 @@ object DorisPipesEngine {
         /** Generated SQL, not execution approval: [executionError] may block lossy output.
          *  [result] carries the engine SourceMap (identity-tied to [dorisSql]) for exact
          *  server-error map-back; null only in unit-test fabrication. */
-        data class Ok(val dorisSql: String, val result: TranspileResult? = null) : Transpile {
+        data class Ok(
+            val dorisSql: String,
+            val result: TranspileResult? = null,
+            val validationError: Err? = null,
+        ) : Transpile {
             val unsupportedMessages: List<String> get() = result?.unsupportedMessages.orEmpty()
 
-            val executionError: Err? get() = unsupportedMessages.takeIf { it.isNotEmpty() }?.let {
-                Err(null, null, "PIPE execution blocked: translation reports unsupported or lossy behavior.\n\n" + it.joinToString("\n\n"))
-            }
+            val executionError: Err? get() = validationError ?: unsupportedMessages.takeIf { it.isNotEmpty() }?.let {
+                    Err(null, null, "PIPE execution blocked: translation reports unsupported or lossy behavior.\n\n" + it.joinToString("\n\n"))
+                }
         }
 
         /** Pipe-looking but the engine rejects it; positions are 1-based like fe-sql-parser's. */
@@ -50,7 +56,9 @@ object DorisPipesEngine {
      * is a pipe program, produce the executable (desugared) Doris SQL + its SourceMap in one
      * generator pass ([SqlFragment.toExecutable]; identity-guaranteed upstream).
      */
-    fun transpile(text: String): Transpile {
+    fun transpile(text: String): Transpile = transpile(text, allowNamedParameters = true)
+
+    internal fun transpile(text: String, allowNamedParameters: Boolean): Transpile {
         val chunks = DorisPipes.chunks(text)
         if (chunks.none { it.hasPipeOperator }) return Transpile.NotPipe
         chunks.firstOrNull { it.boundaryError != null }?.let {
@@ -66,7 +74,12 @@ object DorisPipesEngine {
             } else {
                 val result = fragment.toExecutable("doris", pretty = true)
                 ProgressManager.checkCanceled()
-                Transpile.Ok(result.sql, result)
+                val validationError = if (result.unsupportedMessages.isEmpty()) {
+                    validateGeneratedSql(result.sql, allowNamedParameters)
+                } else {
+                    null
+                }
+                Transpile.Ok(result.sql, result, validationError)
             }
         } catch (e: ParseError) {
             val first = e.errors.firstOrNull()
@@ -76,6 +89,38 @@ object DorisPipesEngine {
             Transpile.Err(null, null, e.message ?: "Unsupported PIPE translation")
         }
     }
+
+    private fun validateGeneratedSql(sql: String, allowNamedParameters: Boolean): Transpile.Err? {
+        ProgressManager.checkCanceled()
+        val parserInput = if (allowNamedParameters) maskNamedParameters(sql) else sql
+        return try {
+            NATIVE_PARSER.parseStatement(parserInput)
+            ProgressManager.checkCanceled()
+            null
+        } catch (failure: DorisParseException) {
+            Transpile.Err(
+                null,
+                null,
+                "PIPE execution blocked: generated SQL is not accepted by the embedded Doris parser.\n\n" +
+                    (failure.message ?: "Generated Doris SQL failed validation."),
+            )
+        }
+    }
+
+    /** Replace native `:name` tokens with scalar zeroes for the pre-substitution parser pass. */
+    private fun maskNamedParameters(sql: String): String {
+        val ranges = DorisPipes.namedParameterRanges(sql)
+        if (ranges.isEmpty()) return sql
+        return buildString(sql.length) {
+            append(sql)
+            for (range in ranges) {
+                setCharAt(range.first, '0')
+                for (index in range.first + 1..range.last) setCharAt(index, ' ')
+            }
+        }
+    }
+
+    private val NATIVE_PARSER = DorisSqlParser()
 
     // ---------------------------------------------------------------------------------------
     // Stage boundaries (execute-to-stage-N; IDEAS §3 "Execute up to stage N")

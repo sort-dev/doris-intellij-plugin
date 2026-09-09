@@ -25,10 +25,12 @@ coordinates rather than allowing them to wrap onto another generated line.
 The adapter converts the engine's intentional `UnsupportedError` lowering refusals
 to `Transpile.Err`. The normal handled-error branch reports them without submission
 or predecessor execution. Nonempty `unsupportedMessages` also block execution,
-including run-to-stage. `Transpile.Ok` means SQL was generated, not permission to
-submit it: the shared dispatch and the submission method independently enforce
-the warning gate. Preview retains the original SQL/result and displays diagnostics
-separately. Notification boundaries escape plain diagnostic text as HTML.
+including run-to-stage. Warning-free generated SQL must pass the bundled Doris
+parser before execution. Named parameters are masked only for editor preflight;
+after prompting, every selected pipe is substituted and validated before the first
+request. `Transpile.Ok` means SQL was generated, not permission to submit it.
+Preview retains the original SQL/result and displays diagnostics separately.
+Notification boundaries escape plain diagnostic text as HTML.
 
 In 0.12.0, invalid pipe pagination uses these existing typed errors. Unexpanded
 Doris PIPE RENAME also refuses instead of returning invalid SQL. The engine's

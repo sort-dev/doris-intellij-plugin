@@ -28,9 +28,6 @@ import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.TextRange
 import com.intellij.util.containers.JBIterable
 import dev.sort.doris.DorisDbms
-import org.antlr.v4.runtime.Token
-import org.apache.doris.nereids.DorisLexer
-import org.apache.doris.sqlparser.DorisSqlParser
 
 /**
  * A composable Execute replacement. The immediate previous action is captured at registration,
@@ -165,6 +162,10 @@ private object PipesExecuteInterceptor {
                 return@chooseStatements
             }
             if (console.beforeExecuteQueries(model)) {
+                model.finalizeTranslations(console.pStorage)?.let { error ->
+                    DorisPipesExecution.notifyTranspileError(console, error)
+                    return@chooseStatements
+                }
                 DorisPipesExecution.track(console, model.executionPlans)
                 try {
                     console.executeQueries(editor, model, info.execOption)
@@ -183,8 +184,11 @@ private object PipesExecuteInterceptor {
 
 internal class PipeTranslationFailure(val error: DorisPipesEngine.Transpile.Err) : RuntimeException(error.message)
 
-private fun requirePipeTranslation(text: String): DorisPipesEngine.Transpile.Ok {
-    return when (val result = DorisPipesEngine.transpile(text)) {
+private fun requirePipeTranslation(
+    text: String,
+    allowNamedParameters: Boolean = true,
+): DorisPipesEngine.Transpile.Ok {
+    return when (val result = DorisPipesEngine.transpile(text, allowNamedParameters)) {
         is DorisPipesEngine.Transpile.Ok -> {
             result.executionError?.let { throw PipeTranslationFailure(it) }
             result
@@ -210,6 +214,7 @@ internal class PipePlan<E>(
     initial: DorisPipesEngine.Transpile.Ok,
 ) {
     @Volatile var translation: DorisPipesEngine.Transpile.Ok = initial
+    @Volatile var finalized: Boolean = false
 }
 
 internal class PipeScriptModel<E>(
@@ -246,9 +251,21 @@ internal class PipeScriptModel<E>(
     val executionPlans: List<PipePlan<E>?> = delegate.statements().map { byStatement[key(it)] }.toList()
 
     fun translated(storage: ScriptModel.PStorage): DorisPipesEngine.Transpile.Ok {
-        val plan = plans.single()
-        PipeStatement(plan).consoleQuery(storage, Conditions.alwaysFalse())
-        return plan.translation
+        finalizeTranslations(storage)?.let { throw PipeTranslationFailure(it) }
+        return plans.single().translation
+    }
+
+    fun finalizeTranslations(storage: ScriptModel.PStorage): DorisPipesEngine.Transpile.Err? {
+        for (plan in plans) {
+            try {
+                PipeStatement(plan).consoleQuery(storage, Conditions.alwaysFalse())
+                plan.finalized = true
+            } catch (failure: TranslateException) {
+                return (failure.cause as? PipeTranslationFailure)?.error
+                    ?: DorisPipesEngine.Transpile.Err(null, null, failure.message ?: "Parameter substitution failed")
+            }
+        }
+        return null
     }
 
     override fun isActual(): Boolean = delegate.isActual
@@ -273,8 +290,12 @@ internal class PipeScriptModel<E>(
             storage: ScriptModel.PStorage,
             condition: Condition<in ScriptModel.ParamIt<E>>,
         ): String {
+            if (plan.finalized) return plan.translation.dorisSql
             val translated = try {
-                requirePipeTranslation(ScriptModelUtilCore.statementText(this, storage, condition))
+                requirePipeTranslation(
+                    ScriptModelUtilCore.statementText(this, storage, condition),
+                    allowNamedParameters = false,
+                )
             } catch (failure: PipeTranslationFailure) {
                 throw TranslateException("Doris Pipes: ${failure.error.message}", failure)
             }
@@ -338,23 +359,17 @@ private fun <E> pipeParameters(
     statement: ScriptModel.StatementIt<E>,
     text: String,
 ): List<ScriptModel.ParamIt<E>> {
-    val tokens = DorisSqlParser().newLexer(text).allTokens.filter { it.channel == Token.DEFAULT_CHANNEL }
     val statementStart = statement.range().startOffset
     val statementType = statement.type()
     val statementApi = statement.api()
     val statementOffset = statement.rangeOffset()
     val statementValue = statement.`object`()
-    return tokens.zipWithNext().mapNotNull { (colon, name) ->
-        if (colon.type != DorisLexer.COLON || name.type != DorisLexer.IDENTIFIER ||
-            colon.stopIndex + 1 != name.startIndex
-        ) {
-            return@mapNotNull null
-        }
-        val localStart = text.offsetByCodePoints(0, colon.startIndex)
-        if (localStart > 0 && text[localStart - 1] == ':') return@mapNotNull null
-        val localEnd = text.offsetByCodePoints(localStart, name.stopIndex + 1 - colon.startIndex)
+    return DorisPipes.namedParameterRanges(text).map { range ->
+        val localStart = range.first
+        val localEnd = range.last + 1
+        val name = text.substring(localStart + 1, localEnd)
         object : ScriptModel.ParamIt<E> {
-            override fun name(): String = name.text
+            override fun name(): String = name
             override fun description(): Iterable<String> = emptyList()
             override fun text(): String = text.substring(localStart, localEnd)
             override fun range(): TextRange = TextRange(statementStart + localStart, statementStart + localEnd)
