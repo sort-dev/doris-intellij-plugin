@@ -18,6 +18,7 @@ import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.families.ModNamingFamily
 import com.intellij.database.util.TreePattern
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 import dev.sort.doris.DorisCatalogs
 
 /**
@@ -232,9 +233,10 @@ class DorisIntrospector(
                 try {
                     val names = runCatalogScopedOrFallback(
                         transaction, catalog, "SHOW DATABASES",
-                        primary = { it.query(DorisCatalogQueries.listDatabasesIn(catalog)).run() },
-                        fallback = { it.query(DorisCatalogQueries.LIST_DATABASES_CURRENT).run() },
-                    ).orEmpty()
+                        primary = { it.performQuery(DorisCatalogQueries.listDatabasesIn(catalog)) },
+                        fallback = { it.performQuery(DorisCatalogQueries.LIST_DATABASES_CURRENT) },
+                    )
+                    validateDatabaseInventory(names)
                     DorisCatalogs.info("catalog '$catalog' databases -> ${names.toList()}")
                     // Queries above run OUTSIDE the model lock; family mutations run inside the
                     // sanctioned write context (0.4.0 P1 `Session not started` fix, see
@@ -320,21 +322,39 @@ class DorisIntrospector(
             val tables = runCatalogScopedOrFallback(
                 transaction, catalog, "information_schema.tables",
                 primary = {
-                    it.query(DorisCatalogQueries.listTablesIn(catalog)).withParams(schemaName).run()
+                    it.performQuery(
+                        DorisCatalogQueries.listTablesIn(catalog),
+                        emptyMap(),
+                        schemaName,
+                    )
                 },
                 fallback = {
-                    it.query(DorisCatalogQueries.LIST_TABLES_CURRENT).withParams(schemaName).run()
+                    it.performQuery(
+                        DorisCatalogQueries.LIST_TABLES_CURRENT,
+                        emptyMap(),
+                        schemaName,
+                    )
                 },
-            ).orEmpty()
-            val columnsByTable = runCatalogScopedOrFallback(
+            )
+            val columns = runCatalogScopedOrFallback(
                 transaction, catalog, "information_schema.columns",
                 primary = {
-                    it.query(DorisCatalogQueries.listColumnsIn(catalog)).withParams(schemaName).run()
+                    it.performQuery(
+                        DorisCatalogQueries.listColumnsIn(catalog),
+                        emptyMap(),
+                        schemaName,
+                    )
                 },
                 fallback = {
-                    it.query(DorisCatalogQueries.LIST_COLUMNS_CURRENT).withParams(schemaName).run()
+                    it.performQuery(
+                        DorisCatalogQueries.LIST_COLUMNS_CURRENT,
+                        emptyMap(),
+                        schemaName,
+                    )
                 },
-            ).orEmpty().groupBy { it.TABLE_NAME }
+            )
+            validateObjectInventory(tables, columns)
+            val columnsByTable = columns.groupBy { it.TABLE_NAME!!.lowercase() }
 
             // Queries above run OUTSIDE the model lock; table/view/column family mutations run
             // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
@@ -504,9 +524,9 @@ private typealias MsqlFactory =
  * catalog is captured *before* the switch and re-`SWITCH`ed in a `finally`, so the pooled
  * connection is returned to its next borrower exactly as it was found (REVIEW-kimi3.md R1;
  * previously a completed or failed fallback could leave a console inheriting our catalog).
- * If the capture probe fails, the restore targets the connect-time default and says so in
- * the log (see [restoreOriginalCatalog]). A failure of the fallback itself propagates to the
- * per-catalog/per-schema catch, which logs and skips just that catalog/schema.
+ * If the capture probe fails or returns malformed data, no `SWITCH` is attempted. Once a switch
+ * has been attempted, restoration also runs when the switch or fallback is cancelled or throws.
+ * A restore failure propagates because returning the connection in an unknown state is unsafe.
  */
 internal fun <T> runCatalogScopedOrFallback(
     transaction: DBTransaction,
@@ -537,11 +557,20 @@ internal fun <T> runCatalogScopedOrFallback(
             t,
         )
         val originalCatalog = readCurrentCatalog(transaction)
-        transaction.command(DorisCatalogQueries.switchCatalog(catalog)).run()
+        var operationFailure: Throwable? = null
         try {
+            transaction.command(DorisCatalogQueries.switchCatalog(catalog)).runOnce()
             fallback(transaction)
+        } catch (t: Throwable) {
+            operationFailure = t
+            throw t
         } finally {
-            restoreOriginalCatalog(transaction, originalCatalog)
+            try {
+                restoreOriginalCatalog(transaction, originalCatalog)
+            } catch (restoreFailure: Throwable) {
+                operationFailure?.let(restoreFailure::addSuppressed)
+                throw restoreFailure
+            }
         }
     }
 }
@@ -575,35 +604,19 @@ internal fun isConnectivityError(t: Throwable): Boolean {
 }
 
 /**
- * R1: best-effort read of the session's current catalog before the fallback's `SWITCH`, so it
- * can be restored afterwards. Null (with a debug log) if the probe fails — the restore then
- * targets the connect-time default, see [restoreOriginalCatalog].
+ * Read the session's current catalog before the fallback's `SWITCH`. A failed, empty, or malformed
+ * probe aborts the fallback because there is no safe restore target.
  */
-internal fun readCurrentCatalog(transaction: DBTransaction): String? {
-    return try {
-        transaction.query(DorisCatalogQueries.READ_CURRENT_CATALOG).run()
-            ?.firstOrNull()?.takeUnless { it.isBlank() }
-    } catch (pce: ProcessCanceledException) {
-        // Runs before any SWITCH, so a cancel here can propagate cleanly (nothing to restore) (R2).
-        throw pce
-    } catch (t: Throwable) {
-        DorisCatalogs.debug(
-            "current-catalog probe failed before SWITCH (${t.message}); " +
-                "the restore will target the connect-time default",
-        )
-        null
+internal fun readCurrentCatalog(transaction: DBTransaction): String {
+    val rows = checkNotNull(transaction.query(DorisCatalogQueries.READ_CURRENT_CATALOG).runOnce()) {
+        "current-catalog probe returned no result; refusing SWITCH fallback"
     }
+    require(rows.size == 1 && rows[0].isNotBlank()) {
+        "current-catalog probe returned malformed data; refusing SWITCH fallback"
+    }
+    return rows[0]
 }
 
-/**
- * R1: undo the fallback's session-state mutation on a pooled connection. Runs in the
- * fallback's `finally`, so it also fires when the fallback query throws. Best-effort: a
- * failed restore is logged, never thrown — it must not mask the fallback's own result or
- * failure. When [original] is unknown (probe failed), restores to
- * [DorisCatalogScopes.INTERNAL_CATALOG] — the connect-time default every new Doris session
- * starts in (the same assumption the search-path read-back and the `IsCurrent` fallback
- * already make).
- */
 /**
  * Attaches the `information_schema.columns` rows to a table's or view's column family — shared by
  * the table and view branches since M10 (M5 item 2 semantics: stored type from COLUMN_TYPE/DATA_TYPE
@@ -619,15 +632,11 @@ internal fun attachColumns(
     columns: com.intellij.database.model.families.ModPositioningNamingFamily<
         out com.intellij.database.model.basic.BasicModTableOrViewColumn,
         >,
-    rows: List<DorisCatalogQueries.ColumnRow>?,
+    rows: List<DorisCatalogQueries.ColumnRow>,
 ) {
-    // null => this table had no rows in the columns result (ambiguous — could be an incomplete
-    // fetch); leave existing columns untouched rather than risk wiping a live table's columns.
-    // A non-null (even empty) result is authoritative, so run the sync-pending sweep.
-    if (rows == null) return
     columns.markChildrenAsSyncPending()
     for (col in rows) {
-        val colName = col.COLUMN_NAME ?: continue
+        val colName = col.COLUMN_NAME!!
         val column = columns.createOrGet(colName)
         DorisCatalogQueries.columnDasType(col.DATA_TYPE, col.COLUMN_TYPE)
             ?.let { dasType -> column.setStoredType(dasType) }
@@ -651,7 +660,6 @@ internal data class TableViewCounts(val tables: Int, val views: Int)
 internal fun attachSchemas(database: MsDatabase, names: Array<out String>) {
     database.schemas.markChildrenAsSyncPending()
     for (name in names) {
-        if (name.isBlank()) continue
         database.schemas.createOrGet(name)
     }
     database.schemas.removeSyncPendingChildren()
@@ -668,19 +676,20 @@ internal fun attachSchemas(database: MsDatabase, names: Array<out String>) {
 internal fun attachTablesAndViews(
     schema: MsSchema,
     tables: List<DorisCatalogQueries.TableRow>,
-    columnsByTable: Map<String?, List<DorisCatalogQueries.ColumnRow>>,
+    columnsByTable: Map<String, List<DorisCatalogQueries.ColumnRow>>,
 ): TableViewCounts {
     schema.tables.markChildrenAsSyncPending()
     schema.views.markChildrenAsSyncPending()
     var tableCount = 0
     var viewCount = 0
     for (t in tables) {
-        val name = t.TABLE_NAME ?: continue
+        val name = t.TABLE_NAME!!
+        val columns = columnsByTable[name.lowercase()].orEmpty()
         if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-            attachColumns(schema.views.createOrGet(name).columns, columnsByTable[name])
+            attachColumns(schema.views.createOrGet(name).columns, columns)
             viewCount++
         } else {
-            attachColumns(schema.tables.createOrGet(name).columns, columnsByTable[name])
+            attachColumns(schema.tables.createOrGet(name).columns, columns)
             tableCount++
         }
     }
@@ -689,26 +698,64 @@ internal fun attachTablesAndViews(
     return TableViewCounts(tableCount, viewCount)
 }
 
-internal fun restoreOriginalCatalog(transaction: DBTransaction, original: String?) {
-    val target = original ?: DorisCatalogScopes.INTERNAL_CATALOG
+/**
+ * Undo the fallback's session-state mutation on a pooled connection. Cancellation is suppressed
+ * only while the restore command runs; the caller then propagates the original cancellation. A
+ * restore failure propagates rather than accepting a result from an unsafe connection.
+ */
+internal fun restoreOriginalCatalog(transaction: DBTransaction, original: String) {
     try {
-        transaction.command(DorisCatalogQueries.switchCatalog(target)).run()
-        if (original == null) {
-            DorisCatalogs.warn(
-                "fallback restore: original catalog unknown (probe failed); " +
-                    "SWITCHed back to the connect-time default '$target'",
-            )
-        } else {
-            DorisCatalogs.info("fallback restore: SWITCHed back to '$target'")
+        ProgressManager.getInstance().executeNonCancelableSection {
+            transaction.command(DorisCatalogQueries.switchCatalog(original)).runOnce()
         }
+        DorisCatalogs.info("fallback restore: SWITCHed back to '$original'")
     } catch (t: Throwable) {
-        // Deliberately catches Throwable *including* ProcessCanceledException (unlike the R2 sites
-        // above): this runs in the fallback's `finally` and must never replace the fallback's own
-        // result or exception. A cancel is picked up at the next progress checkpoint instead.
         DorisCatalogs.warn(
-            "failed to restore session catalog to '$target' after fallback; " +
-                "the pooled connection may be left switched to a fallback catalog",
+            "failed to restore session catalog to '$original' after fallback; " +
+                "refusing to return a result from a connection in an unknown state",
             t,
         )
+        throw t
+    }
+}
+
+internal fun validateDatabaseInventory(names: Array<out String>?) {
+    requireNotNull(names) { "SHOW DATABASES returned no result" }
+    require(names.all { it.isNotBlank() }) { "SHOW DATABASES returned a blank database name" }
+    require(names.map { it.lowercase() }.toSet().size == names.size) {
+        "SHOW DATABASES returned duplicate database names"
+    }
+}
+
+internal fun validateObjectInventory(
+    tables: List<DorisCatalogQueries.TableRow>?,
+    columns: List<DorisCatalogQueries.ColumnRow>?,
+) {
+    requireNotNull(tables) { "information_schema.tables returned no result" }
+    requireNotNull(columns) { "information_schema.columns returned no result" }
+    require(tables.all { !it.TABLE_NAME.isNullOrBlank() && !it.TABLE_TYPE.isNullOrBlank() }) {
+        "information_schema.tables returned a row without table identity"
+    }
+    val tableNames = tables.map { it.TABLE_NAME!!.lowercase() }
+    require(tableNames.toSet().size == tableNames.size) {
+        "information_schema.tables returned duplicate table names"
+    }
+    require(columns.all {
+        !it.TABLE_NAME.isNullOrBlank() && !it.COLUMN_NAME.isNullOrBlank() &&
+            it.ORDINAL_POSITION in 1..Short.MAX_VALUE.toLong()
+    }) {
+        "information_schema.columns returned a row without column identity"
+    }
+    val tableNameSet = tableNames.toSet()
+    require(columns.all { it.TABLE_NAME!!.lowercase() in tableNameSet }) {
+        "information_schema.columns returned a row for an unknown table"
+    }
+    val columnNames = columns.map { it.TABLE_NAME!!.lowercase() to it.COLUMN_NAME!!.lowercase() }
+    require(columnNames.toSet().size == columnNames.size) {
+        "information_schema.columns returned duplicate column names"
+    }
+    val positions = columns.map { it.TABLE_NAME!!.lowercase() to it.ORDINAL_POSITION }
+    require(positions.toSet().size == positions.size) {
+        "information_schema.columns returned duplicate column positions"
     }
 }

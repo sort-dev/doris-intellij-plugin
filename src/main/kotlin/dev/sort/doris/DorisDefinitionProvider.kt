@@ -10,6 +10,7 @@ import com.intellij.database.remote.jdbc.RemoteResultSet
 import com.intellij.database.remote.jdbc.RemoteStatement
 import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
 import com.intellij.database.util.DasUtil
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.util.PairConsumer
 
@@ -27,14 +28,24 @@ class DorisDefinitionProvider : AbstractDefinitionProvider() {
 
         try {
             for (obj in objects) {
-                try {
-                    consumer.consume(obj, loadDefinition(statement, obj) ?: "")
-                } catch (t: Throwable) {
-                    consumer.consume(obj, t)
-                }
+                consumeSource(obj, consumer) { loadDefinition(statement, obj) }
             }
         } finally {
             JdbcNativeUtil.closeRemoteStatementSafe(statement)
+        }
+    }
+
+    internal fun consumeSource(
+        obj: DasObject,
+        consumer: PairConsumer<DasObject, Any>,
+        loader: () -> String?,
+    ) {
+        try {
+            consumer.consume(obj, loader() ?: "")
+        } catch (pce: ProcessCanceledException) {
+            throw pce
+        } catch (t: Throwable) {
+            consumer.consume(obj, t)
         }
     }
 

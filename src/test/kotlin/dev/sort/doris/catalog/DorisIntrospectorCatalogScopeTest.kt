@@ -56,6 +56,7 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
             listOf("QUERY:${DorisCatalogQueries.SELECT_CURRENT_CATALOG}", switch("target_cat"), "FALLBACK", switch("orig_cat")),
             tx.events,
         )
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
     /** The restore runs from the `finally`, so a throwing fallback still leaves the catalog restored. */
@@ -75,30 +76,112 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
         assertEquals("fallback boom", thrown?.message)
         // Restore still happened despite the fallback throwing.
         assertEquals(listOf(switch("target_cat"), switch("orig_cat")), tx.commands)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
-    /** Probe fails → the original catalog is unknown → restore targets the connect-time default. */
-    fun testRestoreTargetsInternalWhenProbeFails() {
+    /** Probe failure leaves the original state unknown, so the mutating fallback must be refused. */
+    fun testProbeFailureRefusesFallbackWithoutSwitching() {
         val tx = RecordingTransaction(currentCatalog = { throw RuntimeException("current_catalog() unsupported") })
-        val result = runCatalogScopedOrFallback(
-            tx, "target_cat", "SHOW DATABASES",
-            primary = { throw RuntimeException("qualified form unsupported") },
-            fallback = { "OK" },
-        )
-        assertEquals("OK", result)
-        assertEquals(listOf(switch("target_cat"), switch(DorisCatalogScopes.INTERNAL_CATALOG)), tx.commands)
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { fail("fallback must not run without a restore target"); "" },
+            )
+            fail("expected probe failure")
+        } catch (e: RuntimeException) {
+            assertEquals("current_catalog() unsupported", e.message)
+        }
+        assertTrue(tx.commands.isEmpty())
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
-    /** A failing restore is swallowed — it must never mask the fallback's own (successful) result. */
-    fun testRestoreFailureDoesNotMaskFallbackResult() {
+    fun testMalformedProbeRefusesFallbackWithoutSwitching() {
+        for (probe in listOf(emptyArray(), arrayOf(" "), arrayOf("one", "two"))) {
+            val tx = RecordingTransaction(currentCatalog = { probe })
+            try {
+                runCatalogScopedOrFallback(
+                    tx, "target_cat", "SHOW DATABASES",
+                    primary = { throw RuntimeException("qualified form unsupported") },
+                    fallback = { fail("fallback must not run after a malformed probe"); "" },
+                )
+                fail("expected malformed probe failure")
+            } catch (_: IllegalArgumentException) {
+                // Expected safe refusal.
+            }
+            assertTrue(tx.commands.isEmpty())
+            assertEquals(tx.runnersCreated, tx.runnersClosed)
+        }
+    }
+
+    /** A successful fallback result is rejected when the original catalog cannot be restored. */
+    fun testRestoreFailureRejectsFallbackResult() {
         // Fail only the restore SWITCH (the one that targets the original catalog).
         val tx = RecordingTransaction(currentCatalog = { arrayOf("orig_cat") }, failCommandSubstring = "orig_cat")
-        val result = runCatalogScopedOrFallback(
-            tx, "target_cat", "SHOW DATABASES",
-            primary = { throw RuntimeException("qualified form unsupported") },
-            fallback = { "OK" },
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { "OK" },
+            )
+            fail("expected restore failure")
+        } catch (e: RuntimeException) {
+            assertTrue(e.message.orEmpty().contains("injected command failure"))
+        }
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    fun testInitialSwitchFailureStillRestoresOriginalCatalog() {
+        val tx = RecordingTransaction(currentCatalog = { arrayOf("orig_cat") }, failCommandSubstring = "target_cat")
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { fail("fallback must not run after a failed SWITCH"); "" },
+            )
+            fail("expected SWITCH failure")
+        } catch (e: RuntimeException) {
+            assertTrue(e.message.orEmpty().contains("injected command failure"))
+        }
+        assertEquals(listOf(switch("target_cat"), switch("orig_cat")), tx.commands)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    fun testInitialSwitchCancellationStillRestoresAndPropagatesCancellation() {
+        val cancellation = ProcessCanceledException()
+        val tx = RecordingTransaction(
+            currentCatalog = { arrayOf("orig_cat") },
+            commandFailure = { command -> if (command.contains("target_cat")) cancellation else null },
         )
-        assertEquals("OK", result)
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { fail("fallback must not run after a cancelled SWITCH"); "" },
+            )
+            fail("expected ProcessCanceledException")
+        } catch (thrown: ProcessCanceledException) {
+            assertSame(cancellation, thrown)
+        }
+        assertEquals(listOf(switch("target_cat"), switch("orig_cat")), tx.commands)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    fun testFallbackCancellationRestoresAndPropagatesCancellation() {
+        val cancellation = ProcessCanceledException()
+        val tx = RecordingTransaction(currentCatalog = { arrayOf("orig_cat") })
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { throw cancellation },
+            )
+            fail("expected ProcessCanceledException")
+        } catch (thrown: ProcessCanceledException) {
+            assertSame(cancellation, thrown)
+        }
+        assertEquals(listOf(switch("target_cat"), switch("orig_cat")), tx.commands)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
     /**
@@ -182,39 +265,49 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
      * restore. Only the two overloads the code under test uses are functional.
      */
     private class RecordingTransaction(
-        private val currentCatalog: () -> Array<String>,
+        private val currentCatalog: () -> Array<String>?,
         private val failCommandSubstring: String? = null,
+        private val commandFailure: (String) -> Throwable? = { null },
     ) : DBTransaction {
         /** SWITCH commands only, in order. */
         val commands = mutableListOf<String>()
         /** Every event (probe queries + SWITCH commands + test-injected markers), in order. */
         val events = mutableListOf<String>()
+        var runnersCreated = 0
+        var runnersClosed = 0
 
-        override fun command(command: String): DBCommandRunner = object : DBCommandRunner {
-            override fun withParams(vararg params: Any?): DBCommandRunner = this
-            override fun run(): DBCommandRunner {
-                commands.add(command)
-                events.add(command)
-                if (failCommandSubstring != null && command.contains(failCommandSubstring)) {
-                    throw RuntimeException("injected command failure: $command")
+        override fun command(command: String): DBCommandRunner {
+            runnersCreated++
+            return object : DBCommandRunner {
+                override fun withParams(vararg params: Any?): DBCommandRunner = this
+                override fun run(): DBCommandRunner {
+                    commands.add(command)
+                    events.add(command)
+                    if (failCommandSubstring != null && command.contains(failCommandSubstring)) {
+                        throw RuntimeException("injected command failure: $command")
+                    }
+                    commandFailure(command)?.let { throw it }
+                    return this
                 }
-                return this
+                override fun close() { runnersClosed++ }
             }
-            override fun close() {}
         }
 
         @Suppress("UNCHECKED_CAST")
-        override fun <S : Any?> query(query: SqlQuery<S>): DBQueryRunner<S> = object : DBQueryRunner<S> {
-            override fun withParams(vararg params: Any?): DBQueryRunner<S> = this
-            override fun packBy(packSize: Int): DBQueryRunner<S> = this
-            override fun run(): S {
-                events.add("QUERY:${query.sourceText}")
-                return currentCatalog() as S
+        override fun <S : Any?> query(query: SqlQuery<S>): DBQueryRunner<S> {
+            runnersCreated++
+            return object : DBQueryRunner<S> {
+                override fun withParams(vararg params: Any?): DBQueryRunner<S> = this
+                override fun packBy(packSize: Int): DBQueryRunner<S> = this
+                override fun run(): S {
+                    events.add("QUERY:${query.sourceText}")
+                    return currentCatalog() as S
+                }
+                override fun start() {}
+                override fun nextPack(): S = unsupported()
+                override fun close() { runnersClosed++ }
+                override fun <I : Any?> getSpecificService(serviceClass: Class<I>, serviceName: String): I = unsupported()
             }
-            override fun start() {}
-            override fun nextPack(): S = unsupported()
-            override fun close() {}
-            override fun <I : Any?> getSpecificService(serviceClass: Class<I>, serviceName: String): I = unsupported()
         }
 
         override fun command(command: SqlCommand): DBCommandRunner = unsupported()

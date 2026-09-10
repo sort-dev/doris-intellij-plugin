@@ -10,7 +10,9 @@ import com.intellij.database.model.basic.BasicModModel
 import com.intellij.database.model.basic.BasicSourceAware
 import com.intellij.database.model.properties.CompositeText
 import com.intellij.database.util.ObjectNamePart
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.PairConsumer
 import org.apache.doris.sqlparser.DorisSqlParser
 
 class DorisDefinitionProviderTest : BasePlatformTestCase() {
@@ -60,6 +62,22 @@ class DorisDefinitionProviderTest : BasePlatformTestCase() {
         assertEquals("SHOW CREATE DATABASE `sales`", provider.buildShowCreateSql(schema))
         assertEquals("SHOW CREATE TABLE `sales`.`orders`", provider.buildShowCreateSql(table))
         assertEquals("SHOW CREATE VIEW `sales`.`orders_v`", provider.buildShowCreateSql(view))
+    }
+
+    fun testCancellationEscapesSourceConsumption() {
+        val model = ModelFactory(NoopStorage()).createModel(DorisDbms.DORIS)
+        val table = (model.root as MsRoot).databases.createOrGet("internal")
+            .schemas.createOrGet("sales").tables.createOrGet("orders")
+        val cancellation = ProcessCanceledException()
+        var consumed = false
+
+        try {
+            provider.consumeSource(table, PairConsumer { _, _ -> consumed = true }) { throw cancellation }
+            fail("expected ProcessCanceledException")
+        } catch (thrown: ProcessCanceledException) {
+            assertSame(cancellation, thrown)
+        }
+        assertFalse("cancellation must not be delivered as an object definition", consumed)
     }
 
     private class NoopStorage : ModelTextStorage {

@@ -58,11 +58,12 @@ class DorisIntrospectorObjectSyncTest : BasePlatformTestCase() {
         assertEquals("dropped database must be pruned", listOf("keep_db"), database.schemas.map { it.name })
     }
 
-    fun testBlankDatabaseNamesAreSkipped() {
+    fun testEmptyDatabaseInventoryIsAuthoritative() {
         val model = newModel()
         val database = databaseOf(model)
-        DorisModelWrite.write(model) { attachSchemas(database, arrayOf("real_db", "  ", "")) }
-        assertEquals(listOf("real_db"), database.schemas.map { it.name })
+        DorisModelWrite.write(model) { attachSchemas(database, arrayOf("real_db")) }
+        DorisModelWrite.write(model) { attachSchemas(database, emptyArray()) }
+        assertTrue(database.schemas.isEmpty())
     }
 
     // ---- tables + views (attachTablesAndViews) ---------------------------------------------------

@@ -75,12 +75,12 @@ class DorisIntrospectorColumnSyncTest : BasePlatformTestCase() {
         assertEquals(listOf("abc", "xyz"), columnNames(model))
     }
 
-    /** A null column result (ambiguous/incomplete fetch) must leave existing columns untouched. */
-    fun testNullRowsLeavesExistingColumnsUntouched() {
+    /** A successful empty column inventory is authoritative and prunes cached columns. */
+    fun testEmptyRowsPruneExistingColumns() {
         val model = newModel()
         val columns = columnFamilyOf(model)
         DorisModelWrite.write(model) { attachColumns(columns, listOf(col("abc", 1))) }
-        DorisModelWrite.write(model) { attachColumns(columns, null) }
-        assertEquals("null rows must not wipe a live table's columns", listOf("abc"), columnNames(model))
+        DorisModelWrite.write(model) { attachColumns(columns, emptyList()) }
+        assertTrue(columns.isEmpty())
     }
 }
