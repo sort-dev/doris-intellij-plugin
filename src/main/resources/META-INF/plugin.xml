@@ -55,6 +55,17 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.1</b> — safer PIPE execution and catalog handling.
+        <ul>
+            <li><b>PIPE execution follows DataGrip.</b> Statement scope, parameters, request ownership,
+                generated-SQL validation, diagnostics, completion, stage execution and Explain Plan
+                now retain platform behavior while failing closed on unsafe translations.</li>
+            <li><b>Catalog refreshes preserve good metadata.</b> Failed or malformed catalog, database,
+                table and column inventories no longer erase the last successful model; catalog-qualified
+                definition retrieval and fallback restoration avoid wrong-catalog results.</li>
+            <li><b>Connector/J URL validation supports real deployments.</b> Multi-host, load-balance,
+                replication, IPv6 and host-property URLs are validated without false missing-host errors.</li>
+        </ul>
         <b>1.3.0</b> — smarter function completion and fresher introspection.
         <ul>
             <li><b>Function completion shows signatures.</b> Doris built-in functions now complete
