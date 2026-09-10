@@ -252,7 +252,7 @@ object DorisPipesEngine {
             } ?: continue
             out.add(DorisSyntaxError(
                 line = chunk.startLine + (error.line ?: 1) - 1,
-                col = (error.col ?: 1).coerceAtLeast(0),
+                col = ((error.col ?: 1) - 1).coerceAtLeast(0),
                 length = 2,
                 message = "$DORIS_PIPE_DIAGNOSTIC_PREFIX ${error.message}",
             ))

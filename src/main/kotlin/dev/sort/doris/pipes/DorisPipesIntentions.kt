@@ -15,6 +15,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.PsiFile
 import dev.sort.doris.sql.DorisSqlDialect
+import dev.sort.doris.DorisDbms
 import java.awt.Dimension
 import java.awt.BorderLayout
 import javax.swing.JComponent
@@ -84,6 +85,10 @@ internal object DorisPipesUi {
                 "Attach/connect the console (run any statement once), then retry.",
                 NotificationType.WARNING,
             )
+            return
+        }
+        if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) {
+            notify(project, "Not a Doris console", "Run-to-stage requires a console connected with the Apache Doris driver.", NotificationType.WARNING)
             return
         }
         val rel = editor.caretModel.offset - chunk.startOffset

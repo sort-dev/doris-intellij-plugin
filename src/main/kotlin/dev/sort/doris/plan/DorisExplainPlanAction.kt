@@ -16,6 +16,8 @@ import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import dev.sort.doris.DorisDbms
+import dev.sort.doris.pipes.DorisPipes
+import dev.sort.doris.pipes.DorisPipesEngine
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -51,6 +53,14 @@ class DorisExplainPlanAction : ExplainActionBase.Ui.Plan() {
             return
         }
         val project = session.project
+        val prepared = prepareDorisExplainSql(sql, DorisPipes.isEnabled(project))
+        if (prepared.error != null) {
+            ApplicationManager.getApplication().invokeLater {
+                showPlanPopup(project, "EXPLAIN was not run:\n\n${prepared.error}")
+            }
+            return
+        }
+        val executableSql = checkNotNull(prepared.sql)
         // Match the console's current database so unqualified table names resolve the same way they
         // do in the console (best-effort — a qualified query or a data-source default still works).
         val namespace = try {
@@ -60,7 +70,7 @@ class DorisExplainPlanAction : ExplainActionBase.Ui.Plan() {
         }
         // EXPLAIN runs off the EDT (helper connection + remote calls); the popup shows back on the EDT.
         ApplicationManager.getApplication().executeOnPooledThread {
-            val planText = runExplain(session.project, session.connectionPoint, namespace, sql)
+            val planText = runExplain(session.project, session.connectionPoint, namespace, executableSql)
             ApplicationManager.getApplication().invokeLater { showPlanPopup(project, planText) }
         }
     }
@@ -189,5 +199,22 @@ class DorisExplainPlanAction : ExplainActionBase.Ui.Plan() {
 
     private companion object {
         val LOG = Logger.getInstance(DorisExplainPlanAction::class.java)
+    }
+}
+
+internal data class PreparedExplainSql(val sql: String?, val error: String?)
+
+internal fun prepareDorisExplainSql(sql: String, pipesEnabled: Boolean): PreparedExplainSql {
+    if (!pipesEnabled || !DorisPipes.containsPipeOperator(sql)) return PreparedExplainSql(sql, null)
+    return when (val result = DorisPipesEngine.transpile(sql)) {
+        is DorisPipesEngine.Transpile.Err -> PreparedExplainSql(null, result.message)
+        DorisPipesEngine.Transpile.NotPipe ->
+            PreparedExplainSql(null, "The selected text contains PIPE syntax but is not an executable PIPE query.")
+        is DorisPipesEngine.Transpile.Ok -> when {
+            result.executionError != null -> PreparedExplainSql(null, result.executionError!!.message)
+            DorisPipes.namedParameterRanges(result.dorisSql).isNotEmpty() ->
+                PreparedExplainSql(null, "PIPE parameters must be resolved with Execute before EXPLAIN.")
+            else -> PreparedExplainSql(result.dorisSql, null)
+        }
     }
 }

@@ -329,7 +329,7 @@ object DorisPipes {
     data class ExecMark(val start: Int, val end: Int, val message: String, val docHash: Int)
 
     fun setExecMark(project: Project, url: String, mark: ExecMark) {
-        if (!project.isDisposed) project.service<DorisPipesSettings>().execMarks[url] = mark
+        if (!project.isDisposed && isEnabled(project)) project.service<DorisPipesSettings>().execMarks[url] = mark
     }
 
     fun clearExecMark(project: Project, url: String) { project.service<DorisPipesSettings>().execMarks.remove(url) }
@@ -380,7 +380,16 @@ object DorisPipes {
         val originalLines = originalText.lines()
         val exact = originalLines.indexOfFirst { it.contains(token) }
         val found = if (exact >= 0) exact else originalLines.indexOfFirst { it.contains(token, ignoreCase = true) }
-        return MappedError(token, if (found >= 0) found + 1 else null, line, pos)
+        val occurrences = Regex(Regex.escape(token), RegexOption.IGNORE_CASE).findAll(originalText).toList()
+        val unique = occurrences.singleOrNull()?.range
+        return MappedError(
+            token,
+            if (found >= 0) found + 1 else null,
+            line,
+            pos,
+            unique?.first,
+            unique?.last,
+        )
     }
 
     /** True when 1-based [line] falls inside a chunk that carries the pipe marker. */

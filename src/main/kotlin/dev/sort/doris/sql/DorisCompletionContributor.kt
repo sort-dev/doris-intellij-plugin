@@ -228,8 +228,13 @@ class DorisCompletionContributor : CompletionContributor() {
             rel: Int,
         ): Boolean {
             runCatching {
+                val sourceText = chunkText.substring(0, rel)
+                var visibleText = dev.sort.doris.pipes.DorisPipes.codeBefore(chunkText, rel)
+                if (sourceText.endsWith('`') && visibleText.isNotEmpty()) {
+                    visibleText = visibleText.dropLast(1) + '`'
+                }
                 val m = Regex("""\b(?:FROM|JOIN)\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
-                    .find(chunkText.substring(0, rel)) ?: return false
+                    .find(visibleText) ?: return false
                 val parents = m.groupValues[1].split('.').map { it.trim('`') }.dropLast(1)
                 val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return true
                 val local = console.session.connectionPoint.dataSource

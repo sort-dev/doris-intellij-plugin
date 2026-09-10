@@ -184,6 +184,27 @@ class DorisIntrospectorCatalogScopeTest : BasePlatformTestCase() {
         assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
+    fun testFallbackCancellationRemainsPrimaryWhenRestoreFails() {
+        val cancellation = ProcessCanceledException()
+        val tx = RecordingTransaction(
+            currentCatalog = { arrayOf("orig_cat") },
+            failCommandSubstring = "orig_cat",
+        )
+        try {
+            runCatalogScopedOrFallback(
+                tx, "target_cat", "SHOW DATABASES",
+                primary = { throw RuntimeException("qualified form unsupported") },
+                fallback = { throw cancellation },
+            )
+            fail("expected ProcessCanceledException")
+        } catch (thrown: ProcessCanceledException) {
+            assertSame(cancellation, thrown)
+            assertEquals(1, thrown.suppressed.size)
+            assertTrue(thrown.suppressed.single().message.orEmpty().contains("injected command failure"))
+        }
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
     /**
      * R2 (REVIEW-kimi3.md): a cancelled *primary* query must propagate — not be mistaken for an
      * "older Doris" signal and trigger a spurious SWITCH + fallback.

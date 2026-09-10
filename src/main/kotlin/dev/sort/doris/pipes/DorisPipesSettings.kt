@@ -32,6 +32,7 @@ class DorisPipesSettings(private val project: Project) :
         set(value) {
             if (state.enabled == value) return
             updateState { it.copy(enabled = value) }
+            if (!value) execMarks.clear()
             refreshFiles()
         }
 
@@ -40,6 +41,7 @@ class DorisPipesSettings(private val project: Project) :
     override fun loadState(state: Options) {
         val changed = state.enabled != this.state.enabled
         super.loadState(state)
+        if (!state.enabled) execMarks.clear()
         // Initial loading may happen while the parser is requesting the service.
         if (initialized && changed) refreshFiles()
     }

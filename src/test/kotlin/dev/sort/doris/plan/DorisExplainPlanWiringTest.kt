@@ -43,4 +43,22 @@ class DorisExplainPlanWiringTest : BasePlatformTestCase() {
             superNames.any { it.startsWith("com.intellij.database.actions.ExplainActionBase") },
         )
     }
+
+    fun testPipeExplainUsesGeneratedSqlAndFailsClosed() {
+        val source = "FROM t |> WHERE id > 0 |> SELECT id"
+        val prepared = prepareDorisExplainSql(source, pipesEnabled = true)
+        assertNull(prepared.error)
+        assertNotNull(prepared.sql)
+        assertFalse(prepared.sql!!.contains("|>"))
+        assertTrue(prepared.sql!!.contains("WHERE"))
+
+        val parameter = prepareDorisExplainSql("FROM t |> WHERE id = :id", pipesEnabled = true)
+        assertNull(parameter.sql)
+        assertTrue(parameter.error!!.contains("parameters"))
+        assertEquals(source, prepareDorisExplainSql(source, pipesEnabled = false).sql)
+
+        val claimedCommand = prepareDorisExplainSql("RENAME TABLE a TO b |> LIMIT 1", pipesEnabled = true)
+        assertNull(claimedCommand.sql)
+        assertTrue(claimedCommand.error!!.contains("not an executable PIPE query"))
+    }
 }

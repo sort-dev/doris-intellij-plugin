@@ -520,7 +520,7 @@ internal object DorisPipesExecution {
         markAnchor: Int,
         markDocHash: Int,
     ) {
-        runs[request] = PipeRun(console, dorisSql, originalText, transpile, markFile, markAnchor, markDocHash)
+        runs[request] = PipeRun(console, dorisSql, originalText.trimStart(), transpile, markFile, markAnchor, markDocHash)
         ensureAuditor(console)
     }
 

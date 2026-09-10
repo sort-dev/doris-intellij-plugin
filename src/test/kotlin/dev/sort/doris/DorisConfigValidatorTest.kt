@@ -46,6 +46,50 @@ class DorisConfigValidatorTest : BasePlatformTestCase() {
         assertEquals(setOf("doris.port.missing"), problemIds("jdbc:mysql://fe1/db?dnsSrv=true"))
     }
 
+    fun testMalformedPercentEscapesAnywhereInConnectorJUrlAreInvalid() {
+        val urls = listOf(
+            "jdbc:mysql://u%:p@fe1:9030/db",
+            "jdbc:mysql://fe%ZZ:9030/db",
+            "jdbc:mysql://fe1:9030/d%2",
+            "jdbc:mysql://fe1:9030/db?use%SSL=false",
+            "jdbc:mysql://fe1:9030/db#bad%escape",
+        )
+        for (url in urls) {
+            assertTrue("$url -> ${problemIds(url)}", "doris.url.invalid" in problemIds(url))
+        }
+    }
+
+    fun testEncodedAuthorityPortsAndHostPropertyKeysAreDecoded() {
+        assertEmpty(problemIds("jdbc:mysql://fe1:%39%30%33%30/db"))
+        assertEmpty(problemIds("jdbc:mysql://[2001:db8::1]:%39%30%33%30/db"))
+        assertEquals(setOf("doris.port.mysql"), problemIds("jdbc:mysql://fe1:%33%33%30%36/db"))
+        assertEmpty(problemIds("jdbc:mysql://(%68ost=fe1,%70ort=%39%30%33%30)/db"))
+        assertEmpty(problemIds("jdbc:mysql://address=(%68ost=fe1)(%70ort=%39%30%33%30)/db"))
+    }
+
+    fun testBracketedHostSublistsExposeAllEndpointWarnings() {
+        assertEquals(setOf("doris.port.mysql", "doris.port.missing"),
+            problemIds("jdbc:mysql://[fe1:3306,fe2]/db"))
+        assertEquals(setOf("doris.port.mysql"),
+            problemIds("jdbc:mysql://u:p@[fe1:3306,fe2],fe3:9030/db?port=9030"))
+        assertEquals(setOf("doris.port.mysql", "doris.port.missing"),
+            problemIds("jdbc:mysql://u:p@[fe1:3306,fe2],v:q@[fe3:9030,fe4]/db"))
+        assertEquals(setOf("doris.port.mysql"),
+            problemIds("jdbc:mysql://[(host=[2001:db8::1],port=3306)]/db"))
+    }
+
+    fun testGlobalPortAppliesToExplicitEmptyHostPorts() {
+        val urls = listOf(
+            "jdbc:mysql://fe1:/db?port=9030",
+            "jdbc:mysql://[2001:db8::1]:/db?port=9030",
+            "jdbc:mysql://(host=fe1,port=)/db?port=9030",
+            "jdbc:mysql://address=(host=fe1)(port=)/db?port=9030",
+        )
+        for (url in urls) {
+            assertEquals(url, emptySet<String>(), problemIds(url))
+        }
+    }
+
     fun testMalformedAndMissingHostsRemainErrors() {
         val invalid = listOf(
             "jdbc:mysql://fe1:abc/db",

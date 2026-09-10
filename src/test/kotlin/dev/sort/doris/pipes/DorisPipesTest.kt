@@ -194,6 +194,8 @@ class DorisPipesTest {
         // Engine says relative line 3 of the chunk; the chunk starts on document line 1 (after
         // the ';' on line 1), so the |> on document line 4 is the anchor.
         assertEquals(4, errors.single().line)
+        val engineError = DorisPipesEngine.transpile(DorisPipes.chunks(text).last()) as DorisPipesEngine.Transpile.Err
+        assertEquals(((engineError.col ?: 1) - 1).coerceAtLeast(0), errors.single().col)
         assertTrue(errors.single().message.startsWith("Doris Pipes:"))
     }
 
@@ -389,6 +391,8 @@ class DorisPipesTest {
         assertEquals("event_atx", mapped.token)
         assertEquals(2, mapped.originalLine)
         assertEquals(5, mapped.transpiledLine)
+        assertEquals(original.indexOf("event_atx"), mapped.startOffset)
+        assertEquals(original.indexOf("event_atx") + "event_atx".lastIndex, mapped.endOffset)
     }
 
     @Test

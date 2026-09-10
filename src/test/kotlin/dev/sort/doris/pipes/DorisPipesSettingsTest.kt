@@ -80,6 +80,18 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         assertFalse(DorisPipes.isEnabled(other))
     }
 
+    fun testDisablingPipeClearsServerErrorMarks() {
+        settings.enabled = true
+        val text = "FROM t |> LIMIT 1"
+        DorisPipes.setExecMark(project, "file:///stale.sql", DorisPipes.ExecMark(5, 6, "stale", text.hashCode()))
+        assertNotNull(DorisPipes.execMarkFor(project, "file:///stale.sql", text))
+        settings.enabled = false
+        assertNull(DorisPipes.execMarkFor(project, "file:///stale.sql", text))
+        DorisPipes.setExecMark(project, "file:///stale.sql", DorisPipes.ExecMark(5, 6, "delayed", text.hashCode()))
+        settings.enabled = true
+        assertNull(DorisPipes.execMarkFor(project, "file:///stale.sql", text))
+    }
+
     fun testConfigurableApplyResetAndPersistentStateRoundTrip() {
         val configurable = DorisPipesConfigurable(project)
         try {

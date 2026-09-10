@@ -111,11 +111,12 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
 
     private fun parseConnectorJUrl(url: String): ParsedUrl? {
         val match = MYSQL_SCHEME.find(url) ?: return null
+        if (!hasValidPercentEscapes(url)) return ParsedUrl.Invalid
         val tail = url.substring(match.range.last + 1)
         val authorityEnd = tail.indexOfFirst { it == '/' || it == '?' || it == '#' }.let {
             if (it < 0) tail.length else it
         }
-        var authority = tail.substring(0, authorityEnd)
+        val authority = tail.substring(0, authorityEnd)
         if (authority.isBlank()) return ParsedUrl.MissingHost
         val suffix = tail.substring(authorityEnd)
         if (suffix.startsWith("//")) return ParsedUrl.Invalid
@@ -135,13 +136,6 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
         val globalPort = properties["port"]?.takeIf { it.isNotEmpty() }?.let(::parsePort)
             ?: if (properties["port"]?.isNotEmpty() == true) return ParsedUrl.Invalid else null
 
-        val at = topLevelIndexes(authority, '@') ?: return ParsedUrl.Invalid
-        if (at.size == 1 && authority.substring(at.single() + 1).startsWith('[')) {
-            authority = authority.substring(at.single() + 1)
-        }
-        if (authority.startsWith('[') && authority.endsWith(']') && authority.contains(',')) {
-            authority = authority.substring(1, authority.length - 1)
-        }
         val hosts = splitTopLevel(authority, ',') ?: return ParsedUrl.Invalid
         if (hosts.isEmpty() || hosts.any { it.isBlank() }) return ParsedUrl.Invalid
 
@@ -150,14 +144,18 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
             when (val endpoint = parseEndpoint(hostSpec.trim())) {
                 Endpoint.Invalid -> return ParsedUrl.Invalid
                 Endpoint.MissingHost -> return ParsedUrl.MissingHost
-                is Endpoint.Valid -> ports.add(endpoint.port ?: globalPort)
+                is Endpoint.Valid -> endpoint.ports.forEach { port ->
+                    ports.add(port.value ?: globalPort)
+                }
             }
         }
         return ParsedUrl.Valid(ports)
     }
 
+    private data class HostPort(val value: Int?, val specified: Boolean)
+
     private sealed interface Endpoint {
-        data class Valid(val port: Int?) : Endpoint
+        data class Valid(val ports: List<HostPort>) : Endpoint
         object MissingHost : Endpoint
         object Invalid : Endpoint
     }
@@ -182,30 +180,53 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
             return parseHostProperties(endpoint.substring(1, endpoint.length - 1).split(',').asSequence())
         }
         if (endpoint.startsWith('[')) {
-            val close = endpoint.indexOf(']')
+            val close = matchingBracket(endpoint)
             if (close <= 1) return Endpoint.Invalid
+            val body = endpoint.substring(1, close)
+            val hosts = splitTopLevel(body, ',') ?: return Endpoint.Invalid
+            val ipv6Literal = hosts.size == 1 && body.count { it == ':' } > 1 &&
+                body.none { it == '(' || it == ')' || it == '[' || it == ']' || it == '=' || it == '@' }
+            if (close == endpoint.lastIndex && !ipv6Literal) {
+                if (hosts.any { it.isBlank() }) return Endpoint.Invalid
+                val ports = ArrayList<HostPort>()
+                for (host in hosts) {
+                    when (val nested = parseEndpoint(host.trim())) {
+                        Endpoint.Invalid -> return Endpoint.Invalid
+                        Endpoint.MissingHost -> return Endpoint.MissingHost
+                        is Endpoint.Valid -> ports.addAll(nested.ports)
+                    }
+                }
+                return Endpoint.Valid(ports)
+            }
             val rest = endpoint.substring(close + 1)
             val port = when {
-                rest.isEmpty() -> null
-                rest == ":" -> null
-                rest.startsWith(':') -> parsePort(rest.substring(1)) ?: return Endpoint.Invalid
+                rest.isEmpty() -> HostPort(null, false)
+                rest == ":" -> HostPort(null, true)
+                rest.startsWith(':') -> HostPort(
+                    decode(rest.substring(1))?.let(::parsePort) ?: return Endpoint.Invalid,
+                    true
+                )
                 else -> return Endpoint.Invalid
             }
-            return Endpoint.Valid(port)
+            return Endpoint.Valid(listOf(port))
         }
         val colonCount = endpoint.count { it == ':' }
         if (colonCount > 1) return Endpoint.Invalid
         val host = endpoint.substringBefore(':').trim()
         if (host.isEmpty()) return Endpoint.MissingHost
         val portText = endpoint.substringAfter(':', "")
-        val port = if (colonCount == 1 && portText.isNotEmpty()) parsePort(portText) ?: return Endpoint.Invalid else null
-        return Endpoint.Valid(port)
+        val port = when {
+            colonCount == 0 -> HostPort(null, false)
+            portText.isEmpty() -> HostPort(null, true)
+            else -> HostPort(decode(portText)?.let(::parsePort) ?: return Endpoint.Invalid, true)
+        }
+        return Endpoint.Valid(listOf(port))
     }
 
     private fun parseHostProperties(entries: Sequence<String>): Endpoint {
         val properties = LinkedHashMap<String, String>()
         for (entry in entries) {
-            val key = entry.substringBefore('=', "").trim().lowercase()
+            val key = decode(entry.substringBefore('=', "").trim())?.lowercase() ?: return Endpoint.Invalid
             val value = decode(entry.substringAfter('=', "").trim().trim('[', ']')) ?: return Endpoint.Invalid
             if (key.isEmpty()) return Endpoint.Invalid
             properties[key] = value
@@ -213,7 +234,7 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
         if (properties["host"].isNullOrBlank()) return Endpoint.MissingHost
         val port = properties["port"]?.takeIf { it.isNotEmpty() }?.let(::parsePort)
             ?: if (properties["port"]?.isNotEmpty() == true) return Endpoint.Invalid else null
-        return Endpoint.Valid(port)
+        return Endpoint.Valid(listOf(HostPort(port, "port" in properties)))
     }
 
     private fun parsePort(value: String): Int? = value.toIntOrNull()?.takeIf { it in 1..65535 }
@@ -221,6 +242,32 @@ class DorisConfigValidator : DatabaseConfigValidator<LocalDataSource>() {
     private fun decode(value: String): String? = runCatching {
         URLDecoder.decode(value, StandardCharsets.UTF_8)
     }.getOrNull()
+
+    private fun hasValidPercentEscapes(value: String): Boolean {
+        var index = 0
+        while (index < value.length) {
+            if (value[index] != '%') {
+                index++
+                continue
+            }
+            if (index + 2 >= value.length || value[index + 1].digitToIntOrNull(16) == null ||
+                value[index + 2].digitToIntOrNull(16) == null
+            ) return false
+            index += 3
+        }
+        return true
+    }
+
+    private fun matchingBracket(value: String): Int {
+        var depth = 0
+        for ((index, char) in value.withIndex()) {
+            when (char) {
+                '[' -> depth++
+                ']' -> if (--depth == 0) return index
+            }
+        }
+        return -1
+    }
 
     private fun splitTopLevel(text: String, delimiter: Char): List<String>? {
         val indexes = topLevelIndexes(text, delimiter) ?: return null

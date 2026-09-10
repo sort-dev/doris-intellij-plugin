@@ -568,8 +568,8 @@ internal fun <T> runCatalogScopedOrFallback(
             try {
                 restoreOriginalCatalog(transaction, originalCatalog)
             } catch (restoreFailure: Throwable) {
-                operationFailure?.let(restoreFailure::addSuppressed)
-                throw restoreFailure
+                if (operationFailure != null) operationFailure.addSuppressed(restoreFailure)
+                else throw restoreFailure
             }
         }
     }
