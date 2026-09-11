@@ -27,8 +27,8 @@ class DorisPipesTest {
 
     @Test
     fun `embedded core and metadata use the latest pinned artifact and platform serialization`() {
-        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-0.12.0.jar"))
-        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-0.12.0.jar"))
+        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-0.13.0.jar"))
+        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-0.13.0.jar"))
         val function = DORIS_FUNCTION_CATALOG.functions.first()
         val encoded = Json.encodeToString(FunctionDef.serializer(), function)
         assertEquals(function, Json.decodeFromString(FunctionDef.serializer(), encoded))

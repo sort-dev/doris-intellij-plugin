@@ -55,6 +55,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.2</b> - updates the embedded brikk-sql engine and metadata to 0.13.0,
+        including safer quoted-identifier handling in inferred PIPE shapes.
+        <br/>
         <b>1.3.1</b> — safer PIPE execution and catalog handling.
         <ul>
             <li><b>PIPE execution follows DataGrip.</b> Statement scope, parameters, request ownership,
