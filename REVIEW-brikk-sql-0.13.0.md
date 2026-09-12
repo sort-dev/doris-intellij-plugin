@@ -2,7 +2,7 @@
 
 ## Scope
 
-Plugin 1.3.2 embeds `dev.brikk.house:brikk-sql-jvm:0.13.0` and
+Plugin 1.3.3 embeds `dev.brikk.house:brikk-sql-jvm:0.13.0` and
 `dev.brikk.house:brikk-sql-metadata-jvm:0.13.0` from Maven Central. The core POM
 requires metadata 0.13.0. No SQL Transpiler library or database driver is bundled.
 
@@ -27,7 +27,7 @@ Published binary SHA-256 values:
 - `verifyEmbeddedPipes` passed: the distribution contains only the expected engine,
   metadata, ANTLR, Doris parser, and plugin JARs; required notices are packaged; all
   class files remain Java 21 compatible.
-- Plugin Verifier 1.410 reports the 1.3.2 artifact Compatible with both
+- Plugin Verifier 1.410 reports the plugin artifact Compatible with both
   DB-261.24374.56 and IU-262.8665.81.
 
 The IU-262.8665.81 runtime isolation fixture is currently blocked during IDE setup,

@@ -55,6 +55,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.3</b> - executes PIPE statements from the current editor text instead of a stale
+        per-statement DataGrip model snapshot.
+        <br/>
         <b>1.3.2</b> - updates the embedded brikk-sql engine and metadata to 0.13.0,
         including safer quoted-identifier handling in inferred PIPE shapes.
         <br/>

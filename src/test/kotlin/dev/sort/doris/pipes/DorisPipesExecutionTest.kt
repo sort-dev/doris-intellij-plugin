@@ -117,6 +117,57 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testEditedStatementDoesNotReuseItsPreviousTranslationAfterRunningAnotherStatement() {
+        val original = "FROM offline_rows |> WHERE id = 1 |> SELECT id"
+        val updated = "FROM offline_rows |> WHERE id = 9 |> SELECT id"
+        val other = "FROM offline_rows |> WHERE id = 2 |> SELECT id"
+        val sql = "$original;\n$other;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.selectionModel.setSelection(0, original.length)
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("id = 1"))
+            fixture.execute()
+            assertEquals(
+                (DorisPipesEngine.transpile(original) as DorisPipesEngine.Transpile.Ok).dorisSql,
+                (fixture.requests.last() as DataRequest.QueryRequest).query,
+            )
+
+            WriteCommandAction.runWriteCommandAction(project) {
+                val start = fixture.editor.document.text.indexOf("id = 1")
+                fixture.editor.document.replaceString(start, start + "id = 1".length, "id = 9")
+            }
+            val otherStart = fixture.editor.document.text.indexOf(other)
+            fixture.editor.selectionModel.setSelection(otherStart, otherStart + other.length)
+            fixture.editor.caretModel.moveToOffset(otherStart + other.indexOf("id = 2"))
+            fixture.execute()
+            assertEquals(
+                (DorisPipesEngine.transpile(other) as DorisPipesEngine.Transpile.Ok).dorisSql,
+                (fixture.requests.last() as DataRequest.QueryRequest).query,
+            )
+
+            fixture.editor.selectionModel.setSelection(0, updated.length)
+            fixture.editor.caretModel.moveToOffset(updated.indexOf("id = 9"))
+            fixture.execute()
+            assertEquals(
+                (DorisPipesEngine.transpile(updated) as DorisPipesEngine.Transpile.Ok).dorisSql,
+                (fixture.requests.last() as DataRequest.QueryRequest).query,
+            )
+            assertFalse((fixture.requests.last() as DataRequest.QueryRequest).query.contains("id = 1"))
+        }
+    }
+
+    fun testCachedStatementTextNeverOverridesTheCurrentDocumentSlice() {
+        val old = "FROM offline_rows |> WHERE id = 1"
+        val current = "FROM offline_rows |> WHERE id = 9"
+        assertEquals(current, currentPipeStatementText(old, current, TextRange(0, current.length)))
+        assertEquals(current, currentPipeStatementText("SELECT 1", current, TextRange(0, current.length)))
+
+        val failure = runCatching {
+            currentPipeStatementText(old, "SELECT 1", TextRange(0, "SELECT 1".length))
+        }.exceptionOrNull()
+        assertTrue(failure is PipeTranslationFailure)
+        assertTrue((failure as PipeTranslationFailure).error.message.contains("cached SQL was not executed"))
+    }
+
     fun testOrdinarySqlAndQuotedOrCommentMarkersDelegateWithTheSameEvent() {
         for (sql in listOf(
             "SELECT 1", "SELECT '|>' AS marker", "SELECT \"|>\" AS marker",

@@ -223,33 +223,35 @@ internal class PipeScriptModel<E>(
     private val editor: Editor,
     private val allowFirstFromStage: Boolean = false,
 ) : ScriptModel<E>() {
+    private val documentText = editor.document.text
     private val delegateParameters = snapshotParameters(delegate.parameters())
     val plans: List<PipePlan<E>> = delegate.statements().mapNotNull { statement ->
-        val text = statement.query()
-        if (!DorisPipes.containsPipeOperator(text) && !allowFirstFromStage) return@mapNotNull null
-        val translation = requirePipeTranslation(text, allowFirstFromStage = allowFirstFromStage)
         val offset = statement.rangeOffset().coerceAtLeast(0).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         val range = statement.range().shiftRight(offset)
+        val cachedText = statement.query()
+        val text = currentPipeStatementText(cachedText, documentText, range, allowFirstFromStage)
+            ?: return@mapNotNull null
+        val translation = requirePipeTranslation(text, allowFirstFromStage = allowFirstFromStage)
         val trimAnchor = range.startOffset + (text.length - text.trimStart().length)
         PipePlan(
             text,
-            statement.text(),
+            text,
             statement.range(),
             statement.rangeOffset(),
             statement.type(),
             statement.api(),
             statement.`object`(),
             snapshotExternals(statement.externals()),
-            PipeAnchor(editor, range, delegate.virtualFile, trimAnchor, editor.document.text.hashCode()),
+            PipeAnchor(editor, range, delegate.virtualFile, trimAnchor, documentText.hashCode()),
             (snapshotParameters(statement.parameters()) + pipeParameters(statement, text))
                 .distinctBy { it.name() to it.range() },
             translation,
         )
     }.toList()
-    private data class StatementKey(val range: TextRange, val rangeOffset: Long, val query: String)
+    private data class StatementKey(val range: TextRange, val rangeOffset: Long)
     private fun key(statement: ScriptModel.StatementIt<E>) =
-        StatementKey(statement.range(), statement.rangeOffset(), statement.query())
-    private val byStatement = plans.associateBy { StatementKey(it.range, it.rangeOffset, it.sourceQuery) }
+        StatementKey(statement.range(), statement.rangeOffset())
+    private val byStatement = plans.associateBy { StatementKey(it.range, it.rangeOffset) }
     val executionPlans: List<PipePlan<E>?> = delegate.statements().map { byStatement[key(it)] }.toList()
 
     fun translated(storage: ScriptModel.PStorage): DorisPipesEngine.Transpile.Ok {
@@ -316,6 +318,31 @@ internal class PipeScriptModel<E>(
         override fun `object`(): E = plan.value
     }
 }
+
+internal fun currentPipeStatementText(
+    cachedText: String,
+    documentText: String,
+    range: TextRange,
+    allowFirstFromStage: Boolean = false,
+): String? {
+    fun isPipe(text: String) = DorisPipes.containsPipeOperator(text) ||
+        (allowFirstFromStage && DorisPipes.looksLikePipeChunk(text))
+    val cachedIsPipe = isPipe(cachedText)
+    if (range.startOffset < 0 || range.endOffset > documentText.length || range.isEmpty) {
+        if (cachedIsPipe) throw stalePipeStatement()
+        return null
+    }
+    val currentText = documentText.substring(range.startOffset, range.endOffset)
+    if (isPipe(currentText)) return currentText
+    if (cachedIsPipe) throw stalePipeStatement()
+    return null
+}
+
+private fun stalePipeStatement() = PipeTranslationFailure(DorisPipesEngine.Transpile.Err(
+    null,
+    null,
+    "The statement changed while DataGrip prepared it. Run the current statement again; cached SQL was not executed.",
+))
 
 private fun <E> snapshotParameters(
     parameters: Iterable<ScriptModel.ParamIt<E>>,
