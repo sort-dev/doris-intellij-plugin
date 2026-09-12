@@ -2,7 +2,7 @@
 
 ## Scope
 
-Plugin 1.3.3 embeds `dev.brikk.house:brikk-sql-jvm:0.13.0` and
+Plugin 1.3.4 embeds `dev.brikk.house:brikk-sql-jvm:0.13.0` and
 `dev.brikk.house:brikk-sql-metadata-jvm:0.13.0` from Maven Central. The core POM
 requires metadata 0.13.0. No SQL Transpiler library or database driver is bundled.
 

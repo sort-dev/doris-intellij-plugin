@@ -14,6 +14,7 @@ import com.intellij.database.script.generator.ScriptCategory
 import com.intellij.database.script.generator.ScriptGenerators
 import com.intellij.database.script.generator.ScriptingSingleModelTaskBuilder
 import com.intellij.database.util.ObjectNamePart
+import com.intellij.database.util.DatabaseDefinitionHelper
 import com.intellij.database.view.DropQueryGenerator
 import com.intellij.database.view.RenameQueryGenerator
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -93,6 +94,22 @@ class DorisScriptGeneratorTest : BasePlatformTestCase() {
             ))
             if (element is BasicSourceAware) assertNull(generator.reviseSource(project, element))
         }
+    }
+
+    fun testDocumentationDefinitionReturnsNoSourceWithoutThrowing() {
+        val model = newModel()
+        val table = modelElements(model).filterIsInstance<com.intellij.database.model.basic.BasicTable>().single()
+        val definition = DatabaseDefinitionHelper.generateDefinitionUsingScriptingService(project, table, null)
+        assertEquals("-- No source text available\n", definition)
+
+        val task = ScriptingSingleModelTaskBuilder(model, ScriptCategory.CREATE_DEFINITION).apply {
+            addElements(listOf(table))
+        }.build()
+        val result = ScriptGenerators.byModel(model).makeScript(project, task)
+        assertEmpty(result.getScriptStatements())
+        assertEmpty(result.getScriptStatementsTexts())
+        assertEquals("", result.getScriptText())
+        assertEquals("", result.getScript().text)
     }
 
     fun testFlatModeStillUsesTheMysqlGenerator() {

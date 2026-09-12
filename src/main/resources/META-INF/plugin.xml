@@ -55,6 +55,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.4</b> - prevents quick documentation from surfacing the catalog-mode DDL safety
+        refusal as an unhandled exception.
+        <br/>
         <b>1.3.3</b> - executes PIPE statements from the current editor text instead of a stale
         per-statement DataGrip model snapshot.
         <br/>

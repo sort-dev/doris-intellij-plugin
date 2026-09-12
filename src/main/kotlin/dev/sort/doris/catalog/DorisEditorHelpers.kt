@@ -21,6 +21,7 @@ import com.intellij.database.script.generator.ScriptingOption
 import com.intellij.database.script.generator.ScriptingOptions
 import com.intellij.database.script.generator.ScriptingResult
 import com.intellij.database.script.generator.ScriptingTask
+import com.intellij.database.script.SimpleCompositeText
 import com.intellij.database.model.DataType
 import com.intellij.database.model.basic.BasicElement
 import com.intellij.database.model.basic.BasicIndex
@@ -109,11 +110,13 @@ private object NoDorisCatalogScriptingCapabilities : ScriptingCapabilities {
 private class RefusingDorisCatalogScriptGenerator(dbms: Dbms) : ScriptGenerator {
     private val formatting = MysqlBaseScriptGenerator(dbms)
 
-    override fun makeScript(project: Project, task: ScriptingTask): ScriptingResult =
+    override fun makeScript(project: Project, task: ScriptingTask): ScriptingResult {
+        if (task.category == ScriptCategory.CREATE_DEFINITION) return EmptyDorisCatalogDefinition
         throw UnsupportedOperationException(
             "Doris catalog-mode ${task.category.displayName} script generation is disabled: " +
                 "the introspected model cannot preserve Doris DDL semantics",
         )
+    }
 
     override fun availableOptions(task: ScriptingTask): Set<ScriptingOption<*>>? = null
     override fun isOptionSupported(option: ScriptingOption<*>) = false
@@ -123,6 +126,14 @@ private class RefusingDorisCatalogScriptGenerator(dbms: Dbms) : ScriptGenerator 
     override fun prettyPrint(dt: DataType): String = formatting.prettyPrint(dt)
     override fun isIndexExplicitFor(index: BasicIndex, key: BasicKey) = false
     override fun isDefaultSize(dt: DataType, version: Version) = formatting.isDefaultSize(dt, version)
+}
+
+private object EmptyDorisCatalogDefinition : ScriptingResult {
+    private val empty = SimpleCompositeText("", CompositeText.Kind.FIXED_TEXT)
+    override fun getScriptStatements(): List<CompositeText> = emptyList()
+    override fun getScriptStatementsTexts(): Array<String> = emptyArray()
+    override fun getScriptText(): String = ""
+    override fun getScript(): CompositeText = empty
 }
 
 /**
