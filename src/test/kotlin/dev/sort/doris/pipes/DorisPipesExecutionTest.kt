@@ -16,6 +16,7 @@ import com.intellij.database.datagrid.DataConsumer
 import com.intellij.database.datagrid.DataProducer
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.datagrid.GridDataRequest
+import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.Notification
@@ -476,7 +477,13 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     fun testRunToStageUsesConsoleParameterStorage() {
         val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
-        ExecutionFixture(sql).use { fixture ->
+        // Reproduce the shared worker's already-cached data-source registry in an isolated run too.
+        val facade = DbPsiFacade.getInstance(project)
+        val sourceIdsBefore = facade.dataSources.map { it.uniqueId }
+        val fixture = ExecutionFixture(sql)
+        fixture.use {
+            // Console lookup disposes clients whose target is missing from the PSI registry.
+            assertContainsElements(JdbcConsole.getActiveConsoles(project), fixture.console)
             ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "23")
             fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE") + 2)
             fixture.runToStage(menu = false)
@@ -485,6 +492,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             assertFalse(request.query, ":id" in request.query || "|>" in request.query)
             assertSame(fixture.console, request.owner)
         }
+        assertEquals(sourceIdsBefore, facade.dataSources.map { it.uniqueId })
+        assertTrue(Disposer.isDisposed(fixture.console))
+        assertFalse(JdbcConsole.getActiveConsoles(project).contains(fixture.console))
     }
 
     fun testSharedSessionSubmissionAndConsoleLookupUseExactFileOwner() {
@@ -739,6 +749,12 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val manager = LocalDataSourceManager.getInstance(project)
             manager.addDataSource(point)
             try {
+                // The manager invalidates DbPsiFacade via invokeLater. This synchronous fixture
+                // must invalidate its cached source list before building a console: isValid and
+                // getActiveConsoles consult that list, and the latter disposes missing targets.
+                val facade = DbPsiFacade.getInstance(project)
+                facade.clearCaches()
+                assertNotNull("New source must be visible to console validity checks", facade.findDataSource(point.uniqueId))
                 console = JdbcConsole.newConsole(project).forFile(virtualFile)
                     .fromDataSource(point).useSession(session).build()
                 assertSame(if (driverId == "doris") DorisDbms.DORIS else Dbms.MYSQL, point.dbms)
@@ -813,6 +829,8 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 }
             } finally {
                 LocalDataSourceManager.getInstance(project).removeDataSource(point)
+                // End the fixture's registry lifetime synchronously as well, before another lookup.
+                DbPsiFacade.getInstance(project).clearCaches()
                 SqlDialectMappings.getInstance(project).setMapping(virtualFile, null)
             }
             assertEmpty("Unsupported fake methods must not be swallowed by production catch blocks", unsupportedCalls)

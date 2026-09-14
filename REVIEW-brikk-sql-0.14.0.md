@@ -58,8 +58,12 @@ Published binary SHA-256 values:
 
 ### Existing mixed-worker fixture failure
 
-The plain single-worker `check` run is not green: 438 of 439 tests pass, and
-`DorisPipesExecutionTest.testRunToStageUsesConsoleParameterStorage` fails while
+The fixture lifecycle failure is fixed and the aggregate suite passes all 439 tests.
+The root cause and verification are documented in
+[Offline console fixture lifecycle](REVIEW-pipes-fixture-lifecycle.md).
+
+At upgrade time, the plain single-worker `check` run was not green: 438 of 439
+tests passed, and `DorisPipesExecutionTest.testRunToStageUsesConsoleParameterStorage` failed while
 constructing its offline console at the `console.isValid` assertion, before the
 test's parameter-storage/execution code runs.
 
@@ -72,8 +76,8 @@ SDK's bundled JBR. The successful 261 companion-mode matrix above used that JBR 
 [B20's report](REVIEW-pipes-B20.md) already documents an offline-console ordering
 failure, and [the 0.13.0 review](REVIEW-brikk-sql-0.13.0.md) uses separate execution
 workers. This upgrade follows that verification approach. The fixture's underlying
-lifecycle problem remains a follow-up; the speculative waits, facade flushes, and
-diagnostic changes from the initial investigation were removed.
+lifecycle problem was left for that follow-up. The speculative waits, facade
+flushes, and diagnostic changes from the initial investigation were removed.
 
 No live database or interactive install-from-disk session was used.
 
