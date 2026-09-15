@@ -84,6 +84,45 @@ class DorisPipesUpgradeTest {
     }
 
     @Test
+    fun `new Doris reserved words are quoted when used as output aliases`() {
+        for (name in listOf(
+            "analyzer", "asof", "both", "char_filter", "dump", "layout", "leading",
+            "match_condition", "no_use_mv", "play", "token_filter", "tokenizer", "trailing",
+            "try_cast", "use_mv",
+        )) {
+            val result = supported("FROM t |> SELECT id AS $name |> LIMIT 2", "id AS `$name`", "LIMIT 2")
+            val catalog = ShapeCatalog(mapOf("t" to Shape(listOf(ColumnShape("id", "INT", false)))), emptyMap())
+            assertEquals(listOf(name), SqlFragment(result.dorisSql, "doris").outputShape(catalog).names())
+        }
+    }
+
+    @Test
+    fun `modulo as the right operand of multiplication and division retains grouping`() {
+        // MOD becomes a binary operator; dropping its parentheses changes division/multiplication.
+        for (operator in listOf("*", "/")) {
+            val result = supported("FROM t |> SELECT a $operator MOD(b, c) AS calculated |> LIMIT 2", "LIMIT 2")
+            val compact = result.dorisSql.replace(Regex("\\s+"), "")
+            assertTrue(result.dorisSql, compact.contains("a$operator(b%c)AScalculated"))
+        }
+    }
+
+    @Test
+    fun `grouping sets rollup and cube survive a head query followed by pipe stages`() {
+        for (grouping in listOf(
+            "ROLLUP(category, region)", "CUBE(category, region)",
+            "GROUPING SETS ((category), (region), ())",
+        )) {
+            val result = supported(
+                "SELECT category, SUM(amount) AS total FROM t GROUP BY $grouping " +
+                    "|> ORDER BY category |> LIMIT 5",
+                "SUM(amount)", "ORDER BY", "LIMIT 5",
+            )
+            val compact = result.dorisSql.replace(Regex("\\s+"), "")
+            assertTrue(result.dorisSql, compact.contains("GROUPBY" + grouping.replace(" ", "")))
+        }
+    }
+
+    @Test
     fun `date parts and asymmetric function arguments keep Doris order`() {
         supported(
             "FROM t |> SELECT DATE_TRUNC(event_at, 'HOUR') AS bucket, " +

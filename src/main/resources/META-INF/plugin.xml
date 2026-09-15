@@ -55,6 +55,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.3.6</b> - updates the embedded brikk-sql engine and metadata to 0.15.0,
+        including updated Doris reserved identifiers and SQL parsing/generation fixes,
+        for local dogfooding.
+        <br/>
         <b>1.3.5</b> - updates the embedded brikk-sql engine and metadata to 0.14.0
         for local dogfooding.
         <br/>
