@@ -55,6 +55,15 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.4.0</b> - PIPE execution and embedded SQL engine updates.
+        <ul>
+            <li>Embeds brikk-sql 0.15.0, including updated Doris reserved identifiers,
+                arithmetic grouping, and SQL parsing/generation fixes.</li>
+            <li>Executes PIPE statements from the current editor text, with DataGrip statement
+                scope, parameter storage, generated-SQL validation, and initiating-console ownership.</li>
+            <li>Handles catalog-mode DDL safety refusals in quick documentation without an
+                unhandled exception.</li>
+        </ul>
         <b>1.3.6</b> - updates the embedded brikk-sql engine and metadata to 0.15.0,
         including updated Doris reserved identifiers and SQL parsing/generation fixes,
         for local dogfooding.
