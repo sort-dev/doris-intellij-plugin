@@ -1,5 +1,9 @@
 # 2026.2 (build 262) compatibility — RESOLVED in 0.4.0
 
+Later 262 builds added another abstract introspector method. Version 1.4.1 fixes
+that regression and extends verification to current 262 and the 263 EAP; see
+[COMPAT-263.md](COMPAT-263.md). The notes below describe the original 0.4.0 work.
+
 **Status: bridged.** `DorisMetaCompat` resolves the meta-model constructors reflectively (both
 generations); `DorisPredicatesHelper` re-based onto `BasePredicatesHelper` (no ObjectFormatterMode
 reference remains); `untilBuild = 262.*`; verifyPlugin = zero compatibility problems on both

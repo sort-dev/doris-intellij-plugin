@@ -8,7 +8,12 @@ import com.intellij.database.util.LoaderContext
 import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternNode
 import com.intellij.database.util.TreePatternUtils
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * DORIS PIPES (user call-out): when a pipe statement references a RESOLVED-but-childless schema
@@ -63,13 +68,22 @@ object DorisPipesAutoIntrospect {
                 return@runCatching false
             }
             val task = PipeIntrospectionTasks.oneElementRefresh(local.uniqueId, element)
-            DataSourceSyncManager.getInstance()
-                .tryPerform(LoaderContext.selectTask(project, local, task), true, false)
+            project.service<DorisPipesIntrospectionService>()
+                .schedule(LoaderContext.selectTask(project, local, task))
             DorisPipes.info("auto-introspect: scope widened + TARGETED refresh for $key")
             true
         }.getOrElse { t ->
             DorisPipes.warn("auto-introspect failed for $key: ${t.message}", t)
             false
         }
+    }
+}
+
+/** The injected scope cancels queued/running introspection when the project closes. */
+@Service(Service.Level.PROJECT)
+internal class DorisPipesIntrospectionService(private val coroutineScope: CoroutineScope) {
+    fun schedule(context: LoaderContext): Job = coroutineScope.launch {
+        // Both AsyncTask wrappers were removed in 263. This suspending API exists in 261+.
+        DataSourceSyncManager.getInstance().tryPerformSync(context, stopRunning = true, merge = false)
     }
 }

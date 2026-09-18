@@ -3,8 +3,12 @@ package dev.sort.doris.catalog
 import com.intellij.database.dataSource.DataSourceBriefConfig
 import com.intellij.database.dataSource.DatabaseConnectivityConfiguration
 import com.intellij.database.dataSource.DbOptionProvider
+import com.intellij.database.dialects.base.introspector.SchemaPortion
+import com.intellij.database.dialects.mssql.model.MsDatabase
 import com.intellij.database.dialects.mssql.model.MsRoot
+import com.intellij.database.dialects.mssql.model.MsSchema
 import com.intellij.database.introspection.DBIntrospectionContext
+import com.intellij.database.introspection.IntrospectionMode
 import com.intellij.database.layoutedQueries.DBCommandRunner
 import com.intellij.database.layoutedQueries.DBQueryRunner
 import com.intellij.database.layoutedQueries.DBScriptRunner
@@ -14,6 +18,7 @@ import com.intellij.database.model.ModelTextStorage
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.basic.BasicElement
 import com.intellij.database.model.basic.BasicModModel
+import com.intellij.database.model.basic.BasicModMultiLevelObject
 import com.intellij.database.model.basic.BasicSourceAware
 import com.intellij.database.model.properties.CompositeText
 import com.intellij.database.model.properties.Level
@@ -32,13 +37,14 @@ import java.nio.file.Path
 /** B5: a catalog query failure must abort before the platform's destructive family sweep. */
 class DorisCatalogFailurePreservationTest : BasePlatformTestCase() {
     private lateinit var model: BasicModModel
+    private lateinit var introspector: DorisIntrospector
     private lateinit var lister: Any
 
     override fun setUp() {
         super.setUp()
         val factory = ModelFactory(NoopStorage())
         model = factory.createModel(DorisDbms.DORIS)
-        val introspector = DorisIntrospector(context(), DorisDbms.DORIS, factory)
+        introspector = DorisIntrospector(context(), DorisDbms.DORIS, factory)
         introspector.init(model, config(), TreePattern.EMPTY)
         lister = introspector.javaClass.getDeclaredMethod("createDatabaseLister").apply { isAccessible = true }
             .invoke(introspector)
@@ -105,6 +111,82 @@ class DorisCatalogFailurePreservationTest : BasePlatformTestCase() {
                               val database: com.intellij.database.dialects.mssql.model.MsSchema,
                               val table: com.intellij.database.dialects.mssql.model.MsTable)
 
+    fun testPortionReportsOnlySuccessfullyRefreshedTablesAndViews() {
+        val cached = seedCachedHierarchy()
+        val failed = cached.catalog.schemas.createOrGet("failed_db")
+        val stale = failed.tables.createOrGet("stale_table")
+        val untouched = cached.catalog.schemas.createOrGet("untouched_db").tables.createOrGet("untouched_table")
+        val external = (model.root as MsRoot).databases.createOrGet(2L).apply { name = "external" }
+        val outside = external.schemas.createOrGet("other_db").tables.createOrGet("other_table")
+        var emptyInventory = false
+        val transaction = RecordingTransaction { error("use the parameterized outcome") }.apply {
+            onQuery = { sql, params ->
+                val schema = params.last() as String
+                if (schema == "failed_db") throw java.net.ConnectException("offline catalog")
+                assertEquals("cached_db", schema)
+                assertTrue(sql, "`internal`.information_schema." in sql)
+                if (sql.contains("information_schema.tables") && !emptyInventory) {
+                    listOf(
+                        DorisCatalogQueries.TableRow().apply { TABLE_NAME = "fresh_table"; TABLE_TYPE = "BASE TABLE" },
+                        DorisCatalogQueries.TableRow().apply { TABLE_NAME = "fresh_view"; TABLE_TYPE = "VIEW" },
+                    )
+                } else emptyList<Any>()
+            }
+        }
+        val retriever = portionRetriever(transaction, cached.catalog, listOf(cached.database, failed))
+        assertEmpty(affectedObjects(retriever))
+        processPortion(retriever)
+        assertEquals(setOf(cached.database.tables.get("fresh_table"), cached.database.views.get("fresh_view")), affectedObjects(retriever))
+        assertNull(cached.database.tables.get("cached_table"))
+        assertSame(stale, failed.tables.get("stale_table"))
+        assertSame(untouched, cached.catalog.schemas.get("untouched_db")!!.tables.get("untouched_table"))
+        assertSame(outside, external.schemas.get("other_db")!!.tables.get("other_table"))
+
+        emptyInventory = true
+        processPortion(retriever)
+        assertEmpty("A new pass must not report dropped or previously refreshed objects", affectedObjects(retriever))
+        assertTrue(cached.database.tables.isEmpty())
+        assertTrue(cached.database.views.isEmpty())
+        assertSame(stale, failed.tables.get("stale_table"))
+    }
+
+    fun testPortionCancellationPropagatesWithoutReportingCachedObjects() {
+        val cached = seedCachedHierarchy()
+        val cancellation = ProcessCanceledException()
+        val retriever = portionRetriever(RecordingTransaction { throw cancellation }, cached.catalog, listOf(cached.database))
+        try {
+            processPortion(retriever)
+            fail("Expected cancellation")
+        } catch (failure: ProcessCanceledException) {
+            assertSame(cancellation, failure)
+        }
+        assertEmpty(affectedObjects(retriever))
+        assertSame(cached.table, cached.database.tables.get("cached_table"))
+    }
+
+    private fun portionRetriever(transaction: DBTransaction, catalog: MsDatabase, schemas: List<MsSchema>): Any =
+        DorisIntrospector::class.java.getDeclaredMethod("createLevelOneRetrieverForPortion", DBTransaction::class.java, SchemaPortion::class.java)
+            .apply { isAccessible = true }
+            .invoke(introspector, transaction, SchemaPortion(catalog, schemas, IntrospectionMode.FULL))
+
+    private fun processPortion(retriever: Any) {
+        try {
+            retriever.javaClass.getMethod("process").invoke(retriever)
+        } catch (wrapped: InvocationTargetException) {
+            throw wrapped.targetException
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun affectedObjects(retriever: Any): Set<BasicModMultiLevelObject> {
+        // On 262+ invoke through the platform's abstract contract, catching missing JVM overrides.
+        // The compile SDK 261 has no such method, so query the implementation there instead.
+        val base = Class.forName("com.intellij.database.dialects.base.introspector.BaseNativeIntrospector\$AbstractDatabaseSchemasRetriever")
+        val method = base.methods.firstOrNull { it.name == "affectedMajorObjects" && it.parameterCount == 0 }
+            ?: retriever.javaClass.getMethod("affectedMajorObjects")
+        return method.invoke(retriever) as Set<BasicModMultiLevelObject>
+    }
+
     private fun seedCachedHierarchy(): Cached {
         val catalog = (model.root as MsRoot).databases.createOrGet(0L).apply { name = "internal" }
         val database = catalog.schemas.createOrGet("cached_db")
@@ -164,14 +246,16 @@ class DorisCatalogFailurePreservationTest : BasePlatformTestCase() {
     private class RecordingTransaction(private val outcome: () -> Any?) : DBTransaction {
         val queries = mutableListOf<String>()
         var closes = 0
+        var onQuery: (String, Array<out Any?>) -> Any? = { _, _ -> outcome() }
 
         @Suppress("UNCHECKED_CAST")
         override fun <S : Any?> query(query: SqlQuery<S>): DBQueryRunner<S> = object : DBQueryRunner<S> {
-            override fun withParams(vararg params: Any?) = this
+            private var parameters: Array<out Any?> = emptyArray()
+            override fun withParams(vararg params: Any?) = apply { parameters = params }
             override fun packBy(packSize: Int) = this
             override fun run(): S {
                 queries += query.sourceText
-                return outcome() as S
+                return onQuery(query.sourceText, parameters) as S
             }
             override fun start() = Unit
             override fun nextPack(): S = unsupported()

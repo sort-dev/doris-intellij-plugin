@@ -14,7 +14,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.impl.DebugUtil
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.ui.components.JBCheckBox
@@ -124,7 +124,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
 
     fun testToggleReparsesExistingDirtyEditorAndKeepsActionObjects() {
         val file = myFixture.configureByText("pipes.sql", "FROM t |> WHERE x = 1 |> SELECT x;")
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         val editor = myFixture.editor
         WriteCommandAction.runWriteCommandAction(project) { editor.document.insertString(0, "-- unsaved\n") }
         PsiDocumentManager.getInstance(project).commitAllDocuments() // Commit PSI, not the unsaved document to disk.
@@ -169,7 +169,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
     fun testExternalStateReloadReparsesClosedCachedFiles() {
         val original = myFixture.addFileToProject("cached.sql", "FROM t |> SELECT x;")
         val virtualFile = original.virtualFile
-        SqlDialectMappings.getInstance(project).setMapping(virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, virtualFile, DorisSqlDialect.INSTANCE)
         fun tree() = DebugUtil.psiToString(PsiManager.getInstance(project).findFile(virtualFile)!!, true)
         val offTree = tree()
         ApplicationManager.getApplication().executeOnPooledThread {
@@ -184,7 +184,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
 
     fun testStaleAnnotationPolicyIsNotAppliedAfterToggle() {
         val file = myFixture.configureByText("stale.sql", "FROM t |> SELECT x;")
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         val annotator = DorisErrorAnnotator()
         val collected = annotator.collectInformation(myFixture.file)!!
         settings.enabled = true
@@ -208,7 +208,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
 
     fun testRapidTogglesUseTheFinalProjectPolicy() {
         val file = myFixture.configureByText("rapid.sql", "FROM t |> SELECT x;")
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         val offTree = DebugUtil.psiToString(myFixture.file, true)
         settings.enabled = true
         settings.enabled = false
@@ -224,8 +224,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
     }
 
     fun testPipeStageCompletionFollowsProjectSetting() {
-        val mappings = SqlDialectMappings.getInstance(project)
-        mappings.setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         try {
             myFixture.configureByText("completion.sql", "FROM t |> <caret>")
             val off = myFixture.completeBasic().orEmpty().map { it.lookupString }
@@ -236,7 +235,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
             val on = myFixture.completeBasic().orEmpty().map { it.lookupString }
             assertTrue("missing PIPE completion: $on", on.contains("EXTEND"))
         } finally {
-            mappings.setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         }
     }
 }

@@ -1,6 +1,5 @@
 package dev.sort.doris.pipes
 
-import com.intellij.database.actions.DatabaseActionPromoter
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPromoter
 import com.intellij.openapi.actionSystem.ActionWithDelegate
@@ -54,7 +53,12 @@ class DorisPipesActionPromoter : ActionPromoter {
             if (ours) current else action
         }
         if (!containsDoris) return emptyList()
-        return DatabaseActionPromoter().promote(delegates, context).orEmpty().flatMap { promoted ->
+        // The platform registers this promoter even when its implementation is package-private
+        // (263+). Use the registered instance through the public ActionPromoter contract.
+        val databasePromoter = ActionPromoter.EP_NAME.extensionList.firstOrNull {
+            it.javaClass.name == "com.intellij.database.actions.DatabaseActionPromoter"
+        } ?: return emptyList()
+        return databasePromoter.promote(delegates, context).orEmpty().flatMap { promoted ->
             actions.indices.filter { delegates[it] === promoted }.map { actions[it] }
         }
     }

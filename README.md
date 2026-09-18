@@ -77,8 +77,8 @@ Part of our SQL-tooling family alongside:
 
 ## Requirements
 
-- **DataGrip** or **IntelliJ IDEA Ultimate**, **2026.1 or 2026.2** (JetBrains platform builds
-  **261** and **262**). A single artifact serves both generations; it will not load on 2025.2 or
+- **DataGrip** or **IntelliJ IDEA Ultimate**, **2026.1 through 2026.3** (JetBrains platform builds
+  **261–263**, with 263 checked against the 2026.3 EAP). A single artifact serves these generations; it will not load on 2025.2 or
   earlier.
 - An Apache Doris server reachable over the MySQL protocol (FE query port, default `9030`).
 
@@ -273,7 +273,7 @@ real Doris workloads.
 
 - Available on the **JetBrains Marketplace** and as installable zips on the
   [Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page.
-- Compatible with the current (2026.1) and upcoming (2026.2) IDE lines from a single artifact.
+- Compatible with the 2026.1–2026.3 IDE lines from a single artifact; see [compatibility verification](COMPAT-263.md).
 - Known gaps and in-progress work are tracked in the issues. The semantic corners noted above
   (e.g. full `EXCEPT` modeling, some file-TVF output schemas) depend on platform capabilities that
   are not yet exposed to third-party dialects.

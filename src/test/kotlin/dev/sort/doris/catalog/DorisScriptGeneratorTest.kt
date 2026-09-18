@@ -99,7 +99,13 @@ class DorisScriptGeneratorTest : BasePlatformTestCase() {
     fun testDocumentationDefinitionReturnsNoSourceWithoutThrowing() {
         val model = newModel()
         val table = modelElements(model).filterIsInstance<com.intellij.database.model.basic.BasicTable>().single()
-        val definition = DatabaseDefinitionHelper.generateDefinitionUsingScriptingService(project, table, null)
+        // 263 adds a nullable ScriptingOptions parameter. Keep exercising the platform helper
+        // from 261-compiled tests on both signatures, with its default options in either case.
+        val generate = DatabaseDefinitionHelper::class.java.methods.single {
+            it.name == "generateDefinitionUsingScriptingService" && it.parameterCount in 3..4
+        }
+        val arguments = arrayOfNulls<Any>(generate.parameterCount).apply { this[0] = project; this[1] = table }
+        val definition = generate.invoke(null, *arguments)
         assertEquals("-- No source text available\n", definition)
 
         val task = ScriptingSingleModelTaskBuilder(model, ScriptCategory.CREATE_DEFINITION).apply {

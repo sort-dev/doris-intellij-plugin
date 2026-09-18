@@ -6,7 +6,7 @@
     <description><![CDATA[
         <p>First-class Apache Doris support for DataGrip and IntelliJ IDEA Ultimate — a dedicated
         SQL dialect, a multi-catalog database tree, table-function completion, and a Stop button that
-        actually cancels your Doris query. Compatible with the 2026.1 and 2026.2 IDE lines.</p>
+        actually cancels your Doris query. Compatible with the 2026.1 through 2026.3 IDE lines.</p>
 
         <ul>
             <li><b>Multi-catalog database tree.</b> Doris external catalogs (Hive, Iceberg, JDBC, ...)
@@ -55,6 +55,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.4.1</b> - fixes newer 262 builds and adds 263 compatibility.
+        <ul>
+            <li>Reports affected tables and views during partial-schema introspection on newer 262 builds.</li>
+            <li>Uses the registered database action promoter through its public interface.</li>
+            <li>Schedules targeted introspection through the coroutine API in a project-owned scope.</li>
+        </ul>
         <b>1.4.0</b> - PIPE execution and embedded SQL engine updates.
         <ul>
             <li>Embeds brikk-sql 0.15.0, including updated Doris reserved identifiers,

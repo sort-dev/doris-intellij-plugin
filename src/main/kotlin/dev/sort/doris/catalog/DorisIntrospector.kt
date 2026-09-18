@@ -15,6 +15,7 @@ import com.intellij.database.introspection.DBIntrospector
 import com.intellij.database.layoutedQueries.DBTransaction
 import com.intellij.database.model.ModelFactory
 import com.intellij.database.model.ObjectKind
+import com.intellij.database.model.basic.BasicModMultiLevelObject
 import com.intellij.database.model.families.ModNamingFamily
 import com.intellij.database.util.TreePattern
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -297,13 +298,20 @@ class DorisIntrospector(
             portion.database,
             portion.schemas,
         ) {
+            private val affectedObjects = linkedSetOf<BasicModMultiLevelObject>()
+
+            // Added as an abstract platform hook in later 262 builds. It is absent from the
+            // 261 compile SDK, so there is deliberately no Kotlin `override` modifier here.
+            fun affectedMajorObjects(): Set<BasicModMultiLevelObject> = affectedObjects.toSet()
+
             override fun process() {
+                affectedObjects.clear()
                 DorisCatalogs.info(
                     "portion introspection: ${portion.schemas.size} schema(s) of catalog " +
                         "'${portion.database.name}' (mode ${portion.mode})",
                 )
                 for (schema in schemas) {
-                    retrieveSchemaObjects(transaction, schema)
+                    affectedObjects.addAll(retrieveSchemaObjects(transaction, schema))
                 }
             }
         }
@@ -315,8 +323,8 @@ class DorisIntrospector(
      * schema retriever and the portion retriever. A failure is logged with the `DorisCatalogs:`
      * prefix and skips only this schema.
      */
-    private fun retrieveSchemaObjects(transaction: DBTransaction, schema: MsSchema) {
-        val catalog = schema.database?.name ?: return
+    private fun retrieveSchemaObjects(transaction: DBTransaction, schema: MsSchema): Set<BasicModMultiLevelObject> {
+        val catalog = schema.database?.name ?: return emptySet()
         val schemaName = schema.name
         try {
             val tables = runCatalogScopedOrFallback(
@@ -360,16 +368,23 @@ class DorisIntrospector(
             // inside the sanctioned write context (0.4.0 P1 `Session not started` fix, see
             // [DorisModelWrite] for the bytecode trail).
             var counts = TableViewCounts(0, 0)
+            var affectedObjects: Set<BasicModMultiLevelObject> = emptySet()
             DorisModelWrite.write(model) {
                 counts = attachTablesAndViews(schema, tables, columnsByTable)
+                affectedObjects = buildSet {
+                    addAll(schema.tables)
+                    addAll(schema.views)
+                }
             }
             DorisCatalogs.info(
                 "catalog '$catalog' db '$schemaName' -> ${counts.tables} tables, ${counts.views} views",
             )
+            return affectedObjects
         } catch (pce: ProcessCanceledException) {
             throw pce
         } catch (t: Throwable) {
             DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
+            return emptySet()
         }
     }
 

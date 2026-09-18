@@ -1,12 +1,5 @@
-// Opt-in runtime checks against 262 SDK descriptors, which build plugin 2.10.2 cannot read.
-// The normal build remains pinned. Compile/instrument with 261 before using this script.
-settingsEvaluated { settings ->
-    settings.pluginManagement.resolutionStrategy.eachPlugin {
-        if (requested.id.id == 'org.jetbrains.intellij.platform') {
-            useVersion('2.18.1')
-        }
-    }
-}
+// Opt-in runtime checks against newer SDKs using the project's build plugin version.
+// Compile/instrument with 261 before using this script.
 
 allprojects {
     afterEvaluate {

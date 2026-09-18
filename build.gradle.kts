@@ -1,15 +1,16 @@
 import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 import java.util.jar.JarInputStream
 import java.util.zip.ZipFile
 
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.4.10"
-    id("org.jetbrains.intellij.platform") version "2.10.2"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 group = "dev.sort.doris"
-version = "1.4.0"
+version = "1.4.1"
 
 val brikkSqlVersion = "0.15.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
@@ -29,6 +30,8 @@ val siblingPluginZips = listOf("trino", "duckdb").mapNotNull { dialect ->
 val testPluginIds = buildList {
     add("com.intellij.database")
     add("dev.sort.doris-intellij-plugin")
+    // IDEA 263's core collaboration module requires the DVCS module supplied by Git.
+    add("Git4Idea")
     if (sqlTranspilerTestMode == "installed") add("dev.sort.sql-transpiler-intellij-plugin")
     siblingPluginZips.forEach { (dialect, _) -> add("dev.sort.$dialect-intellij-plugin") }
 }.joinToString(",")
@@ -84,6 +87,8 @@ dependencies {
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
         // in unit tests and the DorisSQL language never registers.
         bundledPlugin("com.intellij.modules.json")
+        // Required by IDEA 263's core modules in the fixture's explicit plugin subset.
+        bundledPlugin("Git4Idea")
         // Companion only in the opt-in coexistence test lane, never a production library provider.
         if (sqlTranspilerTestMode == "installed") plugin("dev.sort.sql-transpiler-intellij-plugin:0.2.0")
         siblingPluginZips.forEach { (_, zip) -> localPlugin(zip) }
@@ -98,24 +103,35 @@ intellijPlatform {
 
     pluginConfiguration {
         ideaVersion {
-            // Compiled against build 261; the 252<->261 SQL API break means it must not load on 252
-            // or earlier (it silently half-loads and leaves dead data-source shells). The old 261.*
-            // pin existed for that break; 262 is now bridged in-code (DorisMetaCompat for the
-            // BasicMetaModel/BasicMetaObject ctor change, BasePredicatesHelper for the
-            // ObjectFormatterMode move — see COMPAT-262.md), verified against both generations via
-            // ./gradlew verifyPlugin, so one artifact serves 261 and 262.
+            // Compile against 261 and verify the same artifact on all three SDK generations.
+            // COMPAT-262.md and COMPAT-263.md record the model/introspection/action API bridges.
             sinceBuild = "261"
-            untilBuild = "262.*"
+            untilBuild = "263.*"
         }
     }
     pluginVerification {
+        // Keep binary/structural failures fatal. API-use notices remain in the reports for
+        // Marketplace review of the existing introspector and action-customizer integrations;
+        // this policy is not an approval or an ignored-problems list for those usages.
+        failureLevel.set(listOf(
+            VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+            VerifyPluginTask.FailureLevel.COMPATIBILITY_WARNINGS,
+            VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+            VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
+            VerifyPluginTask.FailureLevel.OVERRIDE_ONLY_API_USAGES,
+            VerifyPluginTask.FailureLevel.NON_EXTENDABLE_API_USAGES,
+            VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
+        ))
         ides {
-            // BOTH supported generations — the compat acceptance gate is zero compatibility
-            // problems on each (COMPAT-262.md):
+            // All supported generations: zero compatibility problems on every target.
             // 261 (current line, what we compile against):
             create("DB", "2026.1.3") {}
             // 262 (2026.2 EAP that enumerated the breakages):
             create("IU", "262.8665.81") {}
+            // Current 262 has introspector API changes absent from the early EAP above.
+            create("DB", "2026.2.5") {}
+            // Forward-compatibility gate from Marketplace's 1.4.0 report.
+            create("IU", "263.4732.28") {}
         }
     }
     publishing {
@@ -139,6 +155,9 @@ tasks {
 
     named<Test>("test") {
         useJUnit()
+        // Match CI on desktop hosts too; plain JDK 21 otherwise initializes IDE-managed HiDPI
+        // before the platform fixture has precomputed its UI scale.
+        systemProperty("java.awt.headless", "true")
         // The light test fixture doesn't enable the database plugin by default; without it our
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
         systemProperty("idea.load.plugins.id", testPluginIds)
@@ -240,11 +259,15 @@ if (sqlTranspilerTestMode != null) {
 if (providers.gradleProperty("test.pluginIsolation").orNull == "true") {
     val mainOutputs = sourceSets.main.get().output.files.map { it.absoluteFile }.toSet() +
         layout.buildDirectory.dir("instrumented/instrumentCode").get().asFile.absoluteFile
+    // prepareTest writes a copy of our descriptor into test resources for 263. If core discovers
+    // that copy first, it shadows the distribution and defeats the real-classloader check.
+    val testResources = sourceSets.test.get().output.resourcesDir?.absoluteFile
     tasks.named<Test>("test") {
         include("**/DorisPipesIsolationTest.class")
         systemProperty("test.pluginIsolation", "true")
         classpath = classpath.filter {
             it.absoluteFile !in mainOutputs &&
+                it.absoluteFile != testResources &&
                 !it.path.contains("/sql-transpiler-intellij-plugin/") &&
                 !it.path.contains("/trino-intellij-plugin/") &&
                 !it.path.contains("/duckdb-intellij-plugin/") &&

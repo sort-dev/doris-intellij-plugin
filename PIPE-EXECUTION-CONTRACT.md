@@ -145,11 +145,13 @@ Being a `RunQueryAction` subclass in a third-party package is not sufficient in 
 editor and structure-view contexts.
 
 Doris's `DorisPipesActionPromoter` follows `ActionWithDelegate` chains containing
-Doris, asks the stock promoter about their underlying actions, and maps the result
+Doris, finds the platform's registered database promoter through `ActionPromoter.EP_NAME`,
+asks it about the underlying actions through the public `ActionPromoter` interface, and maps the result
 back to the registered outer actions. It does not execute delegates. Peers should
 provide equivalent promotion support for installations without Doris. Test with no
 stock database-package action elsewhere in the candidate list, so that the test does
-not accidentally bypass the 262 precheck.
+not accidentally bypass the 262 precheck. The database promoter implementation and
+constructor are package-private in 263; do not instantiate that class directly.
 
 ## Lifecycle
 
@@ -201,10 +203,11 @@ To include already-built sibling distributions, pass `-Ptest.trinoPluginZip=/pat
 and `-Ptest.duckdbPluginZip=/path/to/duckdb.zip` in the isolation lane. Supplied paths
 must exist. These are test-only inputs; the Doris build does not build or modify peers.
 
-For a 262 runtime check, first compile and instrument with the default 261 SDK.
-Then select a local 262 SDK and use the opt-in init script, which selects build
-plugin 2.18.1 solely to read newer SDK metadata. Keep the six exclusions below:
-the check runs the 261-compiled/instrumented classes on 262 rather than recompiling
+For a 262 or forward-compatibility 263 runtime check, first compile and instrument
+with the default 261 SDK. Then select the newer local SDK and use the opt-in init
+script. The normal build plugin is now 2.19.0 and reads all three SDK generations;
+the script no longer overrides it. Keep the six exclusions below: the check runs
+the 261-compiled/instrumented classes on the newer runtime rather than recompiling
 the whole plugin against a different source API.
 The init script also removes the provider's private Jackson 2.16.1 copies from
 the flattened test classpath so they cannot shadow the 262 SDK's Jackson libraries.

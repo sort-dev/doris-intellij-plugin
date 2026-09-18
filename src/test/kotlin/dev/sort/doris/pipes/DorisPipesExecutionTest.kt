@@ -35,11 +35,11 @@ import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiManager
-import com.intellij.sql.dialects.SqlDialectMappings
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
 import dev.sort.doris.DorisDbms
+import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
@@ -440,11 +440,18 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val safe = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
         val lossy = DorisPipesEngine.transpile(warningPrograms.first()) as DorisPipesEngine.Transpile.Ok
         ExecutionFixture(safeProgram).use { fixture ->
+            val submissionThread = Thread.currentThread()
+            val submissionCalls = mutableListOf<String>()
+            // The IDE may query getProject on the session from background readers. This guard
+            // must reject synchronously before the submitting thread accesses the session.
+            fixture.beforeSessionCall = { name ->
+                if (Thread.currentThread() === submissionThread) submissionCalls.add(name)
+            }
             for (translation in listOf(lossy, DorisPipesEngine.Transpile.Ok("SELECT 1"), safe.copy(dorisSql = "SELECT 2"))) {
-                fixture.sessionCalls.clear()
+                submissionCalls.clear()
                 val failure = runCatching { DorisPipesExecution.submit(fixture.console, translation, safeProgram) }.exceptionOrNull()
                 assertTrue("expected the submission guard, got $failure", failure is IllegalStateException)
-                assertEmpty(fixture.sessionCalls)
+                assertEmpty(submissionCalls)
                 assertEmpty(fixture.requests)
                 assertEmpty(fixture.previousEvents)
             }
@@ -500,7 +507,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testSharedSessionSubmissionAndConsoleLookupUseExactFileOwner() {
         ExecutionFixture(safeProgram).use { fixture ->
             val secondFile = myFixture.addFileToProject("second-owner.sql", safeProgram)
-            SqlDialectMappings.getInstance(project).setMapping(secondFile.virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, secondFile.virtualFile, DorisSqlDialect.INSTANCE)
             val second = JdbcConsole.newConsole(project).forFile(secondFile.virtualFile)
                 .fromDataSource(fixture.point).useSession(fixture.session).build()
             try {
@@ -511,7 +518,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 assertSame(second, (fixture.requests.single() as DataRequest.QueryRequest).owner)
             } finally {
                 Disposer.dispose(second)
-                SqlDialectMappings.getInstance(project).setMapping(secondFile.virtualFile, null)
+                setSqlDialectMapping(project, secondFile.virtualFile, null)
             }
         }
     }
@@ -646,8 +653,8 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val clients = mutableListOf<DatabaseSessionClient>()
         val auditors = mutableListOf<DataAuditor>()
         val consumers = mutableListOf<DataConsumer>()
-        val sessionCalls = mutableListOf<String>()
         val notifications = mutableListOf<Notification>()
+        private val recordedWork = java.util.concurrent.CopyOnWriteArrayList<DatabaseSession.State.Work>()
         private val unsupportedCalls = mutableListOf<String>()
         private val userData = UserDataHolderBase()
         private val notificationConnection = project.messageBus.connect()
@@ -660,7 +667,20 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
         private val producer = object : DataProducer {
             override fun processRequest(request: GridDataRequest) {
-                auditors.forEach { it.jobSubmitted(request as DataRequest, this) }
+                val dataRequest = request as DataRequest
+                // Auditors and 263's gutter renderer expect submitted requests to have session
+                // work already registered. Recording finishes immediately; no JDBC results exist.
+                recordedWork.add(object : DatabaseSession.State.Work {
+                    override val request = dataRequest
+                    override val timeSpentMs = 0L
+                    override val state = DatabaseSession.State.WorkState.FINISHED
+                    override val status = object : DatabaseSession.State.WorkStatus {
+                        override val type = DatabaseSession.State.WorkStatusType.UNKNOWN
+                        override val description = "Recorded offline request"
+                        override val errorNavigator: DataRequest.CoupledWithEditor.ErrorNavigator? = null
+                    }
+                })
+                auditors.forEach { it.jobSubmitted(dataRequest, this) }
                 requests.add(request)
                 onProcessRequest(request)
             }
@@ -693,18 +713,21 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 "equals" -> proxy === args!![0]
                 "hashCode" -> System.identityHashCode(proxy)
                 "toString" -> "Idle offline session state"
-                "isIdle", "isEmpty", "isFinalized" -> true
+                "isIdle", "isFinalized" -> true
+                "isEmpty" -> recordedWork.isEmpty()
                 "isCancelled" -> false
                 "getStartTime", "getTimeSpentMs" -> 0L
-                "getWork" -> emptyList<Any>()
-                "getWorkFor", "getMostRecentWork" -> null
+                "getWork" -> recordedWork.toList()
+                "getWorkFor" -> recordedWork.lastOrNull { it.request === args!![0] || it.request.owner === args[0] }
+                "getMostRecentWork" -> recordedWork.lastOrNull { work ->
+                    (args!![0] as List<*>).any { it === work.request }
+                }
                 else -> throw UnsupportedOperationException("Offline state does not implement $method")
             }
         } as DatabaseSession.State
         val session = Proxy.newProxyInstance(
             DatabaseSession::class.java.classLoader, arrayOf(DatabaseSession::class.java),
         ) { proxy, method, args ->
-            sessionCalls.add(method.name)
             beforeSessionCall(method.name)
             when (method.name) {
                 "equals" -> proxy === args!![0]
@@ -745,7 +768,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
 
         init {
-            SqlDialectMappings.getInstance(project).setMapping(virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, virtualFile, DorisSqlDialect.INSTANCE)
             val manager = LocalDataSourceManager.getInstance(project)
             manager.addDataSource(point)
             try {
@@ -831,7 +854,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 LocalDataSourceManager.getInstance(project).removeDataSource(point)
                 // End the fixture's registry lifetime synchronously as well, before another lookup.
                 DbPsiFacade.getInstance(project).clearCaches()
-                SqlDialectMappings.getInstance(project).setMapping(virtualFile, null)
+                setSqlDialectMapping(project, virtualFile, null)
             }
             assertEmpty("Unsupported fake methods must not be swallowed by production catch blocks", unsupportedCalls)
         }

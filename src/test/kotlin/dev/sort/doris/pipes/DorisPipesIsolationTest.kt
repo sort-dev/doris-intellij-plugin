@@ -17,6 +17,8 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
         val settings = project.getService(settingsType)!!
+        val introspectionType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesIntrospectionService")
+        assertSame(dorisLoader, project.getService(introspectionType)!!.javaClass.classLoader)
         assertEquals(false, settingsType.getMethod("getEnabled").invoke(settings))
         val setEnabled = settingsType.getMethod("setEnabled", Boolean::class.javaPrimitiveType)
         val policy = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipes")

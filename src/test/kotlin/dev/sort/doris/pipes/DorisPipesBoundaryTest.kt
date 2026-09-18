@@ -3,7 +3,7 @@ package dev.sort.doris.pipes
 import com.intellij.psi.PsiFileFactory
 import com.intellij.openapi.components.service
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
@@ -72,7 +72,7 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
         val statement = "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;"
         val text = "SELECT 0;\n$statement\nSELECT 2;"
         val file = myFixture.configureByText("pipes.sql", text)
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         val editor = myFixture.editor
         editor.caretModel.moveToOffset(text.indexOf("WHERE"))
         editor.selectionModel.setSelection(text.indexOf("FROM"), text.indexOf(" --"))
