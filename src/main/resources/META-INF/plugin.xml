@@ -55,6 +55,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.4.3</b> - preserves temporary-partition INSERT bounds after incremental editor reparsing.
+        <ul>
+            <li>Restores Doris statement context when IntelliJ restarts lexing in the middle of
+                <code>INSERT INTO ... TEMPORARY PARTITION(...) SELECT ...</code>.</li>
+            <li>Tests DataGrip's executable ScriptModel ranges for both fresh and edited consoles.</li>
+        </ul>
         <b>1.4.2</b> - fixes temporary-partition INSERT parsing and execution bounds.
         <ul>
             <li>Keeps multiline <code>INSERT INTO ... TEMPORARY PARTITION(...) SELECT ...</code>

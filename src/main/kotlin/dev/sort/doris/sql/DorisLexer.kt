@@ -40,7 +40,9 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
     override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
         parenDepth = 0
         castAsDepths.clear()
-        statementLead = null
+        // IntelliJ frequently restarts lexing in the middle of a statement. Recover the lead from
+        // the unchanged prefix so context-sensitive masks do not disappear after an editor reparse.
+        statementLead = statementLeadBefore(buffer, startOffset)
         super.start(buffer, startOffset, endOffset, initialState)
     }
 
@@ -233,6 +235,32 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
         } else if (statementLead == null && text.firstOrNull()?.isLetter() == true) {
             statementLead = text.uppercase()
         }
+    }
+
+    private fun statementLeadBefore(buffer: CharSequence, offset: Int): String? {
+        var start = offset - 1
+        while (start >= 0 && buffer[start] != ';') start--
+        var i = start + 1
+        while (i < offset) {
+            when {
+                buffer[i].isWhitespace() -> i++
+                buffer[i] == '#' -> {
+                    while (i < offset && buffer[i] != '\n') i++
+                }
+                i + 1 < offset && buffer[i] == '-' && buffer[i + 1] == '-' -> {
+                    i += 2
+                    while (i < offset && buffer[i] != '\n') i++
+                }
+                i + 1 < offset && buffer[i] == '/' && buffer[i + 1] == '*' -> {
+                    i += 2
+                    while (i + 1 < offset && !(buffer[i] == '*' && buffer[i + 1] == '/')) i++
+                    if (i + 1 < offset) i += 2
+                }
+                buffer[i].isLetter() -> return readWord(buffer, i).uppercase()
+                else -> i++
+            }
+        }
+        return null
     }
 
     private fun regionIsWordIgnoreCase(seq: CharSequence, start: Int, word: String): Boolean {

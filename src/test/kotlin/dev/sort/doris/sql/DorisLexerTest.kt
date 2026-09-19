@@ -6,9 +6,9 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 /** Token-stream fidelity: DorisLexer must be byte-identical to MysqlLexer except where it masks. */
 class DorisLexerTest : BasePlatformTestCase() {
 
-    private fun tokens(lexer: com.intellij.lexer.Lexer, text: String): List<String> {
+    private fun tokens(lexer: com.intellij.lexer.Lexer, text: String, startOffset: Int = 0): List<String> {
         val out = ArrayList<String>()
-        lexer.start(text)
+        lexer.start(text, startOffset, text.length)
         while (lexer.tokenType != null) {
             out.add("${lexer.tokenType} '${text.substring(lexer.tokenStart, lexer.tokenEnd)}'")
             lexer.advance()
@@ -141,5 +141,13 @@ class DorisLexerTest : BasePlatformTestCase() {
     fun testTemporaryOutsidePartitionSelectorIsUnchanged() {
         val sql = "ALTER TABLE t ADD TEMPORARY PARTITION p1 VALUES LESS THAN ('2024-06-01');"
         assertEquals(tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
+    }
+
+    fun testTemporaryPartitionMaskSurvivesIncrementalLexerRestart() {
+        val sql = "SELECT 0;\nINSERT INTO t TEMPORARY PARTITION(p1)\nSELECT * FROM s;"
+        val start = sql.indexOf("TEMPORARY")
+        val doris = tokens(DorisLexer(), sql, start)
+        assertTrue("TEMPORARY must remain masked when the IDE restarts lexing at that token",
+            doris.any { it.startsWith("SQL_BLOCK_COMMENT") && it.contains("TEMPORARY") })
     }
 }

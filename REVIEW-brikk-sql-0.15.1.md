@@ -2,7 +2,7 @@
 
 ## Scope
 
-Plugin 1.4.2 embeds `dev.brikk.house:brikk-sql-jvm:0.15.1` and
+Plugin 1.4.3 embeds `dev.brikk.house:brikk-sql-jvm:0.15.1` and
 `dev.brikk.house:brikk-sql-metadata-jvm:0.15.1` from Maven Central. Both artifact
 metadata files report 0.15.1 as the latest release. The core POM requires metadata
 0.15.1.
@@ -28,10 +28,14 @@ is byte-identical to 0.15.0. Four core files differ: `DorisNodes.kt`, `PipeNodes
   `DorisTemporaryPartition`, generates Doris SQL, reparses through brikk, and passes
   the bundled authoritative Doris parser.
 - The plugin PSI regression keeps the same SQL as one clean typed INSERT statement.
-- `cleanTest test` passed all 450 tests with no failures, errors, or skips.
+  DataGrip's executable `SqlScriptModel` range contains the complete INSERT and
+  SELECT, both on a fresh parse and after inserting `TEMPORARY` into a live model.
+  A separate lexer regression starts directly at `TEMPORARY`, matching IntelliJ's
+  incremental restart behavior.
+- `cleanTest test` passed all 453 tests with no failures, errors, or skips.
 - `buildPlugin` and `verifyEmbeddedPipes` passed. The ZIP contains the expected five
   JARs, and both embedded brikk JARs match the Maven Central hashes above.
-- Plugin Verifier reports 1.4.2 compatible with DB-261.24374.56,
+- Plugin Verifier reports 1.4.3 compatible with DB-261.24374.56,
   DB-262.10315.132, IU-262.8665.81, and IU-263.4732.28. Existing API-usage notices
   remain.
 
@@ -39,7 +43,7 @@ Installable local ZIP:
 
 ```text
 /home/jayson/DEV/sortdev/doris-intellij-plugin/build/distributions/doris-intellij-plugin.zip
-SHA-256: 191657ce539846121961737cc3148eddef79d7c08443fca434394df306592290
+SHA-256: 9bab547bf4000f5337b9c5dec67870a1eb040cb3fd389e6cd8c4153e9e17f514
 ```
 
 This build was not published, pushed, tagged, or installed.
