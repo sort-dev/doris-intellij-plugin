@@ -230,37 +230,33 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
 
     private fun updateStatementLead(base: Lexer) {
         val text = base.tokenText
-        if (parenDepth == 0 && text == ";") {
+        // Doris range partitions use [(...), (...)), so counting parentheses alone can leave
+        // a negative depth. A delimiter token always ends this statement's lexer context;
+        // semicolons inside literals/comments are part of those tokens and never match here.
+        if (text == ";") {
             statementLead = null
+            parenDepth = 0
+            castAsDepths.clear()
         } else if (statementLead == null && text.firstOrNull()?.isLetter() == true) {
             statementLead = text.uppercase()
         }
     }
 
     private fun statementLeadBefore(buffer: CharSequence, offset: Int): String? {
-        var start = offset - 1
-        while (start >= 0 && buffer[start] != ';') start--
-        var i = start + 1
-        while (i < offset) {
-            when {
-                buffer[i].isWhitespace() -> i++
-                buffer[i] == '#' -> {
-                    while (i < offset && buffer[i] != '\n') i++
-                }
-                i + 1 < offset && buffer[i] == '-' && buffer[i + 1] == '-' -> {
-                    i += 2
-                    while (i < offset && buffer[i] != '\n') i++
-                }
-                i + 1 < offset && buffer[i] == '/' && buffer[i + 1] == '*' -> {
-                    i += 2
-                    while (i + 1 < offset && !(buffer[i] == '*' && buffer[i + 1] == '/')) i++
-                    if (i + 1 < offset) i += 2
-                }
-                buffer[i].isLetter() -> return readWord(buffer, i).uppercase()
-                else -> i++
-            }
+        if (offset == 0) return null
+        // A raw backwards search for ';' mistakes comment/literal contents for delimiters.
+        // Reconstruct only the statement lead with the unmodified lexer, using the same token
+        // rules as updateStatementLead. Parenthesis balance does not determine statement scope.
+        val prefix = MysqlLexer()
+        prefix.start(buffer, 0, offset)
+        var lead: String? = null
+        while (prefix.tokenType != null) {
+            val text = prefix.tokenText
+            if (text == ";") lead = null
+            else if (lead == null && text.firstOrNull()?.isLetter() == true) lead = text.uppercase()
+            prefix.advance()
         }
-        return null
+        return lead
     }
 
     private fun regionIsWordIgnoreCase(seq: CharSequence, start: Int, word: String): Boolean {

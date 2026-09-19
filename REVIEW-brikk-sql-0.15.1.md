@@ -1,5 +1,8 @@
 # brikk-sql 0.15.1 verification
 
+The 1.4.3 checks below missed preceding range-partition DDL corrupting later INSERT
+bounds. See the [1.4.4 correction and full-file reproduction](REVIEW-temporary-partition-bounds.md).
+
 ## Scope
 
 Plugin 1.4.3 embeds `dev.brikk.house:brikk-sql-jvm:0.15.1` and

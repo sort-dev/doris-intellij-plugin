@@ -150,4 +150,22 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertTrue("TEMPORARY must remain masked when the IDE restarts lexing at that token",
             doris.any { it.startsWith("SQL_BLOCK_COMMENT") && it.contains("TEMPORARY") })
     }
+
+    fun testTemporaryPartitionTokensMatchAfterRangeDdlAndLexerRestarts() {
+        val sql = """
+            ALTER TABLE t ADD TEMPORARY PARTITION p1 VALUES [('2024-05-02'), ('2024-05-03'));
+            SELECT 1;
+            INSERT /* a semicolon ; in a comment */ INTO t TEMPORARY PARTITION(p1)
+            SELECT * FROM s;
+        """.trimIndent()
+        val insert = sql.indexOf("INSERT")
+        val standalone = tokens(DorisLexer(), sql.substring(insert))
+        val temporary = standalone.indexOf("SQL_BLOCK_COMMENT 'TEMPORARY'")
+        assertTrue("standalone INSERT must mask TEMPORARY", temporary >= 0)
+        val full = tokens(DorisLexer(), sql)
+        assertEquals("preceding range DDL must not affect the following INSERT", standalone,
+            full.dropWhile { it != standalone.first() })
+        assertEquals("restarting at TEMPORARY must ignore the comment's semicolon",
+            standalone.drop(temporary), tokens(DorisLexer(), sql, sql.indexOf("TEMPORARY PARTITION(p1)")))
+    }
 }

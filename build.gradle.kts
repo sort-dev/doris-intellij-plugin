@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.4.3"
+version = "1.4.4"
 
 val brikkSqlVersion = "0.15.1"
 require(!providers.gradleProperty("b1.provider").isPresent) {
