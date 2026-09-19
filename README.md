@@ -208,8 +208,8 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.
 
-The plugin bundles the published **brikk-sql engine and metadata 0.15.0**.
-See the [upgrade verification report](REVIEW-brikk-sql-0.15.0.md) for coverage,
+The plugin bundles the published **brikk-sql engine and metadata 0.15.1**.
+See the [upgrade verification report](REVIEW-brikk-sql-0.15.1.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler
 is not required and installing it does not enable PIPE. It remains an independent
 product for cross-dialect conversion, previews, and `.bsql` workspaces.

@@ -1,6 +1,8 @@
 package dev.sort.doris.pipes
 
 import dev.brikk.house.sql.ast.Distinct
+import dev.brikk.house.sql.ast.DorisTemporaryPartition
+import dev.brikk.house.sql.ast.Insert
 import dev.brikk.house.sql.ast.Limit
 import dev.brikk.house.sql.ast.Literal
 import dev.brikk.house.sql.ast.Offset
@@ -8,6 +10,7 @@ import dev.brikk.house.sql.ast.Select
 import dev.brikk.house.sql.ast.Window
 import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.dialects.Dialects
+import dev.brikk.house.sql.dialects.sql
 import dev.brikk.house.sql.optimizer.qualify
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
@@ -42,6 +45,24 @@ class DorisPipesUpgradeTest {
         nativeParser.parseStatement(result.dorisSql)
         for (part in expected) assertTrue("Missing <$part> in:\n${result.dorisSql}", part in result.dorisSql)
         return result
+    }
+
+    @Test
+    fun `Doris temporary partition insert parses and round trips through brikk`() {
+        val sql = """
+            INSERT INTO pm_swap_hourly TEMPORARY PARTITION(p_20240501_day)
+            SELECT event_at, id, amount, note
+            FROM pm_swap_hourly
+            WHERE event_at >= '2024-05-01 00:00:00'
+              AND event_at < '2024-05-02 00:00:00'
+        """.trimIndent()
+        val parsed = Dialects.DORIS.parseOne(sql)
+        assertTrue(parsed is Insert)
+        assertNotNull(parsed.find(DorisTemporaryPartition::class))
+        val generated = parsed.sql("doris")
+        assertTrue(generated, generated.contains("TEMPORARY PARTITION(p_20240501_day)"))
+        assertNotNull(Dialects.DORIS.parseOne(generated).find(DorisTemporaryPartition::class))
+        nativeParser.parseStatement(generated)
     }
 
     @Test
