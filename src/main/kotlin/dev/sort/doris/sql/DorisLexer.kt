@@ -35,18 +35,22 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
     // at which its `AS <type>` will appear.
     private var parenDepth = 0
     private val castAsDepths = ArrayDeque<Int>()
+    private var statementLead: String? = null
 
     override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
         parenDepth = 0
         castAsDepths.clear()
+        statementLead = null
         super.start(buffer, startOffset, endOffset, initialState)
     }
 
     override fun lookAhead(baseLexer: Lexer) {
+        updateStatementLead(baseLexer)
         when {
             isExceptColumnExclusion(baseLexer) -> maskExceptColumnList(baseLexer)
             isInsertOverwrite(baseLexer) -> maskInsertOverwriteHeader(baseLexer)
             isPartitionStar(baseLexer) -> maskThroughRightParen(baseLexer)
+            isTemporaryPartitionSelector(baseLexer) -> maskCurrentToken(baseLexer)
             isCastFunctionWord(baseLexer) -> {
                 castAsDepths.addLast(parenDepth + 1)
                 super.lookAhead(baseLexer)
@@ -203,6 +207,34 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
         addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
     }
 
+    /**
+     * Doris selects temporary partitions with `TEMPORARY PARTITION(...)` in INSERT targets and table
+     * references. MySQL supports the trailing `PARTITION(...)` selector but not the `TEMPORARY`
+     * modifier. Masking only that modifier preserves a typed INSERT/SELECT tree and prevents MySQL's
+     * error recovery from ending a multiline INSERT before its SELECT source.
+     */
+    private fun isTemporaryPartitionSelector(base: Lexer): Boolean {
+        if (base.tokenType == null || statementLead !in TEMPORARY_PARTITION_STATEMENT_LEADS) return false
+        val seq = base.bufferSequence
+        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "TEMPORARY")) return false
+        val i = skipWhitespace(seq, base.tokenEnd)
+        return regionIsWordIgnoreCase(seq, i, "PARTITION")
+    }
+
+    private fun maskCurrentToken(base: Lexer) {
+        addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT)
+        base.advance()
+    }
+
+    private fun updateStatementLead(base: Lexer) {
+        val text = base.tokenText
+        if (parenDepth == 0 && text == ";") {
+            statementLead = null
+        } else if (statementLead == null && text.firstOrNull()?.isLetter() == true) {
+            statementLead = text.uppercase()
+        }
+    }
+
     private fun regionIsWordIgnoreCase(seq: CharSequence, start: Int, word: String): Boolean {
         if (start + word.length > seq.length) return false
         for (k in word.indices) if (seq[start + k].uppercaseChar() != word[k]) return false
@@ -263,6 +295,7 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
             "BINARY", "CHAR", "NCHAR", "NATIONAL", "DATE", "DATETIME", "TIME", "YEAR",
             "DECIMAL", "DEC", "DOUBLE", "FLOAT", "REAL", "SIGNED", "UNSIGNED", "JSON"
         )
+        val TEMPORARY_PARTITION_STATEMENT_LEADS = setOf("INSERT", "SELECT", "WITH")
     }
 
     /**

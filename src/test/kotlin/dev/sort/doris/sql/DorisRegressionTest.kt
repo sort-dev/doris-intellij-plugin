@@ -173,6 +173,22 @@ class DorisRegressionTest : BasePlatformTestCase() {
         "INSERT INTO t (a, b, c) SELECT * EXCEPT(z) FROM s;"
     )
 
+    fun testInsertIntoTemporaryPartitionSelect() {
+        val sql = """
+            INSERT INTO pm_swap_hourly TEMPORARY PARTITION(p_20240501_day)
+            SELECT event_at, id, amount, note
+            FROM pm_swap_hourly
+            WHERE event_at >= '2024-05-01 00:00:00'
+              AND event_at <  '2024-05-02 00:00:00';
+        """.trimIndent()
+        assertClean(sql)
+        assertTrue("must retain typed INSERT PSI", tree(sql).contains("SQL_INSERT_DML_INSTRUCTION"))
+    }
+
+    fun testSelectFromTemporaryPartition() = assertClean(
+        "SELECT * FROM pm_swap_hourly TEMPORARY PARTITION(p_20240501_day);"
+    )
+
     // --- INSERT OVERWRITE (header masked at the lexer -> real insert PSI) ---
 
     fun testInsertOverwriteVariants() {

@@ -128,4 +128,18 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertTrue("AS ARRAY<TEXT> must be masked",
             doris.any { it.startsWith("SQL_BLOCK_COMMENT") && it.contains("ARRAY") })
     }
+
+    fun testTemporaryPartitionModifierMasked() {
+        val sql = "INSERT INTO t TEMPORARY PARTITION(p1) SELECT * FROM s;"
+        val doris = tokens(DorisLexer(), sql)
+        assertTrue("TEMPORARY must be masked before a PARTITION selector",
+            doris.any { it.startsWith("SQL_BLOCK_COMMENT") && it.contains("TEMPORARY") })
+        assertTrue("the PARTITION selector must remain visible to MySQL's grammar",
+            doris.any { it.contains("'PARTITION'") })
+    }
+
+    fun testTemporaryOutsidePartitionSelectorIsUnchanged() {
+        val sql = "ALTER TABLE t ADD TEMPORARY PARTITION p1 VALUES LESS THAN ('2024-06-01');"
+        assertEquals(tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
+    }
 }
