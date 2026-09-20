@@ -11,7 +11,7 @@ for details, attributions, and the full MIT and BSD license notices:
 
   - Apache Doris (fe/fe-sql-parser, logo, function metadata, and DDL grammar reference) - Apache-2.0;
     Copyright The Apache Software Foundation
-  - brikk-sql and brikk-sql-metadata 0.12.0 (github.com/brikk/brikk-house) - Apache-2.0;
+  - brikk-sql and brikk-sql-metadata 0.16.0 (github.com/brikk/brikk-house) - Apache-2.0;
     published by Jayson Minard and Sortdev SRL, with third-party-derived portions
   - SQLGlot (upstream of brikk-sql) - MIT; Copyright (c) 2026 Toby Mao
   - polyglot (DataFusion dialect reference for brikk-sql) - MIT;

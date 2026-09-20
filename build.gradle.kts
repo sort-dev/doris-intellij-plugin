@@ -10,9 +10,9 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.4.4"
+version = "1.5.0"
 
-val brikkSqlVersion = "0.15.1"
+val brikkSqlVersion = "0.16.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
@@ -53,7 +53,7 @@ dependencies {
     // and rebuild steps. Its only runtime dep, antlr4-runtime, still comes from Maven Central.
     // Un-relocated for now; the plugin classloader is isolated. If antlr4-runtime ever clashes with
     // the platform's, switch to the proven shade-relocate of org.antlr.v4.runtime.
-    implementation(files("vendor/lib/doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar"))
+    implementation(files("vendor/lib/doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar"))
     implementation("org.antlr:antlr4-runtime:4.13.1")
 
     // Embed only the core engine and metadata, not verification libraries or database drivers.
@@ -189,7 +189,7 @@ val verifyEmbeddedPipes by tasks.registering {
     val pluginJarName = tasks.named<org.gradle.jvm.tasks.Jar>("composedJar").flatMap { it.archiveFileName }
     val libraries = setOf(
         "brikk-sql-jvmMain-$brikkSqlVersion.jar", "brikk-sql-metadata-jvmMain-$brikkSqlVersion.jar",
-        "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar",
+        "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar",
     )
     val requiredNotices = listOf(
         "brikk-sql-jvm:$brikkSqlVersion", "brikk-sql-metadata-jvm:$brikkSqlVersion",

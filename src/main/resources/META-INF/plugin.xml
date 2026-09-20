@@ -37,7 +37,7 @@
             <li>Window functions, CTEs, Doris cast targets (<code>STRING</code>, <code>LARGEINT</code>,
                 <code>ARRAY&lt;...&gt;</code>, <code>MAP&lt;...&gt;</code>), <code>TRY_CAST</code>,
                 and map access (<code>col['key']</code>) parse with full structure and completion</li>
-            <li>Completion for 825 Doris built-in functions and Doris data types
+            <li>Completion for Doris built-in functions and Doris data types
                 (<code>VARIANT</code>, <code>BITMAP</code>, <code>HLL</code>, <code>AGG_STATE</code>, ...)</li>
             <li>Doris-accurate syntax validation via an embedded build of the Doris SQL parser</li>
             <li>Ready-to-use <b>Apache Doris</b> data-source template: MySQL Connector/J download,
@@ -55,6 +55,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.0</b> - Doris 4.1.4 grammar and brikk-sql 0.16.0.
+        <ul>
+            <li>Uses the exact Doris 4.1.4 native grammar for editor diagnostics and generated-SQL validation.</li>
+            <li>Updates the embedded SQL engine for <code>DEFAULT(column)</code>, nested-column
+                ADD/MODIFY, tablet compaction, and <code>SHOW COMPUTE GROUPS</code>.</li>
+            <li>Preserves <code>TIMESTAMPTZ</code> in generated SQL, including ISO timestamp conversion.</li>
+            <li>Adds completion metadata for <code>PARSE_TO_VARIANT</code>, <code>TRY_PARSE_TO_VARIANT</code>,
+                and <code>VECTOR_SEARCH</code>, including vector-search property completion.</li>
+            <li>Updates Variant type inference and generic-function nullability in the embedded engine.</li>
+        </ul>
         <b>1.4.4</b> - fixes INSERT execution bounds after range-partition DDL.
         <ul>
             <li>Doris half-open partition bounds such as <code>VALUES [('start'), ('end'))</code>

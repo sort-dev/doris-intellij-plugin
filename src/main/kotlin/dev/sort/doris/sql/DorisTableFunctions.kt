@@ -314,6 +314,16 @@ object DorisTableFunctions {
         Tvf("partition_values", listOf(
             PropertyKey("catalog"), PropertyKey("database"), PropertyKey("table"),
         ), Schema.Open),
+
+        // Doris 4.1.4, ad35a140c7fd: VectorSearchTableValuedFunction.PROPERTIES.
+        // Output columns depend on the referenced Lance table's schema.
+        Tvf("vector_search", listOf(
+            PropertyKey("table"), PropertyKey("column"), PropertyKey("query_vector"),
+            PropertyKey("top_k"), PropertyKey("offset"),
+            PropertyKey("metric", listOf("l2", "cosine", "dot", "dot_product", "hamming")),
+            PropertyKey("filter"), PropertyKey("nprobes"), PropertyKey("refine_factor"),
+            PropertyKey("ef"), PropertyKey("use_index", listOf("true", "false")),
+        ), Schema.Open),
     )
 
     private val byLowerName: Map<String, Tvf> = SPECS.associateBy { it.name.lowercase() }

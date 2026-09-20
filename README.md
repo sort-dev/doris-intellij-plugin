@@ -58,7 +58,7 @@ Part of our SQL-tooling family alongside:
   hasn't been introspected yet and the plugin widens the introspection scope to just that schema
   and refreshes it in the background — columns appear moments later, with an editor banner while a
   table has no column data yet. No more hunting through Settings for the right refresh checkbox.
-- **Completion** for 825 Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
+- **Completion** for Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
   `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords. Function auto-popup fires only
   in expression positions, so it never interrupts typing keywords or literals (explicit
   <kbd>Ctrl</kbd>+<kbd>Space</kbd> always offers the full list).
@@ -208,8 +208,8 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.
 
-The plugin bundles the published **brikk-sql engine and metadata 0.15.1**.
-See the [upgrade verification report](REVIEW-brikk-sql-0.15.1.md) for coverage,
+The plugin bundles the published **brikk-sql engine and metadata 0.16.0** and the
+native **Doris 4.1.4 grammar**. See the [upgrade verification report](REVIEW-brikk-sql-0.16.0.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler
 is not required and installing it does not enable PIPE. It remains an independent
 product for cross-dialect conversion, previews, and `.bsql` workspaces.

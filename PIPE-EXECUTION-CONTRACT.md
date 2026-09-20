@@ -8,8 +8,8 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 [B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.15.1` and `brikk-sql-metadata-jvm:0.15.1`, both
-confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.15.1.md)
+`dev.brikk.house:brikk-sql-jvm:0.16.0` and `brikk-sql-metadata-jvm:0.16.0`, both
+confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.16.0.md)
 for the verification scope and intentional refusals for unsafe input boundaries.
 SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library

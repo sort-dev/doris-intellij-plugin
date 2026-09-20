@@ -3,11 +3,11 @@ package dev.sort.doris.sql
 import com.intellij.lang.Language
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.sql.dialects.SqlDialectMappings
 import com.intellij.sql.psi.SqlFunctionCallExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlTableType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.sort.doris.setSqlDialectMapping
 
 /**
  * Doris table-valued functions (RESEARCH-tvf-completion.md, Tier A/B):
@@ -21,7 +21,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            SqlDialectMappings.getInstance(project).setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
         }
@@ -159,7 +159,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         val expected = listOf(
             "backends", "frontends", "frontends_disks", "catalogs", "mv_infos", "partitions",
             "numbers", "jobs", "tasks", "hudi_meta", "iceberg_meta",
-            "s3", "hdfs", "local", "http", "query", "partition_values",
+            "s3", "hdfs", "local", "http", "query", "partition_values", "vector_search",
         )
         assertEquals(expected.sorted(), DorisTableFunctions.allNames.sorted())
     }
@@ -169,10 +169,16 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     // ---------------------------------------------------------------------------------------
 
     private fun unresolvedColumnErrors(sql: String): List<String> {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("h.sql", sql)
         assertEquals("DorisSQL", myFixture.file.language.id)
-        myFixture.enableInspections(com.intellij.sql.inspections.SqlResolveInspection())
+        // 263 moved this inspection to the resolve subpackage. Load the runtime's implementation.
+        val inspection = try {
+            Class.forName("com.intellij.sql.inspections.SqlResolveInspection")
+        } catch (_: ClassNotFoundException) {
+            Class.forName("com.intellij.sql.inspections.resolve.SqlResolveInspection")
+        }
+        myFixture.enableInspections(inspection.getDeclaredConstructor().newInstance() as com.intellij.codeInspection.InspectionProfileEntry)
         return myFixture.doHighlighting()
             .filter { it.description?.contains("Unable to resolve column") == true }
             .map { it.text }
@@ -192,6 +198,17 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
+    fun testVectorSearchOpenRelationAndPropertyCompletion() {
+        val sql = "SELECT item_id, _distance FROM VECTOR_SEARCH(" +
+            "'table'='lance.db.t', 'column'='embedding', 'query_vector'='[0,0]');"
+        assertEquals(emptyList<String>(), tableTypeColumns(sql))
+        assertEquals(emptyList<String>(), unresolvedColumnErrors(sql))
+        val keys = completionsAt("SELECT * FROM VECTOR_SEARCH('<caret>');")
+        assertTrue(keys.toString(), keys.containsAll(listOf("table", "column", "query_vector", "top_k")))
+        val metrics = completionsAt("SELECT * FROM VECTOR_SEARCH('metric'='<caret>');")
+        assertTrue(metrics.toString(), metrics.containsAll(listOf("l2", "cosine", "dot", "hamming")))
+    }
+
     fun testWrongColumnOnConditionalVariantStaysRed() {
         assertEquals(listOf("Label"), unresolvedColumnErrors("SELECT Label FROM tasks(\"type\"=\"mv\");"))
     }
@@ -205,7 +222,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     // ---------------------------------------------------------------------------------------
 
     private fun completionsAt(sql: String): List<String> {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", sql)
         return myFixture.completeBasic()?.map { it.lookupString } ?: emptyList()
     }
@@ -264,7 +281,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     //     DorisTvfAutoPopupConfidence (order="first") answers NO inside a TVF's argument parens. ---
 
     private fun confidenceAt(sql: String): com.intellij.util.ThreeState {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("a.sql", sql)
         val offset = myFixture.caretOffset
         val element = myFixture.file.findElementAt(offset)
@@ -283,7 +300,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     fun testAutopopupConfidenceEditorEntryPointDelegates() {
         // The production auto-popup path calls the 4-arg (Editor) overload; its platform default
         // must delegate to the 3-arg one we override. Pins that delegation on this platform build.
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("a.sql", "SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');")
         val offset = myFixture.caretOffset
         val element = myFixture.file.findElementAt(offset) ?: myFixture.file.findElementAt(offset - 1)!!
@@ -316,7 +333,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     }
 
     fun testCompletionOffersTvfNames() {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", "SELECT * FROM iceberg<caret>;")
         val items = myFixture.completeBasic()
         if (items == null) {

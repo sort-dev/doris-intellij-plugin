@@ -1,45 +1,42 @@
 # Vendored dependencies
 
-## `lib/doris-fe-sql-parser-1.2-SNAPSHOT-g7027772afcb.jar`
+## `lib/doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar`
 
-The standalone Doris SQL parser (`fe-sql-parser`) from Apache Doris — the authoritative ANTLR
-grammar the plugin uses for Doris-accurate parsing/validation. It is **pre-release and not
-published to any public Maven repository** (not Maven Central, not Apache snapshots — Doris only
-publishes its connectors/SDKs, not the FE core modules), so we vendor a locally-built jar here and
-reference it directly from `build.gradle.kts` (`implementation(files(...))`).
+The plugin uses Apache Doris's native ANTLR grammar for diagnostics, CST replay,
+and validation of generated PIPE SQL. Doris does not publish this standalone
+parser to Maven Central.
 
-**This jar is a point-in-time snapshot of unreleased Doris code.** Provenance:
+This artifact uses the exact Doris 4.1.4 release grammar with a separately pinned
+standalone facade/build module, because the release branch has no `fe-sql-parser`
+module. It is the same artifact committed by brikk-house in
+`1d6161621b6f8ad7fdb1c6344a55f64474387b41` for its native oracle.
 
-| | |
+| Component | Pin |
 |---|---|
-| Source | Apache Doris — https://github.com/apache/doris, module `fe/fe-sql-parser` |
-| Git SHA | `7027772afcbf36972662ad0c71dfc9f47bb13f4e` (short `g7027772afcb`) |
-| `git describe` | `v20220306-27095-g7027772afcb` |
-| Commit date | 2026-07-02 |
-| Artifact version | `1.2-SNAPSHOT` (an internal Doris build version — NOT a stable coordinate; contents change under the same version) |
-| License | Apache License 2.0 (see `../THIRD_PARTY_NOTICES.md`) |
-| Runtime dependency | `org.antlr:antlr4-runtime:4.13.1` (resolved from Maven Central, not bundled here) |
+| Source | https://github.com/apache/doris |
+| Grammar | Tag `4.1.4`, commit `ad35a140c7fd0b842f18c23300bac581f7d04326` |
+| Facade/build module | `2a58ad96ac3ca6330a6df3d0b90f437351f63701` |
+| Internal Maven version | `1.2-SNAPSHOT`, not a published release coordinate |
+| Refreshed | 2026-09-20 |
+| License | Apache License 2.0, see `../THIRD_PARTY_NOTICES.md` |
+| Runtime dependency | `org.antlr:antlr4-runtime:4.13.1` |
+| Artifact SHA-256 | `358ecccb39e84c65e62dc72b4090191c445fad4be1fb64e79ddaf68787d8703a` |
 
-The `fe-sql-parser` module was introduced in Doris commit `7fc8e27`
-(`[feat](sql-parser) Split SQL grammar into standalone fe-sql-parser`).
+### Rebuilding
 
-### Rebuilding / refreshing this jar
-
-From a Doris checkout, build the thin library jar with **JDK 17** (Doris FE targets 17; the default
-JDK may be too new), then copy it here with the new SHA in the filename and update the reference in
-`build.gradle.kts`:
+Use Maven 3.9.16 and JDK 17 or later in a disposable source checkout:
 
 ```bash
-# in the Doris repo
-JAVA_HOME=/path/to/jdk-17 \
-  mvn -f fe/pom.xml -pl fe-sql-parser -am -Pflatten install -DskipTests
-# output: fe/fe-sql-parser/target/doris-fe-sql-parser.jar  (~1.3 MB)
-
-cp fe/fe-sql-parser/target/doris-fe-sql-parser.jar \
-   <plugin>/vendor/lib/doris-fe-sql-parser-1.2-SNAPSHOT-g<short-sha>.jar
+git clone --filter=blob:none --no-checkout --depth 1 \
+  --revision 2a58ad96ac3ca6330a6df3d0b90f437351f63701 \
+  https://github.com/apache/doris.git /tmp/opencode/doris-parser-build
+git -C /tmp/opencode/doris-parser-build sparse-checkout set fe/fe-sql-parser
+git -C /tmp/opencode/doris-parser-build checkout --detach 2a58ad96ac3ca6330a6df3d0b90f437351f63701
+git -C /tmp/opencode/doris-parser-build fetch --depth 1 origin ad35a140c7fd0b842f18c23300bac581f7d04326
+bash vendor/build-parser.sh /tmp/opencode/doris-parser-build
 ```
 
-The build takes ~15s and needs no Doris thirdparty (unlike `fe-core`); `fe-sql-parser`'s only
-dependency is `antlr4-runtime`.
-
-> Replace this with a normal Maven coordinate once Doris publishes `fe-sql-parser` to a public repo.
+The script replaces the two grammar files with the exact release-tag versions.
+It permits the release grammar's ANTLR warnings about implicit GET_FORMAT and
+nullable warmUpSingleTableRef, matching the release's fe-core build. It does not
+modify the grammar or Java facade sources.
