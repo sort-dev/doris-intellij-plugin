@@ -489,6 +489,7 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
         "ExpressionWithOrderContext" -> childRule == "expression"      // GROUP BY item
         "SortItemContext" -> childRule == "expression"                 // ORDER BY sort key
         "QualifyClauseContext" -> childRule == "booleanExpression"     // QUALIFY condition
+        "OutFileClauseContext" -> childRule == "constant"              // INTO OUTFILE path literal
         // DDL partition expressions (Task 1c): the column/function key inside a PARTITION BY clause. Each
         // hands off to the platform value-expression parser so `date_trunc(col, 'day')` comes out a real
         // SQL_FUNCTION_CALL (and a bare `col` a SQL_COLUMN_REFERENCE) rather than a loose identifier +

@@ -24,6 +24,7 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_VIEW_REFERENCE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_REFERENCE_LIST
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_CLAUSE
+import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_INTO_CLAUSE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_OPTION
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_SELECT_STATEMENT
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_TABLE_REFERENCE
@@ -181,6 +182,12 @@ internal object ReplayMapping {
         "HavingClauseContext" to SQL_HAVING_CLAUSE,
         "SortClauseContext" to SQL_ORDER_BY_CLAUSE,
         "LimitClauseContext" to SQL_LIMIT_OFFSET_CLAUSE,
+
+        // `INTO OUTFILE path [FORMAT AS fmt] [PROPERTIES (...)]` (statementDefault's outFileClause): a
+        // child of the SELECT statement beside the query, the platform MySQL shape for a trailing INTO.
+        // The console runs a query through executeQuery() unless it finds this element, and Doris
+        // answers an export without a result set, so the driver would reject it (S1009).
+        "OutFileClauseContext" to SQL_SELECT_INTO_CLAUSE,
     )
 
     /**
