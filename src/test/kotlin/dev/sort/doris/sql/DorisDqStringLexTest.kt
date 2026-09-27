@@ -47,8 +47,30 @@ class DorisDqStringLexTest : BasePlatformTestCase() {
     }
 
     fun testMultilineAndEscapesStayOneStringToken() {
-        val v = "\"l1\nl2 \\\" '2026-05-01' x\""
+        val v = "\"l1\nl2 \\\" 2026-05-01 x\""
         assertEquals(SqlTokens.SQL_STRING_TOKEN, typeOf("SELECT $v FROM t", v))
+    }
+
+    fun testApostropheInsideDoubleQuotesUsesTheCustomQuotedShape() {
+        val v = "\"l1\nl2 \\\" '2026-05-01' x\""
+        val toks = tokens("SELECT $v FROM t")
+        val start = toks.indexOfFirst { it.first == SqlTokens.SQL_CUSTOM_LQUOTE }
+        assertEquals(
+            listOf(
+                SqlTokens.SQL_CUSTOM_LQUOTE to "\"",
+                SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN to v.substring(1, v.length - 1),
+                SqlTokens.SQL_CUSTOM_RQUOTE to "\"",
+            ),
+            toks.subList(start, start + 3),
+        )
+        assertEquals(
+            listOf(
+                SqlTokens.SQL_CUSTOM_LQUOTE to "\"",
+                SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN to "'",
+                SqlTokens.SQL_CUSTOM_RQUOTE to "\"",
+            ),
+            tokens("SELECT \"'\" FROM t").subList(1, 4),
+        )
     }
 
     fun testPropertyPairBecomesStringEqualsString() {

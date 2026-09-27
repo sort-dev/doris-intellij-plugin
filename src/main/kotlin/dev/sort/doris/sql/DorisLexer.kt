@@ -2,6 +2,7 @@ package dev.sort.doris.sql
 
 import com.intellij.lexer.Lexer
 import com.intellij.lexer.LookAheadLexer
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.sql.dialects.mysql.MysqlLexer
 import com.intellij.sql.psi.SqlTokens
 
@@ -65,7 +66,7 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
             }
             isCastAs(baseLexer) -> handleCastAs(baseLexer)
             isRegexpFunctionCall(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_IDENT)
-            isDoubleQuotedToken(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_STRING_TOKEN)
+            isDoubleQuotedToken(baseLexer) -> emitDoubleQuotedString(baseLexer)
             else -> super.lookAhead(baseLexer)
         }
     }
@@ -85,6 +86,27 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
         base.tokenType == SqlTokens.SQL_IDENT_DELIMITED &&
             base.tokenStart < base.tokenEnd &&
             base.bufferSequence[base.tokenStart] == '"'
+
+    /**
+     * The platform's user-parameter lexer (`${name}` in string literals) finds the content of a
+     * SQL_STRING_TOKEN by searching for its first `'`. Inside `"…"` that `'` is content, and one after
+     * a parameter makes it emit descending token offsets ("Token sequence broken", then
+     * IndexOutOfBoundsException in the parser). Such strings use the platform's custom-quoted shape,
+     * whose content that lexer scans from the token start; the parser accepts it as a string literal.
+     */
+    private fun emitDoubleQuotedString(base: Lexer) {
+        val start = base.tokenStart
+        val end = base.tokenEnd
+        val seq = base.bufferSequence
+        if (end - start < 2 || seq[end - 1] != '"' || StringUtil.indexOf(seq, '\'', start, end) < 0) {
+            advanceAs(base, SqlTokens.SQL_STRING_TOKEN)
+            return
+        }
+        addToken(start + 1, SqlTokens.SQL_CUSTOM_LQUOTE)
+        if (end - 1 > start + 1) addToken(end - 1, SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN)
+        addToken(end, SqlTokens.SQL_CUSTOM_RQUOTE)
+        base.advance()
+    }
 
     /**
      * Doris cast targets the MySQL grammar rejects. The generated `valid_cast_type_element` rule

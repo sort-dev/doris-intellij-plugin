@@ -23,10 +23,16 @@ import com.intellij.sql.psi.SqlTokens
 class DorisEmbeddedQuerySqlAnnotator : Annotator {
 
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
-        if (element.firstChild != null || element.node.elementType != SqlTokens.SQL_STRING_TOKEN) return
+        if (element.firstChild != null) return
+        // DorisLexer splits a `"…"` containing `'` into custom quotes around one content token.
+        val quoted = when (element.node.elementType) {
+            SqlTokens.SQL_STRING_TOKEN -> true
+            SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN -> false
+            else -> return
+        }
         if (!element.containingFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
         val text = element.text
-        if (text.length < 3 || text.last() != text.first()) return
+        if (quoted && (text.length < 3 || text.last() != text.first())) return
         val literal = element.parent as? SqlLiteralExpression ?: return
         val pair = PsiTreeUtil.getParentOfType(literal, SqlBinaryExpression::class.java) ?: return
         if (pair.rOperand !== literal) return
@@ -38,8 +44,8 @@ class DorisEmbeddedQuerySqlAnnotator : Annotator {
         if (!"query".equals(call.nameElement?.name, ignoreCase = true)) return
 
         val base = element.textRange.startOffset
-        var i = 1 // inside the quotes
-        val end = text.length - 1
+        var i = if (quoted) 1 else 0
+        val end = if (quoted) text.length - 1 else text.length
         fun paint(start: Int, stop: Int, key: TextAttributesKey) {
             if (stop > start) holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                 .range(TextRange(base + start, base + stop)).textAttributes(key).create()
