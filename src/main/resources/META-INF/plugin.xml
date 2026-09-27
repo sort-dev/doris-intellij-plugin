@@ -63,6 +63,8 @@
             <li>With parameter expansion inside SQL strings enabled, a double-quoted string containing
                 <code>'</code> after a <code>${name}</code> parameter no longer breaks the editor with
                 "Token sequence broken" and <code>IndexOutOfBoundsException</code>.</li>
+            <li>The console asks for <code>${name}</code> parameter values again inside Doris
+                <code>PROPERTIES (...)</code> and other Doris-only clauses, such as export options.</li>
         </ul>
         <b>1.5.1</b> - uses only public action-registration API.
         <ul>
