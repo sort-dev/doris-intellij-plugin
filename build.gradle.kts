@@ -132,6 +132,8 @@ intellijPlatform {
             create("DB", "2026.2.5") {}
             // Forward-compatibility gate from Marketplace's 1.4.0 report.
             create("IU", "263.4732.28") {}
+            // Current 2026.3 EAP that Marketplace review verifies against.
+            create("IU", "263.5701.42") {}
         }
     }
     publishing {
