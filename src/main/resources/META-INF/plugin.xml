@@ -55,11 +55,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>1.5.2</b> - fixes running <code>SELECT ... INTO OUTFILE</code> exports.
+        <b>1.5.2</b> - fixes <code>SELECT ... INTO OUTFILE</code> exports and a parameter-expansion crash.
         <ul>
             <li><code>SELECT ... INTO OUTFILE ... [FORMAT AS ...] [PROPERTIES (...)]</code>, including
                 after <code>WITH</code>, no longer fails with "Statement.executeQuery() cannot issue
                 statements that do not produce result sets" (S1009).</li>
+            <li>With parameter expansion inside SQL strings enabled, a double-quoted string containing
+                <code>'</code> after a <code>${name}</code> parameter no longer breaks the editor with
+                "Token sequence broken" and <code>IndexOutOfBoundsException</code>.</li>
         </ul>
         <b>1.5.1</b> - uses only public action-registration API.
         <ul>
