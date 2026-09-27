@@ -55,6 +55,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.1</b> - uses only public action-registration API.
+        <ul>
+            <li>Registers the PIPE Execute wrappers through the public dynamic action customizer
+                instead of the internal <code>ActionConfigurationCustomizer</code>.</li>
+            <li>Unloading the plugin restores the previous Execute actions. If another plugin
+                has wrapped them since, the Doris wrapper only passes execution through.</li>
+        </ul>
         <b>1.5.0</b> - Doris 4.1.4 grammar and brikk-sql 0.16.0.
         <ul>
             <li>Uses the exact Doris 4.1.4 native grammar for editor diagnostics and generated-SQL validation.</li>
