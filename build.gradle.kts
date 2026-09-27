@@ -111,7 +111,7 @@ intellijPlatform {
     }
     pluginVerification {
         // Keep binary/structural failures fatal. API-use notices remain in the reports for
-        // Marketplace review of the existing introspector and action-customizer integrations;
+        // Marketplace review of the existing introspector integration;
         // this policy is not an approval or an ignored-problems list for those usages.
         failureLevel.set(listOf(
             VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,

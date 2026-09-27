@@ -43,6 +43,15 @@ internal open class DorisPipesRunQueryAction(
         copyFrom(previous)
     }
 
+    @Volatile
+    internal var isDetached = false
+        private set
+
+    /** After plugin unload this wrapper may remain inside a peer's chain; it must only delegate. */
+    internal fun detach() {
+        isDetached = true
+    }
+
     override fun getDelegate(): AnAction = previous
 
     override fun update(e: AnActionEvent) = previous.update(e)
@@ -57,7 +66,7 @@ internal open class DorisPipesRunQueryAction(
         PerformWithDocumentsCommitted.isPerformWithDocumentsCommitted(previous)
 
     override fun actionPerformed(e: AnActionEvent) {
-        if (!intercept(e, getExecOption())) ActionWrapperUtil.actionPerformed(e, this, previous)
+        if (isDetached || !intercept(e, getExecOption())) ActionWrapperUtil.actionPerformed(e, this, previous)
     }
 }
 

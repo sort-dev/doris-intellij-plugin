@@ -62,13 +62,17 @@ scope, and interaction with explicit user choices are TBD. It is not part of B22
 ## Registration
 
 Do not copy the old four `<action overrides="true">` registrations. Register a
-synchronous `ActionConfigurationCustomizer.SyncHeavyCustomizeStrategy` in the
-plugin descriptor instead. Doris unconditionally includes `doris-pipes.xml`.
+public `com.intellij.openapi.actionSystem.impl.DynamicActionConfigurationCustomizer`
+through the `dynamicActionConfigurationCustomizer` extension point instead. Do not
+use `ActionConfigurationCustomizer` or its strategies; they are `@ApiStatus.Internal`
+and JetBrains Marketplace review rejects them. Do not also implement
+`ActionConfigurationCustomizer.LightCustomizeStrategy`, which makes registration
+asynchronous. Doris unconditionally includes `doris-pipes.xml`.
 Capture the current action
 with the supplied manager's `getAction(id)` before calling `replaceAction`.
 
 ```kotlin
-override fun customize(actionManager: ActionManager) {
+override fun registerActions(actionManager: ActionManager) {
     val previous = requireNotNull(actionManager.getAction(actionId))
     val replacement = DialectExecuteAction(previous)
     actionManager.replaceAction(actionId, replacement)
@@ -155,15 +159,19 @@ constructor are package-private in 263; do not instantiate that class directly.
 
 ## Lifecycle
 
-The customizer extension point is non-dynamic. Installing, removing, or updating
-the plugin requires an IDE restart. Changing the per-project PIPE setting does not:
-keep registration fixed and gate handler participation rather than replacing actions
+The customizer extension point is dynamic, so `unregisterActions` must undo
+registration. Changing the per-project PIPE setting never re-registers: keep
+registration fixed and gate handler participation rather than replacing actions
 when a checkbox changes. SQL Transpiler installation/removal is independent of Doris.
 
-Do not add a naive hot-unload restoration callback. Restoring a predecessor can
-clobber a later plugin's replacement, and immutable chains can retain removed
-plugins. Arbitrary hot unload would require a different, centrally owned dispatcher
-with removable contributors. That is not this contract.
+On unregistration, restore the captured predecessor only when the registered action
+for that ID is still this plugin's own wrapper. Never restore underneath a later
+plugin's replacement; that would clobber its chain. When a peer has captured the
+wrapper, detach it so it only delegates to its predecessor and leave it in place.
+The peer then still holds a reference to the unloaded plugin's class, so the
+platform's unload leak check may ask for a restart. Arbitrary clean hot unload
+would require a centrally owned dispatcher with removable contributors. That is
+not this contract.
 
 ## Scope
 

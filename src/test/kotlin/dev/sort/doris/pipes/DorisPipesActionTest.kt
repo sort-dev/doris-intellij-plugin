@@ -193,6 +193,17 @@ class DorisPipesActionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testDetachedWrapperOnlyDelegates() {
+        var calls = 0
+        val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { calls++ } }
+        for (variant in 1..4) {
+            val action = wrap(variant, previous) { _, _ -> fail("a detached wrapper must not intercept"); true }
+            action.detach()
+            action.actionPerformed(event("doris", true))
+        }
+        assertEquals(4, calls)
+    }
+
     fun testHandledRejectionAndThrownFailureDoNotInvokeThePreviousAction() {
         var calls = 0
         val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { calls++ } }

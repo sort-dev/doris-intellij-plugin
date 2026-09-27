@@ -3,8 +3,8 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Capture and wrap the previous Execute actions synchronously after XML registration.
-             Plugin installation/removal is restart-bound; project setting changes are not. -->
-        <actionConfigurationCustomizer implementation="dev.sort.doris.pipes.DorisPipesActionConfiguration"/>
+             Unregistration restores the predecessor; project setting changes never re-register. -->
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.pipes.DorisPipesActionConfiguration"/>
         <actionPromoter implementation="dev.sort.doris.pipes.DorisPipesActionPromoter" order="first"/>
         <projectConfigurable id="dev.sort.doris.pipes" displayName="Apache Doris PIPE"
                              parentId="tools" nonDefaultProject="true"

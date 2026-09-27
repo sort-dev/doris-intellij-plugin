@@ -5,26 +5,37 @@ import com.intellij.openapi.actionSystem.ActionPromoter
 import com.intellij.openapi.actionSystem.ActionWithDelegate
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.actionSystem.impl.ActionConfigurationCustomizer
+import com.intellij.openapi.actionSystem.impl.DynamicActionConfigurationCustomizer
 import java.util.Collections
 import java.util.IdentityHashMap
 
-/** Startup-only registration: arbitrary removal from a captured action chain requires a restart. */
-@Suppress("UnstableApiUsage")
-class DorisPipesActionConfiguration : ActionConfigurationCustomizer,
-    ActionConfigurationCustomizer.SyncHeavyCustomizeStrategy {
-    private var installed = false
+/**
+ * Wraps the four Execute actions. The platform calls [registerActions] synchronously after XML
+ * registration at startup, and again on dynamic load; [unregisterActions] runs on dynamic unload.
+ */
+class DorisPipesActionConfiguration : DynamicActionConfigurationCustomizer {
+    private val installed = LinkedHashMap<String, DorisPipesRunQueryAction>()
 
-    override fun customize(actionManager: ActionManager) {
-        if (installed) return
+    override fun registerActions(actionManager: ActionManager) {
+        if (installed.isNotEmpty()) return
         for ((index, id) in EXECUTE_IDS.withIndex()) {
             // Resolve stubs before replacement. The platform's base-action slot is NOT a chain.
             val previous = requireNotNull(actionManager.getAction(id)) { "Missing Execute action: $id" }
             val replacement = if (index == 3) DorisPipesRunSelectionAction(previous)
                 else DorisPipesRunQueryAction(index + 1, previous)
             actionManager.replaceAction(id, replacement)
+            installed[id] = replacement
         }
-        installed = true
+    }
+
+    override fun unregisterActions(actionManager: ActionManager) {
+        for ((id, replacement) in installed) {
+            // A later peer captured this wrapper as its predecessor; its chain cannot be rewritten,
+            // so leave the wrapper in place as a pure pass-through.
+            replacement.detach()
+            if (actionManager.getAction(id) === replacement) actionManager.replaceAction(id, replacement.delegate)
+        }
+        installed.clear()
     }
 
     companion object {

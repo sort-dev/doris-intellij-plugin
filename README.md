@@ -240,8 +240,9 @@ Only a validated successful inventory is reconciled; a genuine successful empty
 `SHOW CATALOGS` result still removes catalogs that no longer exist.
 
 Pipe integration uses cooperative Execute delegation so other dialect plugins can
-handle their own queries. Installing or removing the plugin requires an IDE restart;
-changing the PIPE setting does not. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
+handle their own queries. Removing the plugin restores the previous Execute actions
+unless another plugin has wrapped them since; then the IDE may ask for a restart.
+Changing the PIPE setting never needs a restart. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
 rather than copying independent global Execute overrides.
 
 ## Building from source
