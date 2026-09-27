@@ -10,6 +10,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.lang.PsiBuilder
+import com.intellij.sql.dialects.base.SqlGeneratedParserUtil
 import com.intellij.sql.dialects.mysql.MysqlParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 import dev.sort.doris.sql.replay.CstReplayer
@@ -231,7 +232,7 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
                 consumeToSemicolon(builder)
                 return
             }
-            builder.advanceLexer()
+            advanceLenient(builder)
         }
     }
 
@@ -258,7 +259,15 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
     }
 
     private fun consumeToSemicolon(builder: PsiBuilder) {
-        while (!builder.eof() && builder.tokenText != ";") builder.advanceLexer()
+        while (!builder.eof() && builder.tokenText != ";") advanceLenient(builder)
+    }
+
+    /** Like advanceLexer, but keeps a DataGrip user parameter visible to the console's value prompt. */
+    private fun advanceLenient(builder: PsiBuilder) {
+        if (SqlGeneratedParserUtil.isExternalParameterFirst(builder.tokenType) &&
+            SqlGeneratedParserUtil.parseUserParameter(builder, false, true)
+        ) return
+        builder.advanceLexer()
     }
 
     // --- bounded look-ahead helpers (adapted from the StarRocks plugin) ---

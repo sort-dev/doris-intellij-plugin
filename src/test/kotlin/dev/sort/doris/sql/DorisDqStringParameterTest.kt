@@ -4,7 +4,9 @@ import com.intellij.database.settings.DatabaseSettings
 import com.intellij.database.settings.UserPatterns
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiFileFactory
+import com.intellij.psi.SyntaxTraverser
 import com.intellij.psi.impl.DebugUtil
+import com.intellij.sql.dialects.EvaluationHelper
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlLiteralExpression
 import com.intellij.sql.psi.SqlTokens
@@ -86,7 +88,35 @@ class DorisDqStringParameterTest : BasePlatformTestCase() {
         }
     }
 
+    fun testConsoleFindsParametersToPromptFor() {
+        val helper = EvaluationHelper.EP.forLanguage(DorisSqlDialect.INSTANCE)
+        for (replay in listOf("false", "true")) {
+            System.setProperty(DorisReplay.PROPERTY, replay)
+            try {
+                for (sql in CASES + PROMPT_ONLY_CASES) {
+                    val file = PsiFileFactory.getInstance(project)
+                        .createFileFromText("parameters.sql", DorisSqlDialect.INSTANCE, sql, false, true)!!
+                    val found = helper.parameters(null, DorisSqlDialect.INSTANCE, SyntaxTraverser.psiTraverser(file))
+                        .toList().distinct().map { it.text }
+                    assertEquals("replay=$replay $sql\n${DebugUtil.psiToString(file, true)}", listOf("\${p}"), found)
+                }
+            } finally {
+                System.setProperty(DorisReplay.PROPERTY, "false")
+            }
+        }
+    }
+
     private companion object {
+        val PROMPT_ONLY_CASES = listOf(
+            "select '\${p}' from t",
+            "select * from t where a = 1 INTO OUTFILE \"s3://b/x_\" FORMAT AS PARQUET PROPERTIES (\n" +
+                "    \"s3.secret_key\" = \"\${p}\",\n    \"use_path_style\" = \"true\"\n)",
+            "EXPORT TABLE t TO \"s3://b/x_\" PROPERTIES (\"k\" = \"\${p}\")",
+            "select * from t INTO OUTFILE 's3://b/x_' FORMAT AS PARQUET PROPERTIES ( 'a' = '\${p}' )",
+            "CREATE CATALOG c PROPERTIES ( 'type' = 'hms', 'a' = '\${p}' )",
+            "CREATE TABLE t (id INT) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES ( 'a' = '\${p}' )",
+            "ALTER TABLE t SET ( 'a' = '\${p}' )",
+        )
         // A `"` string closed by `'`, so the token runs to the next line's `"` (the reported crash).
         const val MISMATCHED_QUOTE = "select * from t INTO OUTFILE \"s3://b/x_\" FORMAT AS PARQUET PROPERTIES (\n" +
             "    \"k\" = \"\${p}',\n    \"u\" = \"true\"\n);"

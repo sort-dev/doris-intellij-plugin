@@ -2,6 +2,7 @@ package dev.sort.doris.sql.replay
 
 import com.intellij.lang.PsiBuilder
 import com.intellij.psi.tree.IElementType
+import com.intellij.sql.dialects.base.SqlGeneratedParserUtil
 import com.intellij.sql.dialects.base.SqlParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_COLUMN_REFERENCE
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_IDENTIFIER
@@ -742,6 +743,18 @@ internal class CstReplayer(private val builder: PsiBuilder, private val parser: 
             if (delEnd != null) {
                 if (!delegateExpression(delEnd)) { rollback.rollbackTo(); return false }
                 if (!closeAt(delEnd, closesAt, stack)) { rollback.rollbackTo(); return false }
+                continue
+            }
+
+            // A DataGrip user parameter (`${name}` et al., lexed only when user patterns are enabled)
+            // has no Doris CST node: it sits inside a string or an unmapped token run. Wrap it as the
+            // platform grammar does, or the console never finds it and never asks for its value.
+            if (SqlGeneratedParserUtil.isExternalParameterFirst(builder.tokenType) &&
+                SqlGeneratedParserUtil.parseUserParameter(builder, false, true)
+            ) {
+                for (offset in tokenStart until builder.currentOffset) {
+                    if (!closeAt(offset, closesAt, stack)) { rollback.rollbackTo(); return false }
+                }
                 continue
             }
 
