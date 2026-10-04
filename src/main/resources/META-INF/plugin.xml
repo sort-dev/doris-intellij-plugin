@@ -55,6 +55,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.3</b> - fixes statement execution boundaries for Doris job controls.
+        <ul>
+            <li><code>PAUSE MATERIALIZED VIEW JOB</code> and
+                <code>RESUME MATERIALIZED VIEW JOB</code> now form complete executable statements.</li>
+            <li><code>PAUSE ALL ROUTINE LOAD</code> and <code>RESUME ALL ROUTINE LOAD</code>
+                now form complete executable statements.</li>
+        </ul>
         <b>1.5.2</b> - fixes <code>SELECT ... INTO OUTFILE</code> exports and a parameter-expansion crash.
         <ul>
             <li><code>SELECT ... INTO OUTFILE ... [FORMAT AS ...] [PROPERTIES (...)]</code>, including
