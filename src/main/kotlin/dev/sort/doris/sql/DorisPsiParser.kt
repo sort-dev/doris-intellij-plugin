@@ -146,7 +146,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
             // (console schema switching depends on it); only the '@' forms go lenient.
             "USE" -> statementContainsTokenPrefix(builder, '@')
-            "PAUSE", "RESUME", "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
+            "PAUSE", "RESUME" -> isDorisPauseResume(builder)
+            "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             // Doris privilege spellings (SELECT_PRIV, LOAD_PRIV, USAGE_PRIV, ...) are identifiers to
             // MySQL's GRANT grammar, which then errors at the following ON. Role-only grants
@@ -208,6 +209,14 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         return second in setOf("RESOURCE", "CATALOG", "REPOSITORY", "WORKLOAD", "STORAGE", "STAGE",
             "ENCRYPTKEY", "FILE", "SQL_BLOCK_RULE")
     }
+
+    private fun isDorisPauseResume(builder: PsiBuilder): Boolean =
+        when (wordAt(builder, 1)) {
+            "ROUTINE", "SYNC", "JOB" -> true
+            "MATERIALIZED" -> wordAt(builder, 2) == "VIEW" && wordAt(builder, 3) == "JOB"
+            "ALL" -> wordAt(builder, 2) == "ROUTINE" && wordAt(builder, 3) == "LOAD"
+            else -> false
+        }
 
     // --- lenient consumers ---
 

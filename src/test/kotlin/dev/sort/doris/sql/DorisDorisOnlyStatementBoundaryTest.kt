@@ -22,6 +22,17 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
         "UNSET DEFAULT STORAGE VAULT;",
         "LOAD LABEL db.lbl (DATA INFILE(\"s3://x\") INTO TABLE t) WITH S3 (\"k\"=\"v\");",
         "ANALYZE DATABASE db;",
+        // Doris job controls. MATERIALIZED VIEW and ALL ROUTINE are multi-word leads which must be
+        // recognized before MySQL gets a chance to split them into loose tokens.
+        "PAUSE MATERIALIZED VIEW JOB ON rumble_zeit.user_watch_scorable_base;",
+        "RESUME MATERIALIZED VIEW JOB ON rumble_zeit.user_watch_scorable_base;",
+        "PAUSE JOB WHERE jobName = 'daily_etl';",
+        "RESUME JOB WHERE jobName = 'daily_etl';",
+        "PAUSE ROUTINE LOAD FOR db.load_job;",
+        "RESUME ROUTINE LOAD FOR db.load_job;",
+        "STOP ROUTINE LOAD FOR db.load_job;",
+        "PAUSE ALL ROUTINE LOAD;",
+        "RESUME ALL ROUTINE LOAD;",
         // Doris UDF / alias functions — plain, scope-modified, and kind-modified forms all break
         // MySQL's CREATE FUNCTION grammar (which wants RETURN|BEGIN, not PROPERTIES / a modifier).
         "CREATE FUNCTION my_udf(INT) RETURNS INT PROPERTIES(\"symbol\"=\"s\");",
