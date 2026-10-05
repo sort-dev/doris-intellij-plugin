@@ -54,6 +54,9 @@ Part of our SQL-tooling family alongside:
   and console ownership when ordinary SQL and pipe statements are mixed.
   Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
   See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
+- **Brikk-house Kotlin editing**: recognized `Sql.doris` calls inside `@BrikkSql` automatically
+  enable pipe parsing and treat scalar Kotlin interpolations as SQL binds, preserving Kotlin
+  references. Kotlin support is optional. See [Brikk-house editing](BRIKK-HOUSE.md) for scope and limits.
 - **Automatic targeted introspection** (0.7.0): reference a table in a catalog or schema that
   hasn't been introspected yet and the plugin widens the introspection scope to just that schema
   and refreshes it in the background — columns appear moments later, with an editor banner while a

@@ -17,6 +17,7 @@ require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
 val sqlTranspilerTestMode = providers.gradleProperty("test.sqlTranspiler").orNull
+val brikkKotlinTests = providers.gradleProperty("test.brikkKotlin").orNull == "true"
 require(sqlTranspilerTestMode in listOf(null, "installed", "absent")) {
     "test.sqlTranspiler must be installed or absent"
 }
@@ -32,6 +33,10 @@ val testPluginIds = buildList {
     add("dev.sort.doris-intellij-plugin")
     // IDEA 263's core collaboration module requires the DVCS module supplied by Git.
     add("Git4Idea")
+    if (brikkKotlinTests) {
+        add("com.intellij.java")
+        add("org.jetbrains.kotlin")
+    }
     if (sqlTranspilerTestMode == "installed") add("dev.sort.sql-transpiler-intellij-plugin")
     siblingPluginZips.forEach { (dialect, _) -> add("dev.sort.$dialect-intellij-plugin") }
 }.joinToString(",")
@@ -77,12 +82,16 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
     intellijPlatform {
-        // DataGrip 2026.1 (platform build 261). Doris users are on the 2026.x line; the 252 SQL API
+        // Platform build 261. Doris users are on the 2026.x line; the 252 SQL API
         // (e.g. SqlFileElementType's package) is incompatible with 261. Remote SDK so any clone/CI
         // can build without a local IDE install.
         val localIde = providers.gradleProperty("doris.localIde")
-        if (localIde.isPresent) local(localIde) else datagrip("2026.1.3")
+        // Compile the optional Kotlin integration against IDEA. The distribution still runs in
+        // DataGrip: Kotlin extensions live in an optional dependency descriptor.
+        if (localIde.isPresent) local(localIde) else intellijIdea("2026.1.3")
         bundledPlugin("com.intellij.database")
+        bundledPlugin("com.intellij.java")
+        bundledPlugin("org.jetbrains.kotlin")
         // Required transitively in the TEST runtime: the database plugin's intellij.json.backend
         // module dependency lives in the JSON plugin; without it com.intellij.database won't load
         // in unit tests and the DorisSQL language never registers.
@@ -145,6 +154,11 @@ tasks {
     processResources {
         from(files("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")) { into("META-INF") }
     }
+    processTestResources {
+        // prepareTest copies plugin.xml into test resources. Optional descriptors must be next
+        // to that copy too, otherwise fixture loading silently omits the Kotlin integration.
+        from("src/main/resources/META-INF/doris-kotlin.xml") { into("META-INF") }
+    }
     // Stable artifact name (no version suffix) so install-from-disk always points at the same file.
     buildPlugin {
         archiveVersion = ""
@@ -164,6 +178,7 @@ tasks {
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
         systemProperty("idea.load.plugins.id", testPluginIds)
         systemProperty("test.siblingPlugins", siblingPluginZips.joinToString(",") { it.first })
+        if (!brikkKotlinTests) exclude("**/brikk/**")
 
         // Gate 1 dual golden corpus (DorisGoldenCorpusTest): absolute paths to the SQL corpus and
         // the recorded golden trees. Passing -Pgolden.record=true flips the test into record mode.
@@ -182,6 +197,27 @@ tasks {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+}
+
+// Run the same 261-compiled adapter on newer Kotlin plugins. Recompiling the entire product
+// against 263 would bypass the compatibility bridges used by the shipped 261 artifact.
+for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.5701.42")) {
+    intellijPlatformTesting.testIde.register("testBrikk$generation") {
+        type = org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdea
+        version = ideVersion
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+        plugins {
+            bundledPlugins("com.intellij.database", "com.intellij.java", "org.jetbrains.kotlin", "com.intellij.modules.json", "Git4Idea")
+        }
+        task {
+            useJUnit()
+            setIncludes(setOf("**/brikk/**"))
+            setExcludes(emptySet())
+            systemProperty("java.awt.headless", "true")
+            systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin,Git4Idea,com.intellij.java,org.jetbrains.kotlin")
+            systemProperty("doris.replay.poc", "false")
+        }
+    }
 }
 
 val verifyEmbeddedPipes by tasks.registering {

@@ -29,7 +29,9 @@ import com.intellij.sql.psi.SqlTokens
  *   Column-accurate exclusion would require the parser to emit SQL_SELECT_EXCEPT_CLAUSE, which the
  *   generated MySQL grammar cannot be made to do without replacing the parser.
  */
-class DorisLexer : LookAheadLexer(MysqlLexer()) {
+class DorisLexer(private val brikkHouse: Boolean = false) : LookAheadLexer(MysqlLexer()) {
+
+    private var bindEnds: Map<Int, Int> = emptyMap()
 
     // Cast-context tracking (parser feeds tokens strictly forward, so simple fields are safe):
     // parenDepth counts all parens; castAsDepths holds, for each open CAST/TRY_CAST, the paren depth
@@ -39,6 +41,8 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
     private var statementLead: String? = null
 
     override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
+        bindEnds = if (brikkHouse) dev.sort.doris.pipes.DorisPipes.namedParameterRanges(buffer.toString())
+            .associate { it.first to it.last + 1 } else emptyMap()
         parenDepth = 0
         castAsDepths.clear()
         // IntelliJ frequently restarts lexing in the middle of a statement. Recover the lead from
@@ -50,6 +54,15 @@ class DorisLexer : LookAheadLexer(MysqlLexer()) {
     override fun lookAhead(baseLexer: Lexer) {
         updateStatementLead(baseLexer)
         when {
+            brikkHouse && baseLexer.tokenStart in bindEnds -> {
+                val start = baseLexer.tokenStart
+                val end = bindEnds.getValue(baseLexer.tokenStart)
+                while (baseLexer.tokenType != null && baseLexer.tokenEnd <= end) baseLexer.advance()
+                // SQL_EXTERNAL_PARAM is anonymous. Prefix + name gives the platform a named
+                // SqlParameter, including stable identity for repeated Kotlin binds.
+                addToken(start + 1, SqlTokens.SQL_EXTERNAL_PARAM_PREFIX)
+                addToken(end, SqlTokens.SQL_IDENT)
+            }
             isExceptColumnExclusion(baseLexer) -> maskExceptColumnList(baseLexer)
             isInsertOverwrite(baseLexer) -> maskInsertOverwriteHeader(baseLexer)
             isPartitionStar(baseLexer) -> maskThroughRightParen(baseLexer)

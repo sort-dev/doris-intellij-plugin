@@ -32,7 +32,7 @@ import dev.sort.doris.sql.replay.CstReplayer
  * Doris-accurate error reporting remains the fe-sql-parser annotator's job; lenient statements
  * intentionally carry no inner structure beyond the parsed query tail.
  */
-class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
+class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
         // Route B (RESEARCH-when-hell-freezes-over-parser.md), ON BY DEFAULT since 0.5.0
@@ -47,7 +47,8 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
         // statement bounding box / statement-under-caret / gutter anchors all break (observed in
         // dogfood round 2). One statement node to the ';' restores all of those; inner structure
         // stays deliberately absent (engine-side validation via DorisErrorAnnotator).
-        if (dev.sort.doris.pipes.DorisPipes.isEnabled(builder.project) && containsPipeMarker(builder)) {
+        if ((brikkHouse ||
+                dev.sort.doris.pipes.DorisPipes.isEnabled(builder.project)) && containsPipeMarker(builder)) {
             return parseLenientStatement(builder, SQL_STATEMENT)
         }
         if (DorisReplay.enabled && wantsReplay(builder)) {

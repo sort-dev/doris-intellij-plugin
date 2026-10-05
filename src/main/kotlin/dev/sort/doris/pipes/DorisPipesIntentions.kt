@@ -40,6 +40,7 @@ import javax.swing.JTextArea
 internal object DorisPipesUi {
 
     fun pipeChunkAtCaret(file: PsiFile, editor: Editor): DorisPipes.Chunk? {
+        if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) return null
         if (!DorisPipes.isEnabled(file.project) || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
         val chunk = DorisPipes.chunkAt(editor.document.text, editor.caretModel.offset) ?: return null
         return chunk.takeIf { it.hasPipeOperator }

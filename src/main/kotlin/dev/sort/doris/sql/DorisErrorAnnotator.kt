@@ -3,6 +3,7 @@ package dev.sort.doris.sql
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
@@ -34,21 +35,26 @@ internal fun withoutPipeChunkErrors(text: String, errors: List<DorisSyntaxError>
  * at its real location — this is what makes genuine Doris DDL/DML mistakes light up.
  */
 class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisErrorAnnotator.Result>() {
-    data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null)
-    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>)
+    data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null,
+                     val brikkHouse: Boolean = false)
+    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null)
 
     override fun collectInformation(file: PsiFile): Input? {
         if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
-        val text = file.text
+        val brikkHouse = dev.sort.doris.brikk.BrikkDorisContext.isActive(file)
+        val text = if (brikkHouse) InjectedLanguageManager.getInstance(file.project).getUnescapedText(file) else file.text
         if (text.isBlank()) return null
-        val enabled = DorisPipes.isEnabled(file.project)
+        val enabled = DorisPipes.isEditingEnabled(file)
         val mark = if (enabled) DorisPipes.execMarkFor(file.project, file.viewProvider.virtualFile.url, text) else null
-        return Input(text, enabled, mark)
+        return Input(text, enabled, mark, brikkHouse)
     }
 
     override fun doAnnotate(collectedInfo: Input): Result {
         val (text, pipesEnabled, execMark) = collectedInfo
-        val feErrors = validate(text)
+        // The native grammar has no Brikk binds. Equal-length masks retain authored SQL offsets;
+        // this parser input is inspection-only and is never sent to a connection.
+        val validationText = if (collectedInfo.brikkHouse) maskBrikkBinds(text) else text
+        val feErrors = validate(validationText)
         // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
         // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
@@ -74,16 +80,25 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
                 )
             }.orEmpty()
         }.getOrDefault(emptyList())
-        return Result(pipesEnabled, base + exec)
+        return Result(pipesEnabled, base + exec, if (collectedInfo.brikkHouse) text else null)
     }
 
     override fun apply(file: PsiFile, annotationResult: Result, holder: AnnotationHolder) {
         // A setting change can finish while the background pass is still running.
-        if (annotationResult.pipesEnabled != DorisPipes.isEnabled(file.project)) return
+        if (annotationResult.pipesEnabled != DorisPipes.isEditingEnabled(file)) return
+        if ((annotationResult.unescapedText != null) != dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) return
         if (annotationResult.errors.isEmpty()) return
         val document = file.viewProvider.document ?: return
         for (error in annotationResult.errors) {
-            val range = error.toTextRange(document) ?: continue
+            val range = if (annotationResult.unescapedText != null) {
+                val text = annotationResult.unescapedText
+                val start = error.startOffsetIn(text) ?: continue
+                val end = (start + error.length).coerceAtMost(text.length)
+                val manager = InjectedLanguageManager.getInstance(file.project)
+                val mappedStart = manager.mapUnescapedOffsetToInjected(file, start)
+                val mappedEnd = manager.mapUnescapedOffsetToInjected(file, end)
+                TextRange(mappedStart, mappedEnd.coerceAtLeast(mappedStart))
+            } else error.toTextRange(document) ?: continue
             holder.newAnnotation(HighlightSeverity.ERROR, error.message)
                 .range(range)
                 .create()
@@ -91,6 +106,13 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
     }
 
     private companion object {
+        private fun maskBrikkBinds(text: String): String = buildString {
+            append(text)
+            for (range in DorisPipes.namedParameterRanges(text)) {
+                setCharAt(range.first, '?')
+                for (index in range.first + 1..range.last) setCharAt(index, ' ')
+            }
+        }
         // Stateless + thread-safe per fe-sql-parser docs; safe to share across background threads.
         private val PARSER = DorisSqlParser()
 

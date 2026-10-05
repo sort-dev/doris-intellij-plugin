@@ -16,7 +16,7 @@ import org.apache.doris.sqlparser.DorisSqlParser
 class DorisPipeStageKeywordAnnotator : Annotator {
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
         val file = element as? PsiFile ?: return
-        if (!file.language.isKindOf(DorisSqlDialect.INSTANCE) || !DorisPipes.isEnabled(file.project)) return
+        if (!file.language.isKindOf(DorisSqlDialect.INSTANCE) || !DorisPipes.isEditingEnabled(file)) return
         val text = file.text
         val tokens = DorisSqlParser().newLexer(text).allTokens.filter { it.channel == Token.DEFAULT_CHANNEL }
         for (index in 0 until tokens.lastIndex) {

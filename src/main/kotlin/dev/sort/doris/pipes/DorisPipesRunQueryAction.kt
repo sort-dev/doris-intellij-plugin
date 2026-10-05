@@ -108,6 +108,15 @@ internal fun dispatchPipeTranslation(
 private object PipesExecuteInterceptor {
 
     fun handle(e: AnActionEvent, option: DatabaseSettings.ExecOption): Boolean {
+        if (dev.sort.doris.brikk.BrikkDorisContext.isActive(e.getData(CommonDataKeys.PSI_FILE))) {
+            e.project?.let { project ->
+                NotificationGroupManager.getInstance().getNotificationGroup("Doris Pipes")
+                    .createNotification("Brikk SQL is inspection-only",
+                        "Execute the compiled/composed relation with its binding map, not the IDE template placeholders.",
+                        NotificationType.WARNING).notify(project)
+            }
+            return true
+        }
         val console = JdbcConsole.findConsole(e) ?: return false
         if (!DorisPipes.isEnabled(console.project)) return false
         if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) return false

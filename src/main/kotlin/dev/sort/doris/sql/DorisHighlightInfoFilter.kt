@@ -56,11 +56,17 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         ) {
             return true
         }
+        // SqlConstantExpressionInspection must not derive a Boolean verdict from neutral
+        // placeholders while Kotlin symbol classification is unavailable or compiler-rejected.
+        if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file) &&
+            dev.sort.doris.brikk.BrikkDorisContext.hasUncertainTemplates(file) &&
+            description.contains("always") &&
+            (description.contains("'true'") || description.contains("'false'"))) return false
         // DORIS PIPES: inside a pipe statement the substrate PSI is
         // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
         // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
         // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
-        if (DorisPipes.isEnabled(file.project) &&
+        if (DorisPipes.isEditingEnabled(file) &&
             isInsidePipeStatement(file, highlightInfo)
         ) {
             return false

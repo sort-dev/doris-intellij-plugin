@@ -26,6 +26,12 @@ jobs:
       - name: Test
         run: ./gradlew test
 
+      - name: Test Brikk Kotlin injection
+        run: ./gradlew test -Ptest.brikkKotlin=true --tests '*BrikkDoris*'
+
+      - name: Test Brikk on newer Kotlin runtimes
+        run: ./gradlew testBrikk262 testBrikk263
+
       - name: Build plugin
         run: ./gradlew buildPlugin
 

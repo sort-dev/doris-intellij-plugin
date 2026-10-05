@@ -49,6 +49,10 @@ object DorisPipes {
     fun isEnabled(project: Project?): Boolean = project != null && !project.isDisposed && !project.isDefault &&
         isEnabledValue(System.getProperty(PROPERTY)) && project.service<DorisPipesSettings>().enabled
 
+    /** Brikk enables editing only, never the project's execution setting. */
+    fun isEditingEnabled(file: com.intellij.psi.PsiFile): Boolean =
+        dev.sort.doris.brikk.BrikkDorisContext.isActive(file) || isEnabled(file.project)
+
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"
 

@@ -1,0 +1,8 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <languageInjectionPerformer language="kotlin" order="first"
+                                    implementationClass="dev.sort.doris.brikk.BrikkDorisInjectionPerformer"/>
+        <annotator language="kotlin" implementationClass="dev.sort.doris.brikk.BrikkDorisTemplateAnnotator"/>
+        <editorNotificationProvider implementation="dev.sort.doris.brikk.BrikkDorisNotificationProvider"/>
+    </extensions>
+</idea-plugin>
