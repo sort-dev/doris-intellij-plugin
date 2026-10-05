@@ -55,6 +55,15 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.4</b> - automatic Brikk-house Doris editing in Kotlin.
+        <ul>
+            <li>Recognizes <code>Sql.doris</code> calls inside <code>@BrikkSql</code> functions
+                and enables pipe parsing for those strings without changing ordinary Doris SQL.</li>
+            <li>Treats scalar Kotlin interpolations as named SQL binds while preserving Kotlin
+                references, rename support and source ranges.</li>
+            <li>Keeps relation slots and literal SQL constants distinct from scalar binds.
+                Brikk templates remain inspection-only, not executable SQL.</li>
+        </ul>
         <b>1.5.3</b> - fixes statement execution boundaries for Doris job controls.
         <ul>
             <li><code>PAUSE MATERIALIZED VIEW JOB</code> and
