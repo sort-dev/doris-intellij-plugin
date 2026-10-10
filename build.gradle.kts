@@ -10,9 +10,10 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.5.4"
+version = "1.5.5"
 
 val brikkSqlVersion = "0.16.0"
+val brikkKotlinSupportVersion = "0.1.0-SNAPSHOT"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
@@ -42,6 +43,11 @@ val testPluginIds = buildList {
 }.joinToString(",")
 
 repositories {
+    // Development helper only. Do not let Maven Local replace the released SQL engine or SDK.
+    exclusiveContent {
+        forRepository { mavenLocal() }
+        filter { includeVersion("dev.brikk.house", "brikk-engine-kotlin-intellij-support", brikkKotlinSupportVersion) }
+    }
     // Both the shared engine and function catalogs are published on Maven Central.
     mavenCentral()
     intellijPlatform {
@@ -52,6 +58,9 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
+    implementation("dev.brikk.house:brikk-engine-kotlin-intellij-support:$brikkKotlinSupportVersion") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+    }
 
     // Authoritative Doris grammar (standalone ANTLR CST parser), vendored from Doris source because
     // it is not published to any public Maven repo — see vendor/README.md for the exact Doris SHA
@@ -228,10 +237,12 @@ val verifyEmbeddedPipes by tasks.registering {
     val libraries = setOf(
         "brikk-sql-jvmMain-$brikkSqlVersion.jar", "brikk-sql-metadata-jvmMain-$brikkSqlVersion.jar",
         "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar",
+        "brikk-engine-kotlin-intellij-support-$brikkKotlinSupportVersion.jar",
     )
     val requiredNotices = listOf(
         "brikk-sql-jvm:$brikkSqlVersion", "brikk-sql-metadata-jvm:$brikkSqlVersion",
         "Toby Mao", "ANTLR", "Permission is hereby granted", "ClickHouse", "StarRocks",
+        "brikk-engine-kotlin-intellij-support:$brikkKotlinSupportVersion",
     )
     dependsOn("buildPlugin")
     inputs.file(distribution)
@@ -312,6 +323,7 @@ if (providers.gradleProperty("test.pluginIsolation").orNull == "true") {
                 !it.name.startsWith("doris-intellij-plugin-") &&
                 !it.name.startsWith("doris-fe-sql-parser-") &&
                 !it.name.startsWith("brikk-sql-") &&
+                !it.name.startsWith("brikk-engine-kotlin-intellij-support-") &&
                 it.name != "antlr4-runtime-4.13.1.jar"
         }
         // Keep the platform fixture core-loaded, but load product distributions with their real

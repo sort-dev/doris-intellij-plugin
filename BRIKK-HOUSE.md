@@ -37,6 +37,34 @@ An editor banner identifies the selected profile. Physical table and column
 resolution still comes from the attached datasource, including DDL datasources.
 There is no live-connection requirement for recognizing binds.
 
+## Shared helper development build
+
+Version 1.5.5 uses
+`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0-SNAPSHOT` from Maven
+Local. Only this coordinate can resolve locally; released SQL libraries and IDE
+artifacts still resolve from their normal repositories. Rebuilt snapshots may
+need `--refresh-dependencies`.
+
+`BrikkDorisTemplate` delegates recognition and classification to
+`BrikkKotlinContext.inspect`. The hot injection path sets `includeShapes = false`.
+The adapter consumes copied entry roles, replacement text, resolved trim names
+and authored UTF-16 ranges. Pending entries do not become compiler errors. An
+unavailable context defers injection and retries after resolution becomes ready,
+rather than allowing Kotlin's native performer to invent database-column names.
+
+The helper also supplies relation contracts through an explicit shape request.
+Tests cover inherited trait columns, full/partial knowledge, property navigation,
+function-local `src` contracts and trait edits without SQL edits. These results
+are not yet connected to Doris SQL alias resolution or PIPE column completion.
+
+The snapshot must be published into Maven Local before building this checkout.
+Remote CI cannot resolve this development artifact yet. Formal Central
+publication and switching to a released coordinate are separate follow-up work;
+this migration does not publish the helper or the plugin.
+
+See [consumer validation results](BRIKK-SHARED-HELPER-VALIDATION.md) for the exact
+tested snapshot, IDE matrix and remaining integration limits.
+
 ## Limits
 
 The plugin does not supply schemas for `Rel<T>` inputs or generated call-site

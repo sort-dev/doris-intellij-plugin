@@ -10,6 +10,8 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.sql.DorisSqlDialect
+import dev.brikk.house.intellij.ContextResult
+import dev.brikk.house.intellij.EntryRole
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
 /** Run with -Ptest.brikkKotlin=true. Exercises the actual Kotlin injection extension chain. */
@@ -26,6 +28,9 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
             package dev.brikk.house.sql.runtime
             import org.intellij.lang.annotations.Language
             annotation class BrikkSql
+            interface Partial
+            interface Shape : Partial
+            annotation class BrikkTrait
             class Rel<T>
             object Sql {
                 fun doris(@Language("DorisSQL") sql: String): String = sql
@@ -52,6 +57,12 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         return files!!.first().first.containingFile.also {
             assertEquals(DorisSqlDialect.INSTANCE, it.language)
         }
+    }
+
+    private fun context(host: KtStringTemplateExpression, includeShapes: Boolean = false): dev.brikk.house.intellij.BrikkContext {
+        val result = BrikkDorisTemplate.inspect(host, includeShapes)
+        assertTrue(result.toString(), result is ContextResult.Available)
+        return (result as ContextResult.Available).context
     }
 
     fun testScalarReferencesAreNamedBindsOnInitialInjection() {
@@ -91,9 +102,12 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
 
     fun testComputedConstantAndComplexInterpolationAreRefused() {
         val host = configure("SELECT ${'$'}COLS, ${'$'}{tenant.lowercase()} FROM customers", "const val COLS = \"a\" + \"b\"")
+        val entries = context(host).entries.filter { it.role == EntryRole.UNSUPPORTED }
         val sql = injected(host)
-        assertEquals("SELECT :__brikk_unsupported, :__brikk_unsupported FROM customers", sql.text)
-        assertTrue(BrikkDorisTemplate.classify(host.entries.mapNotNull { it.expression }.first()).problem!!.contains("literal initializer"))
+        assertEquals(2, entries.size)
+        assertEquals("SELECT ${entries[0].replacement}, ${entries[1].replacement} FROM customers", sql.text)
+        assertTrue("Unsupported entries must keep distinct placeholder identities", entries[0].replacement != entries[1].replacement)
+        assertTrue(entries[0].problem!!.contains("literal initializer"))
     }
 
     fun testUnrelatedCallsAndUnannotatedFunctionsKeepNativeInjection() {
@@ -110,6 +124,122 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
             "import dev.brikk.house.sql.runtime.BrikkSql as QuerySql\nimport dev.brikk.house.sql.runtime.Sql.doris as sql",
             annotation = "@QuerySql", entryPoint = "sql")
         assertEquals("SELECT :tenant", injected(host).text)
+    }
+
+    fun testRelTypeAliasUsesSharedExpandedTypeClassification() {
+        val file = myFixture.configureByText("Alias.kt", """
+            import dev.brikk.house.sql.runtime.*
+            typealias Input = Rel<Partial>
+            @BrikkSql
+            fun query(src: Input, n: Int) = Sql.doris("FROM ${'$'}{src}() |> WHERE id > ${'$'}n")
+        """.trimIndent())
+        val host = PsiTreeUtil.findChildOfType(file, KtStringTemplateExpression::class.java)!!
+        val result = context(host)
+        assertEquals(listOf("src"), result.slots)
+        assertEquals(listOf("n"), result.binds)
+        assertTrue("The injection path must not enumerate relation shapes", result.relations.isEmpty())
+        assertEquals("FROM src() |> WHERE id > :n", injected(host).text)
+    }
+
+    fun testLookalikeTrimDoesNotActivateTheDorisAdapter() {
+        for (trim in listOf("trimIndent", "trimMargin")) {
+            val host = configure("SELECT ${'$'}tenant", "fun String.$trim(): String = this", trim = ".$trim()")
+            assertEquals(ContextResult.NotBrikk, BrikkDorisTemplate.inspect(host))
+            // Kotlin's native contributor may decline this custom wrapper entirely.
+            val files = InjectedLanguageManager.getInstance(project).getInjectedPsiFiles(host).orEmpty()
+            assertTrue(files.toString(), files.none { BrikkDorisContext.isActive(it.first.containingFile) })
+            assertNull(host.getUserData(BrikkDorisContext.PROFILE))
+        }
+    }
+
+    fun testPendingProblemDoesNotProduceAnUnsupportedHostDiagnostic() {
+        val host = configure("SELECT ${'$'}missing, ${'$'}another")
+        val entries = context(host).entries.filter { it.role == EntryRole.PENDING }
+        assertEquals(2, entries.size)
+        assertTrue(entries.all { it.problem != null })
+        assertTrue(entries[0].replacement != entries[1].replacement)
+        val sql = injected(host)
+        assertTrue(BrikkDorisContext.hasUncertainTemplates(sql))
+        assertTrue(InjectedLanguageManager.getInstance(project).shouldInspectionsBeLenient(sql))
+        val highlights = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(highlights.toString(), highlights.any { it.startsWith("Brikk-house:") })
+    }
+
+    fun testMalformedRelationSlotDiagnosticUsesSharedAuthoredRange() {
+        val host = configure("SELECT '😀', ${'$'}{src}")
+        val entry = context(host).entries.single { it.role == EntryRole.RELATION_SLOT }
+        assertNotNull(entry.problem)
+        assertEquals("${'$'}{src}", host.text.substring(entry.range.start, entry.range.end))
+        val sql = injected(host)
+        assertTrue(BrikkDorisContext.hasUncertainTemplates(sql))
+        val highlight = myFixture.doHighlighting().single { it.description?.startsWith("Brikk-house: Rel parameter") == true }
+        assertEquals(host.textRange.startOffset + entry.range.start, highlight.startOffset)
+        assertEquals(host.textRange.startOffset + entry.range.end, highlight.endOffset)
+    }
+
+    fun testUnavailableContextNeverFallsThroughToGuessedNativePlaceholders() {
+        val host = configure("SELECT ${'$'}tenant", entryPoint = "notResolved")
+        assertTrue(BrikkDorisTemplate.inspect(host) is ContextResult.Unavailable)
+        host.putUserData(BrikkDorisContext.PROFILE, true)
+        host.putUserData(BrikkDorisContext.UNCERTAIN, true)
+        var registered = false
+        val registrar = object : com.intellij.lang.injection.MultiHostRegistrar {
+            override fun startInjecting(language: com.intellij.lang.Language): com.intellij.lang.injection.MultiHostRegistrar {
+                registered = true
+                return this
+            }
+            override fun addPlace(prefix: String?, suffix: String?, host: com.intellij.psi.PsiLanguageInjectionHost,
+                                  rangeInsideHost: com.intellij.openapi.util.TextRange) = this
+            override fun doneInjecting() = Unit
+        }
+        val injection = object : com.intellij.lang.injection.general.Injection {
+            override fun getInjectedLanguageId() = "DorisSQL"
+            override fun getInjectedLanguage() = DorisSqlDialect.INSTANCE
+            override fun getPrefix() = ""
+            override fun getSuffix() = ""
+            override fun getSupportId() = "kotlin"
+        }
+        assertTrue("Unavailable resolution must claim without guessing SQL", BrikkDorisInjectionPerformer().performInjection(registrar, injection, host))
+        assertFalse(registered)
+        assertNull(host.getUserData(BrikkDorisContext.PROFILE))
+        assertNull(host.getUserData(BrikkDorisContext.UNCERTAIN))
+        com.intellij.testFramework.PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        // A later resolved non-Brikk declaration must restore the native path without touching SQL.
+        myFixture.addFileToProject("Resolved.kt", "fun notResolved(sql: String): String = sql")
+        assertEquals(ContextResult.NotBrikk, BrikkDorisTemplate.inspect(host))
+        assertFalse(BrikkDorisInjectionPerformer().performInjection(registrar, injection, host))
+        assertFalse(registered)
+    }
+
+    fun testSharedRelationContractsRemainFreshAndFunctionLocal() {
+        val file = myFixture.configureByText("Contracts.kt", """
+            import dev.brikk.house.sql.runtime.*
+            @BrikkTrait interface Base : Partial { val id: Long }
+            @BrikkTrait interface Event : Base { val code: String? }
+            interface Closed : Shape { val other: Int }
+            @BrikkSql fun <T : Event> query(src: Rel<T>) = Sql.doris("FROM ${'$'}src() |> SELECT id")
+            @BrikkSql fun second(src: Rel<Closed>) = Sql.doris("FROM ${'$'}src() |> SELECT other")
+        """.trimIndent())
+        val hosts = PsiTreeUtil.findChildrenOfType(file, KtStringTemplateExpression::class.java).toList()
+        val first = (context(hosts[0], includeShapes = true).relations.getValue("src") as dev.brikk.house.intellij.ShapeResult.Available).shape
+        val second = (context(hosts[1], includeShapes = true).relations.getValue("src") as dev.brikk.house.intellij.ShapeResult.Available).shape
+        assertEquals(dev.brikk.house.intellij.ShapeKnowledge.PARTIAL, first.knowledge)
+        assertEquals(setOf("id", "code"), first.columns.map { it.name }.toSet())
+        assertEquals(dev.brikk.house.intellij.ColumnNullability.NULLABLE, first.columns.single { it.name == "code" }.nullability)
+        assertEquals(dev.brikk.house.intellij.ShapeKnowledge.FULL, second.knowledge)
+        assertEquals(listOf("other"), second.columns.map { it.name })
+        val property = first.columns.single { it.name == "id" }.navigation!!
+        assertEquals(dev.brikk.house.intellij.NavigationKind.PROPERTY, property.kind)
+        assertEquals("val id: Long", file.text.substring(property.location!!.start, property.location!!.end))
+        assertEquals("FROM src() |> SELECT id", injected(hosts[0]).text)
+        WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText(myFixture.editor.document.text.replace("val code: String?", "val code: Int"))
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+        }
+        val updated = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).first()
+        val shape = (context(updated, includeShapes = true).relations.getValue("src") as dev.brikk.house.intellij.ShapeResult.Available).shape
+        assertEquals("kotlin.Int", shape.columns.single { it.name == "code" }.kotlinClassId)
+        assertEquals(dev.brikk.house.intellij.ColumnNullability.NON_NULL, shape.columns.single { it.name == "code" }.nullability)
     }
 
     fun testLiteralDollarsJsonPathsAndCommentsRemainUnchanged() {
@@ -162,15 +292,18 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
     }
 
     fun testPlainNamedBindAndUnresolvedInterpolationAreParameters() {
-        val sql = injected(configure("SELECT tenant FROM customers WHERE tenant = :tenant OR tenant = ${'$'}missing"))
-        assertEquals("SELECT tenant FROM customers WHERE tenant = :tenant OR tenant = :__brikk_pending", sql.text)
+        val host = configure("SELECT tenant FROM customers WHERE tenant = :tenant OR tenant = ${'$'}missing")
+        val placeholder = context(host).entries.single { it.role == EntryRole.PENDING }.replacement
+        val sql = injected(host)
+        assertEquals("SELECT tenant FROM customers WHERE tenant = :tenant OR tenant = $placeholder", sql.text)
         assertEquals(2, PsiTreeUtil.findChildrenOfType(sql, SqlParameter::class.java).size)
     }
 
     fun testTemporarilyUnresolvedSymbolRetriesWithoutTemplateEdit() {
         val host = configure("SELECT ${'$'}later")
+        val placeholder = context(host).entries.single { it.role == EntryRole.PENDING }.replacement
         val pending = injected(host)
-        assertEquals("SELECT :__brikk_pending", pending.text)
+        assertEquals("SELECT $placeholder", pending.text)
         assertTrue(BrikkDorisContext.hasUncertainTemplates(pending))
         val info = com.intellij.codeInsight.daemon.impl.HighlightInfo.newHighlightInfo(
             com.intellij.codeInsight.daemon.impl.HighlightInfoType.WARNING).range(0, 6)
@@ -222,8 +355,9 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
 
     fun testUnsupportedInterpolationHasHostDiagnosticAndNonEditableSqlPlaceholder() {
         val host = configure("SELECT ${'$'}{tenant.lowercase()}")
+        val placeholder = context(host).entries.single { it.role == EntryRole.UNSUPPORTED }.replacement!!
         val sql = injected(host)
-        val start = sql.text.indexOf(":__brikk_unsupported")
+        val start = sql.text.indexOf(placeholder)
         val editable = InjectedLanguageManager.getInstance(project).intersectWithAllEditableFragments(sql,
             com.intellij.openapi.util.TextRange(start, sql.textLength))
         assertTrue(editable.toString(), editable.all { it.isEmpty })

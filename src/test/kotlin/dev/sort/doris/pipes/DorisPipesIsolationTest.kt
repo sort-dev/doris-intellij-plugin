@@ -15,6 +15,13 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         if (System.getProperty("test.pluginIsolation") != "true") return
         val dorisLoader = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.doris-intellij-plugin"))!!.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
+        assertFalse("Native SQL must run without the Kotlin plugin", PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
+        // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
+        val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
+        assertSame(dorisLoader, families.classLoader)
+        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.1.0-SNAPSHOT.jar"))
+        val family = families.getMethod("forClassId", String::class.java).invoke(families.getField("INSTANCE").get(null), "kotlin.String")
+        assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
         val settings = project.getService(settingsType)!!
         val introspectionType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesIntrospectionService")

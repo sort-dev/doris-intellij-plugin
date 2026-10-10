@@ -55,6 +55,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.5</b> - shared Brikk Kotlin support for local validation.
+        <ul>
+            <li>Uses the shared Brikk helper for context recognition, interpolation roles,
+                constant handling and resolved standard-library trims.</li>
+            <li>Keeps pending resolution separate from unsupported interpolation and preserves
+                the existing Doris injection mechanics and execution guards.</li>
+        </ul>
         <b>1.5.4</b> - automatic Brikk-house Doris editing in Kotlin.
         <ul>
             <li>Recognizes <code>Sql.doris</code> calls inside <code>@BrikkSql</code> functions
