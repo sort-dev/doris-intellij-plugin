@@ -55,6 +55,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.6</b> - Kotlin relation input columns in Brikk Doris SQL.
+        <ul>
+            <li>Supplies helper-provided relation contracts to SQL slot calls, including alias,
+                projection and join scopes, column completion and Kotlin-property navigation.</li>
+            <li>Feeds Kotlin relation inputs into the existing PIPE stage analysis for unqualified
+                column completion. Native SQL types remain conservative.</li>
+        </ul>
         <b>1.5.5</b> - shared Brikk Kotlin support for local validation.
         <ul>
             <li>Uses the shared Brikk helper for context recognition, interpolation roles,
@@ -420,6 +427,7 @@
              for DORIS. See DorisSelectAliasResolveExtension. The EP has no dbms filter, so the
              implementation self-gates to DORIS. -->
         <sql.resolveExtension implementation="dev.sort.doris.sql.DorisSelectAliasResolveExtension"/>
+        <gotoDeclarationHandler implementation="dev.sort.doris.sql.BrikkRelationNavigation"/>
         <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
              pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
         <completion.confidence language="DorisSQL" order="first"

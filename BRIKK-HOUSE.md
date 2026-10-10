@@ -37,13 +37,11 @@ An editor banner identifies the selected profile. Physical table and column
 resolution still comes from the attached datasource, including DDL datasources.
 There is no live-connection requirement for recognizing binds.
 
-## Shared helper development build
+## Shared helper
 
-Version 1.5.5 uses
-`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0-SNAPSHOT` from Maven
-Local. Only this coordinate can resolve locally; released SQL libraries and IDE
-artifacts still resolve from their normal repositories. Rebuilt snapshots may
-need `--refresh-dependencies`.
+Version 1.5.6 uses
+`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0` from Maven Central.
+The build does not use Maven Local.
 
 `BrikkDorisTemplate` delegates recognition and classification to
 `BrikkKotlinContext.inspect`. The hot injection path sets `includeShapes = false`.
@@ -52,24 +50,30 @@ and authored UTF-16 ranges. Pending entries do not become compiler errors. An
 unavailable context defers injection and retries after resolution becomes ready,
 rather than allowing Kotlin's native performer to invent database-column names.
 
-The helper also supplies relation contracts through an explicit shape request.
-Tests cover inherited trait columns, full/partial knowledge, property navigation,
-function-local `src` contracts and trait edits without SQL edits. These results
-are not yet connected to Doris SQL alias resolution or PIPE column completion.
+Relation contracts are requested when SQL table-call types or PIPE completion
+need them. Tests cover inherited trait columns, full/partial knowledge, property
+navigation, function-local `src` contracts and trait edits without SQL edits.
+Zero-argument relation slots supply columns to the platform's existing alias,
+join and projection scopes. Known columns complete without a connection.
 
-The snapshot must be published into Maven Local before building this checkout.
-Remote CI cannot resolve this development artifact yet. Formal Central
-publication and switching to a released coordinate are separate follow-up work;
-this migration does not publish the helper or the plugin.
-
-See [consumer validation results](BRIKK-SHARED-HELPER-VALIDATION.md) for the exact
-tested snapshot, IDE matrix and remaining integration limits.
+The earlier snapshot migration is recorded in
+[consumer validation results](BRIKK-SHARED-HELPER-VALIDATION.md). This plugin does
+not publish the shared library or execute relation templates.
 
 ## Limits
 
-The plugin does not supply schemas for `Rel<T>` inputs or generated call-site
-shapes. Custom wrappers and standalone SQL files do not activate this profile.
-Trim calls with arguments are outside the current compiler contract.
+Custom wrappers and standalone SQL files do not activate this profile. Trim
+calls with arguments are outside the current compiler contract.
+
+Kotlin contracts provide column names, not exact native SQL types or ordinal
+order. SQL types therefore remain unknown. Partial or unavailable contracts
+must not produce confident missing-column errors. Declared properties navigate
+to Kotlin; generated columns use the helper's relation-parameter fallback.
+
+PIPE input contracts feed the bundled engine's existing stage analysis for
+unqualified column completion. PIPE alias-qualified resolution/navigation and
+precise SQL type/nullability diagnostics remain separate work. Mixed physical
+datasource and Kotlin-slot PIPE inference is not promised by this increment.
 
 The injected text is for inspections, not query execution. Doris PIPE run/preview
 actions do not execute or present Brikk templates as compiled output. Execution
@@ -83,6 +87,17 @@ The regular suite runs without Kotlin loaded. Run the Kotlin injection suite wit
 ./gradlew test -Ptest.brikkKotlin=true --tests '*BrikkDoris*'
 ./gradlew testBrikk262 testBrikk263
 ```
+
+The genuine generated-shape lane requires the reviewed IDE compiler and its
+actual Brikk compiler-plugin artifact:
+
+```sh
+./gradlew testBrikkGenerated -Ptest.brikk.generatedIde=/path/to/idea-262.9437.185 -Ptest.brikk.compilerPlugin=/path/to/brikk-engine-kotlin-compiler-plugin-2.4.20-ij262-34-0.2.0.jar
+```
+
+This lane verifies compiler-generated `SourceOut` members on cold open and reads
+them through the helper into the Doris SQL table type. It does not manufacture
+an output interface or claim generation is implemented in the helper.
 
 The plugin compiles against IDEA 2026.1.3 to make Kotlin APIs available. Kotlin
 extensions register through an optional dependency descriptor, not a required

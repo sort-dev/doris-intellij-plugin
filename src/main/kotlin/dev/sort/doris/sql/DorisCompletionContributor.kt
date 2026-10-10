@@ -307,6 +307,17 @@ class DorisCompletionContributor : CompletionContributor() {
             val sink = result.caseInsensitive()
             val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
 
+            if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) {
+                val scope = dev.sort.doris.pipes.runPipeCatching { BrikkRelationColumns.pipeScope(file, text, offset) }.getOrNull()
+                if (scope != null && !Regex("""[\w`]+\.\w*$""").containsMatchIn(chunk.text.substring(0, rel)) &&
+                    !Regex("""\b(?:FROM|JOIN)\s+[\w`]*$""", RegexOption.IGNORE_CASE)
+                        .containsMatchIn(dev.sort.doris.pipes.DorisPipes.codeBefore(chunk.text, rel))) {
+                    for (name in scope) sink.addElement(LookupElementBuilder.create(name)
+                        .withIcon(AllIcons.Nodes.Field).withTypeText("Brikk PIPE scope", true))
+                    return
+                }
+            }
+
             // Table-path position (FROM head or any JOIN stage): offer path segments, not columns.
             if (offerFromPath(sink, file, chunk.text, rel)) return
 

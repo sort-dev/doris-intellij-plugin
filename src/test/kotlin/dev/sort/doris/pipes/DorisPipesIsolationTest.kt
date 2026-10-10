@@ -19,7 +19,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
-        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.1.0-SNAPSHOT.jar"))
+        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.1.0.jar"))
         val family = families.getMethod("forClassId", String::class.java).invoke(families.getField("INSTANCE").get(null), "kotlin.String")
         assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")

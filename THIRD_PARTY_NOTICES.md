@@ -53,16 +53,16 @@ Source artifacts are available from Maven Central:
 - https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.16.0/brikk-sql-jvm-0.16.0-sources.jar
 - https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.16.0/brikk-sql-metadata-jvm-0.16.0-sources.jar
 
-## Brikk Kotlin IntelliJ support 0.1.0-SNAPSHOT (bundled for local validation)
+## Brikk Kotlin IntelliJ support 0.1.0 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0-SNAPSHOT`
+- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0`
 - Project: https://github.com/brikk/brikk-house
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
 
-This development artifact supplies shared Kotlin context, interpolation and relation-contract
+This artifact supplies shared Kotlin context, interpolation and relation-contract
 discovery. Its JAR includes its own license and notice. It does not bundle an IntelliJ SDK,
-Kotlin compiler or Kotlin standard library. A formal Central release remains pending.
+Kotlin compiler or Kotlin standard library. The artifact is published on Maven Central.
 
 ## SQLGlot (ported and generated code in brikk-sql)
 

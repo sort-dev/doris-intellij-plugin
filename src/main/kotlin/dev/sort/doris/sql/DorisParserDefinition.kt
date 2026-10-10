@@ -8,7 +8,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.sql.dialects.base.SqlElementFactoryBase
 import com.intellij.sql.dialects.base.SqlParserDefinitionBase
-import com.intellij.sql.dialects.mysql.MysqlElementFactory
 import com.intellij.sql.psi.stubs.elementTypes.SqlFileElementType
 import com.intellij.sql.psi.impl.lexer.SqlPreprocessingLexer
 
@@ -19,7 +18,7 @@ import com.intellij.sql.psi.impl.lexer.SqlPreprocessingLexer
  * ...). See [DorisSqlDialect] for why MySQL rather than SQL92. Mirrors the StarRocks plugin.
  */
 class DorisParserDefinition : SqlParserDefinitionBase() {
-    override fun createElementFactory(): SqlElementFactoryBase = MysqlElementFactory()
+    override fun createElementFactory(): SqlElementFactoryBase = DorisElementFactory()
     // DorisLexer wraps MysqlLexer to mask `* EXCEPT(cols)` before the generated grammar mis-reads
     // EXCEPT as a set operator. NB this lexer also drives editor syntax coloring (the platform's
     // SqlSyntaxHighlighter takes its lexer from this ParserDefinition), so masked spans lex as

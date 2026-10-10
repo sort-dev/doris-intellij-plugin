@@ -10,10 +10,10 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.5.5"
+version = "1.5.6"
 
 val brikkSqlVersion = "0.16.0"
-val brikkKotlinSupportVersion = "0.1.0-SNAPSHOT"
+val brikkKotlinSupportVersion = "0.1.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
@@ -43,11 +43,6 @@ val testPluginIds = buildList {
 }.joinToString(",")
 
 repositories {
-    // Development helper only. Do not let Maven Local replace the released SQL engine or SDK.
-    exclusiveContent {
-        forRepository { mavenLocal() }
-        filter { includeVersion("dev.brikk.house", "brikk-engine-kotlin-intellij-support", brikkKotlinSupportVersion) }
-    }
     // Both the shared engine and function catalogs are published on Maven Central.
     mavenCentral()
     intellijPlatform {
@@ -188,6 +183,7 @@ tasks {
         systemProperty("idea.load.plugins.id", testPluginIds)
         systemProperty("test.siblingPlugins", siblingPluginZips.joinToString(",") { it.first })
         if (!brikkKotlinTests) exclude("**/brikk/**")
+        exclude("**/BrikkDorisGeneratedShapeTest.class")
 
         // Gate 1 dual golden corpus (DorisGoldenCorpusTest): absolute paths to the SQL corpus and
         // the recorded golden trees. Passing -Pgolden.record=true flips the test into record mode.
@@ -221,11 +217,29 @@ for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.57
         task {
             useJUnit()
             setIncludes(setOf("**/brikk/**"))
-            setExcludes(emptySet())
+            setExcludes(setOf("**/BrikkDorisGeneratedShapeTest.class"))
             systemProperty("java.awt.headless", "true")
             systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin,Git4Idea,com.intellij.java,org.jetbrains.kotlin")
             systemProperty("doris.replay.poc", "false")
         }
+    }
+}
+
+// Genuine generated rows require the reviewed IDE compiler, not a relabelled compiler JAR.
+intellijPlatformTesting.testIde.register("testBrikkGenerated") {
+    localPath = layout.dir(providers.gradleProperty("test.brikk.generatedIde").map { file(it) })
+    testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+    plugins {
+        bundledPlugins("com.intellij.database", "com.intellij.java", "org.jetbrains.kotlin", "com.intellij.modules.json", "Git4Idea")
+    }
+    task {
+        useJUnit()
+        setIncludes(setOf("**/BrikkDorisGeneratedShapeTest.class"))
+        setExcludes(emptySet())
+        systemProperty("java.awt.headless", "true")
+        systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin,Git4Idea,com.intellij.java,org.jetbrains.kotlin")
+        systemProperty("doris.replay.poc", "false")
+        systemProperty("brikk.fixture.compiler.plugin", providers.gradleProperty("test.brikk.compilerPlugin").getOrElse(""))
     }
 }
 

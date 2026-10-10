@@ -182,7 +182,7 @@ object DorisPipesEngine {
     // Per-stage scopes (engine stageShapes, 1:1 with PipeStageSplitter incl. FROM = element 0)
     // ---------------------------------------------------------------------------------------
 
-    private data class ShapeKey(val sql: String, val baseTable: String?, val baseColumns: List<String>?)
+    private data class ShapeKey(val sql: String, val baseTable: String?, val baseColumns: List<String>?, val slots: Map<String, Shape> = emptyMap())
     private val shapeCacheLock = Any()
     private val shapeCache = object : LinkedHashMap<ShapeKey, List<Shape>>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ShapeKey, List<Shape>>) = size > 32
@@ -197,12 +197,16 @@ object DorisPipesEngine {
      * per-keystroke). Null on any engine failure (caller falls back to its heuristics).
      */
     fun stageScopeAt(chunkText: String, relOffset: Int, baseTable: String?, baseColumns: List<String>?): List<String>? =
+        stageScopeAt(chunkText, relOffset, baseTable, baseColumns, emptyMap())
+
+    /** Kotlin slot contracts feed the existing engine, without a second SQL type system. */
+    fun stageScopeAt(chunkText: String, relOffset: Int, baseTable: String?, baseColumns: List<String>?, slots: Map<String, Shape>): List<String>? =
         runPipeCatching {
             val prefix = stagePrefixAt(chunkText, relOffset) ?: return null
             val inputShapeIndex = prefix.stage - 2
             if (inputShapeIndex < 0) return baseColumns // inside FROM: only the base relation exists
             val normalizedSql = chunkText.trim().removeSuffix(";")
-            val key = ShapeKey(normalizedSql, baseTable, baseColumns?.toList())
+            val key = ShapeKey(normalizedSql, baseTable, baseColumns?.toList(), slots.toMap())
             val cached = synchronized(shapeCacheLock) { shapeCache[key] }
             val shapes = cached ?: run {
                 val catalog = if (baseTable != null && !baseColumns.isNullOrEmpty()) {
@@ -211,9 +215,9 @@ object DorisPipesEngine {
                         put(baseTable, shape)
                         put(baseTable.substringAfterLast('.'), shape)
                     }
-                    ShapeCatalog(names, emptyMap())
+                    ShapeCatalog(names, slots)
                 } else {
-                    ShapeCatalog(emptyMap(), emptyMap())
+                    ShapeCatalog(emptyMap(), slots)
                 }
                 val computed = SqlFragment(normalizedSql, "doris").stageShapes(catalog)
                 synchronized(shapeCacheLock) { shapeCache[key] ?: computed.also { shapeCache[key] = it } }

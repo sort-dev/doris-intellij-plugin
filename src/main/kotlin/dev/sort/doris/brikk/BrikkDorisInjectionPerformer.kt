@@ -46,6 +46,11 @@ class BrikkDorisInjectionPerformer : LanguageInjectionPerformer {
             }
         }
         host.putUserData(BrikkDorisContext.PROFILE, true)
+        val hostPointer = SmartPointerManager.getInstance(host.project).createSmartPsiElementPointer(host)
+        host.putUserData(BrikkDorisContext.RELATIONS, BrikkDorisContext.RelationProvider {
+            hostPointer.element?.let { BrikkDorisTemplate.inspect(it, includeShapes = true) }
+                ?: ContextResult.Unavailable("Kotlin SQL host is no longer available")
+        })
         if (brikk.trims.firstOrNull() == "trimMargin") {
             // The compiler supports the no-argument form. Kotlin's contributor can omit the
             // default margin character; supply it to Kotlin's own range handler, not a text rewrite.
@@ -96,6 +101,7 @@ class BrikkDorisInjectionPerformer : LanguageInjectionPerformer {
     private fun withdraw(host: KtStringTemplateExpression) {
         host.putUserData(BrikkDorisContext.PROFILE, null)
         host.putUserData(BrikkDorisContext.UNCERTAIN, null)
+        host.putUserData(BrikkDorisContext.RELATIONS, null)
     }
 
     private fun retryWhenReady(host: KtStringTemplateExpression) {

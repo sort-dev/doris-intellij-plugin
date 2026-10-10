@@ -242,6 +242,92 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals(dev.brikk.house.intellij.ColumnNullability.NON_NULL, shape.columns.single { it.name == "code" }.nullability)
     }
 
+    private fun relationSql(sql: String, second: String = "other: Rel<Other>"): PsiFile {
+        val file = myFixture.configureByText("Relations.kt", """
+            import dev.brikk.house.sql.runtime.*
+            interface Row : Shape { val id: Long; val code: String? }
+            interface Other : Shape { val id: Long; val label: String }
+            @BrikkSql fun query(src: Rel<Row>, $second) = Sql.doris(""${'"'}$sql""${'"'})
+        """.trimIndent())
+        val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+        return injected(PsiTreeUtil.findChildOfType(top, KtStringTemplateExpression::class.java)!!)
+    }
+
+    fun testTypedRelationColumnResolvesToAuthoredKotlinProperty() {
+        val sql = relationSql("SELECT e.code FROM ${'$'}src() AS e")
+        val call = PsiTreeUtil.findChildOfType(sql, com.intellij.sql.psi.SqlFunctionCallExpression::class.java)!!
+        assertEquals("dev.sort.doris.sql.DorisBrikkFunctionCall", call.javaClass.name)
+        val type = call.dasType as? com.intellij.sql.psi.SqlTableType
+        assertNotNull(type)
+        assertEquals(setOf("id", "code"), (0 until type!!.columnCount).map { type.getColumnName(it) }.toSet())
+        val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "e.code" }
+        val resolved = ref.resolve()
+        assertNotNull("Known slot column must resolve without a physical datasource", resolved)
+        val targets = dev.sort.doris.sql.BrikkRelationNavigation().getGotoDeclarationTargets(ref, ref.textOffset, myFixture.editor)
+        assertNotNull(targets)
+        assertTrue(targets!!.single().text, targets.single().text.contains("val code: String?"))
+    }
+
+    fun testRelationAliasesJoinsAndProjectionUsePlatformScopes() {
+        val sql = relationSql("SELECT q.projected FROM (SELECT e.code AS projected FROM ${'$'}src() AS e LEFT JOIN ${'$'}other() AS o ON e.id = o.id) AS q")
+        val refs = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java)
+        for (name in listOf("q.projected", "e.code", "e.id", "o.id")) {
+            assertNotNull("$name must resolve in its SQL scope", refs.single { it.text == name }.resolve())
+        }
+        val wrong = relationSql("SELECT e.code FROM ${'$'}src() AS hidden")
+        assertNull(PsiTreeUtil.findChildrenOfType(wrong, SqlReferenceExpression::class.java).single { it.text == "e.code" }.resolve())
+    }
+
+    fun testRelationTraitEditRefreshesSqlWithoutEditingTheTemplate() {
+        val sql = relationSql("SELECT code FROM ${'$'}src()")
+        val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "code" }
+        assertNotNull(ref.resolve())
+        WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText(myFixture.editor.document.text.replace("val code: String?", "val renamed: String?"))
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+        }
+        val host = PsiTreeUtil.findChildOfType(myFixture.file, KtStringTemplateExpression::class.java)!!
+        val updated = injected(host)
+        assertNull(PsiTreeUtil.findChildrenOfType(updated, SqlReferenceExpression::class.java).single { it.text == "code" }.resolve())
+    }
+
+    fun testTypedSlotQualifiedCompletionAndMissingColumns() {
+        relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
+        val suggestions = myFixture.completeBasic().orEmpty().map { it.lookupString }
+        assertTrue(suggestions.toString(), suggestions.containsAll(listOf("id", "code")))
+        val sql = relationSql("SELECT e.missing FROM ${'$'}src() AS e")
+        assertNull(PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "e.missing" }.resolve())
+    }
+
+    fun testPartialRelationDoesNotPretendToBeAClosedInventory() {
+        val file = myFixture.configureByText("Partial.kt", """
+            import dev.brikk.house.sql.runtime.*
+            interface Row : Partial { val id: Long }
+            @BrikkSql fun query(src: Rel<Row>) = Sql.doris("SELECT s.extra FROM ${'$'}src() AS s")
+        """.trimIndent())
+        val sql = injected(PsiTreeUtil.findChildOfType(file, KtStringTemplateExpression::class.java)!!)
+        val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "s.extra" }
+        assertTrue(dev.sort.doris.sql.BrikkRelationColumns.openColumnContext(ref))
+        val info = com.intellij.codeInsight.daemon.impl.HighlightInfo.newHighlightInfo(com.intellij.codeInsight.daemon.impl.HighlightInfoType.ERROR)
+            .range(ref.textRange).descriptionAndTooltip("Unable to resolve column 'extra'").create()!!
+        assertFalse(dev.sort.doris.sql.DorisHighlightInfoFilter().accept(info, sql))
+    }
+
+    fun testKotlinSlotInputsPropagateThroughExistingPipeStageAnalysis() {
+        val sql = relationSql("FROM ${'$'}src() |> EXTEND id + 1 AS added |> SELECT code, added |> WHERE code <> ''")
+        val engineScope = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("WHERE") + 6)
+        assertEquals(setOf("code", "added"), engineScope?.toSet())
+        val before = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("EXTEND") + 7)
+        assertEquals(setOf("id", "code"), before?.toSet())
+    }
+
+    fun testPipeColumnCompletionUsesTheKotlinContractWithoutAConnection() {
+        relationSql("FROM ${'$'}src() |> SELECT code |> WHERE co<caret>")
+        val suggestions = myFixture.completeBasic().orEmpty().map { it.lookupString }
+        assertTrue(suggestions.toString(), "code" in suggestions)
+        assertFalse("Dropped input columns must not reappear", "id" in suggestions)
+    }
+
     fun testLiteralDollarsJsonPathsAndCommentsRemainUnchanged() {
         val sql = injected(configure("SELECT json_extract(payload, '${'$'}.customer_id'), '${'$'}{'$'}native' -- ${'$'}.comment\nFROM customers WHERE tenant = ${'$'}tenant"))
         assertEquals("SELECT json_extract(payload, '${'$'}.customer_id'), '${'$'}native' -- ${'$'}.comment\nFROM customers WHERE tenant = :tenant", sql.text)

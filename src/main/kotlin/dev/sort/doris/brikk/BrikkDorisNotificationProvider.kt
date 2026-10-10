@@ -22,7 +22,7 @@ class BrikkDorisNotificationProvider : EditorNotificationProvider {
                     ?.any { BrikkDorisContext.isActive(it.first.containingFile) } == true }
         if (!active) return null
         return Function { editor -> EditorNotificationPanel(editor).apply {
-            text = "Brikk-house Doris editing profile: Kotlin binds and pipes enabled. Rel schemas are not supplied; templates are not executable SQL."
+            text = "Brikk-house Doris editing profile: Kotlin binds, relation contracts and pipe completion enabled. Templates are not executable SQL."
         } }
     }
 }
