@@ -5,80 +5,21 @@ import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.run.ConsoleDataRequest
-import com.intellij.database.script.ScriptModel
-import com.intellij.database.script.ScriptModelUtilCore
-import com.intellij.database.script.translator.TranslateException
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.ActionWithDelegate
-import com.intellij.openapi.actionSystem.ActionWrapperUtil
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
-import com.intellij.openapi.actionSystem.PerformWithDocumentsCommitted
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.event.DocumentEvent
+import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.util.Condition
-import com.intellij.openapi.util.Conditions
 import com.intellij.openapi.util.Key
-import com.intellij.openapi.util.TextRange
-import com.intellij.util.containers.JBIterable
+import com.intellij.openapi.util.Disposer
+import dev.brikk.house.sql.intellij.EditorSnapshot
 import dev.sort.doris.DorisDbms
-
-/**
- * A composable Execute replacement. The immediate previous action is captured at registration,
- * never looked up by ID at execution time. Remaining a [RunQueryAction] preserves the platform's
- * Execute classification; the index preserves live variant settings.
- */
-internal open class DorisPipesRunQueryAction(
-    index: Int,
-    private val previous: AnAction,
-    private val intercept: (AnActionEvent, DatabaseSettings.ExecOption) -> Boolean = PipesExecuteInterceptor::handle,
-) : RunQueryAction(index), ActionWithDelegate<AnAction>, PerformWithDocumentsCommitted {
-    init {
-        copyFrom(previous)
-    }
-
-    @Volatile
-    internal var isDetached = false
-        private set
-
-    /** After plugin unload this wrapper may remain inside a peer's chain; it must only delegate. */
-    internal fun detach() {
-        isDetached = true
-    }
-
-    override fun getDelegate(): AnAction = previous
-
-    override fun update(e: AnActionEvent) = previous.update(e)
-
-    override fun getActionUpdateThread(): ActionUpdateThread = previous.actionUpdateThread
-
-    override fun isDumbAware(): Boolean = previous.isDumbAware
-
-    override fun isInInjectedContext(): Boolean = previous.isInInjectedContext
-
-    override fun isPerformWithDocumentsCommitted(): Boolean =
-        PerformWithDocumentsCommitted.isPerformWithDocumentsCommitted(previous)
-
-    override fun actionPerformed(e: AnActionEvent) {
-        if (isDetached || !intercept(e, getExecOption())) ActionWrapperUtil.actionPerformed(e, this, previous)
-    }
-}
-
-internal class DorisPipesRunSelectionAction(
-    previous: AnAction,
-    intercept: (AnActionEvent, DatabaseSettings.ExecOption) -> Boolean = PipesExecuteInterceptor::handle,
-) : DorisPipesRunQueryAction(-1, previous, intercept) {
-    // Stock Selection uses fixed defaults, independent of the user's three Execute variants.
-    private val selectionOption = DatabaseSettings.ExecOption().apply { execSelection = 1 }
-
-    override fun getExecOption(): DatabaseSettings.ExecOption = selectionOption
-}
 
 /** Structure-view actions can supply FILE_EDITOR without supplying EDITOR. */
 internal fun editorForPipeExecution(e: AnActionEvent): Editor? = e.getData(CommonDataKeys.EDITOR)
@@ -105,7 +46,7 @@ internal fun dispatchPipeTranslation(
     }
 }
 
-private object PipesExecuteInterceptor {
+internal object PipesExecuteInterceptor {
 
     fun handle(e: AnActionEvent, option: DatabaseSettings.ExecOption): Boolean {
         if (dev.sort.doris.brikk.BrikkDorisContext.isActive(e.getData(CommonDataKeys.PSI_FILE))) {
@@ -121,39 +62,48 @@ private object PipesExecuteInterceptor {
         if (!DorisPipes.isEnabled(console.project)) return false
         if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) return false
         val editor = editorForPipeExecution(e) ?: return false
-        val documentText = editor.document.text
-        val current = DorisPipes.chunkAt(documentText, editor.caretModel.offset)
-        val candidate = editor.selectionModel.selectedText ?: when (option.execInside) {
-            DatabaseSettings.EXECUTE_INSIDE_WHOLE_SCRIPT -> documentText
-            DatabaseSettings.EXECUTE_INSIDE_SCRIPT_TAIL -> documentText.substring(current?.startOffset ?: editor.caretModel.offset)
-            else -> current?.text ?: return false
-        }
+        val candidate = pipeExecutionCandidate(editor, option) ?: return false
         if (!DorisPipes.containsPipeOperator(candidate)) return false
-        val boundary = if (editor.selectionModel.hasSelection()) {
-            DorisPipes.chunks(candidate).firstOrNull { it.hasPipeOperator && it.boundaryError != null }
-        } else {
-            current
-                ?.takeIf { it.hasPipeOperator && it.boundaryError != null }
-        }
+        val boundary = DorisPipes.chunks(candidate).firstOrNull { it.boundaryError != null }
         if (boundary?.boundaryError != null) {
             notifyBoundaryError(console, boundary.boundaryError)
             return true
         }
 
-        // Reuse stock document/Info preparation, including structure-view handling. The result is
-        // invocation-local: preparation may return without reaching invokeImpl, or reenter Execute.
-        var handled = false
-        object : RunQueryAction(1) {
-            // The stock method is OverrideOnly: invoke it from the corresponding override.
-            override fun actionPerformed(e: AnActionEvent) = super.actionPerformed(e)
+        // Claim before stock preparation. Cancellation or a chooser dismissal cannot grant raw fallback.
+        val owner = console
+        val document = editor.document
+        var edited = false
+        val listener = object : DocumentListener {
+            override fun documentChanged(event: DocumentEvent) { edited = true }
+        }
+        val preparation = Disposer.newDisposable("Doris PIPE preparation")
+        document.addDocumentListener(listener, preparation)
+        var snapshot: EditorSnapshot? = null
+        try {
+            object : RunQueryAction(1) {
+                // The stock method is OverrideOnly: invoke it from the corresponding override.
+                override fun actionPerformed(e: AnActionEvent) = super.actionPerformed(e)
 
-            override fun getExecOption(): DatabaseSettings.ExecOption = option
+                override fun getExecOption(): DatabaseSettings.ExecOption {
+                    // Stock preparation commits and saves first. Saving unchanged content can
+                    // reset its modification stamp without a document edit. Track real edits
+                    // through that phase, then pin the helper's revision after the save.
+                    check(!edited) { "SQL changed during preparation. Run the current statement again." }
+                    snapshot = EditorSnapshot.capture(document)
+                    return option
+                }
 
-            override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
-                handled = handle(console, info)
-            }
-        }.actionPerformed(e)
-        return handled
+                override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
+                    if (console == null) return
+                    check(console === owner) { "The destination console changed during PIPE preparation" }
+                    val prepared = checkNotNull(snapshot)
+                    prepared.requireCurrent()
+                    handle(console, info, prepared)
+                }
+            }.actionPerformed(e)
+        } finally { Disposer.dispose(preparation) }
+        return true
     }
 
     /**
@@ -161,7 +111,7 @@ private object PipesExecuteInterceptor {
      * the previous action. False is reserved for unclaimed input. Exceptions propagate to the
      * IDE; neither cancellation nor a failed claimed request grants permission for raw fallback.
      */
-    fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info): Boolean {
+    fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info, snapshot: EditorSnapshot): Boolean {
         if (console == null || !DorisPipes.isEnabled(console.project)) return false
         val session = console.session
         if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
@@ -169,6 +119,7 @@ private object PipesExecuteInterceptor {
         if (info.model.statements().none { DorisPipes.containsPipeOperator(it.query()) }) return false
 
         JdbcConsoleProvider.chooseStatements(info, "Nothing to run", true) { selected ->
+            snapshot.requireCurrent()
             if (selected.statements().none { DorisPipes.containsPipeOperator(it.query()) }) {
                 if (console.beforeExecuteQueries(selected)) console.executeQueries(editor, selected, info.execOption)
                 return@chooseStatements
@@ -186,6 +137,11 @@ private object PipesExecuteInterceptor {
                 }
                 DorisPipesExecution.track(console, model.executionPlans)
                 try {
+                    snapshot.requireCurrent()
+                    check(DorisPipes.isEnabled(console.project)) { "PIPE was disabled during preparation" }
+                    check(console.session === session && session.connectionPoint.dbms === DorisDbms.DORIS) {
+                        "The destination changed during PIPE preparation"
+                    }
                     console.executeQueries(editor, model, info.execOption)
                 } finally {
                     DorisPipesExecution.endTracking(console)
@@ -201,234 +157,6 @@ private object PipesExecuteInterceptor {
 }
 
 internal class PipeTranslationFailure(val error: DorisPipesEngine.Transpile.Err) : RuntimeException(error.message)
-
-private fun requirePipeTranslation(
-    text: String,
-    allowNamedParameters: Boolean = true,
-    allowFirstFromStage: Boolean = false,
-): DorisPipesEngine.Transpile.Ok {
-    return when (val result = DorisPipesEngine.transpile(text, allowNamedParameters, allowFirstFromStage)) {
-        is DorisPipesEngine.Transpile.Ok -> {
-            result.executionError?.let { throw PipeTranslationFailure(it) }
-            result
-        }
-        is DorisPipesEngine.Transpile.Err -> throw PipeTranslationFailure(result)
-        DorisPipesEngine.Transpile.NotPipe -> throw PipeTranslationFailure(
-            DorisPipesEngine.Transpile.Err(null, null, "PIPE statement was not translated: $text"),
-        )
-    }
-}
-
-internal class PipePlan<E>(
-    val sourceQuery: String,
-    val sourceText: String,
-    val range: TextRange,
-    val rangeOffset: Long,
-    val type: com.intellij.psi.tree.IElementType,
-    val api: com.intellij.psi.SyntaxTraverser.Api<E>,
-    val value: E,
-    val externals: List<ScriptModel.ExternalIt<E>>,
-    val anchor: PipeAnchor,
-    val parameters: List<ScriptModel.ParamIt<E>>,
-    initial: DorisPipesEngine.Transpile.Ok,
-) {
-    @Volatile var translation: DorisPipesEngine.Transpile.Ok = initial
-    @Volatile var finalized: Boolean = false
-}
-
-internal class PipeScriptModel<E>(
-    private val delegate: ScriptModel<E>,
-    private val editor: Editor,
-    private val allowFirstFromStage: Boolean = false,
-) : ScriptModel<E>() {
-    private val documentText = editor.document.text
-    private val delegateParameters = snapshotParameters(delegate.parameters())
-    val plans: List<PipePlan<E>> = delegate.statements().mapNotNull { statement ->
-        val offset = statement.rangeOffset().coerceAtLeast(0).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        val range = statement.range().shiftRight(offset)
-        val cachedText = statement.query()
-        val text = currentPipeStatementText(cachedText, documentText, range, allowFirstFromStage)
-            ?: return@mapNotNull null
-        val translation = requirePipeTranslation(text, allowFirstFromStage = allowFirstFromStage)
-        val trimAnchor = range.startOffset + (text.length - text.trimStart().length)
-        PipePlan(
-            text,
-            text,
-            statement.range(),
-            statement.rangeOffset(),
-            statement.type(),
-            statement.api(),
-            statement.`object`(),
-            snapshotExternals(statement.externals()),
-            PipeAnchor(editor, range, delegate.virtualFile, trimAnchor, documentText.hashCode()),
-            (snapshotParameters(statement.parameters()) + pipeParameters(statement, text))
-                .distinctBy { it.name() to it.range() },
-            translation,
-        )
-    }.toList()
-    private data class StatementKey(val range: TextRange, val rangeOffset: Long)
-    private fun key(statement: ScriptModel.StatementIt<E>) =
-        StatementKey(statement.range(), statement.rangeOffset())
-    private val byStatement = plans.associateBy { StatementKey(it.range, it.rangeOffset) }
-    val executionPlans: List<PipePlan<E>?> = delegate.statements().map { byStatement[key(it)] }.toList()
-
-    fun translated(storage: ScriptModel.PStorage): DorisPipesEngine.Transpile.Ok {
-        finalizeTranslations(storage)?.let { throw PipeTranslationFailure(it) }
-        return plans.single().translation
-    }
-
-    fun finalizeTranslations(storage: ScriptModel.PStorage): DorisPipesEngine.Transpile.Err? {
-        for (plan in plans) {
-            try {
-                PipeStatement(plan).consoleQuery(storage, Conditions.alwaysFalse())
-                plan.finalized = true
-            } catch (failure: TranslateException) {
-                return (failure.cause as? PipeTranslationFailure)?.error
-                    ?: DorisPipesEngine.Transpile.Err(null, null, failure.message ?: "Parameter substitution failed")
-            }
-        }
-        return null
-    }
-
-    override fun isActual(): Boolean = delegate.isActual
-    override fun subModel(range: TextRange?): ScriptModel<E> =
-        PipeScriptModel(delegate.subModel(range), editor, allowFirstFromStage)
-    override fun everything(): JBIterable<E> = delegate.everything()
-    override fun statements(): JBIterable<out ScriptModel.StatementIt<E>> = delegate.statements().transform { statement ->
-        byStatement[key(statement)]?.let { PipeStatement(it) } ?: statement
-    }
-    override fun parameters(): JBIterable<out ScriptModel.ParamIt<E>> =
-        JBIterable.from((delegateParameters + plans.flatMap { it.parameters }).distinctBy { it.name() to it.range() })
-    override fun externals(): JBIterable<out ScriptModel.ExternalIt<E>> = delegate.externals()
-    override fun getVirtualFile(): com.intellij.openapi.vfs.VirtualFile = delegate.virtualFile
-    override fun getTextRange(): TextRange? = delegate.textRange
-    override fun getLanguage(): com.intellij.lang.Language = delegate.language
-    override fun <EE : Any?> rawTransform(
-        transform: com.intellij.util.Function<in com.intellij.psi.SyntaxTraverser<E>, out com.intellij.psi.SyntaxTraverser<EE>>,
-    ): ScriptModel<EE> = PipeScriptModel(delegate.rawTransform(transform), editor, allowFirstFromStage)
-
-    private inner class PipeStatement(private val plan: PipePlan<E>) : ScriptModel.StatementIt<E> {
-        override fun query(): String = plan.translation.dorisSql
-        override fun consoleQuery(
-            storage: ScriptModel.PStorage,
-            condition: Condition<in ScriptModel.ParamIt<E>>,
-        ): String {
-            if (plan.finalized) return plan.translation.dorisSql
-            val translated = try {
-                requirePipeTranslation(
-                    ScriptModelUtilCore.statementText(this, storage, condition),
-                    allowNamedParameters = false,
-                    allowFirstFromStage = allowFirstFromStage,
-                )
-            } catch (failure: PipeTranslationFailure) {
-                throw TranslateException("Doris Pipes: ${failure.error.message}", failure)
-            }
-            plan.translation = translated
-            return translated.dorisSql
-        }
-        override fun parameters(): JBIterable<out ScriptModel.ParamIt<E>> = JBIterable.from(plan.parameters)
-        override fun externals(): JBIterable<out ScriptModel.ExternalIt<E>> = JBIterable.from(plan.externals)
-        override fun text(): String = plan.sourceText
-        override fun range(): TextRange = plan.range
-        override fun type(): com.intellij.psi.tree.IElementType = plan.type
-        override fun api(): com.intellij.psi.SyntaxTraverser.Api<E> = plan.api
-        override fun rangeOffset(): Long = plan.rangeOffset
-        override fun `object`(): E = plan.value
-    }
-}
-
-internal fun currentPipeStatementText(
-    cachedText: String,
-    documentText: String,
-    range: TextRange,
-    allowFirstFromStage: Boolean = false,
-): String? {
-    fun isPipe(text: String) = DorisPipes.containsPipeOperator(text) ||
-        (allowFirstFromStage && DorisPipes.looksLikePipeChunk(text))
-    val cachedIsPipe = isPipe(cachedText)
-    if (range.startOffset < 0 || range.endOffset > documentText.length || range.isEmpty) {
-        if (cachedIsPipe) throw stalePipeStatement()
-        return null
-    }
-    val currentText = documentText.substring(range.startOffset, range.endOffset)
-    if (isPipe(currentText)) return currentText
-    if (cachedIsPipe) throw stalePipeStatement()
-    return null
-}
-
-private fun stalePipeStatement() = PipeTranslationFailure(DorisPipesEngine.Transpile.Err(
-    null,
-    null,
-    "The statement changed while DataGrip prepared it. Run the current statement again; cached SQL was not executed.",
-))
-
-private fun <E> snapshotParameters(
-    parameters: Iterable<ScriptModel.ParamIt<E>>,
-): List<ScriptModel.ParamIt<E>> = parameters.map { parameter ->
-    val name = parameter.name()
-    val description = parameter.description().toList()
-    val text = parameter.text()
-    val range = parameter.range()
-    val type = parameter.type()
-    val api = parameter.api()
-    val rangeOffset = parameter.rangeOffset()
-    val value = parameter.`object`()
-    object : ScriptModel.ParamIt<E> {
-        override fun name(): String = name
-        override fun description(): Iterable<String> = description
-        override fun text(): String = text
-        override fun range(): TextRange = range
-        override fun type(): com.intellij.psi.tree.IElementType = type
-        override fun api(): com.intellij.psi.SyntaxTraverser.Api<E> = api
-        override fun rangeOffset(): Long = rangeOffset
-        override fun `object`(): E = value
-    }
-}
-
-private fun <E> snapshotExternals(
-    externals: Iterable<ScriptModel.ExternalIt<E>>,
-): List<ScriptModel.ExternalIt<E>> = externals.map { external ->
-    val text = external.text()
-    val range = external.range()
-    val type = external.type()
-    val api = external.api()
-    val rangeOffset = external.rangeOffset()
-    val value = external.`object`()
-    object : ScriptModel.ExternalIt<E> {
-        override fun text(): String = text
-        override fun range(): TextRange = range
-        override fun type(): com.intellij.psi.tree.IElementType = type
-        override fun api(): com.intellij.psi.SyntaxTraverser.Api<E> = api
-        override fun rangeOffset(): Long = rangeOffset
-        override fun `object`(): E = value
-    }
-}
-
-private fun <E> pipeParameters(
-    statement: ScriptModel.StatementIt<E>,
-    text: String,
-): List<ScriptModel.ParamIt<E>> {
-    val statementStart = statement.range().startOffset
-    val statementType = statement.type()
-    val statementApi = statement.api()
-    val statementOffset = statement.rangeOffset()
-    val statementValue = statement.`object`()
-    return DorisPipes.namedParameterRanges(text).map { range ->
-        val localStart = range.first
-        val localEnd = range.last + 1
-        val name = text.substring(localStart + 1, localEnd)
-        object : ScriptModel.ParamIt<E> {
-            override fun name(): String = name
-            override fun description(): Iterable<String> = emptyList()
-            override fun text(): String = text.substring(localStart, localEnd)
-            override fun range(): TextRange = TextRange(statementStart + localStart, statementStart + localEnd)
-            override fun type(): com.intellij.psi.tree.IElementType = statementType
-            override fun api(): com.intellij.psi.SyntaxTraverser.Api<E> = statementApi
-            override fun rangeOffset(): Long = statementOffset
-            override fun `object`(): E = statementValue
-        }
-    }
-}
 
 /**
  * A [DataRequest.QueryRequest] carrying the TRANSPILED Doris SQL while implementing
@@ -509,7 +237,8 @@ internal object DorisPipesExecution {
         // A new run supersedes the previous run's editor mark for this file.
         anchor?.file?.let { DorisPipes.clearExecMark(console.project, it.url) }
         registerRun(
-            console, request, dorisSql, originalText, transpile.takeIf { exactSourceMap },
+            console, request, dorisSql,
+            if (exactSourceMap) { message -> DorisPipesEngine.mapServerErrorExact(message, transpile) } else null,
             anchor?.file, anchor?.trimAnchor ?: 0, anchor?.docHash ?: 0,
         )
         ProgressManager.checkCanceled()
@@ -521,25 +250,24 @@ internal object DorisPipesExecution {
     private data class PipeRun(
         val console: JdbcConsole,
         val dorisSql: String,
-        val originalText: String,
-        val transpile: dev.brikk.house.sql.shape.TranspileResult?,
+        val mapError: ((String) -> DorisPipes.MappedError?)?,
         val markFile: com.intellij.openapi.vfs.VirtualFile?,
         val markAnchor: Int,
         val markDocHash: Int,
     )
     private val runs = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, PipeRun>())
     private val audited = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, Boolean>())
-    private data class ExecutionSlot(val plan: PipePlan<*>?)
+    private data class ExecutionSlot(val plan: PipePlan?)
     private class TrackedExecution(
         val console: JdbcConsole,
-        plans: List<PipePlan<*>?>,
+        plans: List<PipePlan?>,
     ) {
         val slots = plans.map(::ExecutionSlot)
     }
     private val trackedExecutionKey = Key.create<TrackedExecution>("DorisPipes.trackedExecution")
     private val startingExecution = ThreadLocal<TrackedExecution?>()
 
-    fun track(console: JdbcConsole, plans: List<PipePlan<*>?>) {
+    fun track(console: JdbcConsole, plans: List<PipePlan?>) {
         check(startingExecution.get() == null) { "Nested PIPE execution tracking is not supported" }
         val execution = TrackedExecution(console, plans)
         startingExecution.set(execution)
@@ -559,13 +287,12 @@ internal object DorisPipesExecution {
         console: JdbcConsole,
         request: DataRequest,
         dorisSql: String,
-        originalText: String,
-        transpile: dev.brikk.house.sql.shape.TranspileResult?,
+        mapError: ((String) -> DorisPipes.MappedError?)?,
         markFile: com.intellij.openapi.vfs.VirtualFile?,
         markAnchor: Int,
         markDocHash: Int,
     ) {
-        runs[request] = PipeRun(console, dorisSql, originalText.trimStart(), transpile, markFile, markAnchor, markDocHash)
+        runs[request] = PipeRun(console, dorisSql, mapError, markFile, markAnchor, markDocHash)
         ensureAuditor(console)
     }
 
@@ -587,15 +314,14 @@ internal object DorisPipesExecution {
                     val slot = execution.slots.getOrNull(consoleRequest.queryIndex) ?: return
                     val plan = slot.plan ?: return
                     val query = consoleRequest.query
-                    if (plan.translation.dorisSql != query) return
+                    if (plan.dorisSql != query) return
                     val text = plan.sourceQuery
                     val anchor = plan.anchor
                     anchor.file?.let { DorisPipes.clearExecMark(execution.console.project, it.url) }
                     runs[request] = PipeRun(
                         execution.console,
                         query,
-                        text,
-                        plan.translation.result.takeIf { plan.parameters.isEmpty() },
+                        { message -> mappedPipeError(message, text, plan.authoredMap) },
                         anchor.file,
                         anchor.trimAnchor,
                         anchor.docHash,
@@ -617,8 +343,7 @@ internal object DorisPipesExecution {
     private fun balloonMappedError(run: PipeRun, info: com.intellij.database.connection.throwable.info.ErrorInfo) {
         val message = runPipeCatching { info.message }.getOrNull() ?: return
         if (!message.contains("(line ")) return
-        val mapped = run.transpile?.let { DorisPipesEngine.mapServerErrorExact(message, it) }
-            ?: DorisPipes.mapServerError(message, run.dorisSql, run.originalText) ?: return
+        val mapped = run.mapError?.invoke(message) ?: return
         if (mapped.originalLine == null) return
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")

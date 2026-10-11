@@ -3,7 +3,7 @@ package dev.sort.doris.pipes
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.daemon.impl.HighlightInfoType
 import com.intellij.openapi.components.service
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisErrorAnnotator
@@ -77,7 +77,7 @@ class DorisPipeDiagnosticsTest : BasePlatformTestCase() {
 
     private fun dorisFile(name: String, sql: String): com.intellij.psi.PsiFile {
         val file = myFixture.configureByText(name, sql)
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         return myFixture.file
     }
 

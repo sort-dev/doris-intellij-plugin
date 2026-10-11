@@ -1,16 +1,25 @@
 # Cooperative pipe execution
 
 This is the DORIS-B1 contract for dialect plugins that intercept the IDE's Execute
-actions. It applies to the 261 and 262 platform generations. Use the qualified
+actions. It applies to the 261 through 263 platform generations. Use the qualified
 name DORIS-B1 across repositories; other repositories have their own B1 findings.
 
 ## Embedded library and enablement
 
 [B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.16.0` and `brikk-sql-metadata-jvm:0.16.0`, both
-confirmed on Maven Central. See [the upgrade report](REVIEW-brikk-sql-0.16.0.md)
-for the verification scope and intentional refusals for unsafe input boundaries.
+`dev.brikk.house:brikk-sql-jvm:0.19.0` and `brikk-sql-metadata-jvm:0.19.0`, both
+from Maven Central. The [0.16 upgrade report](REVIEW-brikk-sql-0.16.0.md)
+records earlier Doris 4.1.4 coverage and intentional unsafe-boundary refusals.
+Plugin 1.5.7 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.1.0` from
+Central. `CooperativeExecuteConfiguration`, `CooperativeExecuteAction` and
+`CooperativeExecutePromoter` own registration, wrapper delegation and promotion.
+`TranslatingScriptModel` owns copied statement/parameter iterators, document revisions
+and finalization. Doris's `SqlExecutionAdapter` retains the native parameter scanner,
+translation refusal policy, generated-SQL validation and server position conversion.
+The Kotlin helper stays at 0.1.0. The engine and metadata upgrade to 0.19.0 is
+part of this backport. The native scanner remains until core's newer boundary and
+parameter APIs have demonstrated parity with the Doris corpus.
 SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library
 provider or a prerequisite for Doris PIPE support. No verification library or native
@@ -29,6 +38,9 @@ including run-to-stage. Warning-free generated SQL must pass the bundled Doris
 parser before execution. Named parameters are masked only for editor preflight;
 after prompting, every selected pipe is substituted and validated before the first
 request. `Transpile.Ok` means SQL was generated, not permission to submit it.
+Lowering of parameterized statements waits for real values. Authored error coordinates
+come only from the exact rendering's map and only if its input still matches the
+authored statement. Parameter-expanded inputs receive no old map or heuristic squiggle.
 Preview retains the original SQL/result and displays diagnostics separately.
 Notification boundaries escape plain diagnostic text as HTML.
 
@@ -130,9 +142,11 @@ chain. Doris cannot repair a non-cooperating plugin's handler.
 
 Doris uses a per-invocation `RunQueryAction` preparation object for its own pipe
 candidates. This reuses stock document/Info preparation without storing mutable
-invocation state on a globally registered action. If stock preparation returns
-without producing Info, the predecessor still gets its turn. Unclaimed execution
-never uses `super.invokeImpl` as fallback.
+invocation state on a globally registered action. A native PIPE candidate is claimed
+before stock preparation. If preparation returns without producing Info, it stays
+handled rather than falling through to raw execution. Unclaimed execution never uses
+`super.invokeImpl` as fallback. Chooser callbacks and final submission reject document
+revision changes, including edits followed by a revert.
 
 Execution candidates require actual native-lexer PIPE operator tokens, not markers
 inside literals, comments or quoted identifiers. Lexical recovery stops at the
@@ -141,6 +155,9 @@ unterminated construct. Ordinary input remains unclaimed even if it fails parsin
 Selections containing real PIPE operators follow the platform's configured selection
 scope. Script selections transform each pipe statement independently and leave ordinary
 statements unchanged. All selected pipes are preflighted before the first request.
+Ownership prechecks honor smart selection expansion, inside chooser/batch settings
+and outside-statement whole-script/tail settings. A caret in a trailing comment must
+not bypass lowering. Tail checks retain complete leading comments.
 
 ## Shortcut promotion
 
@@ -248,3 +265,10 @@ orders, all four variants, delegation/state/shortcut behavior, companion indepen
 project enablement/persistence/reparsing, embedded-engine ownership, and restart
 restrictions. They do not execute SQL against a database or replace
 end-to-end testing of the eventual Trino and DuckDB pipe implementations.
+
+The shared-helper backport adds dedicated `testPipes262` and `testPipes263` tasks.
+They run the 261-compiled product against those runtimes without recompiling it.
+The isolated distribution lane also exercises all six orders of the actual three
+product customizers when both peer ZIPs are supplied. It identifies peers by their
+own plugin classloaders and platform delegate chains, not product wrapper prefixes.
+See `REVIEW-intellij-shared-extraction.md` for the backport's recorded results.

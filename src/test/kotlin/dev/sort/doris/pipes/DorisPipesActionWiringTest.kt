@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.CooperativeExecuteAction
 
 class DorisPipesActionWiringTest : BasePlatformTestCase() {
     fun testActionsRegisterIndependentlyOfTheCompanionAndProjectSetting() {
@@ -24,8 +25,7 @@ class DorisPipesActionWiringTest : BasePlatformTestCase() {
         val stockClasses = listOf("Alt1", "Alt2", "Alt3", "RunSelectionExactlyAsOneStatement")
         for ((index, id) in DorisPipesActionConfiguration.EXECUTE_IDS.withIndex()) {
             val action = ActionManager.getInstance().getAction(id)!!
-            val expected = if (index == 3) "DorisPipesRunSelectionAction" else "DorisPipesRunQueryAction"
-            assertEquals("dev.sort.doris.pipes.$expected", action.javaClass.name)
+            assertEquals("dev.brikk.house.sql.intellij.CooperativeExecuteAction", action.javaClass.name)
             val previous = (action as ActionWithDelegate<*>).delegate
             assertEquals("com.intellij.database.actions.RunQueryAction\$${stockClasses[index]}", previous.javaClass.name)
         }
@@ -48,7 +48,7 @@ class DorisPipesActionWiringTest : BasePlatformTestCase() {
             configuration.registerActions(manager)
             configuration.registerActions(manager)
             for ((index, id) in DorisPipesActionConfiguration.EXECUTE_IDS.withIndex()) {
-                val top = manager.getAction(id) as DorisPipesRunQueryAction
+                val top = manager.getAction(id) as CooperativeExecuteAction
                 assertSame("registration must be idempotent", before[index], top.delegate)
             }
             configuration.unregisterActions(manager)
@@ -66,14 +66,14 @@ class DorisPipesActionWiringTest : BasePlatformTestCase() {
         val configuration = DorisPipesActionConfiguration()
         try {
             configuration.registerActions(manager)
-            val ours = DorisPipesActionConfiguration.EXECUTE_IDS.map { manager.getAction(it) as DorisPipesRunQueryAction }
+            val ours = DorisPipesActionConfiguration.EXECUTE_IDS.map { manager.getAction(it) as CooperativeExecuteAction }
             val peers = DorisPipesActionConfiguration.EXECUTE_IDS.mapIndexed { index, id ->
                 PeerAction(ours[index]).also { manager.replaceAction(id, it) }
             }
             configuration.unregisterActions(manager)
             for ((index, id) in DorisPipesActionConfiguration.EXECUTE_IDS.withIndex()) {
                 assertSame("a peer's chain is not rewritten", peers[index], manager.getAction(id))
-                assertTrue(ours[index].isDetached)
+                assertTrue(ours[index].detached)
                 assertSame(before[index], ours[index].delegate)
             }
         } finally {

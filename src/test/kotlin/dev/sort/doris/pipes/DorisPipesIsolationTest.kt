@@ -3,6 +3,12 @@ package dev.sort.doris.pipes
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.lang.Language
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionWithDelegate
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.Presentation
+import com.intellij.openapi.actionSystem.impl.DynamicActionConfigurationCustomizer
+import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFileFactory
@@ -15,7 +21,13 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         if (System.getProperty("test.pluginIsolation") != "true") return
         val dorisLoader = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.doris-intellij-plugin"))!!.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
-        assertFalse("Native SQL must run without the Kotlin plugin", PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
+        assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.brikkKotlin") == "true",
+            PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
+        for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel")) {
+            val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
+            assertSame(dorisLoader, shared.classLoader)
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.0.jar"))
+        }
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
@@ -32,12 +44,12 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         val instance = policy.getField("INSTANCE").get(null)
         val isEnabled = policy.getMethod("isEnabled", Project::class.java)
         val action = ActionManager.getInstance().getAction("Console.Jdbc.Execute")!!
-        assertSame(dorisLoader, action.javaClass.classLoader)
+        assertTrue(actionChain(action).any { it.javaClass.classLoader === dorisLoader })
         try {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.16.0")
+            checkEngine(dorisLoader, "jvmMain-0.19.0")
             val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
             val translated = adapter.getMethod("transpile", String::class.java)
                 .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")
@@ -58,6 +70,8 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
                 val peer = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$dialect-intellij-plugin"))!!
                 assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", peer.pluginClassLoader!!.javaClass.name)
                 assertNotSame(dorisLoader, peer.pluginClassLoader)
+                val peerShared = runCatching { peer.pluginClassLoader!!.loadClass("dev.brikk.house.sql.intellij.CooperativeExecuteAction") }.getOrNull()
+                if (peerShared != null) assertNotSame(dorisLoader.loadClass(peerShared.name), peerShared)
                 // 262 can leave dialect languages uninitialized until their first use.
                 val dialectClass = if (dialect == "trino") "dev.sort.trino.sql.TrinoSqlDialect"
                     else "dev.sort.duckdb.sql.DuckdbSqlDialect"
@@ -72,6 +86,58 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         }
         assertEquals(false, isEnabled.invoke(instance, project))
         assertSame(action, ActionManager.getInstance().getAction("Console.Jdbc.Execute"))
+    }
+
+    fun testActualThreePluginRegistrationsInAllSixOrders() {
+        if (System.getProperty("test.pluginIsolation") != "true") return
+        val names = mapOf("doris" to "dev.sort.doris.pipes.DorisPipesActionConfiguration",
+            "trino" to "dev.sort.trino.pipes.TrinoPipesActionConfiguration",
+            "duckdb" to "dev.sort.duckdb.pipes.DuckdbPipesActionConfiguration")
+        val loaders = names.keys.associateWith {
+            PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$it-intellij-plugin"))?.pluginClassLoader
+        }
+        org.junit.Assume.assumeTrue("All three distributions are required", loaders.values.all { it != null })
+        val ids = listOf("Console.Jdbc.Execute", "Console.Jdbc.Execute.2", "Console.Jdbc.Execute.3", "Console.Jdbc.Execute.Selection")
+        val manager = ActionManager.getInstance()
+        val originals = ids.associateWith { manager.getAction(it)!! }
+        val orders = names.keys.flatMap { first -> (names.keys - first).map { second ->
+            listOf(first, second, names.keys.single { it != first && it != second })
+        } }
+        try {
+            for (order in orders) {
+                var delegated = 0
+                val event = AnActionEvent.createFromDataContext("Peer chain", Presentation(), SimpleDataContext.getProjectContext(project))
+                ids.forEach { manager.replaceAction(it, object : AnAction() {
+                    override fun actionPerformed(e: AnActionEvent) { assertSame(event, e); delegated++ }
+                }) }
+                val configurations = order.map { loaders.getValue(it)!!.loadClass(names.getValue(it)).getConstructor().newInstance()
+                    as DynamicActionConfigurationCustomizer }
+                try {
+                    configurations.forEach { it.registerActions(manager) }
+                    for (id in ids) {
+                        val chain = actionChain(manager.getAction(id)!!)
+                        assertEquals("All product loaders must appear in $order for $id", order.reversed().map { loaders.getValue(it) },
+                            chain.dropLast(1).map { it.javaClass.classLoader })
+                        manager.getAction(id)!!.actionPerformed(event)
+                    }
+                    assertEquals("Each variant delegates exactly once through $order", 4, delegated)
+                    configurations.first().unregisterActions(manager)
+                    ids.forEach { manager.getAction(it)!!.actionPerformed(event) }
+                    assertEquals("Detached predecessor remains usable through $order", 8, delegated)
+                } finally { configurations.asReversed().forEach { it.unregisterActions(manager) } }
+            }
+        } finally { originals.forEach { (id, action) -> manager.replaceAction(id, action) } }
+    }
+
+    private fun actionChain(first: AnAction): List<AnAction> {
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<AnAction, Boolean>())
+        val chain = mutableListOf<AnAction>()
+        var current = first
+        while (seen.add(current)) {
+            chain.add(current)
+            current = (current as? ActionWithDelegate<*>)?.delegate as? AnAction ?: break
+        }
+        return chain
     }
 
     private fun checkEngine(loader: ClassLoader, artifactSuffix: String) {

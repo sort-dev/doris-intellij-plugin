@@ -4,7 +4,7 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
@@ -80,13 +80,12 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
 
     private fun highlight(sql: String): List<HighlightInfo> {
         val file = myFixture.configureByText("pipe-keywords-${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(file.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
         return myFixture.doHighlighting()
     }
 
     private fun pipeStageItems(sql: String): List<String> {
-        val mappings = SqlDialectMappings.getInstance(project)
-        mappings.setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         try {
             myFixture.configureByText("pipe-completion-${counter++}.sql", sql)
             return myFixture.completeBasic().orEmpty().mapNotNull { item ->
@@ -95,7 +94,7 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
                 item.lookupString.takeIf { presentation.typeText == "pipe stage" }
             }
         } finally {
-            mappings.setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         }
     }
 

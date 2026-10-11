@@ -10,9 +10,10 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.5.6"
+version = "1.5.7"
 
-val brikkSqlVersion = "0.16.0"
+val brikkSqlVersion = "0.19.0"
+val brikkSqlIntellijSupportVersion = "0.1.0"
 val brikkKotlinSupportVersion = "0.1.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
@@ -53,6 +54,9 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
+    implementation("dev.brikk.house:brikk-sql-intellij-support:$brikkSqlIntellijSupportVersion") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+    }
     implementation("dev.brikk.house:brikk-engine-kotlin-intellij-support:$brikkKotlinSupportVersion") {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
     }
@@ -163,9 +167,9 @@ tasks {
         // to that copy too, otherwise fixture loading silently omits the Kotlin integration.
         from("src/main/resources/META-INF/doris-kotlin.xml") { into("META-INF") }
     }
-    // Stable artifact name (no version suffix) so install-from-disk always points at the same file.
+    // Keep the user's 1.5.6 dogfood ZIP intact while validating this separate backport.
     buildPlugin {
-        archiveVersion = ""
+        archiveVersion = project.version.toString()
     }
 
     withType<JavaCompile> {
@@ -182,6 +186,7 @@ tasks {
         // plugin (depends on com.intellij.database) is skipped and the DorisSQL language is absent.
         systemProperty("idea.load.plugins.id", testPluginIds)
         systemProperty("test.siblingPlugins", siblingPluginZips.joinToString(",") { it.first })
+        systemProperty("test.brikkKotlin", brikkKotlinTests.toString())
         if (!brikkKotlinTests) exclude("**/brikk/**")
         exclude("**/BrikkDorisGeneratedShapeTest.class")
 
@@ -225,6 +230,23 @@ for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.57
     }
 }
 
+// Exercise the same 261-compiled Execute/model backport on newer database APIs.
+for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.5701.42")) {
+    intellijPlatformTesting.testIde.register("testPipes$generation") {
+        type = org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdea
+        version = ideVersion
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+        plugins { bundledPlugins("com.intellij.database", "com.intellij.java", "com.intellij.modules.json", "Git4Idea") }
+        task {
+            useJUnit()
+            setIncludes(setOf("**/pipes/*Test.class"))
+            systemProperty("java.awt.headless", "true")
+            systemProperty("idea.load.plugins.id", "com.intellij.database,dev.sort.doris-intellij-plugin,com.intellij.java,Git4Idea")
+            systemProperty("doris.replay.poc", "false")
+        }
+    }
+}
+
 // Genuine generated rows require the reviewed IDE compiler, not a relabelled compiler JAR.
 intellijPlatformTesting.testIde.register("testBrikkGenerated") {
     localPath = layout.dir(providers.gradleProperty("test.brikk.generatedIde").map { file(it) })
@@ -252,11 +274,13 @@ val verifyEmbeddedPipes by tasks.registering {
         "brikk-sql-jvmMain-$brikkSqlVersion.jar", "brikk-sql-metadata-jvmMain-$brikkSqlVersion.jar",
         "antlr4-runtime-4.13.1.jar", "doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar",
         "brikk-engine-kotlin-intellij-support-$brikkKotlinSupportVersion.jar",
+        "brikk-sql-intellij-support-$brikkSqlIntellijSupportVersion.jar",
     )
     val requiredNotices = listOf(
         "brikk-sql-jvm:$brikkSqlVersion", "brikk-sql-metadata-jvm:$brikkSqlVersion",
         "Toby Mao", "ANTLR", "Permission is hereby granted", "ClickHouse", "StarRocks",
         "brikk-engine-kotlin-intellij-support:$brikkKotlinSupportVersion",
+        "brikk-sql-intellij-support:$brikkSqlIntellijSupportVersion",
     )
     dependsOn("buildPlugin")
     inputs.file(distribution)

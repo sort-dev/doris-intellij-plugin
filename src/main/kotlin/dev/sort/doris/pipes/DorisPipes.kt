@@ -30,7 +30,7 @@ internal fun pipeNotificationHtml(text: String): String =
  * Doris Pipes SPIKE (branch `pipes-spike`; IDEAS-brikk-integration.md §3): author GoogleSQL
  * pipe syntax (`FROM t |> WHERE ... |> AGGREGATE ...`) in a Doris console and RUN it — the
  * statement is transpiled to canonical Doris SQL by the brikk-sql engine at execute time
- * ([DorisPipesRunQueryAction]), and the editor stops red-flagging pipe statements while showing
+ * ([DorisPipesActionConfiguration]), and the editor stops red-flagging pipe statements while showing
  * the engine's own (position-accurate) pipe syntax errors instead ([dev.sort.doris.sql.DorisErrorAnnotator]).
  *
  * Engine-facing code lives in [DorisPipesEngine]; the shared engine is bundled with this plugin.

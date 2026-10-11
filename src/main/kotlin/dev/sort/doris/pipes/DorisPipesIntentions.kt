@@ -132,7 +132,7 @@ internal object DorisPipesUi {
                     console, result, prefix.text,
                     PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
                         editor.document.text.hashCode()),
-                    exactSourceMap = model.plans.single().parameters.isEmpty(),
+                    exactSourceMap = model.plans.single().authoredMap != null,
                 )
                 if (submitted) {
                     notify(

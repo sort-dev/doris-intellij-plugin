@@ -55,6 +55,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.7</b> - shared cooperative PIPE execution support.
+        <ul>
+            <li>Uses the released Brikk SQL IntelliJ helper for Execute action chains and
+                parameter-aware script preparation, with Doris validation and diagnostics retained.</li>
+            <li>Updates the embedded Brikk SQL engine and function metadata to 0.19.0.</li>
+            <li>Preserves whole-script execution from comments and refuses stale prepared input.
+                Parameter-expanded SQL never receives an old authored source map.</li>
+        </ul>
         <b>1.5.6</b> - Kotlin relation input columns in Brikk Doris SQL.
         <ul>
             <li>Supplies helper-provided relation contracts to SQL slot calls, including alias,

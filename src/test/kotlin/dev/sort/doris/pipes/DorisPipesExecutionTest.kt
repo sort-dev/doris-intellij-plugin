@@ -18,6 +18,7 @@ import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.datagrid.GridDataRequest
 import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.run.ConsoleDataRequest
+import com.intellij.database.script.ScriptModel
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
@@ -35,6 +36,7 @@ import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
@@ -46,6 +48,7 @@ import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
 import java.lang.reflect.Proxy
 import java.awt.BorderLayout
+import java.util.UUID
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
 
@@ -159,14 +162,199 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testCachedStatementTextNeverOverridesTheCurrentDocumentSlice() {
         val old = "FROM offline_rows |> WHERE id = 1"
         val current = "FROM offline_rows |> WHERE id = 9"
-        assertEquals(current, currentPipeStatementText(old, current, TextRange(0, current.length)))
-        assertEquals(current, currentPipeStatementText("SELECT 1", current, TextRange(0, current.length)))
+        ExecutionFixture(current).use { fixture ->
+            for (cached in listOf(old, "SELECT 1")) {
+                val model = PipeScriptModel(cachedQueryModel(fixture.console.scriptModel, cached), fixture.editor)
+                assertNull(model.finalizeTranslations(fixture.console.pStorage))
+                assertEquals(current, model.plans.single().sourceQuery)
+                assertEquals((DorisPipesEngine.transpile(current) as DorisPipesEngine.Transpile.Ok).dorisSql,
+                    model.plans.single().dorisSql)
+            }
+            fixture.replaceSql("SELECT 1")
+            val failure = runCatching {
+                PipeScriptModel(cachedQueryModel(fixture.console.scriptModel, old), fixture.editor)
+            }.exceptionOrNull()
+            assertTrue(failure is PipeTranslationFailure)
+            assertTrue((failure as PipeTranslationFailure).error.message.contains("prepared statement changed"))
+        }
+    }
 
-        val failure = runCatching {
-            currentPipeStatementText(old, "SELECT 1", TextRange(0, "SELECT 1".length))
-        }.exceptionOrNull()
-        assertTrue(failure is PipeTranslationFailure)
-        assertTrue((failure as PipeTranslationFailure).error.message.contains("cached SQL was not executed"))
+    fun testPreparedModelRejectsEditAndRevertBeforeSubmission() {
+        ExecutionFixture(safeProgram).use { fixture ->
+            val model = PipeScriptModel(fixture.console.scriptModel, fixture.editor)
+            WriteCommandAction.runWriteCommandAction(project) {
+                fixture.editor.document.insertString(0, " ")
+                fixture.editor.document.deleteString(0, 1)
+            }
+            assertFalse(model.isActual)
+            val failure = runCatching { model.finalizeTranslations(fixture.console.pStorage) }.exceptionOrNull()
+            assertTrue(failure.toString(), failure is IllegalStateException)
+            assertTrue(failure!!.message!!, failure.message!!.contains("SQL changed during preparation"))
+            assertEmpty(fixture.requests)
+        }
+    }
+
+    fun testEditDuringTrackingStopsBeforeAnyMixedScriptRequest() {
+        val sql = "SELECT 1; $safeProgram;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("FROM"))
+            var editedAtTracking = false
+            fixture.onAddAuditor = { auditor ->
+                if (auditor.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) {
+                    editedAtTracking = true
+                    WriteCommandAction.runWriteCommandAction(project) { fixture.editor.document.insertString(0, " ") }
+                }
+            }
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_WHOLE_SCRIPT
+            }
+            try {
+                val failure = runCatching { fixture.execute() }.exceptionOrNull()
+                assertTrue("Inject the edit into Doris tracking, not platform UI construction", editedAtTracking)
+                assertTrue(failure.toString(), failure is IllegalStateException)
+                assertTrue(failure!!.message!!, failure.message!!.contains("SQL changed during preparation"))
+                assertEmpty(fixture.requests)
+                assertEmpty(fixture.previousEvents)
+            } finally { settings.execOptions[0] = old }
+        }
+    }
+
+    fun testCancellationDuringTrackingNeverSubmitsOrDelegates() {
+        ExecutionFixture(safeProgram).use { fixture ->
+            val canceled = com.intellij.openapi.progress.ProcessCanceledException()
+            var canceledAtTracking = false
+            fixture.onAddAuditor = { auditor ->
+                if (auditor.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) {
+                    canceledAtTracking = true
+                    throw canceled
+                }
+            }
+            val failure = runCatching { fixture.execute() }.exceptionOrNull()
+            assertTrue("Cancel Doris tracking, not a platform console-view constructor", canceledAtTracking)
+            assertSame(canceled, failure)
+            assertEmpty(fixture.requests)
+            assertEmpty(fixture.previousEvents)
+            assertEmpty(fixture.notifications)
+        }
+    }
+
+    fun testEditAndRevertDuringStockSaveIsStillRejected() {
+        ExecutionFixture(safeProgram).use { fixture ->
+            var edited = false
+            val connection = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect()
+            connection.subscribe(com.intellij.AppTopics.FILE_DOCUMENT_SYNC,
+                object : com.intellij.openapi.fileEditor.FileDocumentManagerListener {
+                    override fun beforeAllDocumentsSaving() {
+                        if (edited) return
+                        edited = true
+                        WriteCommandAction.runWriteCommandAction(project) {
+                            fixture.editor.document.insertString(0, " ")
+                            fixture.editor.document.deleteString(0, 1)
+                        }
+                    }
+                })
+            try {
+                val failure = runCatching { fixture.execute() }.exceptionOrNull()
+                assertTrue("The stock save hook must run", edited)
+                assertTrue(failure.toString(), failure is IllegalStateException)
+                assertTrue(failure!!.message!!, failure.message!!.contains("SQL changed during preparation"))
+                assertEmpty(fixture.requests)
+                assertEmpty(fixture.previousEvents)
+                assertEquals(safeProgram, fixture.editor.document.text)
+            } finally { connection.disconnect() }
+        }
+    }
+
+    fun testAuthoredMapPreservesUnicodeAndMixedScriptSlots() {
+        val pipe = "FROM offline_rows |> SELECT '😀' AS marker, id |> WHERE id > 0"
+        ExecutionFixture("SELECT 1; $pipe; SELECT 2;").use { fixture ->
+            val model = PipeScriptModel(fixture.console.scriptModel, fixture.editor)
+            assertNull(model.finalizeTranslations(fixture.console.pStorage))
+            assertEquals(3, model.executionPlans.size)
+            assertNull(model.executionPlans.first())
+            assertNull(model.executionPlans.last())
+            val plan = model.plans.single()
+            assertNotNull(plan.authoredMap)
+            val outputOffset = plan.dorisSql.indexOf("id")
+            val prefix = plan.dorisSql.substring(0, outputOffset)
+            val line = 1 + prefix.count { it == '\n' }
+            val linePrefix = prefix.substringAfterLast('\n')
+            val pos = linePrefix.codePointCount(0, linePrefix.length)
+            val mapped = mappedPipeError("(line $line, pos $pos)", plan.sourceQuery, plan.authoredMap)!!
+            assertEquals("id", plan.sourceQuery.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
+            val documentStart = plan.anchor.trimAnchor + mapped.startOffset
+            assertEquals("id", fixture.editor.document.text.substring(documentStart, documentStart + 2))
+        }
+    }
+
+    fun testParameterExpansionWithholdsAuthoredMapInsteadOfGuessing() {
+        val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
+        ExecutionFixture(sql).use { fixture ->
+            ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "17000")
+            val model = PipeScriptModel(fixture.console.scriptModel, fixture.editor)
+            assertContainsElements(model.parameters().map { it.name() }.toList(), "id")
+            assertNull(model.finalizeTranslations(fixture.console.pStorage))
+            val plan = model.plans.single()
+            assertTrue(plan.dorisSql, "17000" in plan.dorisSql)
+            assertNull(plan.authoredMap)
+            assertNull(mappedPipeError("(line 1, pos 7)", plan.sourceQuery, plan.authoredMap))
+            assertEquals(sql, fixture.editor.document.text)
+        }
+    }
+
+    fun testOutsideStatementWholeScriptStillLowersPipes() {
+        val sql = "SELECT 1; $safeProgram; -- caret outside statements"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.length)
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_SMALLEST
+                execOutside = DatabaseSettings.EXECUTE_OUTSIDE_WHOLE_SCRIPT
+            }
+            try {
+                fixture.execute()
+                while (fixture.requests.size < 2) (fixture.requests.last() as ConsoleDataRequest).onFinished()
+            } finally { settings.execOptions[0] = old }
+            assertEquals(2, fixture.requests.size)
+            assertFalse((fixture.requests.last() as DataRequest.QueryRequest).query.contains("|>"))
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
+    fun testSmartSelectionClaimsTheEnclosingPipeline() {
+        val sql = "FROM offline_rows |> WHERE id > 0 |> SELECT id"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.selectionModel.setSelection(sql.indexOf("WHERE"), sql.indexOf(" |> SELECT"))
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execSelection = DatabaseSettings.EXECUTE_SELECTION_SMART_EXPAND
+            }
+            try { fixture.execute() } finally { settings.execOptions[0] = old }
+            assertEquals(1, fixture.requests.size)
+            assertFalse((fixture.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
+    fun testOutsideScriptTailKeepsTheLeadingCommentIntact() {
+        val sql = "SELECT 0; /* ) caret here 😀 */ $safeProgram;"
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("caret"))
+            val settings = DatabaseSettings.getSettings()
+            val old = settings.execOptions[0]
+            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
+                execInside = DatabaseSettings.EXECUTE_INSIDE_SMALLEST
+                execOutside = DatabaseSettings.EXECUTE_OUTSIDE_SCRIPT_TAIL
+            }
+            try { fixture.execute() } finally { settings.execOptions[0] = old }
+            assertEquals(1, fixture.requests.size)
+            assertFalse((fixture.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
+            assertEmpty(fixture.previousEvents)
+        }
     }
 
     fun testOrdinarySqlAndQuotedOrCommentMarkersDelegateWithTheSameEvent() {
@@ -644,7 +832,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     private inner class ExecutionFixture(sql: String, driverId: String = "doris") : AutoCloseable {
-        private val virtualFile = myFixture.configureByText("offline-execution.sql", sql).virtualFile
+        private val virtualFile = myFixture.configureByText("offline-execution-${UUID.randomUUID()}.sql", sql).virtualFile
         // Setting the dialect invalidates the original generic-SQL PSI file.
         val file get() = checkNotNull(PsiManager.getInstance(project).findFile(virtualFile))
         val editor = myFixture.editor
@@ -697,14 +885,13 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
 
         val point = LocalDataSource().apply {
-            name = "Offline PIPE execution test"
+            name = "Offline PIPE execution test ${UUID.randomUUID()}"
             databaseDriver = checkNotNull(DatabaseDriverManager.getInstance().getDriver(driverId))
             // Deliberately not a MySQL endpoint; even an accidental real connection cannot use it.
             url = "jdbc:offline:doris-pipes-test"
             isAutoSynchronize = false
             isKeepAlive = false
         }
-        private var sessionViewCreated = false
         private val state = Proxy.newProxyInstance(
             DatabaseSession.State::class.java.classLoader,
             arrayOf(DatabaseSession.State::class.java),
@@ -734,7 +921,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 "hashCode" -> System.identityHashCode(proxy)
                 "toString", "getTitle", "getDisplayName" -> "Offline PIPE recording session"
                 "getConnectionPoint", "getTarget" -> point
-                "getState" -> { sessionViewCreated = true; state }
+                "getState" -> state
                 "getProject" -> project
                 "getMessageBus" -> bus
                 "getClients" -> clients.toTypedArray()
@@ -768,7 +955,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
 
         init {
-            setSqlDialectMapping(project, virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, virtualFile, if (driverId == "doris") DorisSqlDialect.INSTANCE else null)
             val manager = LocalDataSourceManager.getInstance(project)
             manager.addDataSource(point)
             try {
@@ -803,6 +990,8 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
         fun replaceSql(sql: String) {
             WriteCommandAction.runWriteCommandAction(project) { editor.document.setText(sql) }
+            // Direct fixture invocation must honor the wrapper's committed-document policy.
+            PsiDocumentManager.getInstance(project).commitDocument(editor.document)
             editor.selectionModel.setSelection(0, sql.length)
         }
 
@@ -847,7 +1036,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             notifications.forEach { it.expire() }
             try {
                 if (this::console.isInitialized) {
-                    if (sessionViewCreated) Disposer.dispose(console.consoleView)
+                    // The fake session does not own/dispose its UI as a real session does.
+                    // Cancellation can create console editors without ever querying session state.
+                    Disposer.dispose(console.consoleView)
                     Disposer.dispose(console)
                 }
             } finally {
@@ -865,5 +1056,21 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val warningPrograms = listOf("YEAR", "QUARTER", "WEEK").map {
             "FROM offline_rows |> SELECT LAST_DAY(d, $it) AS period_end"
         } + "FROM offline_rows |> AGGREGATE APPROX_COUNT_DISTINCT(user_id, 0.01) AS users"
+    }
+
+    private fun <E> cachedQueryModel(delegate: ScriptModel<E>, cached: String): ScriptModel<E> = object : ScriptModel<E>() {
+        override fun isActual() = delegate.isActual
+        override fun subModel(range: TextRange?) = cachedQueryModel(delegate.subModel(range), cached)
+        override fun everything() = delegate.everything()
+        override fun statements() = delegate.statements().transform { statement ->
+            object : ScriptModel.StatementIt<E> by statement { override fun query() = cached }
+        }
+        override fun parameters() = delegate.parameters()
+        override fun externals() = delegate.externals()
+        override fun getVirtualFile() = delegate.virtualFile
+        override fun getTextRange() = delegate.textRange
+        override fun getLanguage() = delegate.language
+        override fun <EE : Any?> rawTransform(transform: com.intellij.util.Function<in com.intellij.psi.SyntaxTraverser<E>, out com.intellij.psi.SyntaxTraverser<EE>>): ScriptModel<EE> =
+            cachedQueryModel(delegate.rawTransform(transform), cached)
     }
 }

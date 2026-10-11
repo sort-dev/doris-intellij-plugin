@@ -321,6 +321,21 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals(setOf("id", "code"), before?.toSet())
     }
 
+    fun testRowsKeywordSlotUsesThe019EngineWithoutBindingUnusedParameters() {
+        val sql = relationSql("FROM ${'$'}rows() |> SELECT id, code |> WHERE id > 0", second = "rows: Rel<Row>")
+        val scope = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("WHERE") + 6)
+        assertEquals(setOf("id", "code"), scope?.toSet())
+        val fragment = dev.brikk.house.sql.shape.SqlFragment(sql.text, "doris")
+        assertEquals(listOf("rows"), fragment.tableSlots)
+    }
+
+    fun testRowsWindowFrameRemainsNativeSyntaxAfterThe019Upgrade() {
+        val sql = relationSql("SELECT SUM(id) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM ${'$'}src()")
+        val fragment = dev.brikk.house.sql.shape.SqlFragment(sql.text, "doris")
+        assertEquals(listOf("src"), fragment.tableSlots)
+        assertTrue(fragment.toExecutable("doris").sql.contains("ROWS BETWEEN 1 PRECEDING AND CURRENT ROW"))
+    }
+
     fun testPipeColumnCompletionUsesTheKotlinContractWithoutAConnection() {
         relationSql("FROM ${'$'}src() |> SELECT code |> WHERE co<caret>")
         val suggestions = myFixture.completeBasic().orEmpty().map { it.lookupString }
