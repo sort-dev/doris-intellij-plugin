@@ -35,11 +35,13 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
+import com.intellij.ui.UiInterceptors
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
@@ -628,6 +630,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val safe = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
         val lossy = DorisPipesEngine.transpile(warningPrograms.first()) as DorisPipesEngine.Transpile.Ok
         ExecutionFixture(safeProgram).use { fixture ->
+            val destination = PipeDestination(fixture.console)
             val submissionThread = Thread.currentThread()
             val submissionCalls = mutableListOf<String>()
             // The IDE may query getProject on the session from background readers. This guard
@@ -637,7 +640,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             }
             for (translation in listOf(lossy, DorisPipesEngine.Transpile.Ok("SELECT 1"), safe.copy(dorisSql = "SELECT 2"))) {
                 submissionCalls.clear()
-                val failure = runCatching { DorisPipesExecution.submit(fixture.console, translation, safeProgram) }.exceptionOrNull()
+                val failure = runCatching { DorisPipesExecution.submit(fixture.console, destination, translation, safeProgram) }.exceptionOrNull()
                 assertTrue("expected the submission guard, got $failure", failure is IllegalStateException)
                 assertEmpty(submissionCalls)
                 assertEmpty(fixture.requests)
@@ -692,6 +695,45 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         assertFalse(JdbcConsole.getActiveConsoles(project).contains(fixture.console))
     }
 
+    fun testDestinationChangesDuringParameterPromptingSubmitNothing() {
+        val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
+        val changes = listOf<(ExecutionFixture) -> Unit>(
+            { it.point.url = "jdbc:offline:another-doris" },
+            { settings.enabled = false },
+        )
+        for (runToStage in listOf(false, true)) {
+            assertEquals(1, runWithParameterPrompt(sql, runToStage) {}.size)
+            for (change in changes) {
+                try {
+                    assertEmpty(runWithParameterPrompt(sql, runToStage, change))
+                } finally {
+                    settings.enabled = true
+                }
+            }
+        }
+    }
+
+    /** Answers the real parameter dialog, applying [duringPrompt] first; returns the submitted requests. */
+    private fun runWithParameterPrompt(sql: String, runToStage: Boolean, duringPrompt: (ExecutionFixture) -> Unit): List<GridDataRequest> =
+        ExecutionFixture(sql).use { fixture ->
+            fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE"))
+            var prompted = false
+            UiInterceptors.register(object : UiInterceptors.UiInterceptor<DialogWrapper>(DialogWrapper::class.java) {
+                override fun doIntercept(component: DialogWrapper) {
+                    prompted = true
+                    ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "7")
+                    duringPrompt(fixture)
+                    component.close(DialogWrapper.OK_EXIT_CODE)
+                }
+            })
+            val failure = runCatching { if (runToStage) fixture.runToStage(menu = false) else fixture.execute() }.exceptionOrNull()
+            assertTrue(prompted)
+            if (fixture.requests.isEmpty()) assertTrue(failure.toString(), failure is IllegalStateException)
+            else assertNull(failure)
+            assertEmpty(fixture.previousEvents)
+            fixture.requests.toList()
+        }
+
     fun testSharedSessionSubmissionAndConsoleLookupUseExactFileOwner() {
         ExecutionFixture(safeProgram).use { fixture ->
             val secondFile = myFixture.addFileToProject("second-owner.sql", safeProgram)
@@ -702,7 +744,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 assertEquals(listOf(fixture.console, second), fixture.clients)
                 assertSame(second, DorisPipesUi.consoleFor(project, secondFile))
                 val translation = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
-                assertTrue(DorisPipesExecution.submit(second, translation, safeProgram))
+                assertTrue(DorisPipesExecution.submit(second, PipeDestination(second), translation, safeProgram))
                 assertSame(second, (fixture.requests.single() as DataRequest.QueryRequest).owner)
             } finally {
                 Disposer.dispose(second)

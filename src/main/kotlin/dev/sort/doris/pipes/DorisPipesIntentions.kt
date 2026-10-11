@@ -92,6 +92,7 @@ internal object DorisPipesUi {
             notify(project, "Not a Doris console", "Run-to-stage requires a console connected with the Apache Doris driver.", NotificationType.WARNING)
             return
         }
+        val destination = PipeDestination(console)
         val rel = editor.caretModel.offset - chunk.startOffset
         if (DorisPipesEngine.isInsideNestedPipeline(chunk.text, rel)) {
             notify(project, "Caret is inside a nested pipeline", "Run-to-stage runs top-level pipe stages only.", NotificationType.WARNING)
@@ -133,7 +134,7 @@ internal object DorisPipesUi {
             submit = { result ->
                 DorisPipes.info("run-to-stage: stage ${prefix.stage}/${prefix.totalStages}")
                 val submitted = DorisPipesExecution.submit(
-                    console, result, prefix.text,
+                    console, destination, result, prefix.text,
                     PipeAnchor(editor, range, file.viewProvider.virtualFile, trimAnchor,
                         editor.document.text.hashCode()),
                     exactSourceMap = model.plans.single().authoredMap != null,

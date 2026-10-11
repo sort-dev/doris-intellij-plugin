@@ -113,8 +113,8 @@ internal object PipesExecuteInterceptor {
      */
     fun handle(console: JdbcConsole?, info: JdbcConsoleProvider.Info, snapshot: EditorSnapshot): Boolean {
         if (console == null || !DorisPipes.isEnabled(console.project)) return false
-        val session = console.session
-        if (session.connectionPoint.dbms !== DorisDbms.DORIS) return false
+        if (console.session.connectionPoint.dbms !== DorisDbms.DORIS) return false
+        val destination = PipeDestination(console)
         val editor = info.editor ?: return false
         if (info.model.statements().none { DorisPipes.containsPipeOperator(it.query()) }) return false
 
@@ -138,10 +138,7 @@ internal object PipesExecuteInterceptor {
                 DorisPipesExecution.track(console, model.executionPlans)
                 try {
                     snapshot.requireCurrent()
-                    check(DorisPipes.isEnabled(console.project)) { "PIPE was disabled during preparation" }
-                    check(console.session === session && session.connectionPoint.dbms === DorisDbms.DORIS) {
-                        "The destination changed during PIPE preparation"
-                    }
+                    destination.requireCurrent(console)
                     console.executeQueries(editor, model, info.execOption)
                 } finally {
                     DorisPipesExecution.endTracking(console)
@@ -191,6 +188,21 @@ internal data class PipeAnchor(
     val docHash: Int,
 )
 
+/** The console target captured before parameter prompting, which can edit or replace it. */
+internal class PipeDestination(console: JdbcConsole) {
+    private val session = console.session
+    private val dataSource = console.dataSource
+    private val url = dataSource?.url
+
+    fun requireCurrent(console: JdbcConsole) {
+        check(DorisPipes.isEnabled(console.project)) { "PIPE was disabled during preparation" }
+        check(
+            console.isValid && console.session === session && console.dataSource === dataSource &&
+                dataSource?.url == url && session.connectionPoint.dbms === DorisDbms.DORIS,
+        ) { "The destination changed during PIPE preparation" }
+    }
+}
+
 /**
  * Shared pipe-execution machinery for the execute-action interceptor and the pipe intentions
  * (preview / run-to-stage). Owns the platform submission path and the user-facing notifications.
@@ -212,6 +224,7 @@ internal object DorisPipesExecution {
     /** Submit a fixed-scope helper request through the exact console that initiated it. */
     fun submit(
         console: JdbcConsole,
+        destination: PipeDestination,
         translation: DorisPipesEngine.Transpile.Ok,
         originalText: String,
         anchor: PipeAnchor? = null,
@@ -222,6 +235,7 @@ internal object DorisPipesExecution {
         check(transpile.sql == translation.dorisSql) { "PIPE SQL does not match its translation result" }
         val dorisSql = translation.dorisSql
         ProgressManager.checkCanceled()
+        destination.requireCurrent(console)
         val session = console.session
         DorisPipes.info(
             "session '${session.title}': pipe program (${originalText.length} chars) -> executing " +
