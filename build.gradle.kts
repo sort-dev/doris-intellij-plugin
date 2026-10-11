@@ -31,6 +31,7 @@ sqlDialectPlugin {
 }
 
 dependencies {
+    testImplementation(libs.brikk.sql.intellij.test.support)
     implementation(libs.brikk.sql.intellij.support)
     implementation(libs.brikk.engine.kotlin.intellij.support)
     implementation(libs.brikk.sql.jvm)
@@ -47,6 +48,7 @@ tasks.withType<Test>().configureEach {
         systemProperty("golden.record", "true")
     }
     systemProperty("doris.replay.poc", "false")
+    systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.19.1" else "jvm-0.6.0")
 }
 
 tasks.named<Test>("test263") {

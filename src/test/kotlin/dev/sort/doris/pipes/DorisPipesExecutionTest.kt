@@ -1,19 +1,9 @@
 package dev.sort.doris.pipes
 
-import com.intellij.database.DataBus
 import com.intellij.database.Dbms
 import com.intellij.database.actions.ShowSqlParametersPanelAction
 import com.intellij.database.console.JdbcConsole
-import com.intellij.database.console.client.DatabaseSessionClient
-import com.intellij.database.console.client.DatabaseSessionClientWithFile
 import com.intellij.database.console.client.SessionClientHolder
-import com.intellij.database.console.session.DatabaseSession
-import com.intellij.database.dataSource.DatabaseDriverManager
-import com.intellij.database.dataSource.LocalDataSource
-import com.intellij.database.dataSource.LocalDataSourceManager
-import com.intellij.database.datagrid.DataAuditor
-import com.intellij.database.datagrid.DataConsumer
-import com.intellij.database.datagrid.DataProducer
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.datagrid.GridDataRequest
 import com.intellij.database.psi.DbPsiFacade
@@ -32,8 +22,6 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.util.Key
-import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.psi.PsiManager
@@ -43,13 +31,13 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
 import com.intellij.ui.UiInterceptors
 import dev.brikk.house.sql.intellij.SqlExecutionRefusal
+import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
-import java.lang.reflect.Proxy
 import java.awt.BorderLayout
 import java.util.UUID
 import javax.swing.JScrollPane
@@ -190,9 +178,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 fixture.editor.document.deleteString(0, 1)
             }
             assertFalse(model.isActual)
-            val failure = runCatching { model.finalizeTranslations(fixture.console.pStorage) }.exceptionOrNull()
-            assertTrue(failure.toString(), failure is IllegalStateException)
-            assertTrue(failure!!.message!!, failure.message!!.contains("SQL changed during preparation"))
+            val refusal = model.finalizeTranslations(fixture.console.pStorage)
+            assertNotNull(refusal)
+            assertTrue(refusal!!.message, refusal.message.contains("SQL changed during preparation"))
             assertEmpty(fixture.requests)
         }
     }
@@ -202,7 +190,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         ExecutionFixture(sql).use { fixture ->
             fixture.editor.caretModel.moveToOffset(sql.indexOf("FROM"))
             var editedAtTracking = false
-            fixture.onAddAuditor = { auditor ->
+            fixture.recording.onAuditorAdded = { auditor ->
                 if (auditor.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) {
                     editedAtTracking = true
                     WriteCommandAction.runWriteCommandAction(project) { fixture.editor.document.insertString(0, " ") }
@@ -216,8 +204,10 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             try {
                 val failure = runCatching { fixture.execute() }.exceptionOrNull()
                 assertTrue("Inject the edit into Doris tracking, not platform UI construction", editedAtTracking)
-                assertTrue(failure.toString(), failure is IllegalStateException)
-                assertTrue(failure!!.message!!, failure.message!!.contains("SQL changed during preparation"))
+                assertNull(failure)
+                val notification = fixture.notifications.single()
+                assertEquals(NotificationType.ERROR, notification.type)
+                assertTrue(notification.content, notificationText(notification).contains("SQL changed during preparation"))
                 assertEmpty(fixture.requests)
                 assertEmpty(fixture.previousEvents)
             } finally { settings.execOptions[0] = old }
@@ -228,7 +218,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         ExecutionFixture(safeProgram).use { fixture ->
             val canceled = com.intellij.openapi.progress.ProcessCanceledException()
             var canceledAtTracking = false
-            fixture.onAddAuditor = { auditor ->
+            fixture.recording.onAuditorAdded = { auditor ->
                 if (auditor.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) {
                     canceledAtTracking = true
                     throw canceled
@@ -394,9 +384,10 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 val translation = DorisPipesEngine.transpile(sql) as DorisPipesEngine.Transpile.Ok
                 assertNotNull(translation.executionError)
                 for (variant in 1..4) {
+                    val submittedBefore = fixture.requests.size
                     fixture.replaceSql(sql)
                     fixture.execute(variant)
-                    assertEquals("warning query must not submit: variant=$variant sql=$sql", 0, fixture.requests.size)
+                    assertEquals("warning query must not submit: variant=$variant sql=$sql", submittedBefore, fixture.requests.size)
                     assertEmpty(fixture.previousEvents)
                     assertEquals(1, fixture.notifications.size)
                     val notification = fixture.notifications.last()
@@ -408,13 +399,12 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
                     fixture.replaceSql(safeProgram)
                     fixture.execute(variant)
-                    assertEquals(1, fixture.requests.size)
+                    assertEquals(submittedBefore + 1, fixture.requests.size)
                     assertEquals((DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok).dorisSql,
                         (fixture.requests.last() as DataRequest.QueryRequest).query)
                     assertEquals("the next query must not inherit warnings", 1, fixture.notifications.size)
                     assertEmpty(fixture.previousEvents)
                     assertEquals(safeProgram, fixture.editor.document.text)
-                    fixture.requests.clear()
                     fixture.notifications.forEach { it.expire() }
                     fixture.notifications.clear()
                 }
@@ -529,7 +519,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             }
             assertFalse((fixture.requests[0] as DataRequest.QueryRequest).query, "|>" in (fixture.requests[0] as DataRequest.QueryRequest).query)
             assertEquals("SELECT 2", (fixture.requests[1] as DataRequest.QueryRequest).query.trim())
-            assertTrue(fixture.requests.all { (it as DataRequest).owner === fixture.console })
+            assertTrue(fixture.requests.all { it.owner === fixture.console })
         }
     }
 
@@ -590,7 +580,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testDetachedClientListStillUsesTheInitiatingConsoleAsOwner() {
         ExecutionFixture(safeProgram).use { fixture ->
             fixture.editor.selectionModel.setSelection(0, safeProgram.length)
-            fixture.clients.clear()
+            fixture.session.detach(fixture.console)
             fixture.execute()
             val request = fixture.requests.single() as ConsoleDataRequest
             assertSame(fixture.console, request.owner)
@@ -636,7 +626,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val submissionCalls = mutableListOf<String>()
             // The IDE may query getProject on the session from background readers. This guard
             // must reject synchronously before the submitting thread accesses the session.
-            fixture.beforeSessionCall = { name ->
+            fixture.recording.beforeSessionCall = { name ->
                 if (Thread.currentThread() === submissionThread) submissionCalls.add(name)
             }
             for (translation in listOf(lossy, DorisPipesEngine.Transpile.Ok("SELECT 1"), safe.copy(dorisSql = "SELECT 2"))) {
@@ -926,137 +916,25 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         // Setting the dialect invalidates the original generic-SQL PSI file.
         val file get() = checkNotNull(PsiManager.getInstance(project).findFile(virtualFile))
         val editor = myFixture.editor
-        val requests = mutableListOf<GridDataRequest>()
+        val requests get() = recording.requests
         val previousEvents = mutableListOf<AnActionEvent>()
-        val clients = mutableListOf<DatabaseSessionClient>()
-        val auditors = mutableListOf<DataAuditor>()
-        val consumers = mutableListOf<DataConsumer>()
+        val clients get() = session.clients.toList()
         val notifications = mutableListOf<Notification>()
-        private val recordedWork = java.util.concurrent.CopyOnWriteArrayList<DatabaseSession.State.Work>()
-        private val unsupportedCalls = mutableListOf<String>()
-        private val userData = UserDataHolderBase()
         private val notificationConnection = project.messageBus.connect()
-
-        // Tests can inject a synchronous submission failure/cancellation or inspect a request.
-        // Record before invoking the callback, so a failing submission remains observable.
-        var onProcessRequest: (GridDataRequest) -> Unit = {}
-        var beforeSessionCall: (String) -> Unit = {}
-        var onAddAuditor: (DataAuditor) -> Unit = {}
-
-        private val producer = object : DataProducer {
-            override fun processRequest(request: GridDataRequest) {
-                val dataRequest = request as DataRequest
-                // Auditors and 263's gutter renderer expect submitted requests to have session
-                // work already registered. Recording finishes immediately; no JDBC results exist.
-                recordedWork.add(object : DatabaseSession.State.Work {
-                    override val request = dataRequest
-                    override val timeSpentMs = 0L
-                    override val state = DatabaseSession.State.WorkState.FINISHED
-                    override val status = object : DatabaseSession.State.WorkStatus {
-                        override val type = DatabaseSession.State.WorkStatusType.UNKNOWN
-                        override val description = "Recorded offline request"
-                        override val errorNavigator: DataRequest.CoupledWithEditor.ErrorNavigator? = null
-                    }
-                })
-                auditors.forEach { it.jobSubmitted(dataRequest, this) }
-                requests.add(request)
-                onProcessRequest(request)
-            }
-        }
-        val bus = object : DataBus.Consuming {
-            // Request submissions are audited; result delivery is outside this recording fixture.
-            override fun filterFor(owner: DataRequest.Owner): DataBus.Consuming = this
-            override fun getDataProducer(): DataProducer = producer
-            override fun addConsumer(consumer: DataConsumer) { consumers.add(consumer) }
-            override fun addAuditor(auditor: DataAuditor) {
-                auditors.add(auditor)
-                onAddAuditor(auditor)
-            }
-        }
-
-        val point = LocalDataSource().apply {
-            name = "Offline PIPE execution test ${UUID.randomUUID()}"
-            databaseDriver = checkNotNull(DatabaseDriverManager.getInstance().getDriver(driverId))
-            // Deliberately not a MySQL endpoint; even an accidental real connection cannot use it.
-            url = "jdbc:offline:doris-pipes-test"
-            isAutoSynchronize = false
-            isKeepAlive = false
-        }
-        private val state = Proxy.newProxyInstance(
-            DatabaseSession.State::class.java.classLoader,
-            arrayOf(DatabaseSession.State::class.java),
-        ) { proxy, method, args ->
-            when (method.name) {
-                "equals" -> proxy === args!![0]
-                "hashCode" -> System.identityHashCode(proxy)
-                "toString" -> "Idle offline session state"
-                "isIdle", "isFinalized" -> true
-                "isEmpty" -> recordedWork.isEmpty()
-                "isCancelled" -> false
-                "getStartTime", "getTimeSpentMs" -> 0L
-                "getWork" -> recordedWork.toList()
-                "getWorkFor" -> recordedWork.lastOrNull { it.request === args!![0] || it.request.owner === args[0] }
-                "getMostRecentWork" -> recordedWork.lastOrNull { work ->
-                    (args!![0] as List<*>).any { it === work.request }
-                }
-                else -> throw UnsupportedOperationException("Offline state does not implement $method")
-            }
-        } as DatabaseSession.State
-        val session = Proxy.newProxyInstance(
-            DatabaseSession::class.java.classLoader, arrayOf(DatabaseSession::class.java),
-        ) { proxy, method, args ->
-            beforeSessionCall(method.name)
-            when (method.name) {
-                "equals" -> proxy === args!![0]
-                "hashCode" -> System.identityHashCode(proxy)
-                "toString", "getTitle", "getDisplayName" -> "Offline PIPE recording session"
-                "getConnectionPoint", "getTarget" -> point
-                "getState" -> state
-                "getProject" -> project
-                "getMessageBus" -> bus
-                "getClients" -> clients.toTypedArray()
-                "getClientsWithFile" -> clients.filterIsInstance<DatabaseSessionClientWithFile>().toTypedArray()
-                "attach" -> { clients.add(args!![0] as DatabaseSessionClient); null }
-                "detach" -> { clients.remove(args!![0] as DatabaseSessionClient); null }
-                "isValid", "isIdle" -> true
-                "isConnected", "isInternal", "isService", "isCancelled" -> false
-                "getCurrentTx" -> DataRequest.AUTO_COMMIT
-                // DatabaseSession also extends UserDataHolder on 262.
-                "getUserData" -> {
-                    @Suppress("UNCHECKED_CAST")
-                    userData.getUserData(args!![0] as Key<Any>)
-                }
-                "putUserData" -> {
-                    @Suppress("UNCHECKED_CAST")
-                    userData.putUserData(args!![0] as Key<Any>, args[1])
-                    null
-                }
-                else -> {
-                    unsupportedCalls.add(method.toString())
-                    throw UnsupportedOperationException("Offline session does not implement $method")
-                }
-            }
-        } as DatabaseSession
-        @Suppress("UNNECESSARY_LATEINIT") // Cleanup also runs if construction fails before assignment.
-        lateinit var console: JdbcConsole
-            private set
+        val recording: RecordingConsole
+        val console get() = recording.console
+        val point get() = console.dataSource
+        val session get() = console.session
         private val previous = object : AnAction() {
             override fun actionPerformed(e: AnActionEvent) { previousEvents.add(e) }
         }
 
         init {
             setSqlDialectMapping(project, virtualFile, if (driverId == "doris") DorisSqlDialect.INSTANCE else null)
-            val manager = LocalDataSourceManager.getInstance(project)
-            manager.addDataSource(point)
+            recording = RecordingConsole(project, virtualFile, driverId)
             try {
-                // The manager invalidates DbPsiFacade via invokeLater. This synchronous fixture
-                // must invalidate its cached source list before building a console: isValid and
-                // getActiveConsoles consult that list, and the latter disposes missing targets.
                 val facade = DbPsiFacade.getInstance(project)
-                facade.clearCaches()
                 assertNotNull("New source must be visible to console validity checks", facade.findDataSource(point.uniqueId))
-                console = JdbcConsole.newConsole(project).forFile(virtualFile)
-                    .fromDataSource(point).useSession(session).build()
                 assertSame(if (driverId == "doris") DorisDbms.DORIS else Dbms.MYSQL, point.dbms)
                 assertTrue("The real console must be valid, not merely present in the event", console.isValid)
                 assertSame(session, console.session)
@@ -1119,25 +997,13 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
 
         override fun close() {
-            beforeSessionCall = {}
-            onProcessRequest = {}
-            onAddAuditor = {}
             notificationConnection.disconnect()
             notifications.forEach { it.expire() }
             try {
-                if (this::console.isInitialized) {
-                    // The fake session does not own/dispose its UI as a real session does.
-                    // Cancellation can create console editors without ever querying session state.
-                    Disposer.dispose(console.consoleView)
-                    Disposer.dispose(console)
-                }
+                recording.close()
             } finally {
-                LocalDataSourceManager.getInstance(project).removeDataSource(point)
-                // End the fixture's registry lifetime synchronously as well, before another lookup.
-                DbPsiFacade.getInstance(project).clearCaches()
                 setSqlDialectMapping(project, virtualFile, null)
             }
-            assertEmpty("Unsupported fake methods must not be swallowed by production catch blocks", unsupportedCalls)
         }
     }
 

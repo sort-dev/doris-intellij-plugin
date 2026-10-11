@@ -55,7 +55,7 @@ Source artifacts are available from Maven Central:
 
 ## Brikk SQL IntelliJ support 0.1.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.1.1`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.1.2-SNAPSHOT`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0

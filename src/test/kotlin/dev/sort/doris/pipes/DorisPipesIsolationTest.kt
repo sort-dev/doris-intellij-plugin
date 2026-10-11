@@ -21,12 +21,12 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         if (System.getProperty("test.pluginIsolation") != "true") return
         val dorisLoader = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.doris-intellij-plugin"))!!.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
-        assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.brikkKotlin") == "true",
+        assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.kotlin") == "present",
             PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
         for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.1.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.2-SNAPSHOT.jar"))
         }
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
@@ -61,7 +61,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
                 val companionLoader = companion!!.pluginClassLoader!!
                 assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", companionLoader.javaClass.name)
                 assertNotSame(dorisLoader, companionLoader)
-                checkEngine(companionLoader, "jvm-0.6.0")
+                checkEngine(companionLoader, System.getProperty("test.sqlTranspiler.coreArtifact"))
                 for (type in listOf("dev.brikk.house.sql.shape.SqlFragment", "dev.brikk.house.sql.metadata.FunctionDef")) {
                     assertNotSame(dorisLoader.loadClass(type), companionLoader.loadClass(type))
                 }
