@@ -2,6 +2,7 @@ package dev.sort.doris.pipes
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -9,6 +10,7 @@ import org.junit.Test
 import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
 import dev.brikk.house.sql.metadata.FunctionDef
 import dev.brikk.house.sql.shape.SqlFragment
+import dev.brikk.house.sql.shape.TranspileResult
 import kotlinx.serialization.json.Json
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisSyntaxError
@@ -130,6 +132,37 @@ class DorisPipesTest {
         assertTrue(sql.contains("GROUP BY"))
         assertTrue(sql.contains("LIMIT 10"))
         assertFalse("no pipe operators may survive transpile", sql.contains(DorisPipes.MARKER))
+    }
+
+    @Test
+    fun `nested-only pipelines are lowered and diagnosed`() {
+        val nested = "SELECT * FROM (FROM t |> WHERE x > 0) s"
+        val result = DorisPipesEngine.transpile(nested)
+        assertTrue("expected Ok, got $result", result is DorisPipesEngine.Transpile.Ok)
+        assertFalse(DorisPipes.containsPipeOperator((result as DorisPipesEngine.Transpile.Ok).dorisSql))
+
+        val lossy = "SELECT * FROM (FROM t |> SELECT LAST_DAY(d, YEAR) AS period_end) s"
+        assertNotNull((DorisPipesEngine.transpile(lossy) as DorisPipesEngine.Transpile.Ok).executionError)
+        val errors = DorisPipesEngine.pipeSyntaxErrors("SELECT 1;\n$lossy")
+        assertTrue(errors.isNotEmpty() && errors.all { it.line == 2 })
+    }
+
+    @Test
+    fun `engine token and shape failures are handled refusals`() {
+        // The native chunker reads dollar-quoted strings; the engine tokenizer does not.
+        for (text in listOf("FROM t |> WHERE s = \$\$a'b\$\$", "FROM t |> WHERE s = \$\$a;b\$\$")) {
+            assertTrue(text, DorisPipesEngine.transpile(text) is DorisPipesEngine.Transpile.Err)
+        }
+    }
+
+    @Test
+    fun `raw passthrough and unlowered output are refused`() {
+        val raw = TranspileResult("SELECT 1", emptyList(), "Command", isRawPassthroughStatement = true)
+        assertNotNull(DorisPipesEngine.outputRefusal(raw))
+        val unlowered = TranspileResult("FROM t |> WHERE x > 0", emptyList(), "PipeQuery", isRawPassthroughStatement = false)
+        assertNotNull(DorisPipesEngine.outputRefusal(unlowered))
+        val lowered = TranspileResult("SELECT '|>' FROM t", emptyList(), "Select", isRawPassthroughStatement = false)
+        assertNull(DorisPipesEngine.outputRefusal(lowered))
     }
 
     @Test

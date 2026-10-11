@@ -93,7 +93,11 @@ internal object DorisPipesUi {
             return
         }
         val rel = editor.caretModel.offset - chunk.startOffset
-        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, rel) ?: run {
+        if (DorisPipesEngine.isInsideNestedPipeline(chunk.text, rel)) {
+            notify(project, "Caret is inside a nested pipeline", "Run-to-stage runs top-level pipe stages only.", NotificationType.WARNING)
+            return
+        }
+        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, rel)?.takeIf { it.totalStages >= 2 } ?: run {
             notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
             return
         }

@@ -758,6 +758,43 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testNestedOnlyPipelineExecutesItsLoweredSql() {
+        val sql = "SELECT id FROM (FROM offline_rows |> WHERE id > 0) s"
+        val translated = DorisPipesEngine.transpile(sql) as DorisPipesEngine.Transpile.Ok
+        ExecutionFixture(sql).use { fixture ->
+            fixture.execute()
+            val request = fixture.requests.single() as DataRequest.QueryRequest
+            assertEquals(translated.dorisSql, request.query)
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
+    fun testRunToStageRefusesNestedPipelinesAndSingleStagePrograms() {
+        val nested = "FROM offline_rows |> WHERE id IN (FROM other_rows |> WHERE id > 0 |> SELECT id) |> SELECT id"
+        val nestedOnly = "SELECT id FROM (FROM offline_rows |> WHERE id > 0) s"
+        val refusals = listOf(
+            nested to nested.indexOf("WHERE id > 0"),
+            nestedOnly to nestedOnly.indexOf("SELECT id"),
+        )
+        ExecutionFixture(nested).use { fixture ->
+            for ((sql, caret) in refusals) {
+                fixture.replaceSql(sql)
+                fixture.editor.selectionModel.removeSelection()
+                fixture.editor.caretModel.moveToOffset(caret)
+                for (menu in listOf(false, true)) fixture.runToStage(menu)
+                assertEmpty(fixture.requests)
+            }
+
+            fixture.replaceSql(nested)
+            fixture.editor.selectionModel.removeSelection()
+            fixture.editor.caretModel.moveToOffset(nested.lastIndexOf("SELECT"))
+            fixture.runToStage(menu = false)
+            val request = fixture.requests.single() as DataRequest.QueryRequest
+            assertEquals((DorisPipesEngine.transpile(nested) as DorisPipesEngine.Transpile.Ok).dorisSql, request.query)
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
     fun testPreviewShowsReadOnlySqlAndEveryWarningAsSeparatePlainText() {
         val generated = DorisPipesEngine.transpile(warningPrograms.first()) as DorisPipesEngine.Transpile.Ok
         val extraWarnings = listOf("first line\nsecond line", "<b>not HTML</b> & <script>not executable</script>")

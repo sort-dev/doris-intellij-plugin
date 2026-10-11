@@ -3,9 +3,13 @@ package dev.sort.doris.pipes
 import dev.brikk.house.sql.ast.PipeQuery
 import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.parser.ParseError
+import dev.brikk.house.sql.parser.PipeStageSplitter
+import dev.brikk.house.sql.parser.TokenError
+import dev.brikk.house.sql.parser.TokenType
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
+import dev.brikk.house.sql.shape.ShapeError
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
@@ -73,17 +77,19 @@ object DorisPipesEngine {
         }
         return try {
             val fragment = SqlFragment(text.trim().removeSuffix(";"), "doris")
-            if (fragment.ast !is PipeQuery && !(allowFirstFromStage && fragment.hasFromFirstQuery)) {
+            if (fragment.ast.findAll<PipeQuery>().none() && !(allowFirstFromStage && fragment.hasFromFirstQuery)) {
                 Transpile.NotPipe
             } else {
                 val result = fragment.toExecutable("doris", pretty = true)
                 ProgressManager.checkCanceled()
-                val validationError = if (result.unsupportedMessages.isEmpty()) {
-                    validateGeneratedSql(result.sql, allowNamedParameters)
-                } else {
-                    null
+                outputRefusal(result) ?: run {
+                    val validationError = if (result.unsupportedMessages.isEmpty()) {
+                        validateGeneratedSql(result.sql, allowNamedParameters)
+                    } else {
+                        null
+                    }
+                    Transpile.Ok(result.sql, result, validationError)
                 }
-                Transpile.Ok(result.sql, result, validationError)
             }
         } catch (e: ParseError) {
             val first = e.errors.firstOrNull()
@@ -91,7 +97,17 @@ object DorisPipesEngine {
         } catch (e: UnsupportedError) {
             // An intentional lowering refusal is handled, never permission to execute raw PIPE SQL.
             Transpile.Err(null, null, e.message ?: "Unsupported PIPE translation")
+        } catch (e: TokenError) {
+            Transpile.Err(null, null, e.message ?: "Invalid PIPE token")
+        } catch (e: ShapeError) {
+            Transpile.Err(null, null, e.message ?: "Invalid PIPE statement shape")
         }
+    }
+
+    internal fun outputRefusal(result: TranspileResult): Transpile.Err? = when {
+        result.isRawPassthroughStatement -> Transpile.Err(null, null, "PIPE translation returned raw SQL.")
+        DorisPipes.containsPipeOperator(result.sql) -> Transpile.Err(null, null, "Translation left unlowered PIPE syntax.")
+        else -> null
     }
 
     private fun validateGeneratedSql(sql: String, allowNamedParameters: Boolean): Transpile.Err? {
@@ -148,6 +164,24 @@ object DorisPipesEngine {
         val end = (stages[index].endInclusive + 1).coerceAtMost(chunkText.length)
         StagePrefix(chunkText.substring(0, end), index + 1, stages.size)
     }.getOrNull()
+
+    /** Whether [relOffset] lies inside a bracketed pipeline, whose stages are not top-level stages. */
+    fun isInsideNestedPipeline(chunkText: String, relOffset: Int): Boolean = runPipeCatching {
+        class Frame(val start: Int) {
+            var hasPipe = false
+        }
+        val frames = ArrayDeque<Frame>()
+        for (token in PipeStageSplitter.split(chunkText, "doris").tokens) when (token.tokenType) {
+            TokenType.L_PAREN, TokenType.L_BRACKET, TokenType.L_BRACE -> frames.addLast(Frame(token.start))
+            TokenType.PIPE_GT -> frames.lastOrNull()?.hasPipe = true
+            TokenType.R_PAREN, TokenType.R_BRACKET, TokenType.R_BRACE -> {
+                val frame = frames.removeLastOrNull()
+                if (frame != null && frame.hasPipe && relOffset in frame.start..token.end) return true
+            }
+            else -> {}
+        }
+        false
+    }.getOrDefault(false)
 
     // ---------------------------------------------------------------------------------------
     // Server-error map-back (exact, via the engine SourceMap)
