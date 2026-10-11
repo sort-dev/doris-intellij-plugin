@@ -5,6 +5,7 @@ import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import dev.sort.doris.pipes.DorisPipes
@@ -38,6 +39,10 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
     data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null,
                      val brikkHouse: Boolean = false)
     data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null)
+
+    // The default skips files with PSI errors, but the substrate cannot parse Doris-only syntax.
+    override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Input? =
+        collectInformation(file)
 
     override fun collectInformation(file: PsiFile): Input? {
         if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
