@@ -3,7 +3,7 @@ package dev.sort.doris.sql
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -17,7 +17,7 @@ class DorisEmbeddedQuerySqlAnnotatorTest : BasePlatformTestCase() {
 
     private fun highlight(sql: String): List<HighlightInfo> {
         val psi = myFixture.configureByText("eq${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
         return myFixture.doHighlighting()
     }
 

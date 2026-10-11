@@ -1,7 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.psi.PsiElement
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ThreeState
 
@@ -20,7 +20,7 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            SqlDialectMappings.getInstance(project).setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
         }
@@ -28,7 +28,7 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     /** Configure DorisSQL text with a single `<caret>` and return the caret offset. */
     private fun configure(sql: String): Int {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", sql)
         return myFixture.caretOffset
     }

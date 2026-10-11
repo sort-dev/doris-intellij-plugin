@@ -14,7 +14,7 @@ import dev.brikk.house.intellij.ContextResult
 import dev.brikk.house.intellij.EntryRole
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
-/** Run with -Ptest.brikkKotlin=true. Exercises the actual Kotlin injection extension chain. */
+/** Run with -Ptest.kotlin=present. Exercises the actual Kotlin injection extension chain. */
 class BrikkDorisInjectionTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
@@ -610,7 +610,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
     fun testDdlDatasourceInspectionsDistinguishColumnAndBind() {
         val ddl = myFixture.addFileToProject("schema.sql",
             "CREATE TABLE customers (tenant VARCHAR(64) NOT NULL, customer_id VARCHAR(64));")
-        com.intellij.sql.dialects.SqlDialectMappings.getInstance(project).setMapping(ddl.virtualFile, DorisSqlDialect.INSTANCE)
+        dev.sort.doris.setSqlDialectMapping(project, ddl.virtualFile, DorisSqlDialect.INSTANCE)
         val manager = com.intellij.sql.database.SqlDataSourceManager.getInstance(project)
         val source = manager.createEmpty().apply {
             name = "Brikk test DDL"

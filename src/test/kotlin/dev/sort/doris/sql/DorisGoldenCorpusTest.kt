@@ -1,6 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.lang.Language
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.sql.dialects.mysql.MysqlDialect
@@ -69,9 +70,9 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
         return norm(DebugUtil.psiToString(file!!, true))
     }
 
-    private fun dorisLang(): Language =
-        Language.findLanguageByID("DorisSQL")
-            ?: error("DorisSQL language must be registered in the test environment")
+    private fun dorisLang(): Language = DorisSqlDialect.INSTANCE.also {
+        assertSame("DorisSQL language must be registered in the test environment", it, Language.findLanguageByID("DorisSQL"))
+    }
 
     /**
      * MysqlDialect.INSTANCE extends MysqlDialectBase -> SqlDialect -> ... -> SqlLanguageDialectBase,
@@ -88,8 +89,11 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
         val outDir = File(goldenDir, dialectName)
 
         // Golden file for a corpus file mirrors its relative path, swapping .sql -> .tree.
-        fun goldenFor(f: File): File =
-            File(outDir, relPath(f).removeSuffix(".sql") + ".tree")
+        fun goldenFor(f: File): File {
+            val path = relPath(f).removeSuffix(".sql") + ".tree"
+            val runtimeGolden = File(goldenDir, "$dialectName-${ApplicationInfo.getInstance().build.baselineVersion}/$path")
+            return runtimeGolden.takeIf { it.isFile } ?: File(outDir, path)
+        }
 
         if (recordMode) {
             for (f in files) {

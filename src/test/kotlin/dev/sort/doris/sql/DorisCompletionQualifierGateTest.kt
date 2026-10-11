@@ -1,6 +1,6 @@
 package dev.sort.doris.sql
 
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -13,14 +13,14 @@ class DorisCompletionQualifierGateTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            SqlDialectMappings.getInstance(project).setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
         }
     }
 
     private fun completionsAt(sql: String): List<String> {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", sql)
         return myFixture.completeBasic()?.map { it.lookupString } ?: emptyList()
     }

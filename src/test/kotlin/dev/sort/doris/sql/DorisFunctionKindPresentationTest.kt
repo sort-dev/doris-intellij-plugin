@@ -1,7 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.codeInsight.lookup.LookupElementPresentation
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -15,7 +15,7 @@ class DorisFunctionKindPresentationTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            SqlDialectMappings.getInstance(project).setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
         }
@@ -23,7 +23,7 @@ class DorisFunctionKindPresentationTest : BasePlatformTestCase() {
 
     /** Explicit-invoke completion of [prefix] as DorisSQL; the rendered presentation of [name]. */
     private fun presentationOf(prefix: String, name: String): LookupElementPresentation? {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("p.sql", "SELECT $prefix")
         val elements = myFixture.completeBasic() ?: return null
         val el = elements.firstOrNull { it.lookupString.equals(name, ignoreCase = true) } ?: return null

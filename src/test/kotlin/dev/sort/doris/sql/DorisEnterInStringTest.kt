@@ -1,6 +1,6 @@
 package dev.sort.doris.sql
 
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -13,7 +13,7 @@ class DorisEnterInStringTest : BasePlatformTestCase() {
 
     private fun typeEnterAt(sql: String): String {
         val psi = myFixture.configureByText("e.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
         myFixture.type('\n')
         return myFixture.editor.document.text
     }

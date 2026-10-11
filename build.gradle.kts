@@ -42,6 +42,10 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     exclude("**/BrikkDorisGeneratedShapeTest.class")
+    exclude(
+        "**/DorisPipesActionTest\$PeerAction.class", "**/DorisPipesActionWiringTest\$PeerAction.class",
+        "**/DorisPipesRunQueryAction.class", "**/DorisPipesRunSelectionAction.class",
+    )
     systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
     systemProperty("golden.dir", layout.projectDirectory.dir("src/test/resources/golden").asFile.absolutePath)
     if (providers.gradleProperty("golden.record").isPresent) {
@@ -49,10 +53,6 @@ tasks.withType<Test>().configureEach {
     }
     systemProperty("doris.replay.poc", "false")
     systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.19.1" else "jvm-0.6.0")
-}
-
-tasks.named<Test>("test263") {
-    setIncludes(setOf("**/pipes/*Test.class", "**/brikk/**"))
 }
 
 tasks.buildPlugin {

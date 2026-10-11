@@ -7,7 +7,8 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.dialects.EvaluationHelper
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
+import dev.sort.doris.sqlResolveInspection
 import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.sql.psi.SqlSelectIntoClause
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -60,10 +61,10 @@ class DorisOutfileExecutionTest : BasePlatformTestCase() {
 
     fun testReplayedOutfileOptionsAreNotHighlighted() {
         System.setProperty(DorisReplay.PROPERTY, "true")
-        myFixture.enableInspections(com.intellij.sql.inspections.SqlResolveInspection())
+        myFixture.enableInspections(sqlResolveInspection())
         for ((index, sql) in OUTFILE_FORMS.withIndex()) {
             val psi = myFixture.configureByText("outfile$index.sql", sql)
-            SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
             val clauseStart = sql.indexOf("INTO OUTFILE")
             val inClause = myFixture.doHighlighting()
                 .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }

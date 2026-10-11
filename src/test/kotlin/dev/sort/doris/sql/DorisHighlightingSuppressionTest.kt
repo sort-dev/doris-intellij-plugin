@@ -2,7 +2,8 @@ package dev.sort.doris.sql
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.doris.setSqlDialectMapping
+import dev.sort.doris.sqlResolveInspection
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -19,7 +20,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         myFixture.enableInspections(
-            com.intellij.sql.inspections.SqlResolveInspection(),
+            sqlResolveInspection(),
             com.intellij.sql.inspections.SqlInsertValuesInspection(),
             com.intellij.sql.inspections.SqlAmbiguousColumnInspection(),
         )
@@ -40,7 +41,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         if (replay) System.setProperty(REPLAY_FLAG, "true") else System.setProperty(REPLAY_FLAG, "false")
         try {
             val psi = myFixture.configureByText("h${counter++}.sql", sql)
-            SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
             return myFixture.doHighlighting()
                 .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }
         } finally {
@@ -383,7 +384,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
     fun testIdentifierTooLongSuppressionKeysOnDoubleQuotesOnly() {
         val long = "x".repeat(80)
         val psi = myFixture.configureByText("f.sql", "SELECT 1 AS `$long`, \"$long\" FROM t;")
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
         val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
         assertTrue("mapping must yield a Doris file", file.language.isKindOf(DorisSqlDialect.INSTANCE))
         val filter = DorisHighlightInfoFilter()
