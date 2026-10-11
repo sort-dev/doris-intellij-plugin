@@ -407,6 +407,19 @@ class DorisPipesTest {
     }
 
     @Test
+    fun `run-to-stage cuts only top-level stages of multi-stage programs`() {
+        val nested = "FROM t |> WHERE id IN (FROM u |> WHERE id > 0 |> SELECT id) |> SELECT id"
+        assertSame(
+            DorisPipesEngine.StageCut.InsideNestedPipeline,
+            DorisPipesEngine.runnableStageCutAt(nested, nested.indexOf("WHERE id > 0")),
+        )
+        val outer = DorisPipesEngine.runnableStageCutAt(nested, nested.indexOf("WHERE id IN"))
+        assertEquals("FROM t |> WHERE id IN (FROM u |> WHERE id > 0 |> SELECT id)", (outer as DorisPipesEngine.StagePrefix).text.trim())
+        val nestedOnly = "SELECT id FROM (FROM t |> WHERE id > 0) s"
+        assertSame(DorisPipesEngine.StageCut.Unavailable, DorisPipesEngine.runnableStageCutAt(nestedOnly, 0))
+    }
+
+    @Test
     fun `stagePrefixAt cuts a runnable prefix at the caret's stage`() {
         // Caret inside the WHERE stage -> stages 1-2 only.
         val whereOffset = pipe.indexOf("WHERE") + 2

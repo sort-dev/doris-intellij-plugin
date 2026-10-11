@@ -94,13 +94,16 @@ internal object DorisPipesUi {
         }
         val destination = PipeDestination(console)
         val rel = editor.caretModel.offset - chunk.startOffset
-        if (DorisPipesEngine.isInsideNestedPipeline(chunk.text, rel)) {
-            notify(project, "Caret is inside a nested pipeline", "Run-to-stage runs top-level pipe stages only.", NotificationType.WARNING)
-            return
-        }
-        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, rel)?.takeIf { it.totalStages >= 2 } ?: run {
-            notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
-            return
+        val prefix = when (val cut = DorisPipesEngine.runnableStageCutAt(chunk.text, rel)) {
+            is DorisPipesEngine.StagePrefix -> cut
+            DorisPipesEngine.StageCut.InsideNestedPipeline -> {
+                notify(project, "Caret is inside a nested pipeline", "Run-to-stage runs top-level pipe stages only.", NotificationType.WARNING)
+                return
+            }
+            DorisPipesEngine.StageCut.Unavailable -> {
+                notify(project, "Could not split pipe stages", "See idea.log (DorisPipes:).", NotificationType.WARNING)
+                return
+            }
         }
         val trimAnchor = chunk.startOffset + (chunk.text.length - chunk.text.trimStart().length)
         val range = com.intellij.openapi.util.TextRange(

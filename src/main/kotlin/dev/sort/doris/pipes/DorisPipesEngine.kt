@@ -3,6 +3,7 @@ package dev.sort.doris.pipes
 import dev.brikk.house.sql.ast.PipeQuery
 import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.parser.ParseError
+import dev.brikk.house.sql.parser.PipeSplitResult
 import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.parser.TokenError
 import dev.brikk.house.sql.parser.TokenType
@@ -146,8 +147,14 @@ object DorisPipesEngine {
     // Stage boundaries (execute-to-stage-N; IDEAS §3 "Execute up to stage N")
     // ---------------------------------------------------------------------------------------
 
+    /** Where run-to-stage may cut a pipe program. */
+    sealed interface StageCut {
+        data object InsideNestedPipeline : StageCut
+        data object Unavailable : StageCut
+    }
+
     /** The pipe-program prefix ending at the stage containing [relOffset], plus (1-based stage, total). */
-    data class StagePrefix(val text: String, val stage: Int, val totalStages: Int)
+    data class StagePrefix(val text: String, val stage: Int, val totalStages: Int) : StageCut
 
     /**
      * Cut [chunkText] (one pipe program) down to the stages up to and including the one containing
@@ -157,31 +164,41 @@ object DorisPipesEngine {
      * null when the text isn't splittable or the offset lands before the first stage.
      */
     fun stagePrefixAt(chunkText: String, relOffset: Int): StagePrefix? = runPipeCatching {
-        val stages = dev.brikk.house.sql.parser.PipeStageSplitter.split(chunkText, "doris").stages
-        if (stages.isEmpty()) return null
+        PipeStageSplitter.split(chunkText, "doris").prefixAt(chunkText, relOffset)
+    }.getOrNull()
+
+    /** The run-to-stage cut: a top-level stage of a program with at least two stages. */
+    fun runnableStageCutAt(chunkText: String, relOffset: Int): StageCut = runPipeCatching {
+        val split = PipeStageSplitter.split(chunkText, "doris")
+        when {
+            split.isInsideNestedPipeline(relOffset) -> StageCut.InsideNestedPipeline
+            split.stages.size < 2 -> StageCut.Unavailable
+            else -> split.prefixAt(chunkText, relOffset) ?: StageCut.Unavailable
+        }
+    }.getOrDefault(StageCut.Unavailable)
+
+    private fun PipeSplitResult.prefixAt(chunkText: String, relOffset: Int): StagePrefix? {
         val index = stages.indexOfLast { relOffset >= it.start }
         if (index < 0) return null
         val end = (stages[index].endInclusive + 1).coerceAtMost(chunkText.length)
-        StagePrefix(chunkText.substring(0, end), index + 1, stages.size)
-    }.getOrNull()
+        return StagePrefix(chunkText.substring(0, end), index + 1, stages.size)
+    }
 
-    /** Whether [relOffset] lies inside a bracketed pipeline, whose stages are not top-level stages. */
-    fun isInsideNestedPipeline(chunkText: String, relOffset: Int): Boolean = runPipeCatching {
-        class Frame(val start: Int) {
-            var hasPipe = false
-        }
+    private data class Frame(val start: Int, val hasPipe: Boolean = false)
+
+    private fun PipeSplitResult.isInsideNestedPipeline(relOffset: Int): Boolean {
         val frames = ArrayDeque<Frame>()
-        for (token in PipeStageSplitter.split(chunkText, "doris").tokens) when (token.tokenType) {
+        for (token in tokens) when (token.tokenType) {
             TokenType.L_PAREN, TokenType.L_BRACKET, TokenType.L_BRACE -> frames.addLast(Frame(token.start))
-            TokenType.PIPE_GT -> frames.lastOrNull()?.hasPipe = true
+            TokenType.PIPE_GT -> frames.removeLastOrNull()?.let { frames.addLast(it.copy(hasPipe = true)) }
             TokenType.R_PAREN, TokenType.R_BRACKET, TokenType.R_BRACE -> {
                 val frame = frames.removeLastOrNull()
                 if (frame != null && frame.hasPipe && relOffset in frame.start..token.end) return true
             }
-            else -> {}
+            else -> Unit
         }
-        false
-    }.getOrDefault(false)
+        return false
+    }
 
     // ---------------------------------------------------------------------------------------
     // Server-error map-back (exact, via the engine SourceMap)
