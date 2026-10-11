@@ -340,7 +340,6 @@ object DorisPipes {
 
     /** A Doris server error against the TRANSPILED SQL, mapped back toward the pipe original. */
     data class MappedError(
-        val token: String?,
         val originalLine: Int?,
         val transpiledLine: Int,
         val transpiledPos: Int,
@@ -348,8 +347,6 @@ object DorisPipes {
         val startOffset: Int? = null,
         val endOffset: Int? = null,
     )
-
-
 
     internal val SERVER_POSITION = Regex("""\(line (\d+), pos (\d+)\)""")
 }

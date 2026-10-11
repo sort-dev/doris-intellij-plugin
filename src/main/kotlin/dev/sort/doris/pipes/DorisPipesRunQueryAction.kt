@@ -362,8 +362,7 @@ internal object DorisPipesExecution {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Doris Pipes")
             .createNotification(
-                "SQL execution error at line ${mapped.originalLine}" +
-                    (mapped.token?.let { tok -> " ('$tok')" } ?: ""),
+                "SQL execution error at line ${mapped.originalLine}",
                 "For the translated SQL, the error was reported as:\n$message\n" +
                     "(right-click \u2192 Doris Pipes \u2192 Preview Generated SQL)",
                 NotificationType.WARNING,

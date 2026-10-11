@@ -203,7 +203,6 @@ object DorisPipesEngine {
         }.getOrNull() ?: return null
         val origLine = if (sp.lineStart > 0) sp.lineStart else sp.line
         return DorisPipes.MappedError(
-            token = null,
             originalLine = origLine,
             transpiledLine = line,
             transpiledPos = pos,

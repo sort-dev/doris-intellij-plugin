@@ -133,6 +133,6 @@ internal fun mappedPipeError(message: String, source: String, map: ((Int, Int) -
     val line = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
     val position = match.groupValues[2].toIntOrNull()?.takeIf { it >= 0 } ?: return null
     val range = map(line, position) ?: return null
-    return DorisPipes.MappedError(null, 1 + source.take(range.startOffset).count { it == '\n' },
+    return DorisPipes.MappedError(1 + source.take(range.startOffset).count { it == '\n' },
         line, position, range.startOffset, range.endOffset - 1)
 }
