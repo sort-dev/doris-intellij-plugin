@@ -37,7 +37,7 @@ object DorisPipesAutoIntrospect {
     ): Boolean {
         val key = "${local.uniqueId}|${catalog ?: ""}.$schema"
         if (!requested.add(key)) return false
-        return runCatching {
+        return runPipeCatching {
             val schemaNode = TreePatternNode(
                 TreePatternNode.PositiveNaming(ObjectName.plain(schema)),
                 TreePatternNode.NO_GROUPS,
@@ -65,7 +65,7 @@ object DorisPipesAutoIntrospect {
             val element = node as? com.intellij.database.model.basic.BasicElement
             if (element == null) {
                 DorisPipes.info("auto-introspect: scope widened for $key; node not a BasicElement — no sync kicked")
-                return@runCatching false
+                return@runPipeCatching false
             }
             val task = PipeIntrospectionTasks.oneElementRefresh(local.uniqueId, element)
             project.service<DorisPipesIntrospectionService>()

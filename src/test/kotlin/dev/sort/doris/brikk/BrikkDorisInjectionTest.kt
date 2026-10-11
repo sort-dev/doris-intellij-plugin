@@ -89,6 +89,18 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertTrue(errors.joinToString { it.errorDescription }, errors.isEmpty())
     }
 
+    fun testPipeVetoDisablesBrikkEditing() {
+        val sql = injected(configure("FROM ${'$'}src() |> WHERE id > ${'$'}minId"))
+        assertTrue(BrikkDorisContext.isActive(sql))
+        val previous = System.getProperty(DorisPipes.PROPERTY)
+        System.setProperty(DorisPipes.PROPERTY, "false")
+        try {
+            assertFalse(DorisPipes.isEditingEnabled(sql))
+        } finally {
+            if (previous == null) System.clearProperty(DorisPipes.PROPERTY) else System.setProperty(DorisPipes.PROPERTY, previous)
+        }
+    }
+
     fun testSupportedConstantAndNonConstantProperty() {
         val sql = injected(configure("SELECT ${'$'}COLS FROM customers WHERE tenant = ${'$'}value",
             "const val COLS = \"tenant, customer_id\"\nval value: String get() = error(\"never evaluate\")"))

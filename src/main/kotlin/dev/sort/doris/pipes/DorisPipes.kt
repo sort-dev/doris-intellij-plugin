@@ -3,25 +3,16 @@ package dev.sort.doris.pipes
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.text.StringUtil
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
 import org.apache.doris.sqlparser.DorisSqlParser
-import java.util.concurrent.CancellationException
 
 /** Optional PIPE features may recover from exceptions, but never from cancellation or JVM errors. */
-internal inline fun <T> runPipeCatching(action: () -> T): Result<T> = try {
-    Result.success(action())
-} catch (cancelled: ProcessCanceledException) {
-    throw cancelled
-} catch (cancelled: CancellationException) {
-    throw cancelled
-} catch (failure: Exception) {
-    Result.failure(failure)
-}
+internal inline fun <T> runPipeCatching(action: () -> T): Result<T> = recoverEditorOperation(action)
 
 internal fun pipeNotificationHtml(text: String): String =
     StringUtil.escapeXmlEntities(StringUtil.convertLineSeparators(text)).replace("\n", "<br>")
@@ -50,8 +41,8 @@ object DorisPipes {
         isEnabledValue(System.getProperty(PROPERTY)) && project.service<DorisPipesSettings>().enabled
 
     /** Brikk enables editing only, never the project's execution setting. */
-    fun isEditingEnabled(file: com.intellij.psi.PsiFile): Boolean =
-        dev.sort.doris.brikk.BrikkDorisContext.isActive(file) || isEnabled(file.project)
+    fun isEditingEnabled(file: com.intellij.psi.PsiFile): Boolean = isEnabledValue(System.getProperty(PROPERTY)) &&
+        (dev.sort.doris.brikk.BrikkDorisContext.isActive(file) || isEnabled(file.project))
 
     /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
     const val MARKER: String = "|>"

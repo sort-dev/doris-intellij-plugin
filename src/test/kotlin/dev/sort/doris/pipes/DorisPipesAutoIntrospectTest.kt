@@ -14,11 +14,14 @@ import com.intellij.database.model.properties.CompositeText
 import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.util.ObjectNamePart
 import com.intellij.database.util.LoaderContext
+import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternUtils
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.catalog.DorisCatalogScopes
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
 
 class DorisPipesAutoIntrospectTest : BasePlatformTestCase() {
@@ -59,6 +62,16 @@ class DorisPipesAutoIntrospectTest : BasePlatformTestCase() {
         } finally {
             manager.removeDataSource(local)
             DbPsiFacade.getInstance(project).clearCaches()
+        }
+    }
+
+    fun testCancellationDuringRequestPropagates() {
+        for (cancellation in listOf(ProcessCanceledException(), CancellationException())) {
+            val local = object : LocalDataSource() {
+                override fun getIntrospectionScope(): TreePattern = throw cancellation
+            }
+            val thrown = runCatching { DorisPipesAutoIntrospect.request(project, local, "warehouse", "target_db") }
+            assertSame(cancellation, thrown.exceptionOrNull())
         }
     }
 
