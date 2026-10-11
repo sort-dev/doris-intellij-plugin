@@ -8,7 +8,7 @@ are especially welcome — real, hostile SQL is how this plugin got good.
 
 ```bash
 ./gradlew buildPlugin   # → build/distributions/doris-intellij-plugin-<version>.zip
-./gradlew test          # the full suite (light platform fixture, no IDE install needed)
+./gradlew test          # without the optional Kotlin host (light platform fixture, no IDE install needed)
 ```
 
 The plugin's Doris function catalog comes from `dev.brikk.house:brikk-sql-metadata-jvm`, resolved
