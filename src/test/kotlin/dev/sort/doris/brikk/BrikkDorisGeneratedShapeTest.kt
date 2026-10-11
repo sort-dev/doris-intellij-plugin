@@ -73,7 +73,7 @@ class BrikkDorisGeneratedShapeTest : BasePlatformTestCase() {
         val file = myFixture.configureByText("Views.kt", """
             import dev.brikk.house.sql.runtime.*
             @BrikkSql fun source() = Sql.doris("SELECT 1 AS id, 'x' AS code")
-            @BrikkSql fun query(rows: Rel<SourceOut>) = Sql.doris("SELECT id FROM ${'$'}rows()")
+            @BrikkSql fun query(rows: Rel<SourceOut>) = Sql.doris("SELECT r.id FROM ${'$'}rows() AS r")
         """.trimIndent())
         val host = PsiTreeUtil.findChildrenOfType(file, KtStringTemplateExpression::class.java).last()
         val result = BrikkDorisTemplate.inspect(host, includeShapes = true)
@@ -85,12 +85,25 @@ class BrikkDorisGeneratedShapeTest : BasePlatformTestCase() {
         assertEquals(setOf("id", "code"), shape.columns.map { it.name }.toSet())
         val sql = InjectedLanguageManager.getInstance(project).getInjectedPsiFiles(host)!!.first().first.containingFile
         assertTrue(BrikkDorisContext.isActive(sql))
-        assertEquals("SELECT id FROM rows()", sql.text)
+        assertEquals("SELECT r.id FROM rows() AS r", sql.text)
         val call = PsiTreeUtil.findChildOfType(sql, com.intellij.sql.psi.SqlFunctionCallExpression::class.java)!!
         val type = call.dasType as? com.intellij.sql.psi.SqlTableType
         assertNotNull("Genuine generated input must feed the SQL table type", type)
         assertEquals(setOf("id", "code"), (0 until type!!.columnCount).map { type.getColumnName(it) }.toSet())
-        val ref = PsiTreeUtil.findChildrenOfType(sql, com.intellij.sql.psi.SqlReferenceExpression::class.java).single { it.text == "id" }
+        val ref = PsiTreeUtil.findChildrenOfType(sql, com.intellij.sql.psi.SqlReferenceExpression::class.java).single { it.text == "r.id" }
         assertNotNull(ref.resolve())
+        val id = shape.columns.single { it.name == "id" }
+        assertEquals(dev.brikk.house.intellij.NavigationKind.RELATION_FALLBACK, id.navigation?.kind)
+        // Qualified and unqualified (mid-identifier) completion take different platform paths.
+        for ((caret, origin) in listOf("SELECT r." to "r", "SELECT r.i" to "r")) {
+            myFixture.editor.caretModel.moveToOffset(file.text.lastIndexOf("SELECT r.id") + caret.length)
+            val items = myFixture.completeBasic().orEmpty()
+            com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
+            val lookup = items.single { it.lookupString == "id" }
+            val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation().also(lookup::renderElement)
+            assertEquals("  relation contract ($origin)", presentation.tailText)
+            assertNotNull(id.kotlinClassId)
+            assertTrue(presentation.typeText!!, presentation.typeText!!.startsWith(id.kotlinClassId!!.substringAfterLast('.')))
+        }
     }
 }

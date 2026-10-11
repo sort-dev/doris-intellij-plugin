@@ -27,48 +27,48 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 ```
 
-## brikk-sql and brikk-sql-metadata 0.19.0 (bundled)
+## brikk-sql and brikk-sql-metadata 0.19.1 (bundled)
 
 This plugin bundles the core SQL engine and function metadata libraries from brikk-house:
 
-- `dev.brikk.house:brikk-sql-jvm:0.19.0`
-- `dev.brikk.house:brikk-sql-metadata-jvm:0.19.0`
+- `dev.brikk.house:brikk-sql-jvm:0.19.1`
+- `dev.brikk.house:brikk-sql-metadata-jvm:0.19.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers listed in the published POMs: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0, with third-party-derived portions described below
 
-The provenance below refers to the published 0.19.0 artifacts. Their Maven Central
+The provenance below refers to the published 0.19.1 artifacts. Their Maven Central
 source archives contain 123 core and 20 metadata Kotlin source files. They retain
 Doris 4.1.4 grammar support, timezone-preserving generation and Variant inference,
 and update the DuckDB registry to 1.5.6.
 Gradle module metadata names the bundled files
-`brikk-sql-jvmMain-0.19.0.jar` and `brikk-sql-metadata-jvmMain-0.19.0.jar`, and the
-source files `brikk-sql-jvmMain-0.19.0-sources.jar` and
-`brikk-sql-metadata-jvmMain-0.19.0-sources.jar`. Maven download URLs use `jvm`
+`brikk-sql-jvmMain-0.19.1.jar` and `brikk-sql-metadata-jvmMain-0.19.1.jar`, and the
+source files `brikk-sql-jvmMain-0.19.1-sources.jar` and
+`brikk-sql-metadata-jvmMain-0.19.1-sources.jar`. Maven download URLs use `jvm`
 instead of `jvmMain`.
 The SQLGlot source pin remains `3ca82489`. The Doris catalog supplement uses the
 4.1.4 release pin documented below. DuckDB's new registry pin is recorded below.
 Source artifacts are available from Maven Central:
 
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.19.0/brikk-sql-jvm-0.19.0-sources.jar
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.19.0/brikk-sql-metadata-jvm-0.19.0-sources.jar
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.19.1/brikk-sql-jvm-0.19.1-sources.jar
+- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.19.1/brikk-sql-metadata-jvm-0.19.1-sources.jar
 
-## Brikk SQL IntelliJ support 0.1.0 (bundled)
+## Brikk SQL IntelliJ support 0.1.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.1.0`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.1.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
 
 The library supplies cooperative Execute registration, promotion and script-model
-preparation. Its JAR contains its license and notice. IntelliJ APIs are compile-only;
+preparation and shared column completion rendering. Its JAR contains its license and notice. IntelliJ APIs are compile-only;
 the distribution does not bundle an IDE SDK, verifier, database driver or Kotlin stdlib.
 Source artifact:
-https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-intellij-support/0.1.0/brikk-sql-intellij-support-0.1.0-sources.jar
+https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-intellij-support/0.1.1/brikk-sql-intellij-support-0.1.1-sources.jar
 
-## Brikk Kotlin IntelliJ support 0.1.0 (bundled)
+## Brikk Kotlin IntelliJ support 0.2.0 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0`
+- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.2.0`
 - Project: https://github.com/brikk/brikk-house
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -81,7 +81,7 @@ Kotlin compiler or Kotlin standard library. The artifact is published on Maven C
 
 brikk-sql is a Kotlin port of SQLGlot by Toby Mao and contributors. It includes ported
 tokenizer, parser, AST, SQL generator, optimizer, and dialect code, as well as generated
-token tables, AST catalogs, and function registries. In the published 0.19.0 sources,
+token tables, AST catalogs, and function registries. In the published 0.19.1 sources,
 generated token tables, AST catalogs, and typing metadata identify SQLGlot upstream
 version `v30.18.0-43-g3ca82489`, commit `3ca82489`. `GeneratedFunctionRegistry.kt`
 and `Tokenizer.kt` still cite `v30.12.0-44-g93d16591`, commit `93d16591`; these older
@@ -118,7 +118,7 @@ SOFTWARE.
 
 ## polyglot (DataFusion dialect reference in brikk-sql)
 
-The published 0.19.0 `DatafusionDialect.kt` and `DatafusionGenerator.kt` credit polyglot's
+The published 0.19.1 `DatafusionDialect.kt` and `DatafusionGenerator.kt` credit polyglot's
 `crates/polyglot-sql/src/dialects/datafusion.rs` for dialect flags and SQL transformations.
 Those headers do not identify the polyglot revision. This attribution concerns the bundled
 dialect implementation, not brikk-house's test fixtures.
@@ -153,7 +153,7 @@ SOFTWARE.
 
 ## Apache Doris (registry metadata in brikk-sql-metadata)
 
-`GeneratedDorisFunctionCatalog.kt` in version 0.19.0 contains function names, aliases,
+`GeneratedDorisFunctionCatalog.kt` in version 0.19.1 contains function names, aliases,
 kinds, signatures, and nullability metadata extracted from Apache Doris's runtime
 registry and function classes. Its header identifies upstream version
 `v0.8.2-31011-gd8fd23f7f38` and the sources `fe/fe-core/.../catalog/Builtin*Functions.java`
@@ -177,7 +177,7 @@ SQLGlot-derived Doris dialect and the separately bundled `fe-sql-parser` JAR.
 
 ## Trino (registry metadata in brikk-sql-metadata)
 
-`GeneratedTrinoFunctionCatalog.kt` in version 0.19.0 contains function names, signatures,
+`GeneratedTrinoFunctionCatalog.kt` in version 0.19.1 contains function names, signatures,
 and kinds extracted from Trino 483 using `SHOW FUNCTIONS` in the official
 `trinodb/trino:483` container. This is registry data, not bundled Trino engine code.
 
@@ -187,7 +187,7 @@ and kinds extracted from Trino 483 using `SHOW FUNCTIONS` in the official
 
 ## DuckDB (registry metadata in brikk-sql-metadata)
 
-`GeneratedDuckdbFunctionCatalog.kt` in version 0.19.0 contains function names, signatures,
+`GeneratedDuckdbFunctionCatalog.kt` in version 0.19.1 contains function names, signatures,
 kinds, and parameter names extracted using the Python DuckDB module's `duckdb_functions()`
 view. Its header identifies DuckDB `v1.5.6`, commit `069cc9f9b5`. This is registry data,
 not bundled DuckDB engine code.
@@ -208,7 +208,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## ClickHouse (registry metadata in brikk-sql-metadata)
 
-`GeneratedClickhouseFunctionCatalog.kt` in version 0.19.0 contains function names,
+`GeneratedClickhouseFunctionCatalog.kt` in version 0.19.1 contains function names,
 kinds, and aliases extracted from ClickHouse 26.5.1.1's `system.functions` registry.
 Its header identifies `vendor/data/clickhouse-functions-26.5.1.1.tsv` as the input.
 The registry exposes no signatures, so overload lists are empty. This is registry
@@ -220,7 +220,7 @@ data, not bundled ClickHouse engine code.
 
 ## StarRocks (registry metadata in brikk-sql-metadata)
 
-`GeneratedStarrocksFunctionCatalog.kt` in version 0.19.0 contains function names,
+`GeneratedStarrocksFunctionCatalog.kt` in version 0.19.1 contains function names,
 signatures, and kinds extracted from StarRocks 4.1.4 using `SHOW FULL BUILTIN FUNCTIONS`.
 Its header identifies `current_version() = 4.1.4-4a9848e` and the Docker image
 `starrocks/allin1-ubuntu:4.1.4` at digest

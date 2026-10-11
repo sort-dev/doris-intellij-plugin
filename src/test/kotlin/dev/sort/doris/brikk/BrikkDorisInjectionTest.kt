@@ -343,6 +343,95 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertFalse("Dropped input columns must not reappear", "id" in suggestions)
     }
 
+    private fun columnPresentations(): Map<String, com.intellij.codeInsight.lookup.LookupElementPresentation> =
+        myFixture.completeBasic().orEmpty().associate { item ->
+            item.lookupString to com.intellij.codeInsight.lookup.LookupElementPresentation().also(item::renderElement)
+        }
+
+    fun testPipeCompletionRendersBrikkOriginAndNullableKotlinTypes() {
+        relationSql("FROM ${'$'}src() |> WHERE <caret>")
+        val items = columnPresentations()
+        assertEquals("Long", items.getValue("id").typeText)
+        assertEquals("String?", items.getValue("code").typeText)
+        assertEquals("  brikk column (src)", items.getValue("code").tailText)
+    }
+
+    fun testNativeQualifiedCompletionRendersWithoutReplacingPlatformResolution() {
+        relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
+        val items = columnPresentations()
+        assertEquals("Long", items.getValue("id").typeText)
+        assertEquals("String?", items.getValue("code").typeText)
+        assertEquals("  brikk column (e)", items.getValue("code").tailText)
+    }
+
+    fun testDecoratedNativeColumnKeepsInsertionAndKotlinNavigation() {
+        relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
+        val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "code" }
+        assertTrue("Keep the platform completion object", item.`object` is com.intellij.sql.psi.SqlResolveResult)
+        myFixture.lookup.currentItem = item
+        myFixture.finishLookup(com.intellij.codeInsight.lookup.Lookup.NORMAL_SELECT_CHAR)
+        val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(myFixture.file)
+        val sql = injected(PsiTreeUtil.findChildOfType(top, KtStringTemplateExpression::class.java)!!)
+        assertEquals("SELECT e.code FROM src() AS e", sql.text)
+        val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "e.code" }
+        assertNotNull(ref.resolve())
+        val targets = dev.sort.doris.sql.BrikkRelationNavigation().getGotoDeclarationTargets(ref, ref.textOffset, myFixture.editor)!!
+        assertTrue(targets.single().text, targets.single().text.contains("val code: String?"))
+    }
+
+    fun testEqualNativeColumnNamesKeepTheirSourceLabels() {
+        relationSql("SELECT i<caret>d FROM ${'$'}src() AS e JOIN ${'$'}other() AS o ON e.id = o.id")
+        val items = myFixture.completeBasic().orEmpty().filter { it.lookupString == "id" }.map { item ->
+            com.intellij.codeInsight.lookup.LookupElementPresentation().also(item::renderElement)
+        }
+        assertEquals(setOf("  brikk column (e)", "  brikk column (o)"), items.map { it.tailText }.toSet())
+        assertTrue(items.all { it.typeText == "Long" })
+    }
+
+    fun testCompletionInsideAPipeExpressionShowsJavaKotlinTypeNames() {
+        val jdk = com.intellij.openapi.projectRoots.JavaSdk.getInstance().createJdk("Brikk completion JDK", System.getProperty("java.home"), false)
+        WriteCommandAction.runWriteCommandAction(project) {
+            com.intellij.openapi.projectRoots.ProjectJdkTable.getInstance().addJdk(jdk, testRootDisposable)
+        }
+        com.intellij.openapi.roots.ModuleRootModificationUtil.setModuleSdk(module, jdk)
+        val file = myFixture.configureByText("Instant.kt", """
+            import dev.brikk.house.sql.runtime.*
+            interface Event : Shape { val event_at: java.time.Instant; val payload: String? }
+            @BrikkSql fun query(src: Rel<Event>) = Sql.doris("FROM ${'$'}src() |> EXTEND COALESCE(<caret>, event_at) AS projected")
+        """.trimIndent())
+        val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+        injected(PsiTreeUtil.findChildOfType(top, KtStringTemplateExpression::class.java)!!)
+        val items = columnPresentations()
+        assertEquals("Instant", items.getValue("event_at").typeText)
+        assertEquals("String?", items.getValue("payload").typeText)
+        assertEquals("  brikk column (src)", items.getValue("event_at").tailText)
+    }
+
+    fun testProjectedPipeColumnsRetainTypesButComputedColumnsDoNotBorrowThem() {
+        relationSql("FROM ${'$'}src() AS e |> EXTEND id + 1 AS id |> SELECT code AS renamed, id |> WHERE <caret>")
+        val items = columnPresentations()
+        assertEquals("String?", items.getValue("renamed").typeText)
+        assertEquals("  brikk column (e)", items.getValue("renamed").tailText)
+        assertEquals("unknown type (nullability unknown)", items.getValue("id").typeText)
+        assertEquals("  PIPE column", items.getValue("id").tailText)
+        assertFalse(items.containsKey("code"))
+    }
+
+    fun testPipePresentationRefreshesWhenOnlyTheKotlinTraitChanges() {
+        relationSql("FROM ${'$'}src() |> WHERE co<caret>")
+        assertEquals("String?", columnPresentations().getValue("code").typeText)
+        com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
+        val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(myFixture.file)
+        val document = PsiDocumentManager.getInstance(project).getDocument(top)!!
+        WriteCommandAction.runWriteCommandAction(project) {
+            document.setText(document.text.replace("val code: String?", "val code: Int"))
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+        }
+        myFixture.openFileInEditor(top.virtualFile)
+        myFixture.editor.caretModel.moveToOffset(document.text.indexOf("WHERE co") + "WHERE co".length)
+        assertEquals("Int", columnPresentations().getValue("code").typeText)
+    }
+
     fun testLiteralDollarsJsonPathsAndCommentsRemainUnchanged() {
         val sql = injected(configure("SELECT json_extract(payload, '${'$'}.customer_id'), '${'$'}{'$'}native' -- ${'$'}.comment\nFROM customers WHERE tenant = ${'$'}tenant"))
         assertEquals("SELECT json_extract(payload, '${'$'}.customer_id'), '${'$'}native' -- ${'$'}.comment\nFROM customers WHERE tenant = :tenant", sql.text)

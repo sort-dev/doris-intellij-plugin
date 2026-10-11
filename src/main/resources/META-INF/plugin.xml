@@ -55,6 +55,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.5.8</b> - Brikk relation column completion presentation.
+        <ul>
+            <li>Shows Kotlin type names and nullability alongside <code>brikk column (src)</code>
+                or the source alias in SQL and PIPE completion. Native SQL types remain unknown.</li>
+            <li>Uses core lineage to retain metadata for passthrough projections without assigning
+                Kotlin input types to computed PIPE expressions.</li>
+            <li>Updates to released Brikk SQL core/metadata 0.19.1 and Kotlin IntelliJ support 0.2.0.</li>
+            <li>Shares completion formatting with other Brikk dialect plugins through
+                Brikk SQL IntelliJ support 0.1.1.</li>
+        </ul>
         <b>1.5.7</b> - shared cooperative PIPE execution support.
         <ul>
             <li>Uses the released Brikk SQL IntelliJ helper for Execute action chains and
@@ -426,6 +436,7 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageKeywordAnnotator"/>
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMysqlFunctionFilter"/>

@@ -8,17 +8,18 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 [B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.19.0` and `brikk-sql-metadata-jvm:0.19.0`, both
+`dev.brikk.house:brikk-sql-jvm:0.19.1` and `brikk-sql-metadata-jvm:0.19.1`, both
 from Maven Central. The [0.16 upgrade report](REVIEW-brikk-sql-0.16.0.md)
 records earlier Doris 4.1.4 coverage and intentional unsafe-boundary refusals.
-Plugin 1.5.7 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.1.0` from
+Plugin 1.5.8 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.1.1` from
 Central. `CooperativeExecuteConfiguration`, `CooperativeExecuteAction` and
 `CooperativeExecutePromoter` own registration, wrapper delegation and promotion.
 `TranslatingScriptModel` owns copied statement/parameter iterators, document revisions
 and finalization. Doris's `SqlExecutionAdapter` retains the native parameter scanner,
 translation refusal policy, generated-SQL validation and server position conversion.
-The Kotlin helper stays at 0.1.0. The engine and metadata upgrade to 0.19.0 is
-part of this backport. The native scanner remains until core's newer boundary and
+The 1.5.7 backport used Kotlin helper 0.1.0 and SQL core/metadata 0.19.0. Plugin
+1.5.8 upgrades those to released Kotlin helper 0.2.0 and SQL core/metadata 0.19.1.
+The native scanner remains until core's newer boundary and
 parameter APIs have demonstrated parity with the Doris corpus.
 SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library

@@ -39,8 +39,8 @@ There is no live-connection requirement for recognizing binds.
 
 ## Shared helper
 
-Version 1.5.6 uses
-`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.1.0` from Maven Central.
+Version 1.5.8 uses
+`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.2.0` from Maven Central.
 The build does not use Maven Local.
 
 `BrikkDorisTemplate` delegates recognition and classification to
@@ -55,6 +55,19 @@ need them. Tests cover inherited trait columns, full/partial knowledge, property
 navigation, function-local `src` contracts and trait edits without SQL edits.
 Zero-argument relation slots supply columns to the platform's existing alias,
 join and projection scopes. Known columns complete without a connection.
+
+Completion displays the Kotlin type name, including `?` for nullable contracts,
+alongside `brikk column (src)` or the source alias. Generated navigation fallbacks
+say `relation contract (src)`. This is display metadata, not a native SQL type.
+Native SQL suggestions keep the platform's insertion, qualification and navigation.
+Both SQL and PIPE use the shared `SqlColumnCompletion` formatter from
+`dev.brikk.house:brikk-sql-intellij-support:0.1.1`.
+
+PIPE completion reads the input shape of the completed prefix, so an incomplete
+current expression does not hide its inputs. Core lineage preserves labels through
+direct projections and renames. Computed or ambiguous columns say `PIPE column`
+with explicit unknown-type/nullability text instead of borrowing an input property's
+Kotlin type. Metadata caches contain copied display facts and invalidate on trait edits.
 
 The earlier snapshot migration is recorded in
 [consumer validation results](BRIKK-SHARED-HELPER-VALIDATION.md). This plugin does

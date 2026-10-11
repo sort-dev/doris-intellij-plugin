@@ -23,15 +23,15 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
         assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.brikkKotlin") == "true",
             PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
-        for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel")) {
+        for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.0.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.1.jar"))
         }
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
-        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.1.0.jar"))
+        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.2.0.jar"))
         val family = families.getMethod("forClassId", String::class.java).invoke(families.getField("INSTANCE").get(null), "kotlin.String")
         assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
@@ -49,7 +49,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.19.0")
+            checkEngine(dorisLoader, "jvmMain-0.19.1")
             val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
             val translated = adapter.getMethod("transpile", String::class.java)
                 .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")

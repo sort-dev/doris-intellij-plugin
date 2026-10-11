@@ -10,11 +10,11 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.5.7"
+version = "1.5.8"
 
-val brikkSqlVersion = "0.19.0"
-val brikkSqlIntellijSupportVersion = "0.1.0"
-val brikkKotlinSupportVersion = "0.1.0"
+val brikkSqlVersion = "0.19.1"
+val brikkSqlIntellijSupportVersion = "0.1.1"
+val brikkKotlinSupportVersion = "0.2.0"
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
 }
@@ -167,7 +167,7 @@ tasks {
         // to that copy too, otherwise fixture loading silently omits the Kotlin integration.
         from("src/main/resources/META-INF/doris-kotlin.xml") { into("META-INF") }
     }
-    // Keep the user's 1.5.6 dogfood ZIP intact while validating this separate backport.
+    // Keep previously tested dogfood ZIPs intact when building a new version.
     buildPlugin {
         archiveVersion = project.version.toString()
     }

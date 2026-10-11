@@ -18,7 +18,7 @@ class BrikkRelationNavigation : GotoDeclarationHandler {
             val symbol = (result as? SqlResolveResult)?.targetSymbol as? DasVirtualSymbol ?: return@mapNotNull null
             val context = symbol.contextElement
             // Only helper-provided Kotlin property/parameter locations. SQL aliases stay SQL-owned.
-            context?.takeIf { it.containingFile?.language?.id == "kotlin" }?.navigationElement
+            context?.takeIf { it.containingFile?.language?.id == "kotlin" && it !is com.intellij.psi.PsiLanguageInjectionHost }?.navigationElement
         }.distinct()
         return targets.takeIf { it.isNotEmpty() }?.toTypedArray()
     }

@@ -9,6 +9,8 @@ import com.intellij.codeInsight.completion.InsertHandler
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.codeInsight.lookup.LookupElementDecorator
+import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.icons.AllIcons
 import com.intellij.patterns.PlatformPatterns
 import icons.DatabaseIcons
@@ -308,12 +310,24 @@ class DorisCompletionContributor : CompletionContributor() {
             val rel = (offset - chunk.startOffset).coerceIn(0, chunk.text.length)
 
             if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) {
-                val scope = dev.sort.doris.pipes.runPipeCatching { BrikkRelationColumns.pipeScope(file, text, offset) }.getOrNull()
+                val displays = BrikkRelationColumns.pipeDisplay(file, text, offset)
+                val scope = displays?.keys?.toList() ?: dev.sort.doris.pipes.runPipeCatching { BrikkRelationColumns.pipeScope(file, text, offset) }.getOrNull()
                 if (scope != null && !Regex("""[\w`]+\.\w*$""").containsMatchIn(chunk.text.substring(0, rel)) &&
                     !Regex("""\b(?:FROM|JOIN)\s+[\w`]*$""", RegexOption.IGNORE_CASE)
                         .containsMatchIn(dev.sort.doris.pipes.DorisPipes.codeBefore(chunk.text, rel))) {
-                    for (name in scope) sink.addElement(LookupElementBuilder.create(name)
-                        .withIcon(AllIcons.Nodes.Field).withTypeText("Brikk PIPE scope", true))
+                    for (name in scope) {
+                        val display = displays?.get(name) ?: BrikkColumnDisplay(name, null,
+                            dev.brikk.house.intellij.ColumnNullability.UNKNOWN, null)
+                        val shared = display.lookup()
+                        val decorated = object : LookupElementDecorator<LookupElement>(shared) {
+                            override fun renderElement(presentation: LookupElementPresentation) {
+                                super.renderElement(presentation)
+                                presentation.icon = AllIcons.Nodes.Field
+                            }
+                        }
+                        val priority = shared.`as`(PrioritizedLookupElement.CLASS_CONDITION_KEY)?.priority ?: 0.0
+                        sink.addElement(PrioritizedLookupElement.withPriority(decorated, priority))
+                    }
                     return
                 }
             }

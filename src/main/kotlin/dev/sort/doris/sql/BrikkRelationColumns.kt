@@ -1,6 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.database.types.DasTypeSystemBase
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
@@ -26,9 +27,14 @@ object BrikkRelationColumns {
         (BrikkDorisContext.relations(file) as? ContextResult.Available)?.context?.relations.orEmpty()
 
     fun slot(call: SqlFunctionCallExpression): ShapeResult? {
+        val name = slotName(call) ?: return null
+        return contracts(call.containingFile)[name]
+    }
+
+    internal fun slotName(call: SqlFunctionCallExpression): String? {
         if (call.parent?.node?.elementType != SqlCompositeElementTypes.SQL_TABLE_PROCEDURE_CALL_EXPRESSION) return null
         if (!call.parameterList?.expressionList.isNullOrEmpty() || call.nameElement?.qualifierExpression != null) return null
-        return contracts(call.containingFile)[call.nameElement?.name]
+        return call.nameElement?.name
     }
 
     fun tableType(call: SqlFunctionCallExpression): SqlTableType? {
@@ -38,7 +44,7 @@ object BrikkRelationColumns {
         for (column in shape.columns) {
             // Kotlin contracts do not prove an exact native SQL type or SQL quote identity.
             val one = SqlTableTypeBase.createType(
-                ColumnElement(call, column).navigationElement, DasTypeSystemBase.UNKNOWN, column.name,
+                ColumnElement(call, column, shape.navigation?.location).navigationElement, DasTypeSystemBase.UNKNOWN, column.name,
                 false, false, true, null, null,
             )
             table = table.add(one)
@@ -81,18 +87,35 @@ object BrikkRelationColumns {
             inputs.filterKeys { it in declaredSlots })
     }
 
-    private class ColumnElement(private val call: SqlFunctionCallExpression, private val column: ColumnContract) :
-        LightElement(call.manager, DorisSqlDialect.INSTANCE), PsiNamedElement {
+    internal fun pipeDisplay(file: PsiFile, text: String, offset: Int): Map<String, BrikkColumnDisplay>? {
+        val chunk = dev.sort.doris.pipes.DorisPipes.chunkAt(text, offset) ?: return null
+        return dev.sort.doris.pipes.runPipeCatching {
+            BrikkPipeColumnDisplay.at(chunk.text, offset - chunk.startOffset, contracts(file))
+        }.getOrNull()
+    }
+
+    /** Platform symbols keep this as a smart-pointer context. Never return injected completion-copy PSI. */
+    private class ColumnElement(
+        private val call: SqlFunctionCallExpression,
+        private val column: ColumnContract,
+        private val relation: dev.brikk.house.intellij.SourceLocation?,
+    ) : LightElement(call.manager, DorisSqlDialect.INSTANCE), PsiNamedElement {
         override fun getName(): String = column.name
         override fun setName(name: String): PsiElement = throw com.intellij.util.IncorrectOperationException("Rename the authored Kotlin property")
         override fun getContainingFile(): PsiFile = call.containingFile
-        override fun getNavigationElement(): PsiElement {
-            val location = column.navigation?.location ?: return call
-            val file = VirtualFileManager.getInstance().findFileByUrl(location.fileUrl)?.let { PsiManager.getInstance(project).findFile(it) }
-                ?: return call
-            var element = file.findElementAt(location.start) ?: return call
+        override fun getNavigationElement(): PsiElement = locate(column.navigation?.location) ?: locate(relation)
+            ?: InjectedLanguageManager.getInstance(project).getInjectionHost(call) ?: call
+
+        private fun locate(location: dev.brikk.house.intellij.SourceLocation?): PsiElement? {
+            location ?: return null
+            // Light-fixture VFS URLs need not be globally registered; the host file is authoritative.
+            val host = InjectedLanguageManager.getInstance(project).getTopLevelFile(call)
+            val file = host?.takeIf { it.virtualFile?.url == location.fileUrl }
+                ?: VirtualFileManager.getInstance().findFileByUrl(location.fileUrl)?.let { PsiManager.getInstance(project).findFile(it) }
+                ?: return null
+            var element = file.findElementAt(location.start) ?: return null
             while (element.textRange.startOffset != location.start || element.textRange.endOffset != location.end) {
-                element = element.parent ?: return call
+                element = element.parent ?: return null
             }
             return element
         }
