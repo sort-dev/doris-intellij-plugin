@@ -160,7 +160,7 @@ intellijPlatform {
 
 tasks {
     withType<VerifyPluginTask> {
-        // Other agents also run the verifier; never share its extracted-plugin cache.
+        // Concurrent verifier runs collide in a shared extracted-plugin cache.
         systemProperty("plugin.verifier.home.dir", layout.buildDirectory.dir("plugin-verifier-cache").get().asFile.absolutePath)
     }
     processResources {

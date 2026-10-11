@@ -40,7 +40,7 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
                      val brikkHouse: Boolean = false)
     data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null)
 
-    // The default skips files with PSI errors, but the substrate cannot parse Doris-only syntax.
+    // Still validate when other passes already reported errors.
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Input? =
         collectInformation(file)
 

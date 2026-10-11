@@ -92,6 +92,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
     fun testPipeVetoDisablesBrikkEditing() {
         val sql = injected(configure("FROM ${'$'}src() |> WHERE id > ${'$'}minId"))
         assertTrue(BrikkDorisContext.isActive(sql))
+        assertTrue(DorisPipes.isEditingEnabled(sql))
         val previous = System.getProperty(DorisPipes.PROPERTY)
         System.setProperty(DorisPipes.PROPERTY, "false")
         try {
