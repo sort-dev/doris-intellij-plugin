@@ -42,6 +42,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
 import com.intellij.ui.UiInterceptors
+import dev.brikk.house.sql.intellij.SqlExecutionRefusal
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
@@ -641,11 +642,22 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             for (translation in listOf(lossy, DorisPipesEngine.Transpile.Ok("SELECT 1"), safe.copy(dorisSql = "SELECT 2"))) {
                 submissionCalls.clear()
                 val failure = runCatching { DorisPipesExecution.submit(fixture.console, destination, translation, safeProgram) }.exceptionOrNull()
-                assertTrue("expected the submission guard, got $failure", failure is IllegalStateException)
+                assertEquals("expected the submission guard, got $failure", IllegalStateException::class.java, failure?.javaClass)
                 assertEmpty(submissionCalls)
                 assertEmpty(fixture.requests)
                 assertEmpty(fixture.previousEvents)
             }
+        }
+    }
+
+    fun testDirectSubmissionRefusesAChangedDestination() {
+        val translation = DorisPipesEngine.transpile(safeProgram) as DorisPipesEngine.Transpile.Ok
+        ExecutionFixture(safeProgram).use { fixture ->
+            val destination = PipeDestination(fixture.console)
+            fixture.point.url = "jdbc:offline:another-doris"
+            val failure = runCatching { DorisPipesExecution.submit(fixture.console, destination, translation, safeProgram) }.exceptionOrNull()
+            assertTrue(failure.toString(), failure is SqlExecutionRefusal)
+            assertEmpty(fixture.requests)
         }
     }
 
@@ -726,10 +738,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     component.close(DialogWrapper.OK_EXIT_CODE)
                 }
             })
-            val failure = runCatching { if (runToStage) fixture.runToStage(menu = false) else fixture.execute() }.exceptionOrNull()
+            if (runToStage) fixture.runToStage(menu = false) else fixture.execute()
             assertTrue(prompted)
-            if (fixture.requests.isEmpty()) assertTrue(failure.toString(), failure is IllegalStateException)
-            else assertNull(failure)
+            if (fixture.requests.isEmpty()) assertEquals(NotificationType.ERROR, fixture.notifications.last().type)
             assertEmpty(fixture.previousEvents)
             fixture.requests.toList()
         }

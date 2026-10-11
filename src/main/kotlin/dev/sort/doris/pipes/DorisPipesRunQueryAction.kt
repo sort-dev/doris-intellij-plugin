@@ -19,6 +19,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.Disposer
 import dev.brikk.house.sql.intellij.EditorSnapshot
+import dev.brikk.house.sql.intellij.SqlExecutionRefusal
 import dev.sort.doris.DorisDbms
 
 /** Structure-view actions can supply FILE_EDITOR without supplying EDITOR. */
@@ -140,6 +141,10 @@ internal object PipesExecuteInterceptor {
                     snapshot.requireCurrent()
                     destination.requireCurrent(console)
                     console.executeQueries(editor, model, info.execOption)
+                } catch (refusal: SqlExecutionRefusal) {
+                    DorisPipesExecution.notifyTranspileError(
+                        console, DorisPipesEngine.Transpile.Err(null, null, refusal.message ?: "PIPE execution refused"),
+                    )
                 } finally {
                     DorisPipesExecution.endTracking(console)
                 }
@@ -192,14 +197,13 @@ internal data class PipeAnchor(
 internal class PipeDestination(console: JdbcConsole) {
     private val session = console.session
     private val dataSource = console.dataSource
-    private val url = dataSource?.url
+    private val url = dataSource.url
 
     fun requireCurrent(console: JdbcConsole) {
-        check(DorisPipes.isEnabled(console.project)) { "PIPE was disabled during preparation" }
-        check(
-            console.isValid && console.session === session && console.dataSource === dataSource &&
-                dataSource?.url == url && session.connectionPoint.dbms === DorisDbms.DORIS,
-        ) { "The destination changed during PIPE preparation" }
+        if (!DorisPipes.isEnabled(console.project)) throw SqlExecutionRefusal("PIPE was disabled during preparation")
+        if (!console.isValid || console.session !== session || console.dataSource !== dataSource ||
+            dataSource.url != url || session.connectionPoint.dbms !== DorisDbms.DORIS
+        ) throw SqlExecutionRefusal("The destination changed during PIPE preparation. Run the query again.")
     }
 }
 

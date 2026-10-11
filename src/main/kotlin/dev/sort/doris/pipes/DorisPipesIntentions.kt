@@ -14,6 +14,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.PsiFile
+import dev.brikk.house.sql.intellij.SqlExecutionRefusal
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.sort.doris.DorisDbms
 import java.awt.Dimension
@@ -118,12 +119,15 @@ internal object DorisPipesUi {
         }
         if (!console.beforeExecuteQueries(model)) return
         val translated = try {
-            model.translated(console.pStorage)
+            model.translated(console.pStorage).also { destination.requireCurrent(console) }
         } catch (failure: PipeTranslationFailure) {
             notify(project, "Stage prefix could not be executed", failure.error.message, NotificationType.ERROR)
             return
         } catch (failure: TranslateException) {
             notify(project, "Stage prefix could not be executed", failure.message ?: "Parameter substitution failed", NotificationType.ERROR)
+            return
+        } catch (refusal: SqlExecutionRefusal) {
+            notify(project, "Stage prefix could not be executed", refusal.message ?: "PIPE execution refused", NotificationType.ERROR)
             return
         }
         dispatchPipeTranslation(
