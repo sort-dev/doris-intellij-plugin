@@ -7,7 +7,7 @@ are especially welcome — real, hostile SQL is how this plugin got good.
 ## Build & test
 
 ```bash
-./gradlew buildPlugin   # → build/distributions/doris-intellij-plugin.zip
+./gradlew buildPlugin   # → build/distributions/doris-intellij-plugin-<version>.zip
 ./gradlew test          # the full suite (light platform fixture, no IDE install needed)
 ```
 
