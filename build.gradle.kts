@@ -159,6 +159,10 @@ intellijPlatform {
 }
 
 tasks {
+    withType<VerifyPluginTask> {
+        // Other agents also run the verifier; never share its extracted-plugin cache.
+        systemProperty("plugin.verifier.home.dir", layout.buildDirectory.dir("plugin-verifier-cache").get().asFile.absolutePath)
+    }
     processResources {
         from(files("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")) { into("META-INF") }
     }
@@ -332,14 +336,15 @@ if (sqlTranspilerTestMode != null) {
     }
     tasks.named<Test>("test") {
         systemProperty("test.sqlTranspiler", sqlTranspilerTestMode)
-        if (sqlTranspilerTestMode == "installed") {
-            // Fixtures flatten plugin classloaders. Exercise Doris's own core/metadata, not the
-            // companion's private versions. Production plugins retain independent classloaders.
-            classpath = classpath.filter {
-                !(it.path.contains("/sql-transpiler-intellij-plugin/") &&
-                    (it.name.startsWith("brikk-sql-jvm-") || it.name.startsWith("brikk-sql-metadata-jvm-")))
-            }
-        }
+    }
+}
+
+// Fixtures flatten plugin classloaders. Exercise Doris's own libraries, not a companion's private
+// versions. Production plugins retain independent classloaders.
+tasks.named<Test>("test") {
+    classpath = classpath.filter { entry ->
+        !(listOf("sql-transpiler", "trino", "duckdb").any { entry.path.contains("/$it-intellij-plugin/") } &&
+            (entry.name.startsWith("brikk-") || entry.name.startsWith("kotlin-stdlib")))
     }
 }
 
