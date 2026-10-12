@@ -120,7 +120,7 @@
     "hint-nested": ["parameters"],
     "hint-only": ["parameters"],
     "interspersed-empty": ["parameters"],
-    "jinja-comment": ["statements"],
+    "jinja-comment": ["statements", "parameters"],
     "multiple-binds": ["parameters"],
     "nested-block": ["statements", "parameters"],
     "nested-block-only": ["statements", "parameters"],

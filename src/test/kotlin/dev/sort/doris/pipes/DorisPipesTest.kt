@@ -7,6 +7,7 @@ import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
 import dev.brikk.house.sql.metadata.FunctionDef
 import dev.brikk.house.sql.parser.PipeStageCut
 import dev.brikk.house.sql.parser.PipeStageSplitter
+import dev.brikk.house.sql.parser.SqlScriptSnapshot
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import dev.sort.doris.sql.DorisErrorAnnotator
@@ -157,10 +158,40 @@ class DorisPipesTest {
     }
 
     @Test
-    fun `engine token and shape failures are handled refusals`() {
-        // The native chunker reads dollar-quoted strings; the engine tokenizer does not.
+    fun `Doris dollar strings lower without exposing quoted syntax`() {
         for (text in listOf("FROM t |> WHERE s = \$\$a'b\$\$", "FROM t |> WHERE s = \$\$a;b\$\$")) {
-            assertTrue(text, DorisPipeDialect.lower(text) is PipeTranslation.Refused)
+            val lowered = DorisPipeDialect.lower(text) as PipeTranslation.Lowered
+            assertNull(text, lowered.blocker)
+            assertFalse(text, DorisPipes.containsPipeOperator(lowered.sql))
+        }
+    }
+
+    @Test
+    fun `core Doris lexical boundaries match native comments hints and dollar strings`() {
+        for (text in listOf(
+            "SELECT \$\$; :hidden |>\$\$, :p; SELECT 2;",
+            "SELECT :p /* outer /* ; |> */ outer */; SELECT 2;",
+            "SELECT /*+ outer /* ; |> */ outer */ :p; SELECT 2;",
+            "SELECT :p -- continued\\\n; :hidden |>\n; SELECT 2;",
+            "SELECT :p # :visible; SELECT 2;",
+        )) {
+            val native = DorisPipes.chunks(text).map { listOf(it.startOffset, it.endOffset, it.hasSql, it.hasPipeOperator, it.boundaryError != null) }
+            val core = SqlScriptSnapshot.parse(text, "doris").statements.map { listOf(it.start, it.end, it.hasSql, it.hasPipe, it.boundaryError != null) }
+            assertEquals(text, native, core)
+        }
+    }
+
+    @Test
+    fun `Doris refuses unsupported executable joins call pivot and unpivot`() {
+        for (text in listOf(
+            "FROM t |> CALL transform()",
+            "FROM t STRAIGHT_JOIN u ON t.id = u.id |> SELECT t.id",
+            "FROM t NATURAL JOIN u |> SELECT *",
+            "FROM t |> PIVOT (SUM(v) FOR k IN ('x')) |> WHERE x > 0",
+            "FROM t |> UNPIVOT (v FOR k IN (a, b)) |> WHERE v > 0",
+        )) {
+            val result = DorisPipeDialect.lower(text)
+            assertTrue(text, result is PipeTranslation.Refused || result is PipeTranslation.Lowered && result.blocker != null)
         }
     }
 
