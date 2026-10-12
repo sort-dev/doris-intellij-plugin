@@ -36,7 +36,7 @@ import dev.sort.doris.pipes.DorisPipes
  *     `"key"="value"`, and the MySQL grammar reads the double-quoted operands as column
  *     references — every documented-style call (`tasks("type"="mv")`) lit up red.
  *  2. Unresolved columns in a query whose FROM contains an OPEN-relation TVF (`s3`, `hdfs`, ...,
- *     [DorisTableFunctions.Schema.Open]): their real output columns are unknowable without
+ *     [dev.brikk.house.sql.metadata.OutputSchema.Open]): their real output columns are unknowable without
  *     reading external data (which we never do), so any column reference must be accepted
  *     silently — no fabricated columns, no red (research doc Tier B degradation).
  * TVFs with static schemas keep NORMAL column validation — their columns resolve for real via
@@ -452,7 +452,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             val from: PsiElement? = query.tableExpression
             if (from != null &&
                 PsiTreeUtil.findChildrenOfType(from, SqlFunctionCallExpression::class.java).any {
-                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is DorisTableFunctions.Schema.Open
+                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is dev.brikk.house.sql.metadata.OutputSchema.Open
                 }
             ) return true
             query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)

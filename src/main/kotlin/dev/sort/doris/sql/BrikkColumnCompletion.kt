@@ -2,10 +2,8 @@ package dev.sort.doris.sql
 
 import com.intellij.codeInsight.completion.CompletionContributor
 import com.intellij.codeInsight.completion.CompletionParameters
-import com.intellij.codeInsight.completion.CompletionResult
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElement
-import com.intellij.codeInsight.lookup.LookupElementDecorator
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.database.model.ObjectKind
 import com.intellij.psi.PsiElement
@@ -21,6 +19,9 @@ import dev.brikk.house.intellij.ColumnNullability
 import dev.brikk.house.intellij.NavigationKind
 import dev.brikk.house.intellij.ShapeResult
 import dev.brikk.house.sql.intellij.SqlColumnCompletion
+import dev.brikk.house.sql.intellij.SqlColumnFacts
+import dev.brikk.house.sql.intellij.completion.SqlLookupStyle
+import com.intellij.icons.AllIcons
 import dev.sort.doris.brikk.BrikkDorisContext
 
 /** Display metadata only. SQL types, resolution, insertion and navigation stay with the platform. */
@@ -31,7 +32,7 @@ internal data class BrikkColumnDisplay(
     val origin: String?,
     val relationFallback: Boolean = false,
 ) {
-    fun lookup(): LookupElement = SqlColumnCompletion.create(name, kotlinClassId?.substringAfterLast('.'),
+    fun facts(source: Any? = origin) = SqlColumnFacts(name, kotlinClassId?.substringAfterLast('.'),
         when (nullability) {
             ColumnNullability.NON_NULL -> false
             ColumnNullability.NULLABLE -> true
@@ -40,7 +41,9 @@ internal data class BrikkColumnDisplay(
             relationFallback -> "relation contract"
             origin != null -> "brikk column"
             else -> "PIPE column"
-        })
+        }, source)
+
+    fun lookup(): LookupElement = SqlColumnCompletion.create(facts(), SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0))
 
     fun presentation(): LookupElementPresentation = LookupElementPresentation().also { lookup().renderElement(it) }
     val typeText: String get() = requireNotNull(presentation().typeText)
@@ -63,20 +66,19 @@ class BrikkColumnCompletion : CompletionContributor() {
         // Use the platform's repaired completion PSI, not the original dangling `e.` query.
         val query = PsiTreeUtil.getParentOfType(parameters.position, SqlQueryExpression::class.java, false)
             ?: parameters.position.containingFile
-        result.runRemainingContributors(parameters) { completion ->
-            val display = displayFor(completion.lookupElement, query, contracts, qualifier)
-            if (display == null) result.passResult(completion)
-            else {
-                val shared = display.presentation()
-                val decorated = object : LookupElementDecorator<LookupElement>(completion.lookupElement) {
-                    override fun renderElement(presentation: LookupElementPresentation) {
-                        super.renderElement(presentation)
-                        presentation.typeText = shared.typeText
-                        presentation.tailText = shared.tailText
-                    }
-                }
-                CompletionResult.wrap(decorated, completion.prefixMatcher, completion.sorter)?.let(result::passResult)
-            }
+        val table = (query as? SqlQueryExpression)?.tableExpression ?: return
+        val columns = PsiTreeUtil.findChildrenOfType(table, SqlFunctionCallExpression::class.java).flatMap { call ->
+            if (PsiTreeUtil.getParentOfType(call, SqlQueryExpression::class.java) !== query) return@flatMap emptyList()
+            val slot = BrikkRelationColumns.slotName(call) ?: return@flatMap emptyList()
+            val shape = (contracts[slot] as? ShapeResult.Available)?.shape ?: return@flatMap emptyList()
+            val alias = (call.parent?.parent as? SqlAsExpression)?.name ?: slot
+            if (qualifier != null && !qualifier.equals(alias, true)) return@flatMap emptyList()
+            shape.columns.map { BrikkColumnDisplay.from(it, alias).facts(call) }
+        }
+        SqlColumnCompletion.createOrDecorate(parameters, result, columns,
+            SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0)) { lookup ->
+            val display = displayFor(lookup, query, contracts, qualifier)
+            columns.singleOrNull { it.name.equals(display?.name, true) && it.relationAlias == display?.origin }
         }
     }
 

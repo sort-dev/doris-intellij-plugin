@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
  * FE actually reports via `SHOW BUILTIN FUNCTIONS`, harvested once per data source at connect by
  * [DorisBuiltinFunctionInterceptor].
  *
- * The brikk-sql catalog ([DorisFunctions]) is the baseline — it carries names AND signatures, pinned
+ * The brikk-sql metadata is the baseline — it carries names AND signatures, pinned
  * to a Doris release. This store reconciles that baseline to the *connected server's* version:
  * brikk names the server doesn't report are dropped, server names brikk lacks are offered bare
  * (the server gives no signatures). With no harvested data — never connected, an older server

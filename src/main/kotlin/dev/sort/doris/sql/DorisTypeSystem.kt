@@ -16,6 +16,8 @@ import com.intellij.sql.psi.SqlLiteralExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlTableType
 import com.intellij.sql.psi.impl.SqlTableTypeBase
+import dev.brikk.house.sql.metadata.ColumnDef
+import dev.brikk.house.sql.metadata.OutputSchema
 
 /**
  * Doris type system: exactly the MySQL type system (which DORIS previously reached through the
@@ -73,10 +75,10 @@ class DorisTypeSystem(dbms: Dbms) : DasTypeSystemImpl(dbms) {
      * Serves the static output schema of a registered Doris TVF as an [SqlTableType]; returns null
      * for everything else (normal MySQL/builtin behavior continues).
      *
-     * Arg-conditional TVFs ([DorisTableFunctions.Schema.ByPropertyLiteral]) pick their variant by
+     * Arg-conditional TVFs ([OutputSchema.ByProperty]) pick their variant by
      * reading the discriminator property literal (e.g. `"type"="mv"`) straight from the call's
      * argument PSI — zero exec; absent/unknown literal degrades to the variants' union.
-     * Open TVFs ([DorisTableFunctions.Schema.Open]) return null so the call keeps the platform's
+     * Open TVFs ([OutputSchema.Open]) return null so the call keeps the platform's
      * unknown-type handling (no fabricated columns); the unresolved-column suppression for them
      * lives in [DorisHighlightInfoFilter].
      */
@@ -88,10 +90,12 @@ class DorisTypeSystem(dbms: Dbms) : DasTypeSystemImpl(dbms) {
     ): DasType? {
         val tvf = DorisTableFunctions.byName(prototype.function?.name) ?: return null
         val columns = when (val schema = tvf.schema) {
-            is DorisTableFunctions.Schema.Fixed -> schema.columns
-            is DorisTableFunctions.Schema.ByPropertyLiteral ->
-                schema.variant(propertyLiteral(params, schema.key))
-            is DorisTableFunctions.Schema.Open -> return null
+            is OutputSchema.Fixed -> schema.columns
+            is OutputSchema.ByProperty -> {
+                val literal = propertyLiteral(params, schema.key)?.lowercase() ?: schema.default
+                schema.variants[literal] ?: schema.variants.values.flatten().distinctBy { it.name.lowercase() }
+            }
+            OutputSchema.Open -> return null
         }
         // Anchor columns at the CALL expression, never at its name element: for a
         // SqlReferenceExpression column element the resolver chases that reference's own targets
@@ -101,7 +105,7 @@ class DorisTypeSystem(dbms: Dbms) : DasTypeSystemImpl(dbms) {
         return tableType(columns, routineElement)
     }
 
-    private fun tableType(columns: List<DorisTableFunctions.Column>, anchor: PsiElement): DasType? {
+    private fun tableType(columns: List<ColumnDef>, anchor: PsiElement): DasType? {
         var result: SqlTableType? = null
         for (c in columns) {
             val das = createDasType(DataTypeFactory.of(c.type))
