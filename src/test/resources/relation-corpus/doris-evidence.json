@@ -1,0 +1,25 @@
+{
+  "grammar": "https://github.com/apache/doris/blob/3226e0c28acf04db96878a6afc7013315defe75c/fe/fe-sql-parser/src/main/antlr4/org/apache/doris/nereids/DorisParser.g4",
+  "syntaxNeeds": {
+    "ordinary-join-semi": "Doris requires LEFT SEMI JOIN, not bare SEMI JOIN. joinType explicitly lists LEFT SEMI and RIGHT SEMI. The unchanged case is still useful as editor input, but its DuckDB syntax is not an executable Doris query.",
+    "ordinary-join-anti": "Doris requires LEFT ANTI JOIN, not bare ANTI JOIN. joinType explicitly lists LEFT ANTI and RIGHT ANTI. The unchanged case is still useful as editor input, but its DuckDB syntax is not an executable Doris query."
+  },
+  "priority": {
+    "join-ambiguous": "Ordinary native resolution chooses src.id for an unqualified id shared by two joined inputs. The supplied engine witness independently rejects the ambiguity. Fix this native/analyzer disagreement before introducing another ordinary-SQL analyzer.",
+    "ordinary-group-alias": "Native resolution finds the SELECT alias kind but does not retain the passthrough Kotlin navigation target. GROUP BY alias visibility is also registered by DorisAliasResolveExtension. This is an ordinary native binding/metadata disagreement, not unsupported Doris syntax.",
+    "ordinary-join-right-semi": "RIGHT SEMI is valid Doris grammar, unlike DuckDB's native witness syntax. Doris's native SqlTableType/resolver fails to expose the preserved right input. The native syntax witness in the report confirms grammar acceptance.",
+    "ordinary-join-right-anti": "RIGHT ANTI is valid Doris grammar, unlike DuckDB's native witness syntax. Doris's native SqlTableType/resolver fails to expose the preserved right input. The native syntax witness in the report confirms grammar acceptance.",
+    "ordinary-join-right": "The nullable side of an outer join cannot retain a non-null Kotlin input guarantee. Native scopes and completion currently retain NON_NULL/Long/Int; the supplied independent outer-join witness proves unmatched rows exist.",
+    "ordinary-join-full": "Both sides of a FULL JOIN can be unmatched. Native scopes and completion currently retain NON_NULL/Long/Int from the input declarations. The native syntax witness accepts FULL JOIN.",
+    "pipe-star-join": "The explicit stageScopeAt axis checks the complete distinct name inventory from both declared joined inputs, independent of presentation and qualifier policy. Actual names omit rhs.code after SELECT *. That omission is a genuine scope loss even if output-qualifier policy changes. Core stageShapes returning '*' triggers DorisPipesEngine.stageScopeAt's base-column fallback.",
+    "physical-pipe": "The extra stageScopeAt axis proves the existing physical base-column helper can expose id and label. Native completion still offers no physical columns in this Brikk inspection host with an unused src contract, and PIPE has no native reference/navigation PSI. Do not treat helper schema support as end-to-end completion support."
+  },
+  "expectationReview": [
+    "No incorrect relational SQL expectation was proved. The corpus and all shared representation notes remain byte-identical to DuckDB f6eb18c.",
+    "Doris exposes no PIPE scope-completeness flag or navigation targets through pipeScope/pipeDisplay. Reports use null for unsupported facts rather than invent FULL, PARTIAL or navigation from matching names. These scope-axis failures include API representation gaps, not just wrong column inventories.",
+    "The ordinary references and resolve axes both observe native resolution because Doris has no separate ordinary-SQL relation analyzer. DuckDB's references axis observes its analyzer while resolve observes the native hook. Cross-product reference differences must retain that distinction.",
+    "DuckDB diagnostics come from its relation-contract annotator; Doris has no equivalent partial-contract/PIPE diagnostic annotator. Doris diagnostics here come from the real SqlResolveInspection visitor after DorisHighlightInfoFilter, so generic errors in non-slot negative cases are not Kotlin contract claims.",
+    "Set-output expectations deliberately forbid unique Kotlin origin/navigation. The native resolver's left-output declaration navigation is a policy disagreement with that rule, not evidence of incorrect set rows or SQL column naming. Native query/set-operation grammar and DuckDB's independent engine witnesses agree on the output names.",
+    "The corpus intentionally contains incomplete and non-slot calls. Native syntax refusals for those cases are recorded, not fixed by rewriting shared SQL. Argument-bearing Doris TVFs use named property arguments; qualified src calls and src(1) are not supported relation-slot spellings."
+  ]
+}
