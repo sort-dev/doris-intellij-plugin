@@ -439,6 +439,7 @@
         <completion.contributor language="DorisSQL" id="dorisCompletionContext" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContextContributor"/>
         <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
         <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisQualifiedPathIntrospectContributor"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
@@ -457,8 +458,8 @@
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
         <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisBuiltinFunctionInterceptor"/>
 
-        <!-- DORIS PIPES: "table not introspected" banner for pipe statements. -->
-        <editorNotificationProvider implementation="dev.sort.doris.pipes.DorisPipesNotificationProvider"/>
+        <projectService serviceImplementation="dev.sort.doris.catalog.DorisAutoIntrospectService"/>
+        <editorNotificationProvider implementation="dev.sort.doris.catalog.DorisIntrospectBannerProvider"/>
 
         <!-- DORIS PIPES: balloon channel for pipe-transpile errors at execute time. -->
         <notificationGroup id="Doris Pipes" displayType="BALLOON"/>

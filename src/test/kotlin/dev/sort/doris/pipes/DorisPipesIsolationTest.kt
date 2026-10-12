@@ -29,7 +29,9 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
         }
         for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
-            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver")) {
+            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver",
+            "catalog.CatalogProfile", "catalog.NamespacePathResolver", "catalog.CatalogScopes", "catalog.AutoIntrospectEngine",
+            "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider", "catalog.QualifiedPathIntrospectContributor")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
             assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
@@ -42,8 +44,9 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
         val settings = project.getService(settingsType)!!
-        val introspectionType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesIntrospectionService")
+        val introspectionType = dorisLoader.loadClass("dev.sort.doris.catalog.DorisAutoIntrospectService")
         assertSame(dorisLoader, project.getService(introspectionType)!!.javaClass.classLoader)
+        assertSame(dorisLoader.loadClass("dev.brikk.house.sql.intellij.catalog.AutoIntrospectService"), introspectionType.superclass)
         assertEquals(false, settingsType.getMethod("getEnabled").invoke(settings))
         val setEnabled = settingsType.getMethod("setEnabled", Boolean::class.javaPrimitiveType)
         val policy = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipes")
