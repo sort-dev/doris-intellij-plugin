@@ -5,7 +5,6 @@ import com.intellij.openapi.editor.HighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.fileTypes.SyntaxHighlighterFactory
 import com.intellij.psi.tree.IElementType
-import com.intellij.sql.dialects.base.SqlSyntaxHighlighterFactory
 import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.lexAll
@@ -42,30 +41,20 @@ class DorisMaskedSpanRecolorTest : BasePlatformTestCase() {
         SyntaxHighlighterFactory.getSyntaxHighlighter(DorisSqlDialect.INSTANCE, project, myFixture.file.virtualFile)
             .getTokenHighlights(type).lastOrNull() ?: HighlighterColors.TEXT
 
-    fun testKeywordOverlayUsesSqlColorsAndPreservesOtherTokens() {
-        val sql = "distributed DISTRIBUTED plain_column `distributed` 'distributed' \"distributed\" 42 /* DISTRIBUTED */"
-        val base = object : SqlSyntaxHighlighterFactory.Base(DorisSqlDialect.INSTANCE) {}
-            .getSyntaxHighlighter(project, null)
-        val overlay = DorisSyntaxHighlighterFactory().getSyntaxHighlighter(project, null)
-        val repeated = DorisSyntaxHighlighterFactory().getSyntaxHighlighter(project, null)
-        val original = base.highlightingLexer.lexAll(sql)
-        val actual = overlay.highlightingLexer.lexAll(sql)
-        assertEquals(original.size, actual.size)
-        assertEquals(2, original.zip(actual).count { (before, after) -> before.type != after.type })
-        assertEquals(actual, repeated.highlightingLexer.lexAll(sql))
-        for ((before, after) in original.zip(actual)) {
-            assertEquals(before.start, after.start)
-            assertEquals(before.end, after.end)
-            assertEquals(before.state, after.state)
-            if (before.type == SqlTokens.SQL_IDENT && sql.substring(before.start, before.end).uppercase() in DORIS_KEYWORDS) {
-                assertNotSame(before.type, after.type)
-                assertTrue(base.getTokenHighlights(SqlTokens.SQL_KEYWORD_TOKEN)
-                    .contentEquals(overlay.getTokenHighlights(after.type)))
-            } else {
-                assertSame(before.type, after.type)
-                assertTrue(base.getTokenHighlights(before.type).contentEquals(overlay.getTokenHighlights(after.type)))
-            }
-        }
+    fun testMaskedIdentifierMatchesOrdinaryIdentifierColor() {
+        val sql = "SELECT * EXCEPT(secret_col) FROM (SELECT 1 AS ordinary_col) t;"
+        val all = highlight(sql)
+        val highlighter = SyntaxHighlighterFactory.getSyntaxHighlighter(
+            DorisSqlDialect.INSTANCE, project, myFixture.file.virtualFile,
+        )
+        val ordinary = highlighter.highlightingLexer.lexAll(sql).single { it.start == sql.indexOf("ordinary_col") }
+        assertSame(SqlTokens.SQL_IDENT, ordinary.type)
+        val ordinaryColor = highlighter.getTokenHighlights(ordinary.type).lastOrNull() ?: HighlighterColors.TEXT
+        assertEquals(sqlColor(SqlTokens.SQL_IDENT), ordinaryColor)
+        assertTrue("Masked identifiers must match ordinary identifiers in the same file",
+            recolorsAt(all, sql, "secret_col").contains(ordinaryColor))
+        assertFalse("SQL keyword and identifier colors must differ",
+            sqlColor(SqlTokens.SQL_KEYWORD_TOKEN) == sqlColor(SqlTokens.SQL_IDENT))
     }
 
     fun testCastTargetTypeRecoloredAsKeyword() {
@@ -127,5 +116,16 @@ class DorisMaskedSpanRecolorTest : BasePlatformTestCase() {
             "genuine comments must not be recolored",
             all.none { it.forcedTextAttributesKey != null && it.startOffset >= sql.indexOf("/*") },
         )
+    }
+
+    fun testUnterminatedExceptIdentifierRecoloredAsIdentifier() {
+        val sql = "SELECT * EXCEPT(`secret"
+        val all = highlight(sql)
+        val identifierColor = sqlColor(SqlTokens.SQL_IDENT_DELIMITED)
+        val commentColor = sqlColor(SqlTokens.SQL_BLOCK_COMMENT)
+        assertFalse("Quoted identifiers and comments must have different colors", identifierColor == commentColor)
+        val tailColors = recolorsAt(all, sql, "`secret")
+        assertTrue("The unterminated quoted identifier must get identifier coloring", tailColors.contains(identifierColor))
+        assertFalse("The unterminated quoted identifier must not get comment coloring", tailColors.contains(commentColor))
     }
 }

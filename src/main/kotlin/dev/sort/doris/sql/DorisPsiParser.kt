@@ -152,14 +152,14 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
             // a user-variable reference inside its USE statement, which then red-flags as an
             // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
             // (console schema switching depends on it); only the '@' forms go lenient.
-            "USE" -> builder.scanStatement { _, text -> true.takeIf { text.startsWith('@') } } == true
+            "USE" -> builder.containsToken { it.startsWith('@') }
             "PAUSE", "RESUME" -> isDorisPauseResume(builder)
             "STOP" -> builder.wordAt(1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             // Doris privilege spellings (SELECT_PRIV, LOAD_PRIV, USAGE_PRIV, ...) are identifiers to
             // MySQL's GRANT grammar, which then errors at the following ON. Role-only grants
             // (`GRANT 'role' TO 'user'@'%'`) are valid MySQL and keep their typed statement.
-            "GRANT", "REVOKE" -> builder.scanStatement { _, text -> true.takeIf { text.endsWith("_PRIV", ignoreCase = true) } } == true
+            "GRANT", "REVOKE" -> builder.containsToken { it.endsWith("_PRIV", ignoreCase = true) }
             // Doris `TRUNCATE TABLE t PARTITION (p, ...)` / `PARTITIONS (...)`: MySQL TRUNCATE takes
             // no partition clause. Plain TRUNCATE TABLE keeps MySQL's typed statement (mysql-core/41).
             "TRUNCATE" -> builder.containsAny("PARTITION", "PARTITIONS")
@@ -279,6 +279,9 @@ class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
 
     private fun isCurrentWord(builder: PsiBuilder, expected: String): Boolean =
         builder.tokenText.equals(expected, ignoreCase = true)
+
+    private fun PsiBuilder.containsToken(predicate: (String) -> Boolean): Boolean =
+        scanStatement { _, text -> text.takeIf(predicate) } != null
 
     private fun isQueryStart(builder: PsiBuilder): Boolean =
         isCurrentWord(builder, "SELECT") ||

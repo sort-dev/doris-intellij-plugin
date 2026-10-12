@@ -1,7 +1,9 @@
 package dev.sort.doris.sql
 
-import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
+import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.lexAll
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 
 /**
  * Enter inside a Doris string literal must insert a PLAIN NEWLINE — Doris strings are multi-line
@@ -33,5 +35,13 @@ class DorisEnterInStringTest : BasePlatformTestCase() {
     fun testEnterOutsideStringsStillNormal() {
         val text = typeEnterAt("SELECT 1;<caret>SELECT 2;")
         assertTrue(text.contains("SELECT 1;\nSELECT 2;"))
+    }
+
+    fun testEnterInCustomQuotedQueryStringInsertsPlainNewline() {
+        val sql = "SELECT * FROM QUERY('query' = \"select a<caret> from t where x = 'a'\");"
+        val tokens = DorisLexer().lexAll(sql.replace("<caret>", ""))
+        assertTrue(tokens.any { it.type == SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN })
+        val text = typeEnterAt(sql)
+        assertEquals(sql.replace("<caret>", "\n"), text)
     }
 }

@@ -1,6 +1,8 @@
 package dev.sort.doris.sql
 
+import com.intellij.psi.TokenType
 import com.intellij.sql.dialects.mysql.MysqlLexer
+import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
 import dev.brikk.house.sql.intellij.testing.lexAll
@@ -14,7 +16,7 @@ class DorisLexerTest : BasePlatformTestCase() {
 
     private fun parseTree(sql: String): String {
         val file = com.intellij.psi.PsiFileFactory.getInstance(project)
-            .createFileFromText("t.sql", com.intellij.lang.Language.findLanguageByID("DorisSQL")!!, sql, false, true)
+            .createFileFromText("t.sql", DorisSqlDialect.INSTANCE, sql, false, true)
         return com.intellij.psi.impl.DebugUtil.psiToString(file!!, true)
     }
 
@@ -139,7 +141,7 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertEquals(tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
     }
 
-    fun testTemporaryPartitionMaskSurvivesIncrementalLexerRestart() {
+    fun testTemporaryPartitionMaskMatchesAtStatementBoundaryRestarts() {
         val sql = "SELECT 0;\nINSERT INTO t TEMPORARY PARTITION(p1)\nSELECT * FROM s;"
         assertRestartsMatchFullLex(::DorisLexer, sql)
         val doris = tokens(DorisLexer(), sql)
@@ -162,5 +164,33 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertEquals("preceding range DDL must not affect the following INSERT", standalone,
             full.dropWhile { it != standalone.first() })
         assertRestartsMatchFullLex(::DorisLexer, sql)
+    }
+
+    fun testInsertOverwriteTemporaryPartitionTokens() {
+        val sql = "INSERT OVERWRITE TABLE t TEMPORARY PARTITION(p1) SELECT * FROM s;"
+        val actual = DorisLexer().lexAll(sql).filter { it.type != TokenType.WHITE_SPACE }
+        val mysql = MysqlLexer().lexAll(sql).filter { it.type != TokenType.WHITE_SPACE }
+        assertEquals(mysql.size, actual.size)
+        for ((before, after) in mysql.zip(actual)) {
+            assertEquals(before.start, after.start)
+            assertEquals(before.end, after.end)
+            val word = sql.substring(before.start, before.end)
+            assertSame(word, if (word in setOf("OVERWRITE", "TABLE", "TEMPORARY")) SqlTokens.SQL_BLOCK_COMMENT else before.type,
+                after.type)
+        }
+        assertRestartsMatchFullLex(::DorisLexer, sql)
+    }
+
+    fun testCastTargetsOnlyMaskIdentifierQuotes() {
+        for (function in listOf("CAST", "TRY_CAST", "CONVERT")) {
+            val stringTarget = "SELECT $function(x AS \"text\");"
+            val stringTokens = tokens(DorisLexer(), stringTarget)
+            assertTrue(stringTokens.contains("SQL_STRING_TOKEN '\"text\"'"))
+            assertFalse(stringTokens.any { it.startsWith("SQL_BLOCK_COMMENT") })
+            val identifierTarget = "SELECT $function(x AS `text`);"
+            assertTrue(tokens(DorisLexer(), identifierTarget).contains("SQL_BLOCK_COMMENT 'AS `text`'"))
+            assertRestartsMatchFullLex(::DorisLexer, stringTarget)
+            assertRestartsMatchFullLex(::DorisLexer, identifierTarget)
+        }
     }
 }

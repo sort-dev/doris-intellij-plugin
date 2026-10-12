@@ -10,22 +10,13 @@ import dev.sort.doris.pipes.DorisPipes
 
 class DorisLexer(private val brikkHouse: Boolean = false) : MaskingSqlLexer(
     MysqlLexer(),
-    CastTargetMask(setOf("CAST", "TRY_CAST", "CONVERT"), MYSQL_CAST_TYPES, CastTargetMask.Extent.TargetType),
+    CastTargetMask(setOf("CAST", "TRY_CAST", "CONVERT"), MYSQL_CAST_TYPES, CastTargetMask.Extent.TargetType, quotes = "`"),
 ) {
     private var bindEnds: Map<Int, Int> = emptyMap()
-    private var statementLead: String? = null
 
     override fun onStart(buffer: CharSequence, startOffset: Int, endOffset: Int) {
         bindEnds = if (brikkHouse) DorisPipes.namedParameterRanges(buffer.toString())
             .associate { it.first to it.last + 1 } else emptyMap()
-    }
-
-    override fun resetStatement() {
-        statementLead = null
-    }
-
-    override fun onNote(token: String) {
-        if (statementLead == null && token.firstOrNull()?.isLetter() == true) statementLead = token
     }
 
     override fun rule(base: Lexer, upper: String): Boolean {
@@ -41,7 +32,7 @@ class DorisLexer(private val brikkHouse: Boolean = false) : MaskingSqlLexer(
             upper == "EXCEPT" && isColumnExclusion(base) -> maskWithGroup(base)
             upper == "INSERT" && wordsFollow(base, "OVERWRITE") -> maskInsertOverwriteHeader(base)
             upper == "PARTITION" && isPartitionStar(base) -> maskWithGroup(base)
-            upper == "TEMPORARY" && statementLead in TEMPORARY_PARTITION_STATEMENT_LEADS &&
+            upper == "TEMPORARY" && statementHead in TEMPORARY_PARTITION_STATEMENT_LEADS &&
                 wordsFollow(base, "PARTITION") -> maskWords(base, 1)
             upper == "REGEXP" && nextIs(base, "(") -> emitAs(base, SqlTokens.SQL_IDENT)
             base.tokenType == SqlTokens.SQL_IDENT_DELIMITED &&
