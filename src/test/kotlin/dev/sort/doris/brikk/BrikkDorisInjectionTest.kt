@@ -381,6 +381,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
         val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "code" }
         assertTrue("Keep the platform completion object", item.`object` is com.intellij.sql.psi.SqlResolveResult)
+        assertTrue(com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(item).isTypeGrayed)
         myFixture.lookup.currentItem = item
         myFixture.finishLookup(com.intellij.codeInsight.lookup.Lookup.NORMAL_SELECT_CHAR)
         val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(myFixture.file)

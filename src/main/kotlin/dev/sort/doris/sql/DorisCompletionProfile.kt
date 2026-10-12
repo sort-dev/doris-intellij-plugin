@@ -47,7 +47,7 @@ object DorisCompletionProfile : SqlCompletionProfile {
     override fun builtinFunctionFilter(file: PsiFile): ((String) -> Boolean)? {
         val id = DorisBuiltinCatalog.dataSourceIdFor(file)
         if (!DorisBuiltinCatalog.hasData(id)) return null
-        return { name -> metadata.default.functions.isKnown(name) || DorisBuiltinCatalog.isServed(name.uppercase(), id) }
+        return { name -> !DorisBuiltinCatalog.suppresses(name.uppercase(), id, metadata.default.functions.isKnown(name)) }
     }
 
     override val styles = SqlLookupStyles.DEFAULT.let { defaults ->

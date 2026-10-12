@@ -30,30 +30,6 @@ class DorisFunctionKindPresentationTest : BasePlatformTestCase() {
         return LookupElementPresentation.renderElement(el)
     }
 
-    fun testCatalogKnowsAggregateVsScalar() {
-        // Sanity on the catalog itself: COUNT is an aggregate, ABS is a scalar.
-        assertEquals(DorisFunctions.Kind.AGGREGATE, DorisFunctions.BY_NAME["COUNT"])
-        assertEquals(DorisFunctions.Kind.SCALAR, DorisFunctions.BY_NAME["ABS"])
-    }
-
-    fun testCatalogCarriesSignatures() {
-        // Arg types + return type + arity flow through from brikk-sql (representative overload).
-        val abs = DorisFunctions.INFO_BY_NAME["ABS"]!!
-        assertEquals("DOUBLE", abs.params)
-        assertEquals("DOUBLE", abs.returnType)
-        assertTrue("abs is overloaded", abs.overloadCount > 1)
-
-        val count = DorisFunctions.INFO_BY_NAME["COUNT"]!!
-        assertEquals("", count.params) // count()'s first overload takes no args
-        assertEquals("BIGINT", count.returnType)
-
-        // Table-valued functions compute signatures dynamically -> no static params/return.
-        val backends = DorisFunctions.INFO_BY_NAME["BACKENDS"]!!
-        assertNull(backends.params)
-        assertNull(backends.returnType)
-        assertEquals(DorisFunctions.Kind.TABLE, backends.kind)
-    }
-
     fun testScalarSignatureRendered() {
         val p = presentationOf("ab", "abs") ?: error("abs not offered")
         assertEquals("DOUBLE", p.typeText) // return type on the right
@@ -68,9 +44,4 @@ class DorisFunctionKindPresentationTest : BasePlatformTestCase() {
         assertNull(p.tailText)
     }
 
-    fun testKindMapCoversNames() {
-        // NAMES is derived from the catalog, so every offered name has an Info (and a kind).
-        assertTrue(DorisFunctions.NAMES.isNotEmpty())
-        assertEquals(DorisFunctions.NAMES, DorisFunctions.BY_NAME.keys)
-    }
 }

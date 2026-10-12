@@ -4,8 +4,8 @@ import com.intellij.codeInsight.completion.CompletionContributor
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElement
-import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.database.model.ObjectKind
+import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlAsExpression
@@ -21,7 +21,6 @@ import dev.brikk.house.intellij.ShapeResult
 import dev.brikk.house.sql.intellij.SqlColumnCompletion
 import dev.brikk.house.sql.intellij.SqlColumnFacts
 import dev.brikk.house.sql.intellij.completion.SqlLookupStyle
-import com.intellij.icons.AllIcons
 import dev.sort.doris.brikk.BrikkDorisContext
 
 /** Display metadata only. SQL types, resolution, insertion and navigation stay with the platform. */
@@ -45,17 +44,12 @@ internal data class BrikkColumnDisplay(
 
     fun lookup(): LookupElement = SqlColumnCompletion.create(facts(), SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0))
 
-    fun presentation(): LookupElementPresentation = LookupElementPresentation().also { lookup().renderElement(it) }
-    val typeText: String get() = requireNotNull(presentation().typeText)
-    val tailText: String get() = presentation().tailText.orEmpty()
-
     companion object {
         fun from(column: ColumnContract, origin: String) = BrikkColumnDisplay(column.name,
             column.kotlinClassId, column.nullability, origin, column.navigation?.kind == NavigationKind.RELATION_FALLBACK)
     }
 }
 
-/** Decorate only native SQL candidates whose source context matches a current helper contract. */
 class BrikkColumnCompletion : CompletionContributor() {
     override fun fillCompletionVariants(parameters: CompletionParameters, result: CompletionResultSet) {
         val file = parameters.originalFile
@@ -73,16 +67,15 @@ class BrikkColumnCompletion : CompletionContributor() {
             val shape = (contracts[slot] as? ShapeResult.Available)?.shape ?: return@flatMap emptyList()
             val alias = (call.parent?.parent as? SqlAsExpression)?.name ?: slot
             if (qualifier != null && !qualifier.equals(alias, true)) return@flatMap emptyList()
-            shape.columns.map { BrikkColumnDisplay.from(it, alias).facts(call) }
+            shape.columns.map { BrikkColumnDisplay.from(it, alias).facts(call.textRange) }
         }
         SqlColumnCompletion.createOrDecorate(parameters, result, columns,
             SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0)) { lookup ->
-            val display = displayFor(lookup, query, contracts, qualifier)
-            columns.singleOrNull { it.name.equals(display?.name, true) && it.relationAlias == display?.origin }
+            displayFor(lookup, query, contracts, qualifier)
         }
     }
 
-    private fun displayFor(lookup: LookupElement, query: PsiElement, contracts: Map<String, ShapeResult>, qualifier: String?): BrikkColumnDisplay? {
+    private fun displayFor(lookup: LookupElement, query: PsiElement, contracts: Map<String, ShapeResult>, qualifier: String?): SqlColumnFacts? {
         val symbol = ((lookup.`object` as? SqlResolveResult)?.targetSymbol as? DasVirtualSymbol)
             ?: lookup.`object` as? DasVirtualSymbol ?: lookup.psiElement as? DasVirtualSymbol ?: return null
         if (symbol.kind != ObjectKind.COLUMN) return null
@@ -93,7 +86,7 @@ class BrikkColumnCompletion : CompletionContributor() {
             val slot = BrikkRelationColumns.slotName(call) ?: return null
             val shape = (contracts[slot] as? ShapeResult.Available)?.shape ?: return null
             val column = shape.columns.singleOrNull { it.name.equals(name, true) } ?: return null
-            return BrikkColumnDisplay.from(column, (call.parent?.parent as? SqlAsExpression)?.name ?: slot)
+            return BrikkColumnDisplay.from(column, (call.parent?.parent as? SqlAsExpression)?.name ?: slot).facts(call.textRange)
         }
         val url = source.containingFile?.virtualFile?.url
         fun at(location: dev.brikk.house.intellij.SourceLocation?) = location != null && location.fileUrl == url &&
@@ -107,9 +100,9 @@ class BrikkColumnCompletion : CompletionContributor() {
                 // Exact property, the relation fallback, or this fragment's own Kotlin host.
                 column.name.equals(name, true) && (at(column.navigation?.location) ||
                     at(shape.navigation?.location) || source is com.intellij.psi.PsiLanguageInjectionHost)
-            }.map { BrikkColumnDisplay.from(it, origin) }
+            }.map { BrikkColumnDisplay.from(it, origin).facts(call.textRange) }
         }
-        val qualified = qualifier?.let { q -> matches.filter { it.origin.equals(q, true) } }.orEmpty()
+        val qualified = qualifier?.let { q -> matches.filter { it.relationAlias.equals(q, true) } }.orEmpty()
         return (qualified.ifEmpty { matches }).distinct().singleOrNull()
     }
 }

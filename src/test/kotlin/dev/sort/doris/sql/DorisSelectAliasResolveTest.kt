@@ -1,6 +1,6 @@
 package dev.sort.doris.sql
 
-import com.intellij.lang.Language
+import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.util.PsiTreeUtil
@@ -12,7 +12,7 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
- * [DorisSelectAliasResolveExtension]: a SELECT-list alias must resolve inside HAVING / GROUP BY /
+ * [DorisAliasResolveExtension]: a SELECT-list alias must resolve inside HAVING / GROUP BY /
  * ORDER BY on DorisSQL, exactly as it does on MySQL (the platform gates this behind a hardcoded
  * MySQL-family DBMS allowlist a plugin dialect cannot join — see the extension KDoc).
  *
@@ -62,7 +62,7 @@ class DorisSelectAliasResolveTest : BasePlatformTestCase() {
 
     /** (name, resolvedTarget) for every unqualified reference inside HAVING/GROUP BY/ORDER BY. */
     private fun resolveTailAliases(langId: String): List<Pair<String, PsiElement?>> {
-        val lang = Language.findLanguageByID(langId) ?: error("no language $langId")
+        val lang = if (langId == "DorisSQL") DorisSqlDialect.INSTANCE else MysqlDialect.INSTANCE
         val file = PsiFileFactory.getInstance(project).createFileFromText("corpus.sql", lang, sql, false, true)!!
         return PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java)
             .filter { ref ->

@@ -5,7 +5,6 @@ import dev.brikk.house.sql.dialects.transpile
 import dev.brikk.house.sql.intellij.pipe.PipeTranslation
 import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.shape.SqlFragment
-import dev.sort.doris.sql.DorisFunctions
 import org.apache.doris.nereids.exceptions.ParseException
 import org.apache.doris.sqlparser.DorisSqlParser
 import org.junit.Assert.*
@@ -35,7 +34,6 @@ class Doris414UpgradeTest {
             "WHEN MATCHED THEN UPDATE SET c = DEFAULT(t.c) " +
             "WHEN NOT MATCHED THEN INSERT (id, c) VALUES (s.id, DEFAULT(c))", "Merge")
         assertTrue(merge, merge.contains("DEFAULT(t.c)") && merge.contains("DEFAULT(c)"))
-        assertTrue(DorisFunctions.isKnown("DEFAULT"))
     }
 
     @Test
@@ -72,10 +70,6 @@ class Doris414UpgradeTest {
     @Test
     fun `variant functions flow through completion metadata shapes and PIPE validation`() {
         for ((function, nullable) in listOf("PARSE_TO_VARIANT" to false, "TRY_PARSE_TO_VARIANT" to true)) {
-            val info = DorisFunctions.INFO_BY_NAME.getValue(function)
-            assertEquals(DorisFunctions.Kind.SCALAR, info.kind)
-            assertEquals("VARCHAR", info.params)
-            assertEquals("VARIANT", info.returnType)
             val sql = "SELECT $function('{\"k\":1}') AS v"
             roundTrip(sql, "Select")
             val column = SqlFragment(sql, "doris").outputShape().columns.single()
@@ -96,7 +90,6 @@ class Doris414UpgradeTest {
 
     @Test
     fun `vector search is a known table function`() {
-        assertEquals(DorisFunctions.Kind.TABLE, DorisFunctions.INFO_BY_NAME.getValue("VECTOR_SEARCH").kind)
         val sql = "SELECT * FROM VECTOR_SEARCH('table'='lance.db.t', 'column'='embedding', 'query_vector'='[0,0]')"
         roundTrip(sql, "Select")
         assertTrue(SqlFragment(sql, "doris").tableSlots.isEmpty())

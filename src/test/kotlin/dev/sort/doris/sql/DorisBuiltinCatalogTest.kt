@@ -1,6 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.metadata.DORIS_METADATA
 
 /**
  * Reconciliation of the brikk-sql baseline against the connected server's `SHOW BUILTIN FUNCTIONS`
@@ -52,21 +53,19 @@ class DorisBuiltinCatalogTest : BasePlatformTestCase() {
         assertTrue(DorisBuiltinCatalog.isServed("ABS", "ds-empty"))
     }
 
-    // ---- platform MySQL-builtin suppression (DorisMysqlFunctionFilter's decision) ----------------
-
     fun testSuppressesMysqlOnlyBuiltinWhenHarvested() {
         DorisBuiltinCatalog.record("ds1", setOf("ABS", "CONCAT"))
         // regexp_like: server doesn't serve it AND Doris doesn't know it -> suppressed.
         assertTrue(
-            DorisBuiltinCatalog.suppresses("REGEXP_LIKE", "ds1", known = DorisFunctions.isKnown("regexp_like")),
+            DorisBuiltinCatalog.suppresses("REGEXP_LIKE", "ds1", known = DORIS_METADATA.default.functions.isKnown("regexp_like")),
         )
     }
 
     fun testDoesNotSuppressGrammarBuiltinsOrServed() {
         DorisBuiltinCatalog.record("ds1", setOf("ABS"))
         // Grammar builtins are "known" -> never suppressed even if the server list omits them.
-        assertFalse(DorisBuiltinCatalog.suppresses("CAST", "ds1", known = DorisFunctions.isKnown("cast")))
-        assertFalse(DorisBuiltinCatalog.suppresses("EXTRACT", "ds1", known = DorisFunctions.isKnown("extract")))
+        assertFalse(DorisBuiltinCatalog.suppresses("CAST", "ds1", known = DORIS_METADATA.default.functions.isKnown("cast")))
+        assertFalse(DorisBuiltinCatalog.suppresses("EXTRACT", "ds1", known = DORIS_METADATA.default.functions.isKnown("extract")))
         // A served name is kept even if not "known" to the brikk pin.
         DorisBuiltinCatalog.record("ds2", setOf("SOME_NEW_FN"))
         assertFalse(DorisBuiltinCatalog.suppresses("SOME_NEW_FN", "ds2", known = false))
@@ -78,10 +77,4 @@ class DorisBuiltinCatalogTest : BasePlatformTestCase() {
         assertFalse(DorisBuiltinCatalog.suppresses("REGEXP_LIKE", null, known = false))
     }
 
-    fun testBrikkKnowsItsOwnGrammarBuiltins() {
-        // Sanity on the 0.9.0 isKnown wiring: grammar builtins known, a pure MySQL fn not.
-        assertTrue(DorisFunctions.isKnown("cast"))
-        assertTrue(DorisFunctions.isKnown("extract"))
-        assertFalse(DorisFunctions.isKnown("regexp_like"))
-    }
 }

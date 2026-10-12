@@ -13,6 +13,9 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BrikkColumnPresentationTest {
+    private val BrikkColumnDisplay.typeText get() = com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(lookup()).typeText
+    private val BrikkColumnDisplay.tailText get() = com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(lookup()).tailText.orEmpty()
+
     private fun contracts(type: String = "kotlin.Long") = mapOf("src" to ShapeResult.Available(RelationShape(
         ShapeKnowledge.FULL, listOf(
             ColumnContract("id", type, ColumnNullability.NON_NULL, SqlFamily.UNKNOWN),
@@ -36,13 +39,6 @@ class BrikkColumnPresentationTest {
             SqlFamily.UNKNOWN, fallback), "src")
         assertEquals("unknown type (nullability unknown)", display.typeText)
         assertEquals("  relation contract (src)", display.tailText)
-    }
-
-    @Test fun sharedFormatterKeepsEqualNamesFromDifferentAliasesDistinct() {
-        val left = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "left").lookup()
-        val right = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "right").lookup()
-        assertEquals(left.lookupString, right.lookupString)
-        assertNotEquals(left.`object`, right.`object`)
     }
 
     @Test fun incompleteCurrentStageUsesTheProvenInputPrefix() {

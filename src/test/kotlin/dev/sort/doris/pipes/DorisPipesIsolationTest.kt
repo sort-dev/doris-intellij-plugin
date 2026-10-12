@@ -28,6 +28,12 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             assertSame(dorisLoader, shared.classLoader)
             assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
         }
+        for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
+            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension")) {
+            val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
+            assertSame(dorisLoader, shared.classLoader)
+            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
+        }
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
