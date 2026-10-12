@@ -436,21 +436,15 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageKeywordAnnotator"/>
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
-        <completion.contributor language="DorisSQL" id="dorisMetadataCompletion" order="first" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
+        <completion.contributor language="DorisSQL" id="dorisCompletionContext" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContextContributor"/>
+        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
+        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
-        <completion.contributor language="DorisSQL" order="first, before dorisMetadataCompletion" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
+        <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
-        <!-- Exposes SELECT-list aliases as resolution/completion targets in HAVING / GROUP BY /
-             ORDER BY. The platform gates this behind a hardcoded MySQL-family Dbms allowlist that a
-             plugin dialect cannot join; this re-issues the platform's own selectClause scope call
-              for DORIS. The EP has no dbms filter, so the
-             implementation self-gates to DORIS. -->
+        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
         <sql.resolveExtension implementation="dev.sort.doris.sql.DorisAliasResolveExtension"/>
         <gotoDeclarationHandler implementation="dev.sort.doris.sql.BrikkRelationNavigation"/>
-        <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
-             pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
         <completion.confidence language="DorisSQL" order="first"
                                implementationClass="dev.sort.doris.sql.DorisCompletionConfidence"/>
 

@@ -15,6 +15,7 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlSetAssignment
 import com.intellij.sql.psi.SqlSetOperatorExpression
 import com.intellij.sql.psi.SqlStatement
+import dev.brikk.house.sql.metadata.OutputSchema.Open
 import dev.sort.doris.pipes.DorisPipes
 
 /**
@@ -452,7 +453,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             val from: PsiElement? = query.tableExpression
             if (from != null &&
                 PsiTreeUtil.findChildrenOfType(from, SqlFunctionCallExpression::class.java).any {
-                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is dev.brikk.house.sql.metadata.OutputSchema.Open
+                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is Open
                 }
             ) return true
             query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)

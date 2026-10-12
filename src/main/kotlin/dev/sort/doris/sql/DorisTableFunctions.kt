@@ -74,7 +74,8 @@ object DorisTableFunctions {
         }
     ))
 
-    private val byLowerName = (DORIS_METADATA.default.tableFunctions.orEmpty() + icebergMeta)
+    internal val all = DORIS_METADATA.default.tableFunctions.orEmpty() + icebergMeta
+    private val byLowerName = all
         .filter { it.queryable }.associateBy { it.name.lowercase() }
 
     fun byName(name: String?): TableFunctionInfo? = name?.let { byLowerName[it.lowercase()] }
