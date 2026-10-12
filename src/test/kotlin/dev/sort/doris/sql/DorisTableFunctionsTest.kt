@@ -103,19 +103,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue(resolveColumn(sql, "State"))
     }
 
-    fun testIcebergMetaVariantByQueryTypeLiteral() {
-        val sql = "SELECT snapshot_id, operation FROM iceberg_meta(\"table\"=\"acme_ctl.db.tbl\", \"query_type\"=\"snapshots\")"
-        assertTrue(resolveColumn(sql, "snapshot_id"))
-        assertTrue(resolveColumn(sql, "operation"))
-        assertFalse(
-            "files-only column must not resolve for snapshots",
-            resolveColumn(
-                "SELECT file_path FROM iceberg_meta(\"table\"=\"acme_ctl.db.tbl\", \"query_type\"=\"snapshots\")",
-                "file_path"
-            )
-        )
-    }
-
     fun testS3OpenRelationHasNoFabricatedColumns() {
         val sql = "SELECT c1 FROM s3(\"uri\"=\"s3://acme-bucket/x.csv\", \"format\"=\"csv\")"
         assertEquals("open relation must expose no fabricated columns", emptyList<String>(), tableTypeColumns(sql))
@@ -147,7 +134,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     fun testResearchDocTierAInventoryIsRegistered() {
         val expected = listOf(
             "backends", "frontends", "frontends_disks", "catalogs", "mv_infos", "partitions",
-            "numbers", "jobs", "tasks", "hudi_meta", "iceberg_meta",
+            "numbers", "jobs", "tasks", "hudi_meta",
             "s3", "hdfs", "local", "http", "query", "partition_values", "vector_search",
             "file", "parquet_meta", "parquet_file_metadata", "parquet_kv_metadata", "parquet_bloom_probe",
         )
@@ -230,11 +217,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue("property key 'type' offered, got: $lookups", lookups.contains("type"))
     }
 
-    fun testCompletionOffersPropertyKeysInsideQuotes() {
-        val lookups = completionsAt("SELECT * FROM iceberg_meta(\"query<caret>\");")
-        assertTrue("query_type offered, got: $lookups", lookups.contains("query_type"))
-    }
-
     fun testCompletionOffersEnumValues() {
         val lookups = completionsAt("SELECT * FROM tasks(\"type\"=\"<caret>\");")
         assertTrue("enum values offered, got: $lookups", lookups.containsAll(listOf("insert", "mv")))
@@ -248,11 +230,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         val lookups = completionsAt("SELECT * FROM s3('<caret>');")
         assertTrue("property key 'uri' offered, got: ${lookups.take(20)}", lookups.contains("uri"))
         assertTrue("property key 'format' offered", lookups.contains("format"))
-    }
-
-    fun testCompletionOffersPartialKeyInsideSingleQuotes() {
-        val lookups = completionsAt("SELECT * FROM iceberg_meta('query<caret>');")
-        assertTrue("query_type offered, got: $lookups", lookups.contains("query_type"))
     }
 
     fun testCompletionOffersNextKeyAfterCommaInSingleQuotes() {
@@ -316,21 +293,4 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCompletionOffersTvfNames() {
-        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
-        myFixture.configureByText("c.sql", "SELECT * FROM iceberg<caret>;")
-        val items = myFixture.completeBasic()
-        if (items == null) {
-            // The single matching item was auto-inserted.
-            assertTrue(
-                "iceberg_meta auto-completed, got: ${myFixture.editor.document.text}",
-                myFixture.editor.document.text.contains("iceberg_meta")
-            )
-        } else {
-            assertTrue(
-                "iceberg_meta offered, got: ${items.map { it.lookupString }.take(20)}",
-                items.any { it.lookupString == "iceberg_meta" }
-            )
-        }
-    }
 }

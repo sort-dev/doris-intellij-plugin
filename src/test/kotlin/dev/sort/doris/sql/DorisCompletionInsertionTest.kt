@@ -68,36 +68,6 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         myFixture.checkResult("SELECT current_timestamp(<caret>)")
     }
 
-    fun testIcebergPropertyInsertionUsesDoubleQuotes() {
-        configure("SELECT * FROM iceberg_meta(qu<caret>)")
-        val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "query_type" }
-        myFixture.lookup.currentItem = item
-        myFixture.finishLookup('\n')
-        myFixture.checkResult("SELECT * FROM iceberg_meta(\"query_type\"<caret>)")
-    }
-
-    fun testIcebergQueryTypesAreRetained() {
-        configure("SELECT * FROM iceberg_meta('query_type'='<caret>')")
-        val names = myFixture.completeBasic().orEmpty().map { it.lookupString }.toSet()
-        assertTrue(names.toString(), names.containsAll(listOf("snapshots", "manifests", "all_manifests", "files",
-            "data_files", "delete_files", "partitions", "refs", "history", "metadata_log_entries")))
-    }
-
-    fun testHarvestWithoutIcebergMetaStillOffersRetainedTvf() {
-        configure("SELECT * FROM <caret>")
-        RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
-            val id = recording.console.dataSource.uniqueId
-            catalog.harvest(recording.console.dataSource, listOf("ABS"))
-            assertEquals(id, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
-            val items = myFixture.completeBasic().orEmpty()
-            val iceberg = items.singleOrNull { it.lookupString == "iceberg_meta" && it.`object` is FunctionPresentation }
-            assertNotNull("iceberg_meta must remain offered when the console harvest omits it", iceberg)
-            assertEquals("Doris table function", LookupElementPresentation.renderElement(iceberg!!).typeText)
-            assertFalse("Registry functions absent from the harvest must still be filtered",
-                items.any { it.lookupString == "acos" && it.`object` is FunctionPresentation })
-        }
-    }
-
     fun testHarvestOffersGrammarFormsAndServerOnlyFunctions() {
         configure("SELECT <caret>")
         RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->

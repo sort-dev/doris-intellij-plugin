@@ -16,10 +16,7 @@ import dev.brikk.house.sql.intellij.completion.SqlLookupStyles
 import dev.brikk.house.sql.intellij.completion.completableFunctions
 import dev.brikk.house.sql.intellij.psi.SelectAliasResolveExtension
 import dev.brikk.house.sql.metadata.DORIS_METADATA
-import dev.brikk.house.sql.metadata.FunctionDef
-import dev.brikk.house.sql.metadata.FunctionKind
 import dev.brikk.house.sql.metadata.MetadataSnapshot
-import dev.brikk.house.sql.metadata.presentation
 import dev.sort.doris.DorisDbms
 
 object DorisCompletionProfile : SqlCompletionProfile {
@@ -38,8 +35,7 @@ object DorisCompletionProfile : SqlCompletionProfile {
             grammarForms = it.grammarForms,
         )
     }
-    internal val baseline = completionSnapshot.completableFunctions() +
-        FunctionDef("iceberg_meta", kind = FunctionKind.TABLE_VALUED).presentation()
+    internal val baseline = completionSnapshot.completableFunctions()
 
     override fun snapshot(file: PsiFile) = completionSnapshot
 

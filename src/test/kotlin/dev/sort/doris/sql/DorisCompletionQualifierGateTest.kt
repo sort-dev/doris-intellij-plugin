@@ -34,7 +34,7 @@ class DorisCompletionQualifierGateTest : BasePlatformTestCase() {
         // ...but none of OUR function items leak in (the user-reported offender first).
         assertFalse("scalar function 'mid' must not be offered after 'v.'", lookups.contains("mid"))
         assertFalse("scalar function 'abs' must not be offered after 'v.'", lookups.contains("abs"))
-        assertFalse("TVF 'iceberg_meta' must not be offered after 'v.'", lookups.contains("iceberg_meta"))
+        assertFalse("TVF 'tasks' must not be offered after 'v.'", lookups.contains("tasks"))
     }
 
     fun testTableQualifiedPositionOffersNoFunctionsEither() {

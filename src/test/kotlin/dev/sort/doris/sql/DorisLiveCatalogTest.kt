@@ -94,11 +94,11 @@ class DorisLiveCatalogTest : BasePlatformTestCase() {
         }
     }
 
-    fun testHarvestRetainsIcebergAndGrammarFormsAndRejectsNonQueryableExtras() {
+    fun testHarvestRetainsGrammarFormsAndRejectsNonQueryableExtras() {
         RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
             catalog.harvest(recording.console.dataSource, listOf("ABS", "BINLOG", "GROUP_COMMIT", "HTTP_STREAM", "CDC_STREAM"))
             val functions = DorisCompletionProfile.functions(myFixture.file)
-            assertContainsElements(functions.map { it.name.lowercase() }, "iceberg_meta", "cast", "extract")
+            assertContainsElements(functions.map { it.name.lowercase() }, "cast", "extract")
             assertSame(DorisCompletionProfile.snapshot(myFixture.file), DorisCompletionProfile.snapshot(myFixture.file))
             assertEquals(DorisTableFunctions.all, DorisCompletionProfile.snapshot(myFixture.file).tableFunctions)
             assertTrue(DorisCompletionProfile.serverOnlyFunctions(myFixture.file).isEmpty())
