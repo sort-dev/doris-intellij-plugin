@@ -3,12 +3,14 @@ package dev.sort.doris.sql
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.metadata.FunctionPresentation
+import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.sort.doris.setSqlDialectMapping
 import icons.DatabaseIcons
 
 class DorisCompletionInsertionTest : BasePlatformTestCase() {
     override fun tearDown() {
         try {
+            DorisBuiltinCatalog.clear()
             setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
@@ -71,6 +73,21 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         val names = myFixture.completeBasic().orEmpty().map { it.lookupString }.toSet()
         assertTrue(names.toString(), names.containsAll(listOf("snapshots", "manifests", "all_manifests", "files",
             "data_files", "delete_files", "partitions", "refs", "history", "metadata_log_entries")))
+    }
+
+    fun testHarvestWithoutIcebergMetaStillOffersRetainedTvf() {
+        configure("SELECT * FROM <caret>")
+        RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
+            val id = recording.console.dataSource.uniqueId
+            DorisBuiltinCatalog.record(id, setOf("ABS"))
+            assertEquals(id, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            val items = myFixture.completeBasic().orEmpty()
+            val iceberg = items.singleOrNull { it.lookupString == "iceberg_meta" && it.`object` is FunctionPresentation }
+            assertNotNull("iceberg_meta must remain offered when the console harvest omits it", iceberg)
+            assertEquals("Doris table function", LookupElementPresentation.renderElement(iceberg!!).typeText)
+            assertFalse("Registry functions absent from the harvest must still be filtered",
+                items.any { it.lookupString == "acos" && it.`object` is FunctionPresentation })
+        }
     }
 
     fun testNonQueryableTableFunctionsAreNotOffered() {

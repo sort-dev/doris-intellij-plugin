@@ -29,14 +29,14 @@ object DorisCompletionProfile : SqlCompletionProfile {
             it.extensions, it.extensionFunctions, it.tableFunctions.orEmpty() + DorisTableFunctions.icebergMeta,
             it.grammarForms)
     }
-    private val baseline = completionSnapshot.completableFunctions() +
-        FunctionDef("iceberg_meta", kind = FunctionKind.TABLE_VALUED).presentation()
-    private val names = baseline.mapTo(HashSet()) { it.name.uppercase() }
+    private val baseline = completionSnapshot.completableFunctions()
+    private val retainedTvfs = listOf(FunctionDef("iceberg_meta", kind = FunctionKind.TABLE_VALUED).presentation())
+    private val names = (baseline + retainedTvfs).mapTo(HashSet()) { it.name.uppercase() }
 
     override fun snapshot(file: PsiFile) = completionSnapshot
 
     override fun functions(file: PsiFile) = DorisBuiltinCatalog.dataSourceIdFor(file).let { id ->
-        baseline.filter { DorisBuiltinCatalog.isServed(it.name.uppercase(), id) }
+        baseline.filter { DorisBuiltinCatalog.isServed(it.name.uppercase(), id) } + retainedTvfs
     }
 
     override fun serverOnlyFunctions(file: PsiFile) =
