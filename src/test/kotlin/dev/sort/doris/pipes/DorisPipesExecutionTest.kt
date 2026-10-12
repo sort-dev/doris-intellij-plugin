@@ -771,7 +771,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     assertEmpty(fixture.previousEvents)
                     val notification = fixture.notifications.last()
                     assertEquals(NotificationType.ERROR, notification.type)
-                    assertEquals("Doris Pipes", notification.title)
+                    assertEquals(DorisPipeDialect.label, notification.title)
                     val translation = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
                     for (warning in translation.result.unsupportedMessages) assertTrue(notificationText(notification), warning in notificationText(notification))
                     assertEquals(sql, fixture.editor.document.text)

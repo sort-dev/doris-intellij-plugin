@@ -90,11 +90,12 @@ internal object DorisPipesExecution : PipeSubmitListener {
         val message = runPipeCatching { info.message }.getOrNull() ?: return
         val mapped = mappedPipeError(message, run.source, run.sourceMap) ?: return
         if (mapped.originalLine == null) return
-        NotificationGroupManager.getInstance().getNotificationGroup("Doris Pipes")
+        NotificationGroupManager.getInstance().getNotificationGroup(DorisPipeDialect.notificationGroup)
             .createNotification(
-                "SQL execution error at line ${mapped.originalLine}",
-                "For the translated SQL, the error was reported as:\n$message\n" +
-                    "(right-click → Doris Pipes → Preview Generated SQL)",
+                DorisPipeDialect.label,
+                "SQL execution error at line ${mapped.originalLine}\n" +
+                    "For the translated SQL, the error was reported as:\n$message\n" +
+                    "(right-click → Doris PIPE → Preview Generated SQL)",
                 NotificationType.WARNING,
             ).notify(run.console.project)
         val file = run.file

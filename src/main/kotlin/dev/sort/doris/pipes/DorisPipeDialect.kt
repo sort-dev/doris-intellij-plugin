@@ -20,7 +20,8 @@ import org.apache.doris.sqlparser.DorisSqlParser
 
 object DorisPipeDialect : PipeDialect {
     override val dialect = "doris"
-    override val label = "Doris Pipes"
+    override val label = "Doris PIPE"
+    override val notificationGroup = "Doris Pipes"
     override val vetoProperty = DorisPipes.PROPERTY
     override val language get() = DorisSqlDialect.INSTANCE
     override val firstStage = FirstStageRule.FromOnly

@@ -6,6 +6,7 @@ import com.intellij.openapi.components.service
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisHighlightInfoFilter
 import dev.sort.doris.sql.DorisSqlDialect
@@ -58,7 +59,7 @@ class DorisPipeDiagnosticsTest : BasePlatformTestCase() {
     fun testDorisOwnedPipeAndServerDiagnosticsAlwaysSurviveFiltering() {
         val file = dorisFile("server.sql", "FROM t |> SELECT missing;")
         val filter = DorisHighlightInfoFilter()
-        assertTrue(filter.accept(infoAt(file.text, "missing", "Doris Pipes: invalid stage"), file))
+        assertTrue(filter.accept(infoAt(file.text, "missing", "$DORIS_PIPE_DIAGNOSTIC_PREFIX invalid stage"), file))
         assertTrue(
             filter.accept(
                 infoAt(file.text, "missing", "Doris (server): Unable to resolve object type at missing"),

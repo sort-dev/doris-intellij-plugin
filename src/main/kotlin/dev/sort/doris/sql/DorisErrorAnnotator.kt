@@ -18,7 +18,7 @@ import org.antlr.v4.runtime.Recognizer
 import org.antlr.v4.runtime.Token
 import org.apache.doris.sqlparser.DorisSqlParser
 
-internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris Pipes:"
+internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris PIPE:"
 internal const val DORIS_SERVER_DIAGNOSTIC_PREFIX = "Doris (server):"
 
 internal fun withoutPipeChunkErrors(text: String, errors: List<DorisSyntaxError>): List<DorisSyntaxError> {

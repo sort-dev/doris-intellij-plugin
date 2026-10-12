@@ -8,6 +8,7 @@ import dev.brikk.house.sql.metadata.FunctionDef
 import dev.brikk.house.sql.parser.PipeStageCut
 import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.shape.SqlFragment
+import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisSyntaxError
 import dev.sort.doris.sql.withoutPipeChunkErrors
@@ -219,7 +220,7 @@ class DorisPipesTest {
         val engineError = DorisPipeDialect.lower(chunk.text) as PipeTranslation.Refused
         val before = chunk.text.take(engineError.range!!.start)
         assertEquals(before.length - (before.lastIndexOf('\n') + 1), errors.single().col)
-        assertTrue(errors.single().message.startsWith("Doris Pipes:"))
+        assertTrue(errors.single().message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX))
     }
 
     @Test
@@ -233,7 +234,7 @@ class DorisPipesTest {
         val text = "SELECT FROM; FROM t |> LIMIT 1;"
         val errors = annotator.doAnnotate(DorisErrorAnnotator.Input(text, pipesEnabled = true)).errors
         assertTrue(errors.isNotEmpty())
-        assertTrue(errors.none { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors.none { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors.all { (it.startOffsetIn(text) ?: -1) < text.indexOf(';') })
 
         val reverse = "FROM t |> LIMIT 1; SELECT \uD83D\uDE00 FROM;"
@@ -248,7 +249,7 @@ class DorisPipesTest {
         val text = "FROM t |> WHERE; FROM u |> WHERE name = 'unterminated"
         val errors = DorisPipesEngine.pipeSyntaxErrors(text)
         assertEquals(2, errors.size)
-        assertTrue(errors.all { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors.all { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors[0].message, errors[0].line == 1)
         assertTrue(errors[1].message.contains("Unterminated SQL string"))
     }

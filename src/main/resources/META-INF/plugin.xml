@@ -19,7 +19,7 @@
                 including schema-by-argument (<code>tasks("type"="mv")</code>)</li>
             <li><b>Reliable query cancel.</b> The Stop button kills the running Doris query even
                 behind a load balancer, where the driver's own cancel silently misses</li>
-            <li><b>Doris Pipes (optional).</b> Write GoogleSQL-style pipe syntax
+            <li><b>Doris PIPE (optional).</b> Write queries supported by Doris PIPE syntax
                 (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) directly in Doris consoles —
                 it transpiles to standard Doris SQL on run, with per-stage completion, run-to-stage,
                 generated-SQL preview, and errors mapped back to the pipe line you wrote.
@@ -297,14 +297,14 @@
         <b>0.7.1</b> — internal-API cleanup flagged by Marketplace verification (one platform
         accessor replaced with its public equivalent). No functional changes.
         <br/>
-        <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
+        <b>0.7.0</b> — Doris PIPE (pipe-syntax SQL, optional) and automatic targeted introspection.
         <ul>
-            <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax
+            <li><b>Doris PIPE:</b> author queries supported by Doris PIPE syntax
                 (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) in Doris consoles and run
                 them against any Doris — the plugin transpiles them to standard Doris SQL at
                 execution time (the generated SQL is what the server sees). Includes pipe-aware
                 statement boundaries and syntax checking, per-stage column completion (aliases and
-                join relations included), a right-click <i>Doris Pipes</i> menu with
+                join relations included), a right-click <i>Doris PIPE</i> menu with
                 <i>Preview Generated SQL</i> (syntax-highlighted) and <i>Run Stages up to Caret</i>,
                 and server errors mapped back to the exact line and column of the pipe SQL you
                 wrote. Requires the free <b>SQL Transpiler</b> plugin
@@ -464,7 +464,7 @@
         <editorNotificationProvider implementation="dev.sort.doris.catalog.DorisIntrospectBannerProvider"/>
 
         <!-- DORIS PIPES: balloon channel for pipe-transpile errors at execute time. -->
-        <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
+        <notificationGroup id="Doris Pipes" displayType="BALLOON" bundle="messages.DorisBundle" key="notification.group.doris.pipe"/>
         <notificationGroup id="Doris Functions" displayType="BALLOON"/>
 
     </extensions>

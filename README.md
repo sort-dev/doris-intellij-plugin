@@ -47,13 +47,13 @@ Part of our SQL-tooling family alongside:
   even behind a load balancer — and with several console windows on the same data source, each
   Stop kills exactly its own console's query (0.6.0).
   See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
-- **Doris Pipes** (0.7.0, optional): write GoogleSQL-style pipe syntax in Doris consoles and run it
+- **Doris PIPE** (0.7.0, optional): write queries supported by Doris PIPE syntax in Doris consoles and run them
   against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
   run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Execute
   variants keep their configured statement/script scope, new-tab behavior, parameter prompting,
   and console ownership when ordinary SQL and pipe statements are mixed.
   Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
-  See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
+  See [Doris PIPE](#doris-pipe--pipe-syntax-sql-optional-since-070).
 - **Brikk-house Kotlin editing**: recognized `Sql.doris` calls inside `@BrikkSql` automatically
   enable pipe parsing and treat scalar Kotlin interpolations as SQL binds, preserving Kotlin
   references. Kotlin support is optional. See [Brikk-house editing](BRIKK-HOUSE.md) for scope and limits.
@@ -175,9 +175,9 @@ The escape hatch back to the stock (driver-only) cancel:
 Tip: prefer Doris' own `query_timeout` session/global variable over the data source's JDBC
 "query timeout" option — the JDBC timeout uses the same broken second-connection kill.
 
-## Doris Pipes — pipe-syntax SQL (optional, since 0.7.0)
+## Doris PIPE — pipe-syntax SQL (optional, since 0.7.0)
 
-Write queries in [GoogleSQL-style pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide)
+Write queries supported by Doris PIPE syntax, based on [GoogleSQL pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide),
 directly in a Doris console and run them against **any** Apache Doris — no server support needed:
 
 ```sql
@@ -198,7 +198,7 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 - **Per-stage completion**: after `|>`, stage keywords; inside a stage, the columns actually
   flowing *into* that stage — aliases from earlier stages, join relations, and qualified
   `alias.column` references included, fed by your introspected data source.
-- **Run to any stage**: right-click → **Doris Pipes → Run Stages up to Caret** executes just the
+- **Run to any stage**: right-click → **Doris PIPE → Run Stages up to Caret** executes just the
   pipeline prefix at your caret, including the initial `FROM` stage. **Preview
   Generated SQL** shows the transpiled statement, syntax-highlighted, before you commit to running
   anything.

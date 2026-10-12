@@ -72,7 +72,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         // DORIS PIPES: inside a pipe statement the substrate PSI is
         // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
         // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
-        // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
+        // "Doris PIPE:", from DorisErrorAnnotator) are the authority and must stay visible.
         if (DorisPipes.isEditingEnabled(file) &&
             isInsidePipeStatement(file, highlightInfo)
         ) {

@@ -5,6 +5,7 @@ import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.configurationStore.deserialize
 import com.intellij.configurationStore.serialize
 import com.intellij.mock.MockProject
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
@@ -91,6 +92,17 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         DorisPipes.setExecMark(project, "file:///stale.sql", DorisPipes.ExecMark(5, 6, "delayed", text.hashCode()))
         settings.enabled = true
         assertNull(DorisPipes.execMarkFor(project, "file:///stale.sql", text))
+    }
+
+    fun testDecidedLabels() {
+        val configurable = DorisPipesConfigurable(project)
+        try {
+            val checkbox = configurable.createComponent().components.filterIsInstance<JBCheckBox>().single()
+            assertEquals("Doris PIPE support", checkbox.text)
+            assertEquals("Doris PIPE", NotificationGroup.getGroupTitle(DorisPipeDialect.notificationGroup))
+        } finally {
+            configurable.disposeUIResources()
+        }
     }
 
     fun testConfigurableApplyResetAndPersistentStateRoundTrip() {
