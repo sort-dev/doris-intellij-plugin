@@ -17,6 +17,7 @@ sqlDialectPlugin {
             "brikk-sql-jvmMain-${brikk.sql.core.get()}.jar", "brikk-sql-metadata-jvmMain-${brikk.sql.core.get()}.jar",
             "brikk-sql-intellij-support-${brikk.sql.intellij.support.get()}.jar",
             "brikk-engine-kotlin-intellij-support-${brikk.engine.kotlin.intellij.support.get()}.jar",
+            "brikk-sql-verify-doris-${brikk.sql.core.get()}.jar", "brikk-sql-verify-api-${brikk.sql.core.get()}.jar",
             "antlr4-runtime-${antlr.get()}.jar", "doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar",
         )
     }
@@ -36,6 +37,7 @@ dependencies {
     implementation(libs.brikk.engine.kotlin.intellij.support)
     implementation(libs.brikk.sql.jvm)
     implementation(libs.brikk.sql.metadata.jvm)
+    implementation("dev.brikk.house:brikk-sql-verify-doris:${libs.versions.brikk.sql.core.get()}")
     implementation(libs.antlr4.runtime)
     implementation(files("vendor/lib/doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar"))
 }

@@ -31,11 +31,24 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
             "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver",
             "catalog.CatalogProfile", "catalog.NamespacePathResolver", "catalog.CatalogScopes", "catalog.AutoIntrospectEngine",
-            "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider", "catalog.QualifiedPathIntrospectContributor")) {
+            "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider", "catalog.QualifiedPathIntrospectContributor",
+            "catalog.OutOfScopeReferenceFilter", "catalog.IntrospectNamespaceIntention", "catalog.CatalogImports")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
             assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
         }
+        val verifier = dorisLoader.loadClass("dev.brikk.house.sql.verify.DorisVerifier")
+        assertSame(dorisLoader, verifier.classLoader)
+        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-0.20.0-SNAPSHOT.jar"))
+        val verifyResult = dorisLoader.loadClass("dev.brikk.house.sql.verify.VerifyResult")
+        assertSame(dorisLoader, verifyResult.classLoader)
+        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-0.20.0-SNAPSHOT.jar"))
+        val factory = verifier.getField("Companion").get(null)
+        val native = factory.javaClass.getMethod("create", java.nio.file.Path::class.java).invoke(factory, null)
+        val checkCanceled: () -> Unit = com.intellij.openapi.progress.ProgressManager::checkCanceled
+        val verified = verifier.getMethod("verifyScript", String::class.java, Function0::class.java)
+            .invoke(native, "SELECT 1; SELECT 2", checkCanceled)
+        assertEquals("Accepted", verified.javaClass.simpleName)
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)

@@ -11,12 +11,7 @@ import com.intellij.psi.PsiFile
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesEngine
 import dev.sort.doris.pipes.runPipeCatching
-import org.antlr.v4.runtime.BaseErrorListener
-import org.antlr.v4.runtime.DefaultErrorStrategy
-import org.antlr.v4.runtime.RecognitionException
-import org.antlr.v4.runtime.Recognizer
-import org.antlr.v4.runtime.Token
-import org.apache.doris.sqlparser.DorisSqlParser
+import dev.brikk.house.sql.intellij.pipe.NativeVerdict
 
 internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris PIPE:"
 internal const val DORIS_SERVER_DIAGNOSTIC_PREFIX = "Doris (server):"
@@ -38,7 +33,8 @@ internal fun withoutPipeChunkErrors(text: String, errors: List<DorisSyntaxError>
 class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisErrorAnnotator.Result>() {
     data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null,
                      val brikkHouse: Boolean = false)
-    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null)
+    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null,
+                      val nativeVerdict: NativeVerdict = NativeVerdict.Unavailable)
 
     // Still validate when other passes already reported errors.
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Input? =
@@ -59,7 +55,8 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
         // The native grammar has no Brikk binds. Equal-length masks retain authored SQL offsets;
         // this parser input is inspection-only and is never sent to a connection.
         val validationText = if (collectedInfo.brikkHouse) maskBrikkBinds(text) else text
-        val feErrors = validate(validationText)
+        val verification = DorisNativeValidation.verify(validationText)
+        val feErrors = DorisNativeValidation.errors(validationText, verification)
         // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
         // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
         // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
@@ -85,7 +82,8 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
                 )
             }.orEmpty()
         }.getOrDefault(emptyList())
-        return Result(pipesEnabled, base + exec, if (collectedInfo.brikkHouse) text else null)
+        return Result(pipesEnabled, base + exec, if (collectedInfo.brikkHouse) text else null,
+            DorisNativeValidation.verdict(verification))
     }
 
     override fun apply(file: PsiFile, annotationResult: Result, holder: AnnotationHolder) {
@@ -117,39 +115,6 @@ class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisEr
                 setCharAt(range.first, '?')
                 for (index in range.first + 1..range.last) setCharAt(index, ' ')
             }
-        }
-        // Stateless + thread-safe per fe-sql-parser docs; safe to share across background threads.
-        private val PARSER = DorisSqlParser()
-
-        private fun validate(text: String): List<DorisSyntaxError> {
-            val errors = ArrayList<DorisSyntaxError>()
-            val collector = object : BaseErrorListener() {
-                override fun syntaxError(
-                    recognizer: Recognizer<*, *>?,
-                    offendingSymbol: Any?,
-                    line: Int,
-                    charPositionInLine: Int,
-                    msg: String,
-                    e: RecognitionException?
-                ) {
-                    val length = (offendingSymbol as? Token)?.text?.length?.coerceAtLeast(1) ?: 1
-                    errors.add(DorisSyntaxError(line, charPositionInLine, length, msg))
-                }
-            }
-
-            val lexer = PARSER.newLexer(text)
-            lexer.removeErrorListeners()          // drop fe-sql-parser's throwing listener
-            lexer.addErrorListener(collector)
-
-            val parser = PARSER.newParser(lexer)
-            parser.removeErrorListeners()          // ditto — we collect instead of throwing on the first
-            parser.addErrorListener(collector)
-            parser.errorHandler = DefaultErrorStrategy() // recover past errors so we report all of them
-
-            runPipeCatching {
-                parser.multiStatements()           // console text is one or more ';'-separated statements
-            }
-            return errors
         }
     }
 }

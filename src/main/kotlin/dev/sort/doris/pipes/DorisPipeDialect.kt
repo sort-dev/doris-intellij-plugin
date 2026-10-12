@@ -15,8 +15,7 @@ import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.brikk.BrikkDorisContext
 import dev.sort.doris.sql.DorisSqlDialect
-import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
-import org.apache.doris.sqlparser.DorisSqlParser
+import dev.sort.doris.sql.DorisNativeValidation
 
 object DorisPipeDialect : PipeDialect {
     override val dialect = "doris"
@@ -56,13 +55,7 @@ object DorisPipeDialect : PipeDialect {
 
     override val validator = object : NativeSqlValidator {
         override val timing = ValidationTiming.Lowering
-        private val parser = DorisSqlParser()
-
-        override fun validate(sql: String, file: PsiFile?): NativeVerdict = try {
-            parser.parseStatement(sql)
-            NativeVerdict.Accepted
-        } catch (failure: DorisParseException) {
-            NativeVerdict.Rejected(failure.message ?: "Generated Doris SQL failed validation.")
-        }
+        override fun validate(sql: String, file: PsiFile?): NativeVerdict =
+            DorisNativeValidation.verdict(DorisNativeValidation.verify(sql))
     }
 }

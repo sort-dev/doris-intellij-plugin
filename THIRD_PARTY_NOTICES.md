@@ -33,6 +33,8 @@ This plugin bundles the core SQL engine and function metadata libraries from bri
 
 - `dev.brikk.house:brikk-sql-jvm:0.20.0-SNAPSHOT`
 - `dev.brikk.house:brikk-sql-metadata-jvm:0.20.0-SNAPSHOT`
+- `dev.brikk.house:brikk-sql-verify-doris:0.20.0-SNAPSHOT`
+- `dev.brikk.house:brikk-sql-verify-api:0.20.0-SNAPSHOT`
 - Project: https://github.com/brikk/brikk-sql
 - Developers listed in the published POMs: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0, with third-party-derived portions described below
@@ -246,13 +248,13 @@ Based on source code originally developed by
 Baidu (http://www.baidu.com/).
 ```
 
-## ANTLR 4 Runtime 4.13.1 (bundled)
+## ANTLR 4 Runtime 4.13.2 (bundled)
 
-This plugin bundles `org.antlr:antlr4-runtime:4.13.1`, used by the Apache Doris SQL parser.
+This plugin bundles `org.antlr:antlr4-runtime:4.13.2`, used by the Apache Doris SQL parser.
 
 - Project: https://github.com/antlr/antlr4
 - License: BSD 3-Clause License
-- License source: https://raw.githubusercontent.com/antlr/antlr4/4.13.1/LICENSE.txt
+- License source: https://raw.githubusercontent.com/antlr/antlr4/4.13.2/LICENSE.txt
 
 ```text
 Copyright (c) 2012-2022 The ANTLR Project. All rights reserved.
