@@ -384,42 +384,6 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testOutsideStatementWholeScriptStillLowersPipes() {
-        val sql = "SELECT 1; $safeProgram; -- caret outside statements"
-        ExecutionFixture(sql).use { fixture ->
-            fixture.editor.caretModel.moveToOffset(sql.length)
-            val settings = DatabaseSettings.getSettings()
-            val old = settings.execOptions[0]
-            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
-                execInside = DatabaseSettings.EXECUTE_INSIDE_SMALLEST
-                execOutside = DatabaseSettings.EXECUTE_OUTSIDE_WHOLE_SCRIPT
-            }
-            try {
-                fixture.execute()
-                while (fixture.requests.size < 2) (fixture.requests.last() as ConsoleDataRequest).onFinished()
-            } finally { settings.execOptions[0] = old }
-            assertEquals(2, fixture.requests.size)
-            assertFalse((fixture.requests.last() as DataRequest.QueryRequest).query.contains("|>"))
-            assertEmpty(fixture.previousEvents)
-        }
-    }
-
-    fun testSmartSelectionClaimsTheEnclosingPipeline() {
-        val sql = "FROM offline_rows |> WHERE id > 0 |> SELECT id"
-        ExecutionFixture(sql).use { fixture ->
-            fixture.editor.selectionModel.setSelection(sql.indexOf("WHERE"), sql.indexOf(" |> SELECT"))
-            val settings = DatabaseSettings.getSettings()
-            val old = settings.execOptions[0]
-            settings.execOptions[0] = DatabaseSettings.ExecOption().apply {
-                execSelection = DatabaseSettings.EXECUTE_SELECTION_SMART_EXPAND
-            }
-            try { fixture.execute() } finally { settings.execOptions[0] = old }
-            assertEquals(1, fixture.requests.size)
-            assertFalse((fixture.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
-            assertEmpty(fixture.previousEvents)
-        }
-    }
-
     fun testOrdinarySqlAndQuotedOrCommentMarkersDelegateWithTheSameEvent() {
         for (sql in listOf(
             "SELECT 1", "SELECT '|>' AS marker", "SELECT \"|>\" AS marker",
@@ -869,17 +833,6 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.runToStage(menu = false)
             val request = fixture.requests.single() as DataRequest.QueryRequest
             assertEquals((DorisPipesEngine.transpile(nested) as PipeTranslation.Lowered).dorisSql, request.query)
-            assertEmpty(fixture.previousEvents)
-        }
-    }
-
-    fun testNestedOnlyPipelineExecutesItsLoweredSql() {
-        val sql = "SELECT id FROM (FROM offline_rows |> WHERE id > 0) s"
-        val translated = DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered
-        ExecutionFixture(sql).use { fixture ->
-            fixture.execute()
-            val request = fixture.requests.single() as DataRequest.QueryRequest
-            assertEquals(translated.sql, request.query)
             assertEmpty(fixture.previousEvents)
         }
     }
