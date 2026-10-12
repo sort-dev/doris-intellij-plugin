@@ -29,7 +29,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
         }
         for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
-            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension")) {
+            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
             assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))

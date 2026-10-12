@@ -7,11 +7,11 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
-import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.icons.AllIcons
 import com.intellij.patterns.PlatformPatterns
 import icons.DatabaseIcons
 import com.intellij.util.ProcessingContext
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 
 class DorisCompletionContributor : CompletionContributor() {
     init {
@@ -37,23 +37,19 @@ class DorisCompletionContributor : CompletionContributor() {
             // Engine-free base feature: runs with or without the transpiler plugin installed.
             val file = parameters.originalFile
             if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return
-            runCatching {
+            recoverEditorOperation {
                 val text = file.text
                 val offset = parameters.offset.coerceAtMost(text.length)
                 val tail = text.substring((offset - 160).coerceAtLeast(0), offset)
                 val parts = PATH_BEFORE_CARET.find(tail)?.groupValues?.get(1)
                     ?.split('.')?.map { it.trim('`') } ?: return
-                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile) ?: return
-                val local = console.session.connectionPoint.dataSource
+                val local = dorisDataSourceResolver.resolve(file).dataSource ?: return
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return
                 val roots = dataSource.model.modelRoots.toList()
-                val nsFirst = runCatching {
-                    generateSequence(console.currentNamespace) { it.parent }
-                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().lastOrNull()
-                }.getOrNull()
+                val nsFirst = dorisDataSourceResolver.consoleNamespace(file).firstOrNull()
                 val tkind = com.intellij.database.model.ObjectKind.TABLE
                 fun children(o: com.intellij.database.model.DasObject) =
                     (o.getDasChildren(tkind).toList() + o.getDasChildren(null).toList()).distinct()
@@ -99,19 +95,14 @@ class DorisCompletionContributor : CompletionContributor() {
 
         /** Columns of an arbitrary table path, resolved like the FROM base (no banner side-effects). */
         private fun lookupColumns(file: com.intellij.psi.PsiFile, parts: List<String>): List<String>? =
-            runCatching {
-                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile)
-                    ?: return@runCatching null
-                val local = console.session.connectionPoint.dataSource
+            recoverEditorOperation {
+                val local = dorisDataSourceResolver.resolve(file).dataSource ?: return@recoverEditorOperation null
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
-                    ?: return@runCatching null
+                    ?: return@recoverEditorOperation null
                 val roots = dataSource.model.modelRoots.toList()
-                val ns = runCatching {
-                    generateSequence(console.currentNamespace) { it.parent }
-                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().reversed()
-                }.getOrDefault(emptyList())
+                val ns = dorisDataSourceResolver.consoleNamespace(file)
                 val want = when (parts.size) {
                     3 -> Triple(parts[0], parts[1], parts[2])
                     2 -> Triple(ns.getOrNull(0), parts[0], parts[1])
@@ -129,7 +120,7 @@ class DorisCompletionContributor : CompletionContributor() {
                         ?.let { n -> children(n).firstOrNull { it.name.equals(parts[1], true) } }
                 }
                 val table = (schema?.let { sn -> children(sn).firstOrNull { it.name.equals(want.third, true) } }
-                    ?: schema) as? com.intellij.database.model.DasTable ?: return@runCatching null
+                    ?: schema) as? com.intellij.database.model.DasTable ?: return@recoverEditorOperation null
                 com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
                     .takeIf { it.isNotEmpty() }
             }.getOrNull()
@@ -190,7 +181,7 @@ class DorisCompletionContributor : CompletionContributor() {
             chunkText: String,
             rel: Int,
         ): Boolean {
-            runCatching {
+            recoverEditorOperation {
                 val sourceText = chunkText.substring(0, rel)
                 var visibleText = dev.sort.doris.pipes.DorisPipes.codeBefore(chunkText, rel)
                 if (sourceText.endsWith('`') && visibleText.isNotEmpty()) {
@@ -199,17 +190,13 @@ class DorisCompletionContributor : CompletionContributor() {
                 val m = Regex("""\b(?:FROM|JOIN)\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
                     .find(visibleText) ?: return false
                 val parents = m.groupValues[1].split('.').map { it.trim('`') }.dropLast(1)
-                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile) ?: return true
-                val local = console.session.connectionPoint.dataSource
+                val local = dorisDataSourceResolver.resolve(file).dataSource ?: return true
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
                     ?: return true
                 val roots = dataSource.model.modelRoots.toList()
-                val nsFirst = runCatching {
-                    generateSequence(console.currentNamespace) { it.parent }
-                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().lastOrNull()
-                }.getOrNull()
+                val nsFirst = dorisDataSourceResolver.consoleNamespace(file).firstOrNull()
                 fun offer(names: Iterable<String>, type: String, icon: javax.swing.Icon) {
                     for (n in names) sink.addElement(
                         PrioritizedLookupElement.withPriority(
@@ -294,23 +281,19 @@ class DorisCompletionContributor : CompletionContributor() {
             val qualified = FROM_TABLE.find(code)?.groupValues?.get(1)?.let { q ->
                 q.split('.').joinToString(".") { it.trim('`') }
             }
-            val dasColumns: List<String>? = runCatching {
-                val parts = qualified?.split('.') ?: return@runCatching null
-                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile)
-                    ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no console for file") }
-                val local = console.session.connectionPoint.dataSource
+            val dasColumns: List<String>? = recoverEditorOperation {
+                val parts = qualified?.split('.') ?: return@recoverEditorOperation null
+                val local = dorisDataSourceResolver.resolve(file).dataSource
+                    ?: return@recoverEditorOperation null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no data source for file") }
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
-                    ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
+                    ?: return@recoverEditorOperation null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no DbDataSource for ${local.uniqueId}") }
                 // DETERMINISTIC (user call-out): the console KNOWS its context — qualify the
                 // FROM reference against the live namespace instead of name-hunting the tree.
                 // currentNamespace is catalog(.schema) in our multi-catalog model; a 2-part name
                 // is schema.table under the current catalog, a bare name uses the current schema.
-                val nsNames = runCatching {
-                    generateSequence(console.currentNamespace) { it.parent }
-                        .mapNotNull { it.name.takeIf(String::isNotBlank) }.toList().reversed()
-                }.getOrDefault(emptyList())
+                val nsNames = dorisDataSourceResolver.consoleNamespace(file)
                 val curCatalog = nsNames.getOrNull(0)
                 val curSchema = nsNames.getOrNull(1)
                 val want = when (parts.size) {
@@ -354,10 +337,10 @@ class DorisCompletionContributor : CompletionContributor() {
                         file.project, vf,
                         "Doris Pipes: introspecting '$bannerFqn'\u2026 column completion lights up " +
                             "when it finishes (if nothing appears, introspect it in the Database view).")
-                    return@runCatching null
+                    return@recoverEditorOperation null
                 }
                 val table = schemaTables.firstOrNull { it.name.equals(want.third, true) }
-                    as? com.intellij.database.model.DasTable ?: return@runCatching null
+                    as? com.intellij.database.model.DasTable ?: return@recoverEditorOperation null
                 val cols = com.intellij.database.util.DasUtil.getColumns(table).map { it.name }.toList()
                 if (cols.isEmpty()) {
                     dev.sort.doris.pipes.DorisPipesAutoIntrospect.request(
@@ -365,7 +348,7 @@ class DorisCompletionContributor : CompletionContributor() {
                     dev.sort.doris.pipes.DorisPipesNotificationProvider.reportMiss(
                         file.project, vf,
                         "Doris Pipes: introspecting '${want.second}.${table.name}'\u2026")
-                    return@runCatching null
+                    return@recoverEditorOperation null
                 }
                 dev.sort.doris.pipes.DorisPipesNotificationProvider.clearMiss(file.project, vf)
                 cols

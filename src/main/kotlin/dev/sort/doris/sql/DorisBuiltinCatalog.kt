@@ -1,9 +1,7 @@
 package dev.sort.doris.sql
 
-import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.psi.PsiFile
 import java.util.concurrent.ConcurrentHashMap
-import dev.brikk.house.sql.intellij.recoverEditorOperation
 
 /**
  * Per-data-source, in-memory (session-scoped) set of the builtin function NAMES the connected Doris
@@ -63,14 +61,7 @@ object DorisBuiltinCatalog {
         return upperName !in s
     }
 
-    /** The data-source id backing [file]'s running console, or null for an unattached file. */
-    fun dataSourceIdFor(file: PsiFile): String? {
-        val vf = file.viewProvider.virtualFile
-        val console = JdbcConsoleProvider.getRunningConsoles(file.project).firstOrNull { c ->
-            recoverEditorOperation { c.session.clientsWithFile.any { it.virtualFile == vf } }.getOrDefault(false)
-        } ?: return null
-        return recoverEditorOperation { console.session.connectionPoint.dataSource.uniqueId }.getOrNull()
-    }
+    fun dataSourceIdFor(file: PsiFile): String? = dorisDataSourceResolver.resolve(file).dataSource?.uniqueId
 
     /** Test hook: forget all harvested data. */
     fun clear() = byDataSource.clear()

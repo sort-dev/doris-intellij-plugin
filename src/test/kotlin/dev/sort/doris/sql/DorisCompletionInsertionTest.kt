@@ -98,15 +98,28 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
             assertEquals(id, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
             var harvestIdentityReads = 0
             recording.beforeSessionCall = { method ->
-                if (method == "getConnectionPoint" && Thread.currentThread().stackTrace.any {
+                val stack = Thread.currentThread().stackTrace
+                if (method == "getProject" && stack.any {
                     it.className == DorisBuiltinCatalog::class.java.name && it.methodName == "dataSourceIdFor"
-                }) harvestIdentityReads++
+                } && stack.none { it.methodName == "getActiveConsoles" }) harvestIdentityReads++
             }
             val items = myFixture.completeBasic().orEmpty()
             assertEquals("Resolve the harvest identity once per completion", 1, harvestIdentityReads)
             val names = items.filter { it.`object` is FunctionPresentation }.map { it.lookupString }
             assertTrue("CAST must be offered despite being absent from the harvest: $names", "cast" in names)
             assertTrue("Server-only functions must be offered: $names", "server_only_fn" in names)
+        }
+    }
+
+    fun testForeignConsoleHarvestIsNotUsed() {
+        configure("SELECT <caret>")
+        RecordingConsole(project, myFixture.file.virtualFile, "mysql").use { recording ->
+            DorisBuiltinCatalog.record(recording.console.dataSource.uniqueId, setOf("ABS", "FOREIGN_ONLY_FN"))
+            assertNull(DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            val names = myFixture.completeBasic().orEmpty()
+                .filter { it.`object` is FunctionPresentation }.map { it.lookupString }
+            assertTrue("A foreign harvest must not filter the Doris baseline: $names", "acos" in names)
+            assertFalse("A foreign harvest must not add server functions: $names", "foreign_only_fn" in names)
         }
     }
 
