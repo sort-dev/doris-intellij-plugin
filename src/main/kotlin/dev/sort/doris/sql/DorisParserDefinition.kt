@@ -29,10 +29,6 @@ class DorisParserDefinition : SqlParserDefinitionBase() {
 
     private companion object {
         private val FILE = object : SqlFileElementType("DORIS_SQL_FILE", DorisSqlDialect.INSTANCE) {
-            override fun createParser(definition: ParserDefinition, psi: PsiElement, host: PsiElement?, inPl: Boolean): PsiParser =
-                if (host?.getUserData(dev.sort.doris.brikk.BrikkDorisContext.PROFILE) == true ||
-                    dev.sort.doris.brikk.BrikkDorisContext.isActive(psi.containingFile)) DorisPsiParser(brikkHouse = true)
-                else super.createParser(definition, psi, host, inPl)
             override fun createLexer(definition: ParserDefinition, psi: PsiElement, host: PsiElement?): Lexer {
                 if (host?.getUserData(dev.sort.doris.brikk.BrikkDorisContext.PROFILE) != true &&
                     !dev.sort.doris.brikk.BrikkDorisContext.isActive(psi.containingFile)) {

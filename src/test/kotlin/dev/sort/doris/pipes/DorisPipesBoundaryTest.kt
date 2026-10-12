@@ -48,6 +48,7 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
             "FROM `ta;ble` |> SELECT `co``;lumn`;",
             "FROM t |> SELECT * /* ; */ |> LIMIT 5;",
             "FROM t |> WHERE s = '\uD83D\uDE00;\nvalue' |> LIMIT 5;",
+            "SELECT " + (1..600).joinToString(", ") { "$it AS c$it" } + " FROM t |> LIMIT 1;",
         )
         for (replay in listOf("false", "true")) {
             System.setProperty("doris.replay.poc", replay)
