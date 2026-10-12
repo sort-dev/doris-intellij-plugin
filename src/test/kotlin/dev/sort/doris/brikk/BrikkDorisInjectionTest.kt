@@ -377,6 +377,67 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals("  brikk column (e)", items.getValue("code").tailText)
     }
 
+    fun testCorrelatedCompletionRetainsBrikkColumnDecoration() {
+        relationSql("SELECT 1 FROM ${'$'}src() AS e WHERE EXISTS (SELECT 1 FROM t WHERE t.x = e.<caret>)")
+        val items = myFixture.completeBasic().orEmpty()
+        val id = items.single { it.lookupString == "id" }
+        val code = items.single { it.lookupString == "code" }
+        assertTrue(id.`object` is com.intellij.sql.psi.SqlResolveResult)
+        assertTrue(code.`object` is com.intellij.sql.psi.SqlResolveResult)
+        assertEquals("Long", com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(id).typeText)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(code)
+        assertEquals("String?", presentation.typeText)
+        assertEquals("  brikk column (e)", presentation.tailText)
+    }
+
+    fun testDerivedTableCompletionRetainsBrikkColumnDecoration() {
+        relationSql("SELECT <caret> FROM (SELECT * FROM ${'$'}src()) d")
+        val items = myFixture.completeBasic().orEmpty()
+        val id = items.single { it.lookupString == "id" }
+        val code = items.single { it.lookupString == "code" }
+        assertTrue(id.`object` is com.intellij.sql.psi.SqlResolveResult)
+        assertTrue(code.`object` is com.intellij.sql.psi.SqlResolveResult)
+        assertEquals("Long", com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(id).typeText)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(code)
+        assertEquals("String?", presentation.typeText)
+        assertEquals("  brikk column (src)", presentation.tailText)
+    }
+
+    fun testDerivedProjectionDoesNotRestoreDroppedBrikkColumns() {
+        relationSql("SELECT <caret> FROM (SELECT code FROM ${'$'}src()) d")
+        val items = columnPresentations()
+        assertTrue("The projected code column is still offered", items.containsKey("code"))
+        assertFalse("The derived projection dropped id", items.containsKey("id"))
+    }
+
+    fun testLocalAliasShadowsCorrelatedBrikkColumns() {
+        relationSql("SELECT 1 FROM ${'$'}src() AS e WHERE EXISTS (SELECT 1 FROM t AS e WHERE e.<caret>)")
+        val items = columnPresentations()
+        assertFalse("The local e alias hides the Brikk relation", items["id"]?.typeText == "Long")
+        assertFalse("The local e alias hides the Brikk relation", items["code"]?.typeText == "String?")
+    }
+
+    fun testJoinRelationPositionDoesNotCreateBrikkColumns() {
+        relationSql("SELECT * FROM ${'$'}src() AS e JOIN i<caret> ON e.id = 1")
+        val items = columnPresentations()
+        assertFalse("JOIN expects a relation, not id", items.containsKey("id"))
+        assertFalse("JOIN expects a relation, not code", items.containsKey("code"))
+    }
+
+    fun testKeywordPositionDoesNotCreateBrikkColumns() {
+        relationSql("SELECT * FROM ${'$'}src() AS e <caret>")
+        val items = columnPresentations()
+        assertFalse("A clause keyword slot must not offer id", items.containsKey("id"))
+        assertFalse("A clause keyword slot must not offer code", items.containsKey("code"))
+    }
+
+    fun testStringPositionDoesNotCreateBrikkColumns() {
+        relationSql("SELECT '<caret>' FROM ${'$'}src() AS e")
+        val items = columnPresentations()
+        assertFalse("A string literal must not offer id", items.containsKey("id"))
+        assertFalse("A string literal must not offer code", items.containsKey("code"))
+    }
+
     fun testDecoratedNativeColumnKeepsInsertionAndKotlinNavigation() {
         relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
         val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "code" }

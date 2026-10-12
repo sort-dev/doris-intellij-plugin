@@ -290,6 +290,17 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
+    fun testAutopopupConfidenceEditorEntryPointDelegates() {
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
+        myFixture.configureByText("a.sql", "SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');")
+        val offset = myFixture.caretOffset
+        val element = myFixture.file.findElementAt(offset) ?: myFixture.file.findElementAt(offset - 1)!!
+        assertEquals(
+            com.intellij.util.ThreeState.NO,
+            DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset),
+        )
+    }
+
     fun testAutopopupConfidenceUnsureInOrdinaryString() {
         // Outside a TVF call the platform default (skip in strings) must stay in charge.
         assertEquals(

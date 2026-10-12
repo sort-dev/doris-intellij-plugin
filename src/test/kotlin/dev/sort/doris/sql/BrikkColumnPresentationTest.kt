@@ -48,6 +48,13 @@ class BrikkColumnPresentationTest {
         assertEquals("Long", items.getValue("id").typeText)
     }
 
+    @Test fun sharedFormatterKeepsEqualNamesFromDifferentAliasesDistinct() {
+        val left = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "left").lookup()
+        val right = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "right").lookup()
+        assertEquals(left.lookupString, right.lookupString)
+        assertNotEquals(left.`object`, right.`object`)
+    }
+
     @Test fun directProjectionKeepsOriginWhileAnExpressionDoesNot() {
         val sql = "FROM src() AS e |> SELECT code AS renamed, id + 1 AS id |> WHERE "
         val items = BrikkPipeColumnDisplay.at(sql, sql.length, contracts())!!

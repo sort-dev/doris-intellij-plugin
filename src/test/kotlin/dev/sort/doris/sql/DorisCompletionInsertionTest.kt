@@ -90,6 +90,26 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testHarvestOffersGrammarFormsAndServerOnlyFunctions() {
+        configure("SELECT <caret>")
+        RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
+            val id = recording.console.dataSource.uniqueId
+            DorisBuiltinCatalog.record(id, setOf("ABS", "SERVER_ONLY_FN"))
+            assertEquals(id, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            var harvestIdentityReads = 0
+            recording.beforeSessionCall = { method ->
+                if (method == "getConnectionPoint" && Thread.currentThread().stackTrace.any {
+                    it.className == DorisBuiltinCatalog::class.java.name && it.methodName == "dataSourceIdFor"
+                }) harvestIdentityReads++
+            }
+            val items = myFixture.completeBasic().orEmpty()
+            assertEquals("Resolve the harvest identity once per completion", 1, harvestIdentityReads)
+            val names = items.filter { it.`object` is FunctionPresentation }.map { it.lookupString }
+            assertTrue("CAST must be offered despite being absent from the harvest: $names", "cast" in names)
+            assertTrue("Server-only functions must be offered: $names", "server_only_fn" in names)
+        }
+    }
+
     fun testNonQueryableTableFunctionsAreNotOffered() {
         for (prefix in listOf("bin", "group_com", "http_str", "cdc_str")) {
             configure("SELECT * FROM $prefix<caret>")
