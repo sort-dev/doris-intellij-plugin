@@ -98,7 +98,18 @@ class DorisPipesTest {
         scoped as PipeTranslation.Lowered
         assertNull(scoped.blocker)
         assertTrue(scoped.sql, scoped.sql.contains("FROM t"))
-        assertTrue(DorisPipeDialect.lower("SELECT 1", firstStage = true) is PipeTranslation.Refused)
+        val select = DorisPipeDialect.lower("SELECT 1", firstStage = true) as PipeTranslation.Lowered
+        assertNull(select.blocker)
+        assertEquals("SELECT 1", select.sql.replace(Regex("\\s+"), " ").trim())
+    }
+
+    @Test
+    fun `SELECT first pipelines lower without blockers`() {
+        val sql = "SELECT id FROM t |> EXTEND id + 1 AS next_id |> SELECT next_id |> LIMIT 2"
+        val lowered = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+        assertNull(lowered.blocker)
+        assertFalse(lowered.sql, "|>" in lowered.sql)
+        assertTrue(lowered.sql, "next_id" in lowered.sql && "LIMIT 2" in lowered.sql)
     }
 
     @Test

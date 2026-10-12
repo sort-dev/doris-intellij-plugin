@@ -130,6 +130,26 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testSelectFirstPipelineSubmitsThroughEveryExecuteVariant() {
+        val sql = "SELECT id FROM offline_rows |> WHERE id > 0 |> LIMIT 2"
+        val lowered = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+        assertNull(lowered.blocker)
+        ExecutionFixture(sql).use { fixture ->
+            for (variant in 1..4) {
+                fixture.editor.selectionModel.setSelection(0, sql.length)
+                fixture.execute(variant)
+                assertEquals(variant, fixture.requests.size)
+                val request = fixture.requests.last() as DataRequest.QueryRequest
+                assertEquals(lowered.sql, request.query)
+                assertFalse(request.query, "|>" in request.query)
+                assertSame(fixture.console, request.owner)
+                assertEmpty(fixture.previousEvents)
+                assertEmpty(fixture.notifications)
+                assertEquals(sql, fixture.editor.document.text)
+            }
+        }
+    }
+
     fun testUnselectedPipeUsesTheRealPlatformPreparation() {
         val sql = "FROM offline_rows |> SELECT id"
         ExecutionFixture(sql).use { fixture ->
@@ -910,6 +930,31 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 assertEquals(sql, fixture.editor.document.text)
             }
             assertEquals(2, fixture.requests.size)
+            assertEmpty(fixture.previousEvents)
+        }
+    }
+
+    fun testRunToStageExecutesSelectFirstAndLaterStagePrefixes() {
+        val first = "SELECT id FROM offline_rows"
+        val second = "$first |> WHERE id > 0"
+        val sql = "$second |> LIMIT 2"
+        ExecutionFixture(sql).use { fixture ->
+            for ((prefix, caret) in listOf(first to first.indexOf("id"), second to second.indexOf("WHERE"))) {
+                fixture.editor.caretModel.moveToOffset(caret)
+                val lowered = DorisPipeDialect.lower(prefix, firstStage = true) as PipeTranslation.Lowered
+                assertNull(lowered.blocker)
+                for (menu in listOf(false, true)) {
+                    fixture.runToStage(menu)
+                    val request = fixture.requests.last() as DataRequest.QueryRequest
+                    assertEquals(lowered.sql, request.query)
+                    assertFalse(request.query, "LIMIT" in request.query || "|>" in request.query)
+                    assertEquals(TextRange(0, prefix.length), (request as DataRequest.CoupledWithEditor).range)
+                    assertSame(fixture.console, request.owner)
+                    assertEquals(sql, fixture.editor.document.text)
+                }
+            }
+            assertEquals(4, fixture.requests.size)
+            assertEmpty(fixture.notifications)
             assertEmpty(fixture.previousEvents)
         }
     }

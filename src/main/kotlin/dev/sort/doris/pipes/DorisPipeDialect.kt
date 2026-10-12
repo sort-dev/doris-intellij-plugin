@@ -24,7 +24,7 @@ object DorisPipeDialect : PipeDialect {
     override val notificationGroup = "Doris Pipes"
     override val vetoProperty = DorisPipes.PROPERTY
     override val language get() = DorisSqlDialect.INSTANCE
-    override val firstStage = FirstStageRule.FromOnly
+    override val firstStage = FirstStageRule.AnyQuery
     override val serverFirstColumn = 0
     override val submitListener: PipeSubmitListener get() = DorisPipesExecution
 

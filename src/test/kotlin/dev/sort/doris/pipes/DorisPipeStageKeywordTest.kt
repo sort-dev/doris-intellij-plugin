@@ -40,6 +40,26 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
         assertTrue(isForcedKeyword(highlights, sql, "OFFSET"))
     }
 
+    fun testSelectFirstPipelineColorsStageHeads() {
+        val sql = "SELECT id FROM t |> EXTEND id + 1 AS next_id |> AGGREGATE count(*) AS n"
+        val highlights = highlight(sql)
+        assertTrue(isForcedKeyword(highlights, sql, "EXTEND"))
+        assertTrue(isForcedKeyword(highlights, sql, "AGGREGATE"))
+    }
+
+    fun testSelectFirstPipelineCompletesAndInsertsStageKeywords() {
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
+        try {
+            myFixture.configureByText("select-first.sql", "SELECT id FROM t |> ex<caret>")
+            val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "EXTEND" }
+            myFixture.lookup.currentItem = item
+            myFixture.finishLookup('\n')
+            myFixture.checkResult("SELECT id FROM t |> EXTEND<caret>")
+        } finally {
+            setSqlDialectMapping(project, null, null)
+        }
+    }
+
     fun testIncompleteTailKeepsEarlierStageColoringWithoutAllowingExecution() {
         val sql = "FROM t |> EXTEND 1 AS x |> SELECT 'unfinished"
         assertTrue(isForcedKeyword(highlight(sql), sql, "EXTEND"))
