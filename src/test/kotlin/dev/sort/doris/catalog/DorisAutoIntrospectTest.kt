@@ -213,6 +213,7 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         myFixture.completeBasic()
         introspections.next().finish { schema.tables.createOrGet("events").columns.createOrGet("id") }
         awaitDone(listOf("warehouse", "analytics"))
+        myFixture.lookup?.hideLookup(false)
         myFixture.completeBasic()
         assertContainsElements(myFixture.lookupElementStrings.orEmpty(), "id")
     }

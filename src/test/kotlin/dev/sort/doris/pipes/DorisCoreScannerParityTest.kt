@@ -26,9 +26,9 @@ import java.nio.file.Path
 class DorisCoreScannerParityTest {
     @Test
     fun `core scanners match native corpus except listed expected failures`() {
-        val corpus = javaClass.getResourceAsStream("/parity/doris-scanners.json")!!.bufferedReader().use {
-            Json.parseToJsonElement(it.readText()).jsonObject
-        }
+        val corpus = Json.parseToJsonElement(Files.readString(
+            Path.of(System.getProperty("corpus.dir")).resolveSibling("parity").resolve("doris-scanners.json"),
+        )).jsonObject
         val cases = corpus.getValue("cases").jsonArray.map { it.jsonObject }
         assertEquals(cases.size, cases.map { it.getValue("id") }.toSet().size)
         assertTrue(corpus.getValue("expectedFailures").jsonObject.keys.all { id ->
