@@ -4,6 +4,7 @@ import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.database.dataSource.DatabaseDriverManager
 import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.dataSource.LocalDataSourceManager
+import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.dialects.mssql.model.MsRoot
 import com.intellij.database.dialects.mysqlbase.model.MysqlBaseRoot
 import com.intellij.database.model.ModelFactory
@@ -259,6 +260,50 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
                 recording.beforeSessionCall = { throw cancellation }
                 assertSame(cancellation, runCatching { requests.requestPath(myFixture.file, listOf("warehouse")) }.exceptionOrNull())
             }
+        }
+    }
+
+    fun testCreateCatalogReloadsTheLoadedNamespaceWithoutChangingScope() {
+        catalog("warehouse").schemas.createOrGet("analytics")
+        DbPsiFacade.getInstance(project).clearCaches()
+        val scope = source.introspectionScope
+        RecordingConsole(project, myFixture.file.virtualFile, source).use { recording ->
+            val observer = DorisExecutionObserver(project, errors.newScope(testRootDisposable))
+            val console = recording.console
+            val query = object : DataRequest.QueryRequest(console, "CREATE CATALOG fresh PROPERTIES ('type'='hms')",
+                DataRequest.newConstraints(), null) {}
+            observer.requestFinished(DataRequest.Context(console.session.messageBus.dataProducer,
+                DataRequest.newOutputHandler(), query, DataRequest.AUTO_COMMIT))
+            val refresh = introspections.next()
+            assertEquals(1, refresh.context.countTasks())
+            assertNull("CREATE CATALOG reloads the top-level list", refresh.context.tasks.single().databaseName)
+            assertSame(scope, source.introspectionScope)
+            assertNull(requests.pending(myFixture.file.virtualFile))
+            refresh.finish { catalog("fresh").schemas.createOrGet("new_database") }
+            errors.awaitScopes()
+            assertSame(scope, source.introspectionScope)
+            assertNotNull(DorisCatalogProfile.pathResolver.resolve(source.model.modelRoots.toList(), listOf("fresh", "new_database")))
+            assertNull(requests.engine.state(AutoIntrospectEngine.Key(source.uniqueId, emptyList())))
+        }
+    }
+
+    fun testRefreshCatalogReloadsItsLoadedNamespace() {
+        val loaded = catalog("warehouse")
+        loaded.schemas.createOrGet("analytics")
+        DbPsiFacade.getInstance(project).clearCaches()
+        RecordingConsole(project, myFixture.file.virtualFile, source).use { recording ->
+            val observer = DorisExecutionObserver(project, errors.newScope(testRootDisposable))
+            val console = recording.console
+            val query = object : DataRequest.QueryRequest(console, "REFRESH CATALOG warehouse", DataRequest.newConstraints(), null) {}
+            observer.requestFinished(DataRequest.Context(console.session.messageBus.dataProducer,
+                DataRequest.newOutputHandler(), query, DataRequest.AUTO_COMMIT))
+            val refresh = introspections.next()
+            assertEquals(1, refresh.context.countTasks())
+            assertEquals("warehouse", refresh.context.tasks.single().databaseName)
+            assertNull(requests.pending(myFixture.file.virtualFile))
+            refresh.finish { loaded.schemas.createOrGet("fresh") }
+            errors.awaitScopes()
+            assertNotNull(DorisCatalogProfile.pathResolver.resolve(source.model.modelRoots.toList(), listOf("warehouse", "fresh")))
         }
     }
 
