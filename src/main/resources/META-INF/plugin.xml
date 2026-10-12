@@ -428,6 +428,11 @@
         <lang.quoteHandler language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisQuoteHandler"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
+        <daemon.highlightInfoFilter implementation="dev.sort.doris.catalog.DorisOutOfScopeReferenceFilter"/>
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.catalog.DorisIntrospectNamespaceIntention</className>
+        </intentionAction>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
         <!-- Re-colors DorisLexer-masked spans (CAST targets, EXCEPT lists, ...) that the SQL
              highlighter would otherwise paint as comments — the highlighting lexer IS the parser

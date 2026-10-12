@@ -1,6 +1,8 @@
 package dev.sort.doris.catalog
 
 import com.intellij.codeInsight.lookup.LookupElementPresentation
+import com.intellij.codeInsight.daemon.impl.HighlightInfo
+import com.intellij.codeInsight.daemon.impl.HighlightInfoType
 import com.intellij.database.dataSource.DatabaseDriverManager
 import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.dataSource.LocalDataSourceManager
@@ -18,6 +20,9 @@ import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternUtils
 import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.sql.SqlBundle
+import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.dialects.SqlImportUtil
 import com.intellij.sql.dialects.SqlResolveMappings
 import com.intellij.testFramework.PlatformTestUtil
@@ -35,6 +40,8 @@ import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.pipes.DorisPipesSettings
 import dev.sort.doris.sql.DorisSqlDialect
+import dev.sort.doris.sql.DorisHighlightInfoFilter
+import dev.sort.doris.sql.DORIS_SERVER_DIAGNOSTIC_PREFIX
 import java.util.concurrent.CancellationException
 
 class DorisAutoIntrospectTest : BasePlatformTestCase() {
@@ -92,6 +99,57 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         refresh.finish { schema.tables.createOrGet("events") }
         awaitDone(listOf("warehouse", "target_db"))
     }
+
+    fun testCatalogSchemaTableResolvesThroughSharedImports() {
+        val table = catalog("warehouse").schemas.createOrGet("analytics").tables.createOrGet("events")
+        source.introspectionScope = CatalogScopes.select(DorisCatalogProfile.levels, listOf("warehouse", "analytics"))
+        DbPsiFacade.getInstance(project).clearCaches()
+        configure("SELECT * FROM warehouse.analytics.<caret>events")
+        assertSame(table, (reference().resolve() as com.intellij.database.psi.DbElement).delegate)
+        introspections.assertNone()
+    }
+
+    fun testSharedFilterSuppressesOnlyOutOfScopePlatformReports() {
+        catalog("warehouse").schemas.createOrGet("analytics")
+        configure("SELECT * FROM warehouse.analytics.<caret>events")
+        val reference = reference()
+        val unresolved = report(reference, SqlBundle.message("unable.to.resolve.symbol.0.1", "table", "events"))
+        assertFalse(DorisOutOfScopeReferenceFilter().accept(unresolved, myFixture.file))
+        assertTrue(DorisHighlightInfoFilter().accept(unresolved, myFixture.file))
+        val server = report(reference, "$DORIS_SERVER_DIAGNOSTIC_PREFIX Unable to resolve table 'events'")
+        assertTrue(DorisOutOfScopeReferenceFilter().accept(server, myFixture.file))
+        assertTrue(DorisHighlightInfoFilter().accept(server, myFixture.file))
+        System.setProperty(DorisCatalogs.PROPERTY, "false")
+        assertFalse(DorisCatalogProfile.outOfScopeReferences)
+        assertTrue(DorisOutOfScopeReferenceFilter().accept(unresolved, myFixture.file))
+    }
+
+    fun testSharedFilterKeepsMissingNamesUnderIntrospectedNamespaces() {
+        catalog("warehouse").schemas.createOrGet("analytics").tables.createOrGet("loaded")
+        configure("SELECT * FROM warehouse.analytics.<caret>missing")
+        assertTrue(DorisOutOfScopeReferenceFilter().accept(report(reference(),
+            SqlBundle.message("unable.to.resolve.symbol.0.1", "table", "missing")), myFixture.file))
+    }
+
+    fun testSharedIntentionIntrospectsTheUnloadedNamespace() {
+        val schema = catalog("warehouse").schemas.createOrGet("analytics")
+        configure("SELECT * FROM warehouse.analytics.<caret>events")
+        val intention = DorisIntrospectNamespaceIntention()
+        assertEquals("Doris: introspect namespace", intention.familyName)
+        assertTrue(intention.isAvailable(project, myFixture.editor, reference()))
+        intention.invoke(project, myFixture.editor, reference())
+        assertFalse(intention.isAvailable(project, myFixture.editor, reference()))
+        introspections.next().finish { schema.tables.createOrGet("events") }
+        awaitDone(listOf("warehouse", "analytics"))
+        assertFalse(intention.isAvailable(project, myFixture.editor, reference()))
+    }
+
+    private fun reference(): SqlReferenceExpression = checkNotNull(PsiTreeUtil.getNonStrictParentOfType(
+        myFixture.file.findElementAt(myFixture.caretOffset), SqlReferenceExpression::class.java))
+
+    private fun report(reference: SqlReferenceExpression, message: String): HighlightInfo =
+        checkNotNull(HighlightInfo.newHighlightInfo(HighlightInfoType.ERROR)
+            .range(reference.identifier!!.textRange).descriptionAndTooltip(message).create())
 
     fun testCatalogFlagOffUsesOneSchemaLevel() {
         System.setProperty(DorisCatalogs.PROPERTY, "false")

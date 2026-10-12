@@ -6,16 +6,15 @@ import com.intellij.database.dialects.DatabaseDialects
 import com.intellij.database.model.ObjectName
 import com.intellij.database.psi.DbDataSource
 import com.intellij.database.util.TreePattern
-import com.intellij.database.util.TreePatternUtils
 import com.intellij.sql.dialects.BuiltinFunction
 import com.intellij.sql.dialects.base.TokensHelper
 import com.intellij.sql.dialects.functions.SqlFunctionsUtil
 import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.sql.dialects.mysql.MysqlDialectBase
 import com.intellij.sql.dialects.mysql.MysqlTokens
+import dev.brikk.house.sql.intellij.catalog.CatalogImports
 import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
-import dev.sort.doris.catalog.DorisCatalogScopes
 
 /**
  * DorisSQL dialect, based on MySQL (`MysqlDialectBase`) rather than SQL92.
@@ -103,13 +102,7 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
     override fun getBaseImports(dataSource: DbDataSource?, names: Array<ObjectName?>?): TreePattern {
         val mysqlImports = super.getBaseImports(dataSource, names)
         if (!DorisCatalogs.enabled) return mysqlImports
-        val dsNames = names?.filterNotNull()?.toTypedArray() ?: emptyArray()
-        // M10: no attached data source (empty names) -> nothing to import catalogs into; the
-        // wildcard pattern would trip the platform's "Empty positive naming" assertion
-        // (SqlImportUtil.createDataSources -> PositiveNaming(empty)). Latent since M3, exposed by
-        // the default flip: every data-source-less SQL file resolves through this path.
-        if (dsNames.isEmpty()) return mysqlImports
-        return TreePatternUtils.union(mysqlImports, DorisCatalogScopes.allCatalogsImportPattern(dsNames))
+        return CatalogImports.allCatalogs(mysqlImports, names)
     }
 
     companion object {

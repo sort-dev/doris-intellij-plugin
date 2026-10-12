@@ -125,15 +125,6 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         ) {
             return false
         }
-        // M9 (flag-ON only): references into enumerated-but-not-introspected catalogs are
-        // OUT-OF-SCOPE, not wrong — suppress instead of red-flooding. Nonexistent names under
-        // INTROSPECTED namespaces (incl. internal) keep their error.
-        if (dev.sort.doris.DorisCatalogs.enabled &&
-            description.contains(UNRESOLVED_PREFIX) &&
-            isOutOfScopeReference(file, highlightInfo)
-        ) {
-            return false
-        }
         return true
     }
 
@@ -383,48 +374,6 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             e = e.parent
         }
         return false
-    }
-
-    /**
-     * OUT-OF-SCOPE detection (M9, the degrade half of the "Introspect this?" design;
-     * classification decision table lives in [dev.sort.doris.catalog.DorisOutOfScope]):
-     *
-     *  1. The failing reference is QUALIFIED and its qualifier resolves to a das namespace that is
-     *     enumerated-but-childless (an external catalog, or a database introspection never
-     *     visited) — the segment cannot possibly resolve until the user opts the namespace in.
-     *  2. The failing reference is a COLUMN in a query whose FROM contains a table reference that
-     *     is itself out-of-scope by rule 1 — without the table's columns, every column reference
-     *     is unresolvable; keeping them red is pure noise (mirror of the TVF open-relation rule).
-     */
-    private fun isOutOfScopeReference(file: PsiFile, info: HighlightInfo): Boolean {
-        val element = file.findElementAt(info.startOffset) ?: return false
-        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false)
-
-        // (1) qualified segment whose parent path lands on a childless external namespace
-        if (ref != null && isQualifierOutOfScope(ref)) return true
-
-        // (2) column inside a query whose FROM has an out-of-scope table reference
-        var query: SqlQueryExpression? = PsiTreeUtil.getParentOfType(element, SqlQueryExpression::class.java)
-        while (query != null) {
-            val from: PsiElement? = query.tableExpression
-            if (from != null &&
-                PsiTreeUtil.findChildrenOfType(from, SqlReferenceExpression::class.java)
-                    .any { isQualifierOutOfScope(it) }
-            ) {
-                return true
-            }
-            query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)
-        }
-        return false
-    }
-
-    /** True when [ref]'s immediate qualifier resolves to an enumerated-but-childless namespace. */
-    private fun isQualifierOutOfScope(ref: SqlReferenceExpression): Boolean {
-        val qualifier = ref.qualifierExpression as? SqlReferenceExpression ?: return false
-        val resolved = qualifier.reference?.resolve() ?: return false
-        val das = resolved as? com.intellij.database.model.DasObject ?: return false
-        return dev.sort.doris.catalog.DorisOutOfScope.classify(das) ==
-            dev.sort.doris.catalog.DorisOutOfScope.Classification.OUT_OF_SCOPE
     }
 
     /** Is the highlighted range a double-quoted token ("..." — a string literal in Doris)? */

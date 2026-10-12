@@ -14,6 +14,9 @@ import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.script.ScriptModel
 import com.intellij.database.settings.DatabaseSettings
+import com.intellij.database.model.ObjectKind
+import com.intellij.database.util.ObjectPath
+import com.intellij.database.util.SearchPath
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
@@ -835,7 +838,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             assertEquals(1, runWithParameterPrompt(sql, runToStage) {}.size)
             for (change in changes) {
                 try {
-                    assertEmpty(runWithParameterPrompt(sql, runToStage, change))
+                    assertEmpty(runWithParameterPrompt(sql, runToStage, duringPrompt = change))
                 } finally {
                     settings.enabled = true
                 }
@@ -843,9 +846,26 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testCatalogAndSchemaSwitchesDuringParameterPromptingSubmitNothing() {
+        val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
+        for (runToStage in listOf(false, true)) {
+            for ((catalog, schema) in listOf("other" to "analytics", "warehouse" to "other")) {
+                assertEmpty(runWithParameterPrompt(sql, runToStage, duringPrompt = {
+                    it.console.setSearchPath(SearchPath.of(ObjectPath.create(catalog, ObjectKind.DATABASE)
+                        .append(schema, ObjectKind.SCHEMA)))
+                }, beforePrompt = {
+                    it.console.setSearchPath(SearchPath.of(ObjectPath.create("warehouse", ObjectKind.DATABASE)
+                        .append("analytics", ObjectKind.SCHEMA)))
+                }))
+            }
+        }
+    }
+
     /** Answers the real parameter dialog, applying [duringPrompt] first; returns the submitted requests. */
-    private fun runWithParameterPrompt(sql: String, runToStage: Boolean, duringPrompt: (ExecutionFixture) -> Unit): List<GridDataRequest> =
+    private fun runWithParameterPrompt(sql: String, runToStage: Boolean, beforePrompt: (ExecutionFixture) -> Unit = {},
+                                       duringPrompt: (ExecutionFixture) -> Unit): List<GridDataRequest> =
         ExecutionFixture(sql).use { fixture ->
+            beforePrompt(fixture)
             fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE"))
             var prompted = false
             UiInterceptors.register(object : UiInterceptors.UiInterceptor<DialogWrapper>(DialogWrapper::class.java) {

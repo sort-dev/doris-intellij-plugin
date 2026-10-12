@@ -13,6 +13,7 @@ object DorisCatalogProfile : CatalogProfile {
     override val usesCurrentNamespace = true
     override val maxDeepenDepth = 3
     override val autoIntrospect = true
+    override val outOfScopeReferences get() = DorisCatalogs.enabled
     override val dataSources = dorisDataSourceResolver
     override val levels: List<ObjectKind>
         get() = if (DorisCatalogs.enabled) listOf(ObjectKind.DATABASE, ObjectKind.SCHEMA) else listOf(ObjectKind.SCHEMA)

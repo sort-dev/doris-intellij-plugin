@@ -5,7 +5,6 @@ import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dialects.mysqlbase.MysqlBaseDialect
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
-import com.intellij.database.util.DbImplUtilCore
 import com.intellij.database.util.SearchPath
 import dev.sort.doris.DorisCatalogs
 import java.util.concurrent.atomic.AtomicBoolean
@@ -126,17 +125,20 @@ class DorisDatabaseDialect(private val dbms: Dbms) : MysqlBaseDialect() {
         return path
     }
 
-    /**
-     * Runs a single-value query via the platform's own helper (the exact shape MySQL's read-back
-     * uses: `concatStringResults(connection, connection.dbms, sql, 1, NO_CONCAT)`); null (logged)
-     * on any failure.
-     */
     private fun queryStringOrNull(connection: DatabaseConnectionCore, sql: String): String? {
         return try {
-            DbImplUtilCore.concatStringResults(
-                connection, connection.dbms, sql, 1, DbImplUtilCore.ConcatenationProps.NO_CONCAT,
-            )?.takeUnless { it.isBlank() }
-        } catch (t: Throwable) {
+            val statement = JdbcNativeUtil.computeRemote { connection.remoteConnection.createStatement() } ?: return null
+            try {
+                val rows = JdbcNativeUtil.computeRemote { statement.executeQuery(sql) } ?: return null
+                try {
+                    if (rows.next()) rows.getString(1)?.takeUnless { it.isBlank() } else null
+                } finally {
+                    JdbcNativeUtil.performSafe { rows.close() }
+                }
+            } finally {
+                JdbcNativeUtil.closeRemoteStatementSafe(statement)
+            }
+        } catch (t: java.sql.SQLException) {
             DorisCatalogs.info("read-back probe '$sql' failed (${t.message}); falling back")
             null
         }
@@ -177,8 +179,8 @@ class DorisDatabaseDialect(private val dbms: Dbms) : MysqlBaseDialect() {
             } finally {
                 JdbcNativeUtil.closeRemoteStatementSafe(statement)
             }
-        } catch (t: Throwable) {
-            DorisCatalogs.warn("SHOW CATALOGS read-back fallback failed", t)
+        } catch (t: java.sql.SQLException) {
+            DorisCatalogs.info("SHOW CATALOGS read-back fallback failed (${t.message})")
             null
         }
     }

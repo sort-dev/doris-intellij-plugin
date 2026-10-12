@@ -49,5 +49,6 @@ class DorisPipeExecutionContractTest : BasePlatformTestCase() {
     fun testLowersNestedOnlyPipelines() = contract().lowersNestedOnlyPipelines()
     fun testRunsTopLevelStagesToTheCaret() = contract().runsTopLevelStagesToTheCaret()
     fun testRefusesDestinationChangesDuringPrompting() = contract().refusesDestinationChangesDuringPrompting()
+    fun testRefusesNamespaceChangesDuringPrompting() = contract().refusesNamespaceChangesDuringPrompting()
     fun testNotifiesRefusals() = contract().notifiesRefusals()
 }
