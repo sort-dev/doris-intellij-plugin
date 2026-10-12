@@ -1,11 +1,13 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.intellij.pipe.PipeTranslation
-
 import com.intellij.database.Dbms
 import com.intellij.database.actions.ShowSqlParametersPanelAction
+import com.intellij.database.connection.throwable.info.ErrorInfo
 import com.intellij.database.console.JdbcConsole
+import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.database.console.client.SessionClientHolder
+import com.intellij.database.console.session.DatabaseSessionViewService
+import com.intellij.database.datagrid.DataAuditor
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.datagrid.GridDataRequest
 import com.intellij.database.psi.DbPsiFacade
@@ -13,50 +15,65 @@ import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.script.ScriptModel
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.Notification
-import com.intellij.notification.Notifications
 import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileEditor.FileDocumentManagerListener
+import com.intellij.openapi.fileEditor.TextEditor
+import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
-import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.openapi.ui.popup.JBPopup
-import dev.brikk.house.sql.intellij.pipe.PipePreviewIntention
-import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
-import dev.brikk.house.sql.intellij.pipe.NativeVerdict
-import dev.brikk.house.sql.intellij.pipe.ValidationTiming
-import dev.brikk.house.sql.intellij.pipe.lower
-import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
+import com.intellij.psi.SyntaxTraverser
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.LanguageTextField
 import com.intellij.ui.UiInterceptors
-import dev.brikk.house.sql.intellij.SqlExecutionRefusal
-import dev.brikk.house.sql.intellij.TranslatingScriptModel
+import com.intellij.util.Function
+import dev.brikk.house.sql.intellij.EditorSnapshot
 import dev.brikk.house.sql.intellij.ExecutionClaim
+import dev.brikk.house.sql.intellij.SqlExecutionRefusal
+import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
+import dev.brikk.house.sql.intellij.pipe.NativeVerdict
 import dev.brikk.house.sql.intellij.pipe.PipeDialect
 import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
+import dev.brikk.house.sql.intellij.pipe.PipePreviewIntention
 import dev.brikk.house.sql.intellij.pipe.PipeRun
+import dev.brikk.house.sql.intellij.pipe.PipeRunStatement
 import dev.brikk.house.sql.intellij.pipe.PipeSubmitListener
-import dev.brikk.house.sql.intellij.notifyEscaped
-import com.intellij.database.console.JdbcConsoleProvider
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.ValidationTiming
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
+import java.awt.Component
+import java.awt.Container
+import java.lang.reflect.Proxy
+import java.util.UUID
+import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicReference
+import javax.swing.JButton
+import javax.swing.JScrollPane
+import javax.swing.JTextArea
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.sqlparser.DorisSqlParser
-import java.util.UUID
-import javax.swing.JScrollPane
-import javax.swing.JTextArea
 
 /**
  * Real Execute interception, console construction, platform Info preparation, and request creation.
@@ -91,15 +108,15 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     fun testWarningFreePipeSubmitsThroughRealDefaultInterceptor() {
         val sql = "FROM offline_rows |> SELECT id |> WHERE id > 0"
-        val translated = DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered
-        assertEmpty(translated.result!!.unsupportedMessages)
+        val translated = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+        assertEmpty(translated.result.unsupportedMessages)
         ExecutionFixture(sql).use { fixture ->
             for (variant in 1..4) {
                 fixture.editor.selectionModel.setSelection(0, sql.length)
                 fixture.execute(variant)
                 assertEquals(variant, fixture.requests.size)
                 val request = fixture.requests.last() as DataRequest.QueryRequest
-                assertEquals(translated.dorisSql, request.query)
+                assertEquals(translated.sql, request.query)
                 assertFalse(request.query.contains("|>"))
                 assertSame(fixture.console, request.owner)
                 val coupled = request as DataRequest.CoupledWithEditor
@@ -120,7 +137,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.execute()
             assertEquals(1, fixture.requests.size)
             val request = fixture.requests.single() as DataRequest.QueryRequest
-            assertEquals((DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered).dorisSql, request.query)
+            assertEquals((DorisPipeDialect.lower(sql) as PipeTranslation.Lowered).sql, request.query)
             assertEquals(TextRange(0, sql.length), (request as DataRequest.CoupledWithEditor).range)
             assertEmpty(fixture.previousEvents)
             assertEquals(sql, fixture.editor.document.text)
@@ -137,7 +154,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.editor.caretModel.moveToOffset(sql.indexOf("id = 1"))
             fixture.execute()
             assertEquals(
-                (DorisPipesEngine.transpile(original) as PipeTranslation.Lowered).dorisSql,
+                (DorisPipeDialect.lower(original) as PipeTranslation.Lowered).sql,
                 (fixture.requests.last() as DataRequest.QueryRequest).query,
             )
 
@@ -150,7 +167,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.editor.caretModel.moveToOffset(otherStart + other.indexOf("id = 2"))
             fixture.execute()
             assertEquals(
-                (DorisPipesEngine.transpile(other) as PipeTranslation.Lowered).dorisSql,
+                (DorisPipeDialect.lower(other) as PipeTranslation.Lowered).sql,
                 (fixture.requests.last() as DataRequest.QueryRequest).query,
             )
 
@@ -158,7 +175,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.editor.caretModel.moveToOffset(updated.indexOf("id = 9"))
             fixture.execute()
             assertEquals(
-                (DorisPipesEngine.transpile(updated) as PipeTranslation.Lowered).dorisSql,
+                (DorisPipeDialect.lower(updated) as PipeTranslation.Lowered).sql,
                 (fixture.requests.last() as DataRequest.QueryRequest).query,
             )
             assertFalse((fixture.requests.last() as DataRequest.QueryRequest).query.contains("id = 1"))
@@ -170,34 +187,48 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val current = "FROM offline_rows |> WHERE id = 9"
         ExecutionFixture(current).use { fixture ->
             for (cached in listOf(old, "SELECT 1")) {
-                val model = TranslatingScriptModel(cachedQueryModel(fixture.console.scriptModel, cached), fixture.editor, DorisTestExecutionAdapter)
-                model.finalizeTranslations(fixture.console.pStorage)
-                val statement = model.statements().map { it.text() to it.query() }.toList().single()
-                assertEquals(current, statement.first)
-                assertEquals((DorisPipesEngine.transpile(current) as PipeTranslation.Lowered).sql, statement.second)
+                fixture.cacheQuery(cached)
+                fixture.execute()
+                val statement = fixture.runs.last().statements.single()!!
+                assertEquals(current, statement.source)
+                assertEquals((DorisPipeDialect.lower(current) as PipeTranslation.Lowered).sql, statement.sql)
+                assertContainsElements(fixture.cachedQueriesRead, cached)
             }
-            fixture.replaceSql("SELECT 1")
-            val failure = runCatching {
-                TranslatingScriptModel(cachedQueryModel(fixture.console.scriptModel, old), fixture.editor, DorisTestExecutionAdapter)
-            }.exceptionOrNull()
-            assertTrue(failure is SqlExecutionRefusal)
-            assertTrue((failure as SqlExecutionRefusal).message!!.contains("prepared statement changed"))
+            val submitted = fixture.requests.size
+            fixture.replaceSql("SELECT 1; $current")
+            fixture.cacheQuery(old)
+            fixture.executeScript()
+            assertEquals(submitted, fixture.requests.size)
+            assertEmpty(fixture.previousEvents)
+            assertEquals(NotificationType.ERROR, fixture.notifications.single().type)
+            assertTrue(notificationText(fixture.notifications.single()).contains("prepared statement changed"))
         }
     }
 
     fun testPreparedModelRejectsEditAndRevertBeforeSubmission() {
         ExecutionFixture(safeProgram).use { fixture ->
-            val model = TranslatingScriptModel(fixture.console.scriptModel, fixture.editor, DorisTestExecutionAdapter)
-            WriteCommandAction.runWriteCommandAction(project) {
-                fixture.editor.document.insertString(0, " ")
-                fixture.editor.document.deleteString(0, 1)
+            var prepared = false
+            fixture.beforeSubmit = {
+                val snapshot = EditorSnapshot.capture(fixture.editor.document)
+                snapshot.requireCurrent()
+                prepared = true
+                WriteCommandAction.runWriteCommandAction(project) {
+                    fixture.editor.document.insertString(0, " ")
+                    fixture.editor.document.deleteString(0, 1)
+                }
+                assertFalse(snapshot.revision == fixture.editor.document.modificationStamp)
+                val refusal = runCatching { snapshot.requireCurrent() }.exceptionOrNull()
+                assertTrue(refusal is SqlExecutionRefusal)
+                assertTrue(refusal!!.message!!.contains("SQL changed during preparation"))
             }
-            assertFalse(model.isActual)
-            val refusal = runCatching { model.finalizeTranslations(fixture.console.pStorage) }.exceptionOrNull()
+            fixture.execute()
+            assertTrue(prepared)
+            val refusal = fixture.notifications.single()
             assertNotNull(refusal)
-            assertTrue(refusal is SqlExecutionRefusal)
-            assertTrue(refusal!!.message!!, refusal.message!!.contains("SQL changed during preparation"))
+            assertEquals(NotificationType.ERROR, refusal.type)
+            assertTrue(notificationText(refusal).contains("SQL changed during preparation"))
             assertEmpty(fixture.requests)
+            assertEmpty(fixture.previousEvents)
         }
     }
 
@@ -232,7 +263,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     fun testCancellationDuringTrackingNeverSubmitsOrDelegates() {
         ExecutionFixture(safeProgram).use { fixture ->
-            val canceled = com.intellij.openapi.progress.ProcessCanceledException()
+            val canceled = ProcessCanceledException()
             var canceledAtTracking = false
             fixture.recording.onAuditorAdded = { auditor ->
                 if (auditor.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) {
@@ -252,9 +283,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testEditAndRevertDuringStockSaveIsStillRejected() {
         ExecutionFixture(safeProgram).use { fixture ->
             var edited = false
-            val connection = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect()
-            connection.subscribe(com.intellij.AppTopics.FILE_DOCUMENT_SYNC,
-                object : com.intellij.openapi.fileEditor.FileDocumentManagerListener {
+            val connection = ApplicationManager.getApplication().messageBus.connect()
+            connection.subscribe(FileDocumentManagerListener.TOPIC,
+                object : FileDocumentManagerListener {
                     override fun beforeAllDocumentsSaving() {
                         if (edited) return
                         edited = true
@@ -276,6 +307,107 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 assertEquals(safeProgram, fixture.editor.document.text)
             } finally { connection.disconnect() }
         }
+    }
+
+    fun testEmbeddedCoreProvidesStageScopesAndExactSourceMaps() {
+        val text = "FROM t |> EXTEND id + 1 AS n |> SELECT n"
+        val scope = DorisPipesEngine.stageScopeAt(text, text.indexOf("SELECT"), "t", listOf("id"))
+        assertTrue(scope.toString(), scope?.containsAll(listOf("id", "n")) == true)
+        val original = "FROM t |> WHERE missing_column > 0 |> SELECT missing_column"
+        ExecutionFixture(original).use { fixture ->
+            val statement = submittedStatement(fixture, "missing_column > 0")
+            val lines = statement.sql.lines()
+            val line = lines.indexOfFirst { "missing_column > 0" in it }
+            assertTrue(statement.sql, line >= 0)
+            val col = lines[line].indexOf("missing_column")
+            val mapped = mappedPipeError("(line ${line + 1}, pos $col)", statement.source, statement.sourceMap)!!
+            assertTrue(original.substring(mapped.startOffset!!, mapped.endOffset!! + 1).contains("missing_column"))
+        }
+    }
+
+    fun testSourceMapIdentifiesTheFilteredOccurrenceAfterEscapedStringsAndRepeatedColumns() {
+        val text = "FROM t\n|> EXTEND 'O''Reilly' AS label\n" +
+            "|> WHERE missing_column > 0\n|> SELECT missing_column, label"
+        ExecutionFixture(text).use { fixture ->
+            val statement = submittedStatement(fixture, "missing_column > 0")
+            val lines = statement.sql.lines()
+            val line = lines.indexOfFirst { "missing_column > 0" in it }
+            val col = lines[line].indexOf("missing_column")
+            val mapped = mappedPipeError("(line ${line + 1}, pos $col)", statement.source, statement.sourceMap)!!
+            assertEquals(3, mapped.originalLine)
+            assertEquals(text.indexOf("missing_column"), mapped.startOffset)
+            assertEquals("missing_column", text.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
+            assertNull(mappedPipeError("Unknown column without a position", statement.source, statement.sourceMap))
+        }
+    }
+
+    fun testSupplementaryCharactersMustNotShiftExactSourceOffsets() {
+        val text = "FROM t |> EXTEND '😀' AS label |> WHERE missing_column > 0 |> LIMIT 5"
+        ExecutionFixture(text).use { fixture ->
+            val statement = submittedStatement(fixture, "missing_column > 0", "LIMIT 5")
+            val lines = statement.sql.lines()
+            val line = lines.indexOfFirst { "missing_column > 0" in it }
+            val col = lines[line].indexOf("missing_column")
+            val mapped = mappedPipeError("(line ${line + 1}, pos $col)", statement.source, statement.sourceMap)!!
+            assertEquals(text.indexOf("missing_column"), mapped.startOffset)
+            assertEquals("missing_column", text.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
+        }
+    }
+
+    fun testServerCodePointColumnsMapToUtf16AfterSupplementaryCharactersOnTheSameOutputLine() {
+        for (payload in listOf("ascii", "😀", "😀🚀")) {
+            for (newline in listOf(" ", "\n", "\r\n")) {
+                val text = "FROM t${newline}|> WHERE CONCAT('$payload', missing_column) = 'x'${newline}|> LIMIT 5"
+                ExecutionFixture(text).use { fixture ->
+                    val statement = submittedStatement(fixture, "missing_column", "LIMIT 5")
+                    val lines = statement.sql.lines()
+                    val line = lines.indexOfFirst { "missing_column" in it }
+                    val col = lines[line].indexOf("missing_column")
+                    val nativeToken = DorisSqlParser().newLexer(statement.sql).allTokens.single { it.text == "missing_column" }
+                    val pos = nativeToken.charPositionInLine
+                    assertEquals(line + 1, nativeToken.line)
+                    assertEquals(lines[line].codePointCount(0, col), pos)
+                    val mapped = mappedPipeError("(line ${line + 1}, pos $pos)", statement.source, statement.sourceMap)!!
+                    val authored = fixture.editor.document.text
+                    assertEquals(authored, statement.source)
+                    assertEquals(text, authored.indexOf("missing_column"), mapped.startOffset)
+                    assertEquals("missing_column", authored.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
+                    assertEquals(authored.substringBefore("missing_column").count { it == '\n' } + 1, mapped.originalLine)
+                    assertEquals(line + 1, mapped.transpiledLine)
+                    assertEquals(pos, mapped.transpiledPos)
+                }
+            }
+        }
+    }
+
+    fun testInvalidServerCoordinatesNeverWrapOntoADifferentGeneratedLine() {
+        ExecutionFixture("FROM t |> WHERE missing_column > 0 |> LIMIT 5").use { fixture ->
+            val statement = submittedStatement(fixture, "missing_column > 0", "LIMIT 5")
+            val lines = statement.sql.lines()
+            val firstLineLength = lines.first().codePointCount(0, lines.first().length)
+            for (message in listOf(
+                "(line 0, pos 0)", "(line ${lines.size + 1}, pos 0)",
+                "(line 1, pos ${firstLineLength + 1})", "(line 1, pos 2147483647)",
+                "(line 999999999999, pos 0)", "(line 1, pos 999999999999)",
+            )) assertEquals(message, null, mappedPipeError(message, statement.source, statement.sourceMap))
+        }
+    }
+
+    private fun submittedStatement(fixture: ExecutionFixture, vararg expected: String): PipeRunStatement {
+        fixture.execute()
+        val statement = fixture.runs.single().statements.single()!!
+        val lowered = DorisPipeDialect.lower(statement.source) as PipeTranslation.Lowered
+        assertNotNull(lowered.result)
+        assertEquals(lowered.result.sql, lowered.sql)
+        assertEquals(lowered.sql, statement.sql)
+        assertEmpty(lowered.result.unsupportedMessages)
+        assertNotNull(statement.sourceMap)
+        DorisSqlParser().parseStatement(statement.sql)
+        for (part in expected) assertTrue(statement.sql, part in statement.sql)
+        assertEquals(statement.sql, (fixture.requests.single() as DataRequest.QueryRequest).query)
+        assertEmpty(fixture.previousEvents)
+        assertEmpty(fixture.notifications)
+        return statement
     }
 
     fun testAuthoredMapPreservesUnicodeAndMixedScriptSlots() {
@@ -304,11 +436,11 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val sql = "FROM offline_rows |> WHERE id = :id |> SELECT id"
         ExecutionFixture(sql).use { fixture ->
             ShowSqlParametersPanelAction.getStorage(fixture.console).putValue("id", "17000")
-            val model = TranslatingScriptModel(fixture.console.scriptModel, fixture.editor, DorisTestExecutionAdapter)
-            assertContainsElements(model.parameters().map { it.name() }.toList(), "id")
+            assertContainsElements(DorisPipeDialect.parameterSpans(sql).map { it.name }, "id")
             fixture.execute()
             val plan = fixture.runs.single().statements.single()!!
             assertTrue(plan.sql, "17000" in plan.sql)
+            assertFalse(plan.sql, ":id" in plan.sql)
             assertNull(plan.sourceMap)
             assertNull(mappedPipeError("(line 1, pos 7)", plan.source, plan.sourceMap))
             assertEquals(sql, fixture.editor.document.text)
@@ -318,7 +450,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testAuditorMapsThePipeQueryIndexAfterPlainScriptSlots() {
         val pipe = "FROM offline_rows |> SELECT '😀' AS marker, id |> WHERE id > 0"
         ExecutionFixture("SELECT 1; $pipe; SELECT 2;").use { fixture ->
-            var auditor: com.intellij.database.datagrid.DataAuditor? = null
+            var auditor: DataAuditor? = null
             fixture.recording.onAuditorAdded = {
                 if (it.javaClass.name.startsWith(DorisPipesExecution::class.java.name + "$")) auditor = it
             }
@@ -329,13 +461,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val plain = fixture.requests.single() as ConsoleDataRequest
             assertEquals(0, plain.queryIndex)
             val observer = checkNotNull(auditor)
-            val info = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader,
-                arrayOf(com.intellij.database.connection.throwable.info.ErrorInfo::class.java)) { _, method, _ ->
-                when (method.name) {
-                    "getMessage" -> "Unknown column (line 1, pos 7)"
-                    else -> error("Unexpected error-info method ${method.name}")
-                }
-            } as com.intellij.database.connection.throwable.info.ErrorInfo
+            val info = errorInfo("Unknown column (line 1, pos 7)")
             observer.error(DataRequest.Context(fixture.session.messageBus.dataProducer,
                 DataRequest.newOutputHandler(), plain, DataRequest.AUTO_COMMIT), info)
             assertEquals(oldMark, DorisPipes.execMarkFor(project, fixture.file.virtualFile.url, text))
@@ -350,13 +476,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val linePrefix = outputPrefix.substringAfterLast('\n')
             val position = linePrefix.codePointCount(0, linePrefix.length)
             val message = "Unknown column (line $line, pos $position)"
-            val error = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader,
-                arrayOf(com.intellij.database.connection.throwable.info.ErrorInfo::class.java)) { _, method, _ ->
-                when (method.name) {
-                    "getMessage" -> message
-                    else -> error("Unexpected error-info method ${method.name}")
-                }
-            } as com.intellij.database.connection.throwable.info.ErrorInfo
+            val error = errorInfo(message)
             observer.error(DataRequest.Context(fixture.session.messageBus.dataProducer,
                 DataRequest.newOutputHandler(), request, DataRequest.AUTO_COMMIT), error)
             val mark = DorisPipes.execMarkFor(project, fixture.file.virtualFile.url, text)!!
@@ -415,8 +535,8 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testLossyWarningsBlockEveryVariantWithoutLeakingToTheNextQuery() {
         ExecutionFixture(warningPrograms.first()).use { fixture ->
             for (sql in warningPrograms) {
-                val translation = DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered
-                assertNotNull(translation.executionError)
+                val translation = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+                assertNotNull(translation.blocker)
                 for (variant in 1..4) {
                     val submittedBefore = fixture.requests.size
                     fixture.replaceSql(sql)
@@ -427,14 +547,14 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     val notification = fixture.notifications.last()
                     assertEquals(NotificationType.ERROR, notification.type)
                     val text = notificationText(notification)
-                    assertEquals(translation.executionError!!.message, text)
-                    for (warning in translation.unsupportedMessages) assertTrue(text, warning in text)
+                    assertEquals(translation.blocker, text)
+                    for (warning in translation.result.unsupportedMessages) assertTrue(text, warning in text)
                     assertEquals(sql, fixture.editor.document.text)
 
                     fixture.replaceSql(safeProgram)
                     fixture.execute(variant)
                     assertEquals(submittedBefore + 1, fixture.requests.size)
-                    assertEquals((DorisPipesEngine.transpile(safeProgram) as PipeTranslation.Lowered).dorisSql,
+                    assertEquals((DorisPipeDialect.lower(safeProgram) as PipeTranslation.Lowered).sql,
                         (fixture.requests.last() as DataRequest.QueryRequest).query)
                     assertEquals("the next query must not inherit warnings", 1, fixture.notifications.size)
                     assertEmpty(fixture.previousEvents)
@@ -448,9 +568,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     fun testNativeInvalidGeneratedSqlBlocksEveryVariantWithoutRawFallback() {
         val sql = "SELECT id FROM offline_rows LIMIT -1 |> ORDER BY 1"
-        val translation = DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered
-        assertEmpty(translation.unsupportedMessages)
-        assertNotNull(translation.validationError)
+        val translation = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+        assertEmpty(translation.result.unsupportedMessages)
+        assertTrue(translation.verdict is NativeVerdict.Rejected)
         ExecutionFixture(sql).use { fixture ->
             fixture.editor.selectionModel.setSelection(0, sql.length)
             for (variant in 1..4) {
@@ -620,25 +740,12 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     fun testLoweringCannotProduceMismatchedOrUnapprovedPayloads() {
-        val safe = DorisPipesEngine.transpile(safeProgram) as PipeTranslation.Lowered
-        val lossy = DorisPipesEngine.transpile(warningPrograms.first()) as PipeTranslation.Lowered
-        ExecutionFixture(safeProgram).use { fixture ->
-            val submissionThread = Thread.currentThread()
-            val submissionCalls = mutableListOf<String>()
-            // The IDE may query getProject on the session from background readers. This guard
-            // must reject synchronously before the submitting thread accesses the session.
-            fixture.recording.beforeSessionCall = { name ->
-                if (Thread.currentThread() === submissionThread) submissionCalls.add(name)
-            }
-            submissionCalls.clear()
-            assertNotNull(lossy.blocker)
-            assertEquals(safe.result.sql, safe.sql)
-            assertSame(safe.sql, safe.result.sourceMap!!.output)
-            assertTrue(DorisPipesEngine.transpile("SHOW FRONTENDS |> LIMIT 1") is PipeTranslation.Refused)
-            assertEmpty(submissionCalls)
-            assertEmpty(fixture.requests)
-            assertEmpty(fixture.previousEvents)
-        }
+        val safe = DorisPipeDialect.lower(safeProgram) as PipeTranslation.Lowered
+        val lossy = DorisPipeDialect.lower(warningPrograms.first()) as PipeTranslation.Lowered
+        assertNotNull(lossy.blocker)
+        assertEquals(safe.result.sql, safe.sql)
+        assertSame(safe.sql, safe.result.sourceMap!!.output)
+        assertTrue(DorisPipeDialect.lower("SHOW FRONTENDS |> LIMIT 1") is PipeTranslation.Refused)
     }
 
     fun testDestinationChangedBySubmitListenerIsRefused() {
@@ -665,8 +772,8 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     val notification = fixture.notifications.last()
                     assertEquals(NotificationType.ERROR, notification.type)
                     assertEquals("Doris Pipes", notification.title)
-                    val translation = DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered
-                    for (warning in translation.unsupportedMessages) assertTrue(notificationText(notification), warning in notificationText(notification))
+                    val translation = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+                    for (warning in translation.result.unsupportedMessages) assertTrue(notificationText(notification), warning in notificationText(notification))
                     assertEquals(sql, fixture.editor.document.text)
                 }
                 assertEquals(2, fixture.notifications.size)
@@ -757,7 +864,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 }).actionPerformed(event)
                 assertSame(second, (fixture.requests.single() as DataRequest.QueryRequest).owner)
             } finally {
-                com.intellij.database.console.session.DatabaseSessionViewService.getInstance().destroyView(second)
+                DatabaseSessionViewService.getInstance().destroyView(second)
                 Disposer.dispose(second)
                 setSqlDialectMapping(project, secondFile.virtualFile, null)
             }
@@ -767,14 +874,14 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testRunToStageExecutesOnlyTheSafePrefixBeforeALaterLossyStage() {
         val prefix = "FROM offline_rows |> WHERE id > 0"
         val sql = "$prefix |> SELECT LAST_DAY(d, YEAR) AS period_end"
-        assertNotNull((DorisPipesEngine.transpile(sql) as PipeTranslation.Lowered).executionError)
+        assertNotNull((DorisPipeDialect.lower(sql) as PipeTranslation.Lowered).blocker)
         ExecutionFixture(sql).use { fixture ->
             fixture.editor.caretModel.moveToOffset(sql.indexOf("WHERE") + 2)
             assertSame(fixture.console, JdbcConsoleProvider.getValidConsole(project, fixture.file.viewProvider.virtualFile))
             for (menu in listOf(false, true)) {
                 fixture.runToStage(menu)
                 val request = fixture.requests.last() as DataRequest.QueryRequest
-                assertEquals((DorisPipesEngine.transpile(prefix) as PipeTranslation.Lowered).dorisSql, request.query)
+                assertEquals((DorisPipeDialect.lower(prefix) as PipeTranslation.Lowered).sql, request.query)
                 assertFalse(request.query, "LAST_DAY" in request.query)
                 assertEquals(TextRange(0, prefix.length), (request as DataRequest.CoupledWithEditor).range)
                 assertSame(fixture.console, request.owner)
@@ -790,17 +897,13 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     fun testRunToStageExecutesTheInitialFromStageOnly() {
         val prefix = "FROM offline_rows"
         val sql = "$prefix |> WHERE id > 0 |> SELECT id"
-        val translated = DorisPipesEngine.transpile(
-            prefix,
-            allowNamedParameters = true,
-            allowFirstFromStage = true,
-        ) as PipeTranslation.Lowered
+        val translated = DorisPipeDialect.lower(prefix, firstStage = true) as PipeTranslation.Lowered
         ExecutionFixture(sql).use { fixture ->
             fixture.editor.caretModel.moveToOffset(sql.indexOf("offline_rows"))
             for (menu in listOf(false, true)) {
                 fixture.runToStage(menu)
                 val request = fixture.requests.last() as DataRequest.QueryRequest
-                assertEquals(translated.dorisSql, request.query)
+                assertEquals(translated.sql, request.query)
                 assertFalse(request.query, "WHERE" in request.query || "|>" in request.query)
                 assertEquals(TextRange(0, prefix.length), (request as DataRequest.CoupledWithEditor).range)
                 assertSame(fixture.console, request.owner)
@@ -832,7 +935,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             fixture.editor.caretModel.moveToOffset(nested.lastIndexOf("SELECT"))
             fixture.runToStage(menu = false)
             val request = fixture.requests.single() as DataRequest.QueryRequest
-            assertEquals((DorisPipesEngine.transpile(nested) as PipeTranslation.Lowered).dorisSql, request.query)
+            assertEquals((DorisPipeDialect.lower(nested) as PipeTranslation.Lowered).sql, request.query)
             assertEmpty(fixture.previousEvents)
         }
     }
@@ -842,7 +945,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val diagnosticDialect = object : PipeDialect by DorisPipeDialect {
             override val validator = object : NativeSqlValidator {
                 override val timing = ValidationTiming.Lowering
-                override fun validate(sql: String, file: com.intellij.psi.PsiFile?) =
+                override fun validate(sql: String, file: PsiFile?) =
                     NativeVerdict.Rejected(extraWarnings.joinToString("\n"))
             }
         }
@@ -868,11 +971,11 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     assertFalse(warnings.isEditable)
                     assertTrue(warnings.lineWrap)
                     assertEquals(result.blocker, warnings.text)
-                    for (warning in if (dialect === diagnosticDialect) extraWarnings else result.unsupportedMessages) {
+                    for (warning in if (dialect === diagnosticDialect) extraWarnings else result.result.unsupportedMessages) {
                         assertTrue(warnings.text, warning in warnings.text)
                         assertFalse(sql.text, warning in sql.text)
                     }
-                    assertEquals("Copy", components.filterIsInstance<javax.swing.JButton>().single().text)
+                    assertEquals("Copy", components.filterIsInstance<JButton>().single().text)
                     assertEquals(original, fixture.editor.document.text)
                     assertEquals(stamp, fixture.editor.document.modificationStamp)
                     assertEquals(2, fixture.editor.selectionModel.selectionStart)
@@ -885,9 +988,9 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         }
     }
 
-    private fun components(component: java.awt.Component): Sequence<java.awt.Component> = sequence {
+    private fun components(component: Component): Sequence<Component> = sequence {
         yield(component)
-        if (component is java.awt.Container) for (child in component.components) yieldAll(components(child))
+        if (component is Container) for (child in component.components) yieldAll(components(child))
     }
 
     private fun preview(fixture: ExecutionFixture, dialect: PipeDialect): JBPopup {
@@ -903,18 +1006,6 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         return checkNotNull(popup)
     }
 
-    fun testExecutionNotificationPreservesMarkupLikeAndMultilineDiagnostics() {
-        ExecutionFixture("FROM offline_rows |> SELECT id").use { fixture ->
-            val message = "first <b>literal</b> & text\r\nsecond\rthird <script>still text</script>"
-            notifyEscaped(project, "Doris Pipes", "PIPE translation failed", message, NotificationType.ERROR)
-            val notification = fixture.notifications.single()
-            assertEquals("first &lt;b&gt;literal&lt;/b&gt; &amp; text<br>second<br>third &lt;script&gt;still text&lt;/script&gt;", notification.content)
-            assertEquals(StringUtil.convertLineSeparators(message), notificationText(notification))
-            assertEmpty(fixture.requests)
-            assertEmpty(fixture.previousEvents)
-        }
-    }
-
     fun testStructureViewEditorFallbackPreservesThePipeCandidate() {
         val sql = "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;"
         val candidates = mutableListOf<String>()
@@ -925,12 +1016,10 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val event = AnActionEvent.createFromDataContext("StructureViewPopup", Presentation(), SimpleDataContext.builder()
                 .add(CommonDataKeys.PROJECT, project).add(CommonDataKeys.PSI_FILE, fixture.file)
                 .add(CommonDataKeys.VIRTUAL_FILE, fixture.file.virtualFile)
-                .add(com.intellij.openapi.actionSystem.PlatformCoreDataKeys.FILE_EDITOR,
-                    com.intellij.openapi.fileEditor.impl.text.TextEditorProvider.getInstance().getTextEditor(fixture.editor))
+                .add(PlatformCoreDataKeys.FILE_EDITOR, TextEditorProvider.getInstance().getTextEditor(fixture.editor))
                 .add(SessionClientHolder.CLIENT_KEY, fixture.console).build())
             assertNull(event.getData(CommonDataKeys.EDITOR))
-            val resolved = (event.getData(com.intellij.openapi.actionSystem.PlatformCoreDataKeys.FILE_EDITOR)
-                as? com.intellij.openapi.fileEditor.TextEditor)?.editor
+            val resolved = (event.getData(PlatformCoreDataKeys.FILE_EDITOR) as? TextEditor)?.editor
             assertSame(fixture.editor, resolved)
             assertEquals(sql, DorisPipes.chunkAt(resolved!!.document.text, resolved.caretModel.offset)!!.text)
             fixture.action().actionPerformed(event)
@@ -963,7 +1052,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     fun testWarningGatePreservesSqlMessagesAndSourceMapForPreview() {
         val text = "FROM t |> SELECT LAST_DAY(d, YEAR) AS period_end |> LIMIT 2"
-        val result = DorisPipesEngine.transpile(text) as PipeTranslation.Lowered
+        val result = DorisPipeDialect.lower(text) as PipeTranslation.Lowered
         val raw = result.result
         val sql = result.sql
         val warnings = raw.unsupportedMessages.toList()
@@ -979,7 +1068,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             assertEquals(warnings, raw.unsupportedMessages)
             assertTrue(DorisPipesEngine.pipeSyntaxErrors(text).single().message.contains(warnings.single()))
             val safeText = "FROM t |> SELECT LAST_DAY(d) AS period_end |> LIMIT 2"
-            val safe = DorisPipesEngine.transpile(safeText) as PipeTranslation.Lowered
+            val safe = DorisPipeDialect.lower(safeText) as PipeTranslation.Lowered
             assertNull(safe.blocker)
             fixture.replaceSql(safeText)
             fixture.execute()
@@ -990,7 +1079,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     fun testAllUnsupportedDiagnosticsBlockIncludingEmptyOrMarkupLikeMessages() {
-        val safe = DorisPipesEngine.transpile(safeProgram) as PipeTranslation.Lowered
+        val safe = DorisPipeDialect.lower(safeProgram) as PipeTranslation.Lowered
         for (messages in listOf(listOf(""), listOf("first\nsecond", "<html>&literal</html>"))) {
             val result = safe.copy(result = safe.result.copy(unsupportedMessages = messages))
             assertNotNull(result.blocker)
@@ -998,7 +1087,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
             val dialect = object : PipeDialect by DorisPipeDialect {
                 override val validator = object : NativeSqlValidator {
                     override val timing = ValidationTiming.Lowering
-                    override fun validate(sql: String, file: com.intellij.psi.PsiFile?) = NativeVerdict.Rejected(messages.joinToString("\n"))
+                    override fun validate(sql: String, file: PsiFile?) = NativeVerdict.Rejected(messages.joinToString("\n"))
                 }
             }
             ExecutionFixture(safeProgram, dialect = dialect).use { fixture ->
@@ -1024,8 +1113,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
     }
 
     fun testTranslationNotificationAndSubmissionExceptionsNeverGrantRawFallback() {
-        for (failure in listOf(IllegalStateException("injected failure"), com.intellij.openapi.progress.ProcessCanceledException(),
-            java.util.concurrent.CancellationException("cancelled"))) {
+        for (failure in listOf(IllegalStateException("injected failure"), ProcessCanceledException(), CancellationException("cancelled"))) {
             for (site in listOf("translation", "notification", "submission")) for (variant in 1..4) {
                 var reports = 0
                 var submissions = 0
@@ -1036,7 +1124,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                     }
                     override val validator = object : NativeSqlValidator {
                         override val timing = ValidationTiming.Lowering
-                        override fun validate(sql: String, file: com.intellij.psi.PsiFile?): NativeVerdict {
+                        override fun validate(sql: String, file: PsiFile?): NativeVerdict {
                             if (site == "translation") throw failure
                             return NativeVerdict.Accepted
                         }
@@ -1057,6 +1145,15 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
 
     private fun notificationText(notification: Notification): String =
         StringUtil.unescapeXmlEntities(notification.content.replace("<br>", "\n"))
+
+    private fun errorInfo(message: String): ErrorInfo = Proxy.newProxyInstance(
+        ErrorInfo::class.java.classLoader, arrayOf(ErrorInfo::class.java),
+    ) { _, method, _ ->
+        when (method.name) {
+            "getMessage" -> message
+            else -> error("Unexpected error-info method ${method.name}")
+        }
+    } as ErrorInfo
 
     fun testVendoredLexerDistinguishesOperatorTokensFromQuotedMarkers() {
         fun tokens(text: String) = DorisSqlParser().newLexer(text).allTokens
@@ -1085,6 +1182,7 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         val requests get() = recording.requests
         val previousEvents = mutableListOf<AnActionEvent>()
         val runs = mutableListOf<PipeRun>()
+        val cachedQueriesRead = mutableListOf<String>()
         var beforeSubmit: (PipeRun) -> Unit = {}
         val clients get() = session.clients.toList()
         val notifications = mutableListOf<Notification>()
@@ -1133,6 +1231,13 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
                 try { close() } catch (cleanup: Throwable) { failure.addSuppressed(cleanup) }
                 throw failure
             }
+        }
+
+        fun cacheQuery(cached: String) {
+            val field = JdbcConsole::class.java.getDeclaredField("myScriptModel").apply { isAccessible = true }
+            val cache = field.get(console) as AtomicReference<*>
+            val model = cachedQueryModel(console.scriptModel, cached) { cachedQueriesRead += it }
+            cache.javaClass.getMethod("set", Any::class.java).invoke(cache, model)
         }
 
         fun replaceSql(sql: String) {
@@ -1207,19 +1312,19 @@ class DorisPipesExecutionTest : BasePlatformTestCase() {
         } + "FROM offline_rows |> AGGREGATE APPROX_COUNT_DISTINCT(user_id, 0.01) AS users"
     }
 
-    private fun <E> cachedQueryModel(delegate: ScriptModel<E>, cached: String): ScriptModel<E> = object : ScriptModel<E>() {
-        override fun isActual() = delegate.isActual
-        override fun subModel(range: TextRange?) = cachedQueryModel(delegate.subModel(range), cached)
+    private fun <E> cachedQueryModel(delegate: ScriptModel<E>, cached: String, onRead: (String) -> Unit): ScriptModel<E> = object : ScriptModel<E>() {
+        override fun isActual() = true
+        override fun subModel(range: TextRange?) = cachedQueryModel(delegate.subModel(range), cached, onRead)
         override fun everything() = delegate.everything()
         override fun statements() = delegate.statements().transform { statement ->
-            object : ScriptModel.StatementIt<E> by statement { override fun query() = cached }
+            object : ScriptModel.StatementIt<E> by statement { override fun query() = cached.also(onRead) }
         }
         override fun parameters() = delegate.parameters()
         override fun externals() = delegate.externals()
         override fun getVirtualFile() = delegate.virtualFile
         override fun getTextRange() = delegate.textRange
         override fun getLanguage() = delegate.language
-        override fun <EE : Any?> rawTransform(transform: com.intellij.util.Function<in com.intellij.psi.SyntaxTraverser<E>, out com.intellij.psi.SyntaxTraverser<EE>>): ScriptModel<EE> =
-            cachedQueryModel(delegate.rawTransform(transform), cached)
+        override fun <EE : Any?> rawTransform(transform: Function<in SyntaxTraverser<E>, out SyntaxTraverser<EE>>): ScriptModel<EE> =
+            cachedQueryModel(delegate.rawTransform(transform), cached, onRead)
     }
 }

@@ -1,7 +1,5 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.intellij.pipe.PipeTranslation
-
 import dev.brikk.house.sql.ast.AggregateKeyProperty
 import dev.brikk.house.sql.ast.AggregateTypeColumnConstraint
 import dev.brikk.house.sql.ast.Create
@@ -12,6 +10,8 @@ import dev.brikk.house.sql.ast.DorisVariantField
 import dev.brikk.house.sql.ast.Expression
 import dev.brikk.house.sql.ast.PartitionByRangeProperty
 import dev.brikk.house.sql.ast.PartitionRange
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.shape.SqlFragment
 import org.apache.doris.sqlparser.DorisSqlParser
 import org.junit.Assert.assertEquals
@@ -38,7 +38,7 @@ class DorisEmbeddedDdlUpgradeTest {
             // These cases must pass without recovery/skips; syntax acceptance is not server analysis.
             nativeParser.parseStatement(fragment.sql)
             nativeParser.parseStatement(result.sql)
-            assertSame(fragment.sql, PipeTranslation.NotPipe, DorisPipesEngine.transpile(fragment.sql))
+            assertSame(fragment.sql, PipeTranslation.NotPipe, DorisPipeDialect.lower(fragment.sql))
         }
         return source.ast
     }

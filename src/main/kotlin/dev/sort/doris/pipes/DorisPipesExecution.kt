@@ -1,7 +1,8 @@
 package dev.sort.doris.pipes
 
-import com.intellij.database.console.JdbcConsole
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.database.connection.throwable.info.ErrorInfo
+import com.intellij.database.console.JdbcConsole
 import com.intellij.database.datagrid.DataAuditor
 import com.intellij.database.datagrid.DataProducer
 import com.intellij.database.datagrid.DataRequest
@@ -13,9 +14,9 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
+import dev.brikk.house.sql.intellij.SqlExecutionRefusal
 import dev.brikk.house.sql.intellij.pipe.PipeRun
 import dev.brikk.house.sql.intellij.pipe.PipeSubmitListener
-import dev.brikk.house.sql.intellij.SqlExecutionRefusal
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -103,7 +104,7 @@ internal object DorisPipesExecution : PipeSubmitListener {
             ))
             ApplicationManager.getApplication().invokeLater {
                 runPipeCatching {
-                    com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(run.console.project).restart()
+                    DaemonCodeAnalyzer.getInstance(run.console.project).restart()
                 }
             }
         }

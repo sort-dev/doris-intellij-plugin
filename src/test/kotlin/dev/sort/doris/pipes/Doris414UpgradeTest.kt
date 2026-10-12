@@ -1,9 +1,9 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.intellij.pipe.PipeTranslation
-
 import dev.brikk.house.sql.ast.Command
 import dev.brikk.house.sql.dialects.transpile
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.sort.doris.sql.DorisFunctions
 import org.apache.doris.nereids.exceptions.ParseException
@@ -82,11 +82,11 @@ class Doris414UpgradeTest {
             assertEquals("VARIANT", column.type)
             assertEquals(nullable, column.nullable)
             assertEquals(true, SqlFragment("SELECT $function(NULL) AS v", "doris").outputShape().columns.single().nullable)
-            val result = DorisPipesEngine.transpile("FROM t |> SELECT $function('{\"k\":1}') AS v")
+            val result = DorisPipeDialect.lower("FROM t |> SELECT $function('{\"k\":1}') AS v")
             assertTrue(result.toString(), result is PipeTranslation.Lowered)
             result as PipeTranslation.Lowered
-            assertNull(result.executionError)
-            native.parseStatement(result.dorisSql)
+            assertNull(result.blocker)
+            native.parseStatement(result.sql)
         }
         // Schema-owned functions must not inherit builtin type/nullability claims.
         val udf = SqlFragment("SELECT custom.PARSE_TO_VARIANT('1') AS v", "doris").outputShape().columns.single()

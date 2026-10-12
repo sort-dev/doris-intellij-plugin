@@ -4,9 +4,11 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
-import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
+import dev.sort.doris.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 
 class DorisPipeStageKeywordTest : BasePlatformTestCase() {
@@ -42,7 +44,7 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
         val sql = "FROM t |> EXTEND 1 AS x |> SELECT 'unfinished"
         assertTrue(isForcedKeyword(highlight(sql), sql, "EXTEND"))
         assertNotNull(DorisPipes.chunks(sql).single().boundaryError)
-        assertTrue(DorisPipesEngine.transpile(sql) is dev.brikk.house.sql.intellij.pipe.PipeTranslation.Refused)
+        assertTrue(DorisPipeDialect.lower(sql) is PipeTranslation.Refused)
         assertEmpty(pipeStageItems("FROM t |> SELECT 'unfinished |> <caret>"))
     }
 

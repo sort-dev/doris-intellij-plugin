@@ -1,49 +1,20 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.intellij.pipe.PipeTranslation
 import dev.brikk.house.sql.intellij.pipe.lower
+import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
-import dev.brikk.house.sql.shape.TranspileResult
-import dev.sort.doris.sql.DorisSyntaxError
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
+import dev.sort.doris.sql.DorisSyntaxError
 
 /**
  * Adapter for the bundled brikk-sql engine. IDE entry points consult the project setting;
  * these SQL/schema operations remain independent of project state and UI lifecycle.
  */
 object DorisPipesEngine {
-
-    // ---------------------------------------------------------------------------------------
-    // Server-error map-back (exact, via the engine SourceMap)
-    // ---------------------------------------------------------------------------------------
-
-    /**
-     * EXACT map-back via the engine SourceMap ([TranspileResult.mapErrorToSource], strict mode:
-     * null when no positioned node covers the offset). Doris reports a 0-based code-point
-     * `pos`; the engine expects a 1-based UTF-16 column. Normalize on the generated line.
-     */
-    fun mapServerErrorExact(message: String, result: TranspileResult): DorisPipes.MappedError? {
-        val match = DorisPipes.SERVER_POSITION.find(message) ?: return null
-        val line = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
-        val pos = match.groupValues[2].toIntOrNull() ?: return null
-        val outputLine = result.sql.splitToSequence('\n').elementAtOrNull(line - 1) ?: return null
-        val sp = runPipeCatching {
-            val utf16Pos = outputLine.offsetByCodePoints(0, pos)
-            result.mapErrorToSource(line, utf16Pos + 1)
-        }.getOrNull() ?: return null
-        val origLine = if (sp.lineStart > 0) sp.lineStart else sp.line
-        return DorisPipes.MappedError(
-            originalLine = origLine,
-            transpiledLine = line,
-            transpiledPos = pos,
-            startOffset = sp.start.takeIf { it >= 0 },
-            endOffset = sp.end.takeIf { it >= sp.start },
-        )
-    }
 
     // ---------------------------------------------------------------------------------------
     // Per-stage scopes (engine stageShapes, 1:1 with PipeStageSplitter incl. FROM = element 0)
@@ -124,11 +95,11 @@ object DorisPipesEngine {
                 PipeTranslation.NotPipe -> null
             } ?: continue
             val firstContent = chunk.text.length - chunk.text.trimStart().length
-            val offset = if (chunk.boundaryError != null) firstContent
-                else (result as? PipeTranslation.Refused)?.range?.start ?: firstContent
+            val offset = ((result as? PipeTranslation.Refused)?.range?.start ?: firstContent).coerceAtLeast(firstContent)
             val before = chunk.text.take(offset)
             out.add(DorisSyntaxError(
-                line = 1 + text.take(chunk.startOffset).count { it == '\n' } + before.count { it == '\n' },
+                line = (chunk.startLine + before.count { it == '\n' } - chunk.text.take(firstContent).count { it == '\n' })
+                    .coerceIn(chunk.startLine, chunk.endLine),
                 col = before.length - (before.lastIndexOf('\n') + 1),
                 length = 2,
                 message = "$DORIS_PIPE_DIAGNOSTIC_PREFIX $message",

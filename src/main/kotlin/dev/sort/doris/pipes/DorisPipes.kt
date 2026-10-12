@@ -1,12 +1,12 @@
 package dev.sort.doris.pipes
 
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.components.service
-import com.intellij.openapi.project.Project
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressManager
-import dev.brikk.house.sql.intellij.recoverEditorOperation
-import dev.brikk.house.sql.intellij.pipe.isEnabled
+import com.intellij.openapi.project.Project
 import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
+import dev.brikk.house.sql.intellij.pipe.isEnabled
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
@@ -20,8 +20,6 @@ object DorisPipes {
 
     /** Retained emergency veto. A true value never enables an unchecked project setting. */
     const val PROPERTY: String = "doris.pipes"
-
-    fun isEnabledValue(raw: String?): Boolean = !"false".equals(raw, ignoreCase = true)
 
     fun isEnabled(project: Project?): Boolean = project != null && DorisPipeDialect.isEnabled(project)
 
