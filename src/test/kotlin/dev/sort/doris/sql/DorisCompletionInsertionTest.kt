@@ -2,19 +2,27 @@ package dev.sort.doris.sql
 
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.RunAll
 import dev.brikk.house.sql.metadata.FunctionPresentation
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import icons.DatabaseIcons
 
 class DorisCompletionInsertionTest : BasePlatformTestCase() {
+    private lateinit var catalog: DorisFunctionCatalogFixture
+
+    override fun setUp() {
+        super.setUp()
+        catalog = DorisFunctionCatalogFixture(testRootDisposable)
+    }
+
     override fun tearDown() {
-        try {
-            DorisBuiltinCatalog.clear()
-            setSqlDialectMapping(project, null, null)
-        } finally {
-            super.tearDown()
-        }
+        RunAll(
+            { catalog.errors.awaitScopes() },
+            { catalog.errors.assertNone() },
+            { setSqlDialectMapping(project, null, null) },
+            { super.tearDown() },
+        ).run()
     }
 
     private fun configure(sql: String) {
@@ -79,8 +87,8 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         configure("SELECT * FROM <caret>")
         RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
             val id = recording.console.dataSource.uniqueId
-            DorisBuiltinCatalog.record(id, setOf("ABS"))
-            assertEquals(id, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            catalog.harvest(recording.console.dataSource, listOf("ABS"))
+            assertEquals(id, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
             val items = myFixture.completeBasic().orEmpty()
             val iceberg = items.singleOrNull { it.lookupString == "iceberg_meta" && it.`object` is FunctionPresentation }
             assertNotNull("iceberg_meta must remain offered when the console harvest omits it", iceberg)
@@ -94,17 +102,9 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         configure("SELECT <caret>")
         RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
             val id = recording.console.dataSource.uniqueId
-            DorisBuiltinCatalog.record(id, setOf("ABS", "SERVER_ONLY_FN"))
-            assertEquals(id, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
-            var harvestIdentityReads = 0
-            recording.beforeSessionCall = { method ->
-                val stack = Thread.currentThread().stackTrace
-                if (method == "getProject" && stack.any {
-                    it.className == DorisBuiltinCatalog::class.java.name && it.methodName == "dataSourceIdFor"
-                } && stack.none { it.methodName == "getActiveConsoles" }) harvestIdentityReads++
-            }
+            catalog.harvest(recording.console.dataSource, listOf("ABS", "SERVER_ONLY_FN"))
+            assertEquals(id, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
             val items = myFixture.completeBasic().orEmpty()
-            assertEquals("Resolve the harvest identity once per completion", 1, harvestIdentityReads)
             val names = items.filter { it.`object` is FunctionPresentation }.map { it.lookupString }
             assertTrue("CAST must be offered despite being absent from the harvest: $names", "cast" in names)
             assertTrue("Server-only functions must be offered: $names", "server_only_fn" in names)
@@ -114,8 +114,8 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
     fun testForeignConsoleHarvestIsNotUsed() {
         configure("SELECT <caret>")
         RecordingConsole(project, myFixture.file.virtualFile, "mysql").use { recording ->
-            DorisBuiltinCatalog.record(recording.console.dataSource.uniqueId, setOf("ABS", "FOREIGN_ONLY_FN"))
-            assertNull(DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            catalog.harvest(recording.console.dataSource, listOf("ABS", "FOREIGN_ONLY_FN"))
+            assertNull(dorisDataSourceResolver.resolve(myFixture.file).dataSource)
             val names = myFixture.completeBasic().orEmpty()
                 .filter { it.`object` is FunctionPresentation }.map { it.lookupString }
             assertTrue("A foreign harvest must not filter the Doris baseline: $names", "acos" in names)

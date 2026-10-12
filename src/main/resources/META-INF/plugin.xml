@@ -436,14 +436,13 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageKeywordAnnotator"/>
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
-        <completion.contributor language="DorisSQL" id="dorisCompletionContext" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContextContributor"/>
-        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
-        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisQualifiedPathIntrospectContributor"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
-        <completion.contributor language="DorisSQL" order="first, after dorisCompletionContext" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
         <sql.resolveExtension implementation="dev.sort.doris.sql.DorisAliasResolveExtension"/>
         <gotoDeclarationHandler implementation="dev.sort.doris.sql.BrikkRelationNavigation"/>
         <completion.confidence language="DorisSQL" order="first"
@@ -456,13 +455,17 @@
              connection: mints a per-connection trace id, binds it via SET session_context,
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
-        <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisBuiltinFunctionInterceptor"/>
+        <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisFunctionHarvestInterceptor"/>
+        <applicationService serviceImplementation="dev.sort.doris.sql.DorisLiveCatalogService"/>
 
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisAutoIntrospectService"/>
+        <projectService serviceImplementation="dev.sort.doris.catalog.DorisExecutionObserver"/>
+        <postStartupActivity implementation="dev.sort.doris.catalog.DorisExecutionObserverStartup"/>
         <editorNotificationProvider implementation="dev.sort.doris.catalog.DorisIntrospectBannerProvider"/>
 
         <!-- DORIS PIPES: balloon channel for pipe-transpile errors at execute time. -->
         <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
+        <notificationGroup id="Doris Functions" displayType="BALLOON"/>
 
     </extensions>
 
@@ -507,9 +510,15 @@
          when the flag is OFF too (otherwise the flat loader hits them and logs
          "family not in parent" errors / drops nodes). -->
     <applicationListeners>
+        <listener class="dev.sort.doris.sql.DorisLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
         <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
                   topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
     </applicationListeners>
+    <projectListeners>
+        <listener class="dev.sort.doris.sql.DorisLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </projectListeners>
 
     <!-- Clean Doris cancel, cancel-time half: replaces the stock stop-button action
          (database-plugin.xml registers Console.Jdbc.Cancel; there is no dialect-level cancel
@@ -521,6 +530,12 @@
          Text/description/icon replicate the stock registration (the platform reads them from
          the declaring plugin, i.e. us, after the override). -->
     <actions>
+        <action id="Doris.RefreshFunctions"
+                class="dev.sort.doris.sql.DorisRefreshFunctionsAction"
+                text="Refresh Doris Functions"
+                description="Reload function names from the Doris server">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
         <action id="Console.Jdbc.Cancel"
                 class="dev.sort.doris.cancel.DorisCancelRunningStatementsAction"
                 overrides="true"

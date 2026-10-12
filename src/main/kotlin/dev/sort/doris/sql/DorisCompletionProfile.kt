@@ -1,9 +1,6 @@
 package dev.sort.doris.sql
 
-import com.intellij.codeInsight.completion.CompletionContributor
-import com.intellij.codeInsight.completion.CompletionParameters
-import com.intellij.codeInsight.completion.CompletionResultSet
-import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.components.service
 import com.intellij.psi.PsiFile
 import dev.brikk.house.sql.intellij.completion.ExpressionPositions
 import dev.brikk.house.sql.intellij.completion.KeywordScope
@@ -41,46 +38,16 @@ object DorisCompletionProfile : SqlCompletionProfile {
             grammarForms = it.grammarForms,
         )
     }
-    private val baseline = completionSnapshot.completableFunctions()
-    private val retainedTvfs = listOf(FunctionDef("iceberg_meta", kind = FunctionKind.TABLE_VALUED).presentation())
-    private val names = (baseline + retainedTvfs).mapTo(HashSet()) { it.name.uppercase() }
+    internal val baseline = completionSnapshot.completableFunctions() +
+        FunctionDef("iceberg_meta", kind = FunctionKind.TABLE_VALUED).presentation()
 
     override fun snapshot(file: PsiFile) = completionSnapshot
 
-    private data class DataSourceContext(val file: PsiFile, val id: String?)
-    private val dataSourceContext = ThreadLocal<DataSourceContext>()
+    override fun functions(file: PsiFile) = service<DorisLiveCatalogService>().completion(file).functions
 
-    internal fun withDataSource(file: PsiFile, complete: () -> Unit) {
-        val previous = dataSourceContext.get()
-        dataSourceContext.set(DataSourceContext(file, DorisBuiltinCatalog.dataSourceIdFor(file)))
-        try {
-            complete()
-        } finally {
-            if (previous == null) dataSourceContext.remove() else dataSourceContext.set(previous)
-        }
-    }
+    override fun serverOnlyFunctions(file: PsiFile) = service<DorisLiveCatalogService>().completion(file).serverOnlyFunctions
 
-    private fun dataSourceId(file: PsiFile): String? {
-        val context = dataSourceContext.get()
-        return if (context?.file === file) context.id else DorisBuiltinCatalog.dataSourceIdFor(file)
-    }
-
-    override fun functions(file: PsiFile) = dataSourceId(file).let { id ->
-        baseline.filter {
-            metadata.default.functions.getAll(it.name).isEmpty() || DorisBuiltinCatalog.isServed(it.name.uppercase(), id)
-        } + retainedTvfs
-    }
-
-    override fun serverOnlyFunctions(file: PsiFile) =
-        DorisBuiltinCatalog.extraNames(names, dataSourceId(file))
-            .filter { completionSnapshot.tableFunction(it)?.queryable != false }
-            .map { FunctionDef(it, kind = FunctionKind.SCALAR).presentation() }
-
-    override fun builtinFunctionFilter(file: PsiFile): ((String) -> Boolean)? {
-        val id = dataSourceId(file)
-        if (!DorisBuiltinCatalog.hasData(id)) return null
-        return { name -> !DorisBuiltinCatalog.suppresses(name.uppercase(), id, metadata.default.functions.isKnown(name)) }
-    }
+    override fun builtinFunctionFilter(file: PsiFile) = service<DorisLiveCatalogService>().completion(file).builtinFunctionFilter
 
     override val styles = SqlLookupStyles.DEFAULT.let { defaults ->
         defaults.with(
@@ -103,15 +70,6 @@ object DorisCompletionProfile : SqlCompletionProfile {
         })
     override val keywords = KeywordScope.NONE
     override val propertyQuote = '"'
-}
-
-class DorisCompletionContextContributor : CompletionContributor(), DumbAware {
-    override fun fillCompletionVariants(parameters: CompletionParameters, result: CompletionResultSet) {
-        if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
-        DorisCompletionProfile.withDataSource(parameters.originalFile) {
-            result.runRemainingContributors(parameters, result::passResult)
-        }
-    }
 }
 
 class DorisMetadataCompletionContributor : SqlCompletionContributor(DorisCompletionProfile)

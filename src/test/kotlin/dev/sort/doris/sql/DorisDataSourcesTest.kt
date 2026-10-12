@@ -47,8 +47,8 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
         RecordingConsole(project, myFixture.file.virtualFile, "doris").use { recording ->
             val source = recording.console.dataSource
             assertEquals(DataSourceResolution.Console(source), dorisDataSourceResolver.resolve(myFixture.file))
-            assertEquals(source.uniqueId, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
-            assertEquals(source.uniqueId, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file.copy() as com.intellij.psi.PsiFile))
+            assertEquals(source.uniqueId, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
+            assertEquals(source.uniqueId, dorisDataSourceResolver.resolve(myFixture.file.copy() as com.intellij.psi.PsiFile).dataSource?.uniqueId)
         }
     }
 
@@ -58,7 +58,7 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
             assertEquals(Dbms.MYSQL, recording.console.dataSource.dbms)
             recording.console.setSearchPath(SearchPath.of(ObjectPath.create("foreign", ObjectKind.SCHEMA)))
             assertEquals(DataSourceResolution.NotFound, dorisDataSourceResolver.resolve(myFixture.file))
-            assertNull(DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+            assertNull(dorisDataSourceResolver.resolve(myFixture.file).dataSource)
             assertEquals(emptyList<String>(), dorisDataSourceResolver.consoleNamespace(myFixture.file))
         }
     }
@@ -78,11 +78,11 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
         val foreign = dataSource("mysql")
         mapTo(second, foreign)
         assertEquals(DataSourceResolution.FileMapping(second), dorisDataSourceResolver.resolve(myFixture.file))
-        assertEquals(second.uniqueId, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+        assertEquals(second.uniqueId, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
         mapTo(first, second, foreign)
         val resolution = dorisDataSourceResolver.resolve(myFixture.file) as DataSourceResolution.Ambiguous
         assertEquals(setOf(first, second), resolution.candidates.toSet())
-        assertNull(DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+        assertNull(dorisDataSourceResolver.resolve(myFixture.file).dataSource)
     }
 
     fun testProjectScopeApplies() {
@@ -90,7 +90,7 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
         val source = dataSource()
         SqlResolveMappings.getInstance(project).setMapping(null, scopeOf(source))
         assertEquals(DataSourceResolution.FileMapping(source), dorisDataSourceResolver.resolve(myFixture.file))
-        assertEquals(source.uniqueId, DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+        assertEquals(source.uniqueId, dorisDataSourceResolver.resolve(myFixture.file).dataSource?.uniqueId)
     }
 
     fun testForeignAndExcludingScopesResolveNothing() {
@@ -105,7 +105,7 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
     fun testOnlyDataSourceFallbackIsDisabled() {
         dataSource()
         assertEquals(DataSourceResolution.NotFound, dorisDataSourceResolver.resolve(myFixture.file))
-        assertNull(DorisBuiltinCatalog.dataSourceIdFor(myFixture.file))
+        assertNull(dorisDataSourceResolver.resolve(myFixture.file).dataSource)
         SqlResolveMappings.getInstance(project).setMapping(myFixture.file.virtualFile, SqlResolveMappings.ALL_DATA_SOURCES)
         assertEquals(DataSourceResolution.NotFound, dorisDataSourceResolver.resolve(myFixture.file))
     }
@@ -115,7 +115,7 @@ class DorisDataSourcesTest : BasePlatformTestCase() {
             val cancellation = ProcessCanceledException()
             recording.beforeSessionCall = { throw cancellation }
             try {
-                DorisBuiltinCatalog.dataSourceIdFor(myFixture.file)
+                dorisDataSourceResolver.resolve(myFixture.file)
                 fail("Console lookup must propagate cancellation")
             } catch (actual: ProcessCanceledException) {
                 assertSame(cancellation, actual)
