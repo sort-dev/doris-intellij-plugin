@@ -181,16 +181,29 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertRestartsMatchFullLex(::DorisLexer, sql)
     }
 
-    fun testCastTargetsOnlyMaskIdentifierQuotes() {
+    fun testCastTargetsMaskQuotedAndNonWordTokens() {
         for (function in listOf("CAST", "TRY_CAST", "CONVERT")) {
-            val stringTarget = "SELECT $function(x AS \"text\");"
-            val stringTokens = tokens(DorisLexer(), stringTarget)
-            assertTrue(stringTokens.contains("SQL_STRING_TOKEN '\"text\"'"))
-            assertFalse(stringTokens.any { it.startsWith("SQL_BLOCK_COMMENT") })
-            val identifierTarget = "SELECT $function(x AS `text`);"
-            assertTrue(tokens(DorisLexer(), identifierTarget).contains("SQL_BLOCK_COMMENT 'AS `text`'"))
-            assertRestartsMatchFullLex(::DorisLexer, stringTarget)
-            assertRestartsMatchFullLex(::DorisLexer, identifierTarget)
+            for (trivia in listOf(" ", " /* target */ ", " -- target\n ")) {
+                for (target in listOf("\"text\"", "`text`", "'text'", "123")) {
+                    val sql = "SELECT $function(x AS$trivia$target);"
+                    assertTrue(sql, tokens(DorisLexer(), sql).contains("SQL_BLOCK_COMMENT 'AS$trivia$target'"))
+                    assertRestartsMatchFullLex(::DorisLexer, sql)
+                }
+                val keptTarget = "SELECT $function(x AS${trivia}CHAR);"
+                assertEquals(keptTarget, tokens(MysqlLexer(), keptTarget), tokens(DorisLexer(), keptTarget))
+            }
+        }
+    }
+
+    fun testCastWithoutTargetPreservesDelimitersAndEndOfInput() {
+        for (function in listOf("CAST", "TRY_CAST", "CONVERT")) {
+            for (trivia in listOf("", " ", " /* target */ ", " -- target\n ")) {
+                for (tail in listOf("", "; SELECT 1;", "); SELECT 1;", ", y); SELECT 1;")) {
+                    val sql = "SELECT $function(x AS$trivia$tail"
+                    assertEquals(sql, tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
+                    assertRestartsMatchFullLex(::DorisLexer, sql)
+                }
+            }
         }
     }
 }

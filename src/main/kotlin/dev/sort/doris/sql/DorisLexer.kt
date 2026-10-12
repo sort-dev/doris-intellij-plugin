@@ -10,7 +10,7 @@ import dev.sort.doris.pipes.DorisPipes
 
 class DorisLexer(private val brikkHouse: Boolean = false) : MaskingSqlLexer(
     MysqlLexer(),
-    CastTargetMask(setOf("CAST", "TRY_CAST", "CONVERT"), MYSQL_CAST_TYPES, CastTargetMask.Extent.TargetType, quotes = "`"),
+    CastTargetMask(setOf("CAST", "TRY_CAST", "CONVERT"), MYSQL_CAST_TYPES, CastTargetMask.Extent.TargetType),
 ) {
     private var bindEnds: Map<Int, Int> = emptyMap()
 
