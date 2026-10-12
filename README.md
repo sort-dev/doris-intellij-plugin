@@ -211,9 +211,9 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.
 
-The plugin bundles the published **brikk-sql engine and metadata 0.19.1** and the
+The plugin bundles Maven Local **brikk-sql engine and metadata 0.20.0-SNAPSHOT** and the
 native **Doris 4.1.4 grammar**. Execute actions and script preparation use
-**brikk-sql-intellij-support 0.1.1**. See the
+**brikk-sql-intellij-support 0.2.0-SNAPSHOT**. See the
 [shared-support backport report](REVIEW-intellij-shared-extraction.md) and the
 [earlier grammar upgrade report](REVIEW-brikk-sql-0.16.0.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler

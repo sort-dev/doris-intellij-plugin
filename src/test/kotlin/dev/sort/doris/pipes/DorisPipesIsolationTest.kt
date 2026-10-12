@@ -26,7 +26,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.2-SNAPSHOT.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
         }
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
@@ -49,7 +49,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.19.1")
+            checkEngine(dorisLoader, "jvmMain-0.20.0-SNAPSHOT")
             val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
             val translated = adapter.getMethod("transpile", String::class.java)
                 .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")

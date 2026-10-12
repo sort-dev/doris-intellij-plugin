@@ -27,35 +27,26 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 ```
 
-## brikk-sql and brikk-sql-metadata 0.19.1 (bundled)
+## brikk-sql and brikk-sql-metadata 0.20.0-SNAPSHOT (bundled)
 
 This plugin bundles the core SQL engine and function metadata libraries from brikk-house:
 
-- `dev.brikk.house:brikk-sql-jvm:0.19.1`
-- `dev.brikk.house:brikk-sql-metadata-jvm:0.19.1`
+- `dev.brikk.house:brikk-sql-jvm:0.20.0-SNAPSHOT`
+- `dev.brikk.house:brikk-sql-metadata-jvm:0.20.0-SNAPSHOT`
 - Project: https://github.com/brikk/brikk-sql
 - Developers listed in the published POMs: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0, with third-party-derived portions described below
 
-The provenance below refers to the published 0.19.1 artifacts. Their Maven Central
-source archives contain 123 core and 20 metadata Kotlin source files. They retain
-Doris 4.1.4 grammar support, timezone-preserving generation and Variant inference,
-and update the DuckDB registry to 1.5.6.
-Gradle module metadata names the bundled files
-`brikk-sql-jvmMain-0.19.1.jar` and `brikk-sql-metadata-jvmMain-0.19.1.jar`, and the
-source files `brikk-sql-jvmMain-0.19.1-sources.jar` and
-`brikk-sql-metadata-jvmMain-0.19.1-sources.jar`. Maven download URLs use `jvm`
-instead of `jvmMain`.
-The SQLGlot source pin remains `3ca82489`. The Doris catalog supplement uses the
-4.1.4 release pin documented below. DuckDB's new registry pin is recorded below.
-Source artifacts are available from Maven Central:
+The snapshots and their source archives come from Maven Local. Gradle module
+metadata names the bundled files `brikk-sql-jvmMain-0.20.0-SNAPSHOT.jar` and
+`brikk-sql-metadata-jvmMain-0.20.0-SNAPSHOT.jar`. The source archive coordinates
+use `brikk-sql-jvm` and `brikk-sql-metadata-jvm` at the same version.
+The SQLGlot source pin is `a00dc2e5c`. The registry provenance below records the
+published 0.19.1 baseline.
 
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-jvm/0.19.1/brikk-sql-jvm-0.19.1-sources.jar
-- https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-metadata-jvm/0.19.1/brikk-sql-metadata-jvm-0.19.1-sources.jar
+## Brikk SQL IntelliJ support 0.2.0-SNAPSHOT (bundled)
 
-## Brikk SQL IntelliJ support 0.1.1 (bundled)
-
-- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.1.2-SNAPSHOT`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.2.0-SNAPSHOT`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -63,8 +54,7 @@ Source artifacts are available from Maven Central:
 The library supplies cooperative Execute registration, promotion and script-model
 preparation and shared column completion rendering. Its JAR contains its license and notice. IntelliJ APIs are compile-only;
 the distribution does not bundle an IDE SDK, verifier, database driver or Kotlin stdlib.
-Source artifact:
-https://repo.maven.apache.org/maven2/dev/brikk/house/brikk-sql-intellij-support/0.1.1/brikk-sql-intellij-support-0.1.1-sources.jar
+Source artifact in Maven Local: `brikk-sql-intellij-support-0.2.0-SNAPSHOT-sources.jar`.
 
 ## Brikk Kotlin IntelliJ support 0.2.0 (bundled)
 
@@ -81,16 +71,15 @@ Kotlin compiler or Kotlin standard library. The artifact is published on Maven C
 
 brikk-sql is a Kotlin port of SQLGlot by Toby Mao and contributors. It includes ported
 tokenizer, parser, AST, SQL generator, optimizer, and dialect code, as well as generated
-token tables, AST catalogs, and function registries. In the published 0.19.1 sources,
+token tables, AST catalogs, and function registries. In the 0.20.0-SNAPSHOT sources,
 generated token tables, AST catalogs, and typing metadata identify SQLGlot upstream
-version `v30.18.0-43-g3ca82489`, commit `3ca82489`. `GeneratedFunctionRegistry.kt`
-and `Tokenizer.kt` still cite `v30.12.0-44-g93d16591`, commit `93d16591`; these older
-stamps are retained here rather than asserting that every source header names the newer
-pin. The function registry's contents changed after 0.9.0 despite its unchanged header.
+version `v30.22.0-5-ga00dc2e5c`, commit `a00dc2e5c`. `GeneratedFunctionRegistry.kt`
+names the same pin. `Tokenizer.kt` still cites `v30.12.0-44-g93d16591`, commit
+`93d16591` for its method-level provenance.
 
 - Project: https://github.com/tobymao/sqlglot
 - License: MIT License
-- License source: https://raw.githubusercontent.com/tobymao/sqlglot/3ca82489/LICENSE
+- License source: https://raw.githubusercontent.com/tobymao/sqlglot/a00dc2e5c/LICENSE
 
 ```text
 MIT License
