@@ -6,6 +6,7 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
 import java.io.File
 
 /**
@@ -133,4 +134,15 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
     fun testDorisGoldenTrees() = runDialect("doris", dorisLang())
 
     fun testMysqlGoldenTrees() = runDialect("mysql", mysqlLang())
+
+    fun testCorpusLexerRestarts() {
+        for (file in corpusFiles()) {
+            try {
+                assertRestartsMatchFullLex(::DorisLexer, norm(file.readText()))
+                assertRestartsMatchFullLex({ DorisLexer(brikkHouse = true) }, norm(file.readText()))
+            } catch (error: AssertionError) {
+                throw AssertionError(relPath(file), error)
+            }
+        }
+    }
 }

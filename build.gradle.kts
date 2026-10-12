@@ -52,7 +52,7 @@ tasks.withType<Test>().configureEach {
         systemProperty("golden.record", "true")
     }
     systemProperty("doris.replay.poc", "false")
-    systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.19.1" else "jvm-0.6.0")
+    systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.20.0-SNAPSHOT" else "jvm-0.6.0")
 }
 
 tasks.buildPlugin {

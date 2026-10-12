@@ -1,379 +1,104 @@
 package dev.sort.doris.sql
 
 import com.intellij.lexer.Lexer
-import com.intellij.lexer.LookAheadLexer
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.sql.dialects.mysql.MysqlLexer
 import com.intellij.sql.psi.SqlTokens
+import dev.brikk.house.sql.intellij.lexer.CastTargetMask
+import dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer
+import dev.sort.doris.pipes.DorisPipes
 
-/**
- * Lexer for the DorisSQL *parser* that neutralizes Doris `SELECT * EXCEPT(col, ...)` column-exclusion.
- *
- * Why here and not in the parser: the platform MySQL parser is GrammarKit-generated and dispatches to
- * static rule functions — it never calls the overridable base `SqlParser` instance methods (verified:
- * overriding parseIdentifierOrAsteriskInner / parseValueExpression / parseReferenceExpression has zero
- * effect, and a PSI dump shows `EXCEPT` parsed as the set operator regardless). So `* EXCEPT(cols)` is
- * mis-parsed into a broken UNION which poisons the whole query's type — nothing downstream resolves.
- *
- * The only layer that reliably feeds the generated grammar is the token source. Here we mask the whole
- * `EXCEPT ( col, ... )` span as a block comment: the parser then sees a plain `SELECT * FROM ...`, the
- * `*` resolves to all columns, and completion/validation flow normally.
- *
- * Scope/limits:
- * - Only the column-exclusion form is masked — `EXCEPT ( <identifier> …`. The `EXCEPT` set operator
- *   (`… EXCEPT SELECT …` / `EXCEPT (SELECT …)`) is left untouched.
- * - This lexer feeds the parser AND the editor highlighter: the platform's SqlSyntaxHighlighter
- *   builds its highlighting lexer from the ParserDefinition, so masked spans would render as
- *   comments. [DorisMaskedSpanRecolorAnnotator] re-colors them (TextAttributes only).
- * - Trade-off: excepted columns are still offered in completion (they aren't modeled as excluded).
- *   Column-accurate exclusion would require the parser to emit SQL_SELECT_EXCEPT_CLAUSE, which the
- *   generated MySQL grammar cannot be made to do without replacing the parser.
- */
-class DorisLexer(private val brikkHouse: Boolean = false) : LookAheadLexer(MysqlLexer()) {
-
+class DorisLexer(private val brikkHouse: Boolean = false) : MaskingSqlLexer(
+    MysqlLexer(),
+    CastTargetMask(setOf("CAST", "TRY_CAST", "CONVERT"), MYSQL_CAST_TYPES, CastTargetMask.Extent.TargetType),
+) {
     private var bindEnds: Map<Int, Int> = emptyMap()
-
-    // Cast-context tracking (parser feeds tokens strictly forward, so simple fields are safe):
-    // parenDepth counts all parens; castAsDepths holds, for each open CAST/TRY_CAST, the paren depth
-    // at which its `AS <type>` will appear.
-    private var parenDepth = 0
-    private val castAsDepths = ArrayDeque<Int>()
     private var statementLead: String? = null
 
-    override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
-        bindEnds = if (brikkHouse) dev.sort.doris.pipes.DorisPipes.namedParameterRanges(buffer.toString())
+    override fun onStart(buffer: CharSequence, startOffset: Int, endOffset: Int) {
+        bindEnds = if (brikkHouse) DorisPipes.namedParameterRanges(buffer.toString())
             .associate { it.first to it.last + 1 } else emptyMap()
-        parenDepth = 0
-        castAsDepths.clear()
-        // IntelliJ frequently restarts lexing in the middle of a statement. Recover the lead from
-        // the unchanged prefix so context-sensitive masks do not disappear after an editor reparse.
-        statementLead = statementLeadBefore(buffer, startOffset)
-        super.start(buffer, startOffset, endOffset, initialState)
     }
 
-    override fun lookAhead(baseLexer: Lexer) {
-        updateStatementLead(baseLexer)
+    override fun resetStatement() {
+        statementLead = null
+    }
+
+    override fun onNote(token: String) {
+        if (statementLead == null && token.firstOrNull()?.isLetter() == true) statementLead = token
+    }
+
+    override fun rule(base: Lexer, upper: String): Boolean {
         when {
-            brikkHouse && baseLexer.tokenStart in bindEnds -> {
-                val start = baseLexer.tokenStart
-                val end = bindEnds.getValue(baseLexer.tokenStart)
-                while (baseLexer.tokenType != null && baseLexer.tokenEnd <= end) baseLexer.advance()
-                // SQL_EXTERNAL_PARAM is anonymous. Prefix + name gives the platform a named
-                // SqlParameter, including stable identity for repeated Kotlin binds.
+            brikkHouse && base.tokenStart in bindEnds -> {
+                val start = base.tokenStart
+                val end = bindEnds.getValue(start)
+                note(base.bufferSequence.subSequence(start, end).toString().uppercase())
+                while (base.tokenType != null && base.tokenEnd <= end) base.advance()
                 addToken(start + 1, SqlTokens.SQL_EXTERNAL_PARAM_PREFIX)
                 addToken(end, SqlTokens.SQL_IDENT)
             }
-            isExceptColumnExclusion(baseLexer) -> maskExceptColumnList(baseLexer)
-            isInsertOverwrite(baseLexer) -> maskInsertOverwriteHeader(baseLexer)
-            isPartitionStar(baseLexer) -> maskThroughRightParen(baseLexer)
-            isTemporaryPartitionSelector(baseLexer) -> maskCurrentToken(baseLexer)
-            isCastFunctionWord(baseLexer) -> {
-                castAsDepths.addLast(parenDepth + 1)
-                super.lookAhead(baseLexer)
-            }
-            baseLexer.tokenText == "(" -> { parenDepth++; super.lookAhead(baseLexer) }
-            baseLexer.tokenText == ")" -> {
-                parenDepth--
-                while (castAsDepths.isNotEmpty() && castAsDepths.last() > parenDepth) castAsDepths.removeLast()
-                super.lookAhead(baseLexer)
-            }
-            isCastAs(baseLexer) -> handleCastAs(baseLexer)
-            isRegexpFunctionCall(baseLexer) -> advanceAs(baseLexer, SqlTokens.SQL_IDENT)
-            isDoubleQuotedToken(baseLexer) -> emitDoubleQuotedString(baseLexer)
-            else -> super.lookAhead(baseLexer)
+            upper == "EXCEPT" && isColumnExclusion(base) -> maskWithGroup(base)
+            upper == "INSERT" && wordsFollow(base, "OVERWRITE") -> maskInsertOverwriteHeader(base)
+            upper == "PARTITION" && isPartitionStar(base) -> maskWithGroup(base)
+            upper == "TEMPORARY" && statementLead in TEMPORARY_PARTITION_STATEMENT_LEADS &&
+                wordsFollow(base, "PARTITION") -> maskWords(base, 1)
+            upper == "REGEXP" && nextIs(base, "(") -> emitAs(base, SqlTokens.SQL_IDENT)
+            base.tokenType == SqlTokens.SQL_IDENT_DELIMITED &&
+                base.bufferSequence[base.tokenStart] == '"' -> emitDoubleQuotedString(base)
+            else -> return false
         }
+        return true
     }
 
-    /**
-     * `"…"` is ALWAYS a string literal in Doris — backticks are the only identifier quoting, and
-     * the ANSI_QUOTES sql_mode is a server no-op (user-confirmed against the engine). MysqlLexer
-     * instead lexes it as a delimited IDENTIFIER — the SAME token type backticks get
-     * (SQL_IDENT_DELIMITED), so the check keys on the opening character. Only the token TYPE is
-     * remapped: MysqlLexer's DQ token boundaries already match Doris string semantics (multi-line
-     * content and backslash-escaped `\"` lex within one token; unterminated quotes become
-     * SQL_UNCLOSED_TOKEN, which is left alone) — pinned by DorisDqStringLexTest. Downstream this
-     * makes `'query' = "select …"` parse as string = string (real literal PSI, correct string
-     * coloring, no bogus identifier diagnostics to suppress).
-     */
-    private fun isDoubleQuotedToken(base: Lexer): Boolean =
-        base.tokenType == SqlTokens.SQL_IDENT_DELIMITED &&
-            base.tokenStart < base.tokenEnd &&
-            base.bufferSequence[base.tokenStart] == '"'
-
-    /**
-     * The platform's user-parameter lexer (`${name}` in string literals) finds the content of a
-     * SQL_STRING_TOKEN by searching for its first `'`. Inside `"…"` that `'` is content, and one after
-     * a parameter makes it emit descending token offsets ("Token sequence broken", then
-     * IndexOutOfBoundsException in the parser). Such strings use the platform's custom-quoted shape,
-     * whose content that lexer scans from the token start; the parser accepts it as a string literal.
-     */
     private fun emitDoubleQuotedString(base: Lexer) {
         val start = base.tokenStart
         val end = base.tokenEnd
         val seq = base.bufferSequence
         if (end - start < 2 || seq[end - 1] != '"' || StringUtil.indexOf(seq, '\'', start, end) < 0) {
-            advanceAs(base, SqlTokens.SQL_STRING_TOKEN)
+            emitAs(base, SqlTokens.SQL_STRING_TOKEN)
             return
         }
+        note(base.tokenText.uppercase())
         addToken(start + 1, SqlTokens.SQL_CUSTOM_LQUOTE)
         if (end - 1 > start + 1) addToken(end - 1, SqlTokens.SQL_CUSTOM_QUOTED_STRING_TOKEN)
         addToken(end, SqlTokens.SQL_CUSTOM_RQUOTE)
         base.advance()
     }
 
-    /**
-     * Doris cast targets the MySQL grammar rejects. The generated `valid_cast_type_element` rule
-     * accepts only MySQL's fixed cast-type tokens; Doris types (STRING, LARGEINT, VARIANT, BITMAP,
-     * ARRAY<...>, MAP<...,...>, ...) fail with "<valid cast type element> expected" — a hidden parse
-     * error that mangles the tree and breaks resolution (e.g. "cannot resolve '*'"). TRY_CAST is not
-     * a MySQL special form at all, so its `AS` always breaks. When the `AS <type>` of a CAST/TRY_CAST
-     * is not MySQL-valid we mask that tail as a comment: the call parses cleanly as a one-arg
-     * function (type unknown, but the tree — and everything resolving through it — stays intact).
-     * MySQL-valid targets (CHAR, JSON, SIGNED, DATETIME, ...) are left alone and keep full typing.
-     */
-    private fun isCastFunctionWord(base: Lexer): Boolean {
-        if (base.tokenType == null) return false
-        val seq = base.bufferSequence
-        val isCast = regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "CAST") ||
-            regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "TRY_CAST") ||
-            regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "CONVERT")
-        if (!isCast) return false
-        val i = skipWhitespace(seq, base.tokenEnd)
-        return i < seq.length && seq[i] == '('
-    }
-
-    private fun isCastAs(base: Lexer): Boolean {
-        if (castAsDepths.isEmpty() || castAsDepths.last() != parenDepth) return false
-        if (base.tokenType == null) return false
-        val seq = base.bufferSequence
-        return regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "AS")
-    }
-
-    private fun handleCastAs(base: Lexer) {
-        castAsDepths.removeLast() // one AS per cast context
-        val seq = base.bufferSequence
-        val typeStart = skipWhitespace(seq, base.tokenEnd)
-        val typeWord = readWord(seq, typeStart).uppercase()
-        if (typeWord in MYSQL_CAST_TYPES) {
-            super.lookAhead(base) // MySQL-valid target: emit AS normally, grammar handles the rest
-            return
-        }
-        // Mask `AS <type[<...>][(...)]>` as one comment.
-        var end = base.tokenEnd
-        base.advance() // past AS
-        // type word (plus optional keyword pair like DOUBLE PRECISION won't reach here — masked types only)
-        while (base.tokenType != null && base.tokenText.isBlank()) { end = base.tokenEnd; base.advance() }
-        if (base.tokenType != null) { end = base.tokenEnd; base.advance() } // the type word itself
-        // optional generic args ARRAY<...> / MAP<...,...> (balanced) and precision (...)
-        end = consumeBalancedIfNext(base, seq, end, '<', '>')
-        end = consumeBalancedIfNext(base, seq, end, '(', ')')
-        addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
-    }
-
-    /** If the next non-ws char is [open], consume through its balanced [close]; returns new end. */
-    private fun consumeBalancedIfNext(base: Lexer, seq: CharSequence, endSoFar: Int, open: Char, close: Char): Int {
-        var end = endSoFar
-        val i = skipWhitespace(seq, end)
-        if (i >= seq.length || seq[i] != open) return end
-        var depth = 0
-        while (base.tokenType != null) {
-            val t = base.tokenText
-            if (t.isNotBlank()) {
-                // tokens may be multi-char; count occurrences within the token text
-                for (c in t) {
-                    if (c == open) depth++
-                    else if (c == close) depth--
-                }
-            }
-            end = base.tokenEnd
-            base.advance()
-            if (depth <= 0 && end > i) break
-        }
-        return end
-    }
-
-    /**
-     * Doris `INSERT OVERWRITE TABLE t ...`: mask `OVERWRITE` (and the following `TABLE`) so the MySQL
-     * grammar parses the statement as a plain `INSERT t ...` (INTO is optional in MySQL) — yielding a
-     * REAL insert PSI with a resolvable target table, instead of the lenient junk-token header that
-     * degraded completion scoping inside the source query.
-     */
-    private fun isInsertOverwrite(base: Lexer): Boolean {
-        if (base.tokenType == null) return false
-        val seq = base.bufferSequence
-        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "INSERT")) return false
-        val i = skipWhitespace(seq, base.tokenEnd)
-        return regionIsWordIgnoreCase(seq, i, "OVERWRITE")
-    }
-
     private fun maskInsertOverwriteHeader(base: Lexer) {
-        advanceLexer(base) // INSERT, as-is
+        emit(base)
         while (base.tokenType != null && base.tokenText.isBlank()) advanceLexer(base)
-        // OVERWRITE -> comment
-        addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT)
-        base.advance()
+        maskWords(base, 1)
         while (base.tokenType != null && base.tokenText.isBlank()) advanceLexer(base)
-        if (base.tokenType != null && base.tokenText.equals("TABLE", ignoreCase = true)) {
-            addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT) // TABLE -> comment
-            base.advance()
-        }
+        if (base.tokenType != null && base.tokenText.equals("TABLE", ignoreCase = true)) maskWords(base, 1)
     }
 
-    /** Doris auto-partition overwrite `PARTITION(*)` — `*` is not a valid MySQL partition name; mask
-     *  the whole group. Named `PARTITION (p1, p2)` is valid MySQL and left untouched. */
     private fun isPartitionStar(base: Lexer): Boolean {
-        if (base.tokenType == null) return false
         val seq = base.bufferSequence
-        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "PARTITION")) return false
-        var i = skipWhitespace(seq, base.tokenEnd)
-        if (i >= seq.length || seq[i] != '(') return false
-        i = skipWhitespace(seq, i + 1)
-        if (i >= seq.length || seq[i] != '*') return false
-        i = skipWhitespace(seq, i + 1)
-        return i < seq.length && seq[i] == ')'
+        var i = offsetAfterWhitespace(base, base.tokenEnd)
+        if (seq.getOrNull(i) != '(') return false
+        i = offsetAfterWhitespace(base, i + 1)
+        if (seq.getOrNull(i) != '*') return false
+        i = offsetAfterWhitespace(base, i + 1)
+        return seq.getOrNull(i) == ')'
     }
 
-    private fun maskThroughRightParen(base: Lexer) {
-        var end = base.tokenEnd
-        while (base.tokenType != null) {
-            val done = base.tokenText == ")"
-            end = base.tokenEnd
-            base.advance()
-            if (done) break
-        }
-        addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
-    }
-
-    /**
-     * Doris selects temporary partitions with `TEMPORARY PARTITION(...)` in INSERT targets and table
-     * references. MySQL supports the trailing `PARTITION(...)` selector but not the `TEMPORARY`
-     * modifier. Masking only that modifier preserves a typed INSERT/SELECT tree and prevents MySQL's
-     * error recovery from ending a multiline INSERT before its SELECT source.
-     */
-    private fun isTemporaryPartitionSelector(base: Lexer): Boolean {
-        if (base.tokenType == null || statementLead !in TEMPORARY_PARTITION_STATEMENT_LEADS) return false
+    private fun isColumnExclusion(base: Lexer): Boolean {
         val seq = base.bufferSequence
-        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "TEMPORARY")) return false
-        val i = skipWhitespace(seq, base.tokenEnd)
-        return regionIsWordIgnoreCase(seq, i, "PARTITION")
-    }
-
-    private fun maskCurrentToken(base: Lexer) {
-        addToken(base.tokenEnd, SqlTokens.SQL_BLOCK_COMMENT)
-        base.advance()
-    }
-
-    private fun updateStatementLead(base: Lexer) {
-        val text = base.tokenText
-        // Doris range partitions use [(...), (...)), so counting parentheses alone can leave
-        // a negative depth. A delimiter token always ends this statement's lexer context;
-        // semicolons inside literals/comments are part of those tokens and never match here.
-        if (text == ";") {
-            statementLead = null
-            parenDepth = 0
-            castAsDepths.clear()
-        } else if (statementLead == null && text.firstOrNull()?.isLetter() == true) {
-            statementLead = text.uppercase()
-        }
-    }
-
-    private fun statementLeadBefore(buffer: CharSequence, offset: Int): String? {
-        if (offset == 0) return null
-        // A raw backwards search for ';' mistakes comment/literal contents for delimiters.
-        // Reconstruct only the statement lead with the unmodified lexer, using the same token
-        // rules as updateStatementLead. Parenthesis balance does not determine statement scope.
-        val prefix = MysqlLexer()
-        prefix.start(buffer, 0, offset)
-        var lead: String? = null
-        while (prefix.tokenType != null) {
-            val text = prefix.tokenText
-            if (text == ";") lead = null
-            else if (lead == null && text.firstOrNull()?.isLetter() == true) lead = text.uppercase()
-            prefix.advance()
-        }
-        return lead
-    }
-
-    private fun regionIsWordIgnoreCase(seq: CharSequence, start: Int, word: String): Boolean {
-        if (start + word.length > seq.length) return false
-        for (k in word.indices) if (seq[start + k].uppercaseChar() != word[k]) return false
-        val after = start + word.length
-        return after >= seq.length || !(seq[after].isLetterOrDigit() || seq[after] == '_')
-    }
-
-    /** True iff the current token is `EXCEPT` followed by `( <identifier that is not a query>` — the
-     *  Doris column-exclusion form, not the set operator. Peeks the raw buffer; does not advance. */
-    private fun isExceptColumnExclusion(base: Lexer): Boolean {
-        if (base.tokenType == null) return false
-        val seq = base.bufferSequence
-        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "EXCEPT")) return false
-        var i = skipWhitespace(seq, base.tokenEnd)
-        if (i >= seq.length || seq[i] != '(') return false
-        i = skipWhitespace(seq, i + 1)
-        if (i >= seq.length) return false
-        val c = seq[i]
+        var i = offsetAfterWhitespace(base, base.tokenEnd)
+        if (seq.getOrNull(i) != '(') return false
+        i = offsetAfterWhitespace(base, i + 1)
+        val c = seq.getOrNull(i) ?: return false
         if (!(c.isLetter() || c == '_' || c == '`')) return false
-        val word = readWord(seq, i).uppercase()
-        // a set-op right-hand side would start with one of these; a column list starts with a column name
-        return word != "SELECT" && word != "WITH" && word != "VALUES" && word != "TABLE"
-    }
-
-    /** base is positioned at `EXCEPT`; consume through the matching `)` and emit the whole span as one comment. */
-    private fun maskExceptColumnList(base: Lexer) {
-        base.advance() // past EXCEPT
-        while (base.tokenType != null && base.tokenText != "(") base.advance() // to '('
-        var depth = 0
-        var end = base.tokenEnd
-        while (base.tokenType != null) {
-            when (base.tokenText) {
-                "(" -> depth++
-                ")" -> depth--
-            }
-            end = base.tokenEnd
-            base.advance()
-            if (depth == 0) break
-        }
-        addToken(end, SqlTokens.SQL_BLOCK_COMMENT)
-    }
-
-    private fun skipWhitespace(seq: CharSequence, from: Int): Int {
-        var i = from
-        while (i < seq.length && seq[i].isWhitespace()) i++
-        return i
-    }
-
-    private fun readWord(seq: CharSequence, from: Int): String {
-        var i = from
-        while (i < seq.length && (seq[i].isLetterOrDigit() || seq[i] == '_')) i++
-        return seq.subSequence(from, i).toString()
+        return bufferWord(base, i).uppercase() !in setOf("SELECT", "WITH", "VALUES", "TABLE")
     }
 
     private companion object {
-        /** Cast targets DataGrip's MySQL grammar accepts (valid_cast_type_element). Anything else is masked. */
         val MYSQL_CAST_TYPES = setOf(
             "BINARY", "CHAR", "NCHAR", "NATIONAL", "DATE", "DATETIME", "TIME", "YEAR",
-            "DECIMAL", "DEC", "DOUBLE", "FLOAT", "REAL", "SIGNED", "UNSIGNED", "JSON"
+            "DECIMAL", "DEC", "DOUBLE", "FLOAT", "REAL", "SIGNED", "UNSIGNED", "JSON",
         )
         val TEMPORARY_PARTITION_STATEMENT_LEADS = setOf("INSERT", "SELECT", "WITH")
-    }
-
-    /**
-     * Doris `REGEXP(subject, pattern)` function form. In MySQL, REGEXP is only an operator keyword
-     * (`x REGEXP y`), so the function form mis-parses everywhere (select lists, view bodies, insert
-     * sources). Re-typing the keyword token as a plain identifier when directly followed by `(`
-     * makes it parse as a generic function call. The operator form (no paren) is untouched.
-     */
-    private fun isRegexpFunctionCall(base: Lexer): Boolean {
-        if (base.tokenType == null) return false
-        val seq = base.bufferSequence
-        if (!regionEqualsIgnoreCase(seq, base.tokenStart, base.tokenEnd, "REGEXP")) return false
-        val i = skipWhitespace(seq, base.tokenEnd)
-        return i < seq.length && seq[i] == '('
-    }
-
-    private fun regionEqualsIgnoreCase(seq: CharSequence, start: Int, end: Int, word: String): Boolean {
-        if (end - start != word.length) return false
-        for (k in word.indices) if (seq[start + k].uppercaseChar() != word[k]) return false
-        return true
     }
 }
