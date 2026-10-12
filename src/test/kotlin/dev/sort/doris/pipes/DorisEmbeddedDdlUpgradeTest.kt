@@ -1,5 +1,7 @@
 package dev.sort.doris.pipes
 
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+
 import dev.brikk.house.sql.ast.AggregateKeyProperty
 import dev.brikk.house.sql.ast.AggregateTypeColumnConstraint
 import dev.brikk.house.sql.ast.Create
@@ -36,7 +38,7 @@ class DorisEmbeddedDdlUpgradeTest {
             // These cases must pass without recovery/skips; syntax acceptance is not server analysis.
             nativeParser.parseStatement(fragment.sql)
             nativeParser.parseStatement(result.sql)
-            assertSame(fragment.sql, DorisPipesEngine.Transpile.NotPipe, DorisPipesEngine.transpile(fragment.sql))
+            assertSame(fragment.sql, PipeTranslation.NotPipe, DorisPipesEngine.transpile(fragment.sql))
         }
         return source.ast
     }

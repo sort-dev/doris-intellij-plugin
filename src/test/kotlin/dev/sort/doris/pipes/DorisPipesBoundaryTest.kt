@@ -7,6 +7,7 @@ import dev.sort.doris.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
+import dev.brikk.house.sql.intellij.pipe.statementAt
 import com.intellij.testFramework.PlatformTestUtil
 
 class DorisPipesBoundaryTest : BasePlatformTestCase() {
@@ -77,10 +78,13 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
         editor.caretModel.moveToOffset(text.indexOf("WHERE"))
         editor.selectionModel.setSelection(text.indexOf("FROM"), text.indexOf(" --"))
         val selection = editor.selectionModel.selectedText
-        val chunk = DorisPipesUi.pipeChunkAtCaret(myFixture.file, editor)!!
-        assertEquals("\n$statement", chunk.text)
+        assertTrue(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
+        val range = DorisPipeDialect.statementAt(editor.document.text, editor.caretModel.offset)!!
+        assertEquals("\n$statement", text.substring(range.start, range.end))
         assertEquals(selection, editor.selectionModel.selectedText)
         assertEquals(text, editor.document.text)
-        assertEquals(DorisPipes.chunkAt(text, editor.caretModel.offset), chunk)
+        val chunk = DorisPipes.chunkAt(text, editor.caretModel.offset)!!
+        assertEquals(chunk.startOffset, range.start)
+        assertEquals(chunk.endOffset, range.end)
     }
 }

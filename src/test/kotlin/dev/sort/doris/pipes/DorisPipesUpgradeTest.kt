@@ -1,5 +1,7 @@
 package dev.sort.doris.pipes
 
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+
 import dev.brikk.house.sql.ast.Distinct
 import dev.brikk.house.sql.ast.DorisTemporaryPartition
 import dev.brikk.house.sql.ast.Insert
@@ -29,16 +31,16 @@ import org.junit.Test
 class DorisPipesUpgradeTest {
     private val nativeParser = DorisSqlParser()
 
-    private fun generated(text: String): DorisPipesEngine.Transpile.Ok {
+    private fun generated(text: String): PipeTranslation.Lowered {
         val result = DorisPipesEngine.transpile(text)
-        assertTrue("Expected generated SQL for $text, got $result", result is DorisPipesEngine.Transpile.Ok)
-        return (result as DorisPipesEngine.Transpile.Ok).also {
+        assertTrue("Expected generated SQL for $text, got $result", result is PipeTranslation.Lowered)
+        return (result as PipeTranslation.Lowered).also {
             assertNotNull("The adapter must retain diagnostics and the source map", it.result)
             assertEquals(it.dorisSql, it.result!!.sql)
         }
     }
 
-    private fun supported(text: String, vararg expected: String): DorisPipesEngine.Transpile.Ok {
+    private fun supported(text: String, vararg expected: String): PipeTranslation.Lowered {
         val result = generated(text)
         assertEquals("Unexpected lossy translation: $text", emptyList<String>(), result.result!!.unsupportedMessages)
         // Use the throwing facade, not the annotator's recovery path, which can swallow exceptions.
@@ -256,8 +258,8 @@ class DorisPipesUpgradeTest {
         assertEquals(3, DorisPipes.chunks(document).size)
         val result = supported(chunk.text, "tenant_id = 7", "LIMIT 5", "'a''; |> LIMIT 999'")
         val chunkResult = DorisPipesEngine.transpile(chunk)
-        assertTrue(chunkResult is DorisPipesEngine.Transpile.Ok)
-        assertEquals(result.dorisSql, (chunkResult as DorisPipesEngine.Transpile.Ok).dorisSql)
+        assertTrue(chunkResult is PipeTranslation.Lowered)
+        assertEquals(result.dorisSql, (chunkResult as PipeTranslation.Lowered).dorisSql)
         assertEquals(emptyList<String>(), chunkResult.result!!.unsupportedMessages)
     }
 
@@ -267,7 +269,7 @@ class DorisPipesUpgradeTest {
             "|> EXTEND CONCAT(label, '; |> SELECT fake') AS display_label\n" +
             "|> SELECT display_label\n|> LIMIT 9"
         val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("fake"))!!
-        assertEquals(3, prefix.stage)
+        assertEquals(3, prefix.stage + 1)
         assertEquals(5, prefix.totalStages)
         assertEquals(text.substringBefore("\n|> SELECT display_label"), prefix.text)
         supported(prefix.text, "tenant_id = 7", "CONCAT(`label`, '; |> SELECT fake') AS display_label")
@@ -300,8 +302,8 @@ class DorisPipesUpgradeTest {
             SqlFragment(text, "doris").toExecutable("doris", pretty = true)
         }
         val result = DorisPipesEngine.transpile(text)
-        assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Err)
-        assertEquals(refusal.message, (result as DorisPipesEngine.Transpile.Err).message)
+        assertTrue(result.toString(), result is PipeTranslation.Refused)
+        assertEquals(refusal.message, (result as PipeTranslation.Refused).message)
         assertTrue(result.message, result.message.contains("RENAME"))
     }
 
@@ -313,7 +315,7 @@ class DorisPipesUpgradeTest {
                 val text = "FROM t${newline}|> EXTEND '$payload' AS label${newline}|> WHERE missing_column > 100${newline}|> LIMIT 5"
                 val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("WHERE"))!!
                 assertEquals(text.substringBefore("${newline}|> LIMIT"), prefix.text)
-                assertEquals(3, prefix.stage)
+                assertEquals(3, prefix.stage + 1)
                 assertEquals(4, prefix.totalStages)
                 supported(prefix.text, "missing_column > 100")
                 supported(text, "missing_column > 100", "LIMIT 5")
@@ -476,11 +478,10 @@ class DorisPipesUpgradeTest {
                 SqlFragment(text, "doris").toExecutable("doris", pretty = true)
             }
             val result = DorisPipesEngine.transpile(text)
-            assertTrue("A safety refusal must not delegate or escape: $result", result is DorisPipesEngine.Transpile.Err)
-            val error = result as DorisPipesEngine.Transpile.Err
+            assertTrue("A safety refusal must not delegate or escape: $result", result is PipeTranslation.Refused)
+            val error = result as PipeTranslation.Refused
             assertEquals(refusal.message, error.message)
-            assertEquals(null, error.line)
-            assertEquals(null, error.col)
+            assertEquals(null, error.range)
         }
     }
 
@@ -489,12 +490,12 @@ class DorisPipesUpgradeTest {
         val text = "FROM t AS a |> FULL OUTER JOIN u AS b ON a.id = b.id |> LIMIT 2 |> SELECT a.id"
         val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("SELECT"))!!
         assertEquals(text, prefix.text)
-        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Err)
+        assertTrue(DorisPipesEngine.transpile(prefix.text) is PipeTranslation.Refused)
         val earlier = DorisPipesEngine.stagePrefixAt(text, text.indexOf("LIMIT"))!!
         supported(earlier.text, "FULL OUTER JOIN", "LIMIT 2")
         val document = "SELECT 0;\n$text;\nSELECT 2;"
         val chunk = DorisPipes.chunkAt(document, document.indexOf("FULL"))!!
-        assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+        assertTrue(DorisPipesEngine.transpile(chunk) is PipeTranslation.Refused)
         val errors = DorisPipesEngine.pipeSyntaxErrors(document)
         assertEquals(1, errors.size)
         assertEquals(2, errors.single().line)
@@ -504,12 +505,12 @@ class DorisPipesUpgradeTest {
     private fun assertLateralProjectionOrRefusal(projection: String, expectedColumns: List<String>) {
         val text = "FROM t LATERAL VIEW EXPLODE(arr) e AS item |> LIMIT 2 |> SELECT $projection"
         val result = DorisPipesEngine.transpile(text)
-        if (result is DorisPipesEngine.Transpile.Err) {
+        if (result is PipeTranslation.Refused) {
             assertTrue("A safe refusal must explain why it cannot translate", result.message.isNotBlank())
             return
         }
-        assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Ok)
-        result as DorisPipesEngine.Transpile.Ok
+        assertTrue(result.toString(), result is PipeTranslation.Lowered)
+        result as PipeTranslation.Lowered
         assertEquals(emptyList<String>(), result.result!!.unsupportedMessages)
         nativeParser.parseStatement(result.dorisSql)
         val columns = linkedMapOf("id" to "INT", "category" to "STRING", "arr" to "ARRAY<INT>")
@@ -548,9 +549,9 @@ class DorisPipesUpgradeTest {
         for (offset in listOf("-1", "1.5", "?", "'1'", "1 + 1", "9223372036854775808")) {
             // A head OFFSET exercises the generator check rather than pipe-stage validation.
             val result = DorisPipesEngine.transpile("SELECT id FROM t OFFSET $offset |> ORDER BY id")
-            assertTrue("OFFSET $offset must not silently change its argument: $result", result is DorisPipesEngine.Transpile.Err)
+            assertTrue("OFFSET $offset must not silently change its argument: $result", result is PipeTranslation.Refused)
             assertEquals("Doris OFFSET without LIMIT requires a non-negative signed 64-bit integer literal",
-                (result as DorisPipesEngine.Transpile.Err).message)
+                (result as PipeTranslation.Refused).message)
         }
     }
 
@@ -576,7 +577,7 @@ class DorisPipesUpgradeTest {
             val result = generated(text)
             assertEquals(text, emptyList<String>(), result.unsupportedMessages)
             assertNotNull(text, result.validationError)
-            assertTrue(result.executionError!!.message, result.executionError!!.message.contains("generated SQL"))
+            assertTrue(result.executionError!!.message!!, result.executionError!!.message!!.contains("Generated SQL"))
             assertEquals(raw.sql, result.dorisSql)
         }
 
@@ -590,9 +591,9 @@ class DorisPipesUpgradeTest {
             val text = "FROM t |> WHERE id = :$name |> SELECT id"
             val preflight = generated(text)
             assertEquals(name, null, preflight.executionError)
-            val final = DorisPipesEngine.transpile(text, allowNamedParameters = false) as DorisPipesEngine.Transpile.Ok
+            val final = DorisPipesEngine.transpile(text, allowNamedParameters = false) as PipeTranslation.Lowered
             assertNotNull(name, final.validationError)
-            assertTrue(final.executionError!!.message.contains("generated SQL"))
+            assertTrue(final.executionError!!.message!!.contains("Generated SQL"))
         }
     }
 
@@ -649,8 +650,8 @@ class DorisPipesUpgradeTest {
         )
         for (text in inputs) {
             val result = DorisPipesEngine.transpile(text)
-            assertTrue("Expected a handled pagination error for $text, got $result", result is DorisPipesEngine.Transpile.Err)
-            assertTrue((result as DorisPipesEngine.Transpile.Err).message.isNotBlank())
+            assertTrue("Expected a handled pagination error for $text, got $result", result is PipeTranslation.Refused)
+            assertTrue((result as PipeTranslation.Refused).message.isNotBlank())
         }
     }
 

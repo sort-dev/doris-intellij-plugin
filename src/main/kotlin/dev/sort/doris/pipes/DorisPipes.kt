@@ -4,8 +4,9 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.util.text.StringUtil
 import dev.brikk.house.sql.intellij.recoverEditorOperation
+import dev.brikk.house.sql.intellij.pipe.isEnabled
+import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import org.antlr.v4.runtime.Token
 import org.apache.doris.nereids.DorisLexer
 import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
@@ -14,22 +15,7 @@ import org.apache.doris.sqlparser.DorisSqlParser
 /** Optional PIPE features may recover from exceptions, but never from cancellation or JVM errors. */
 internal inline fun <T> runPipeCatching(action: () -> T): Result<T> = recoverEditorOperation(action)
 
-internal fun pipeNotificationHtml(text: String): String =
-    StringUtil.escapeXmlEntities(StringUtil.convertLineSeparators(text)).replace("\n", "<br>")
-
-/**
- * Doris Pipes SPIKE (branch `pipes-spike`; IDEAS-brikk-integration.md §3): author GoogleSQL
- * pipe syntax (`FROM t |> WHERE ... |> AGGREGATE ...`) in a Doris console and RUN it — the
- * statement is transpiled to canonical Doris SQL by the brikk-sql engine at execute time
- * ([DorisPipesActionConfiguration]), and the editor stops red-flagging pipe statements while showing
- * the engine's own (position-accurate) pipe syntax errors instead ([dev.sort.doris.sql.DorisErrorAnnotator]).
- *
- * Engine-facing code lives in [DorisPipesEngine]; the shared engine is bundled with this plugin.
- *
- * Statement ranges use the bundled Doris lexer, independently of project enablement. Execution,
- * preview, completion, and syntax diagnostics share these ranges. Pipe detection still uses a
- * textual pre-gate for editing; execution checks native lexer tokens before parsing.
- */
+/** Doris-native statement ranges, PIPE editing policy and server-error marks. */
 object DorisPipes {
 
     /** Retained emergency veto. A true value never enables an unchecked project setting. */
@@ -37,14 +23,12 @@ object DorisPipes {
 
     fun isEnabledValue(raw: String?): Boolean = !"false".equals(raw, ignoreCase = true)
 
-    fun isEnabled(project: Project?): Boolean = project != null && !project.isDisposed && !project.isDefault &&
-        isEnabledValue(System.getProperty(PROPERTY)) && project.service<DorisPipesSettings>().enabled
+    fun isEnabled(project: Project?): Boolean = project != null && DorisPipeDialect.isEnabled(project)
 
     /** Brikk enables editing only, never the project's execution setting. */
-    fun isEditingEnabled(file: com.intellij.psi.PsiFile): Boolean = isEnabledValue(System.getProperty(PROPERTY)) &&
-        (dev.sort.doris.brikk.BrikkDorisContext.isActive(file) || isEnabled(file.project))
+    fun isEditingEnabled(file: com.intellij.psi.PsiFile): Boolean = DorisPipeDialect.isEditingEnabled(file)
 
-    /** Cheap textual pre-gate; the engine parse is the authority ([transpile]). */
+    /** Cheap textual pre-gate; core lowering remains the execution authority. */
     const val MARKER: String = "|>"
 
     /** Quoted/commented markers do not claim ordinary SQL, even when that SQL is malformed. */
@@ -349,14 +333,4 @@ object DorisPipes {
     )
 
     internal val SERVER_POSITION = Regex("""\(line (\d+), pos (\d+)\)""")
-}
-
-internal object DorisPipeStageKeywords {
-    val phrases = listOf(
-        "WHERE", "SELECT", "EXTEND", "SET", "DROP", "RENAME", "AGGREGATE", "DISTINCT",
-        "ORDER BY", "LIMIT", "OFFSET", "JOIN", "LEFT JOIN", "LEFT OUTER JOIN",
-        "RIGHT JOIN", "RIGHT OUTER JOIN", "CROSS JOIN",
-        "INNER JOIN", "FULL JOIN", "FULL OUTER JOIN", "UNION ALL", "INTERSECT", "EXCEPT",
-        "WINDOW", "PIVOT", "UNPIVOT", "TABLESAMPLE", "AS", "CALL",
-    )
 }

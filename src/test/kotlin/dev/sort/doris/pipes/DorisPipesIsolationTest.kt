@@ -50,10 +50,14 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
             checkEngine(dorisLoader, "jvmMain-0.20.0-SNAPSHOT")
-            val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
-            val translated = adapter.getMethod("transpile", String::class.java)
-                .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")
-            assertFalse((translated.javaClass.getMethod("getDorisSql").invoke(translated) as String).contains("|>"))
+            val profile = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipeDialect").getField("INSTANCE").get(null)
+            val profileType = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeDialect")
+            assertSame(dorisLoader, profileType.classLoader)
+            val lowering = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeEngineKt")
+            val translated = lowering.getMethod("lower", profileType, String::class.java,
+                Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, com.intellij.psi.PsiFile::class.java)
+                .invoke(null, profile, "FROM t |> LIMIT 1", false, false, null)
+            assertFalse((translated.javaClass.getMethod("getSql").invoke(translated) as String).contains("|>"))
 
             val companion = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.sql-transpiler-intellij-plugin"))
             if (System.getProperty("test.sqlTranspiler") == "installed") {

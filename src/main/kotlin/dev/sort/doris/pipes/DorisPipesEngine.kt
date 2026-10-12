@@ -1,204 +1,21 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.ast.PipeQuery
-import dev.brikk.house.sql.generator.UnsupportedError
-import dev.brikk.house.sql.parser.ParseError
-import dev.brikk.house.sql.parser.PipeSplitResult
 import dev.brikk.house.sql.parser.PipeStageSplitter
-import dev.brikk.house.sql.parser.TokenError
-import dev.brikk.house.sql.parser.TokenType
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
-import dev.brikk.house.sql.shape.ShapeError
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.brikk.house.sql.shape.TranspileResult
 import dev.sort.doris.sql.DorisSyntaxError
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
-import com.intellij.openapi.progress.ProgressManager
-import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
-import org.apache.doris.sqlparser.DorisSqlParser
 
 /**
  * Adapter for the bundled brikk-sql engine. IDE entry points consult the project setting;
  * these SQL/schema operations remain independent of project state and UI lifecycle.
  */
 object DorisPipesEngine {
-
-    // ---------------------------------------------------------------------------------------
-    // Transpile (the execute-time payload)
-    // ---------------------------------------------------------------------------------------
-
-    sealed interface Transpile {
-        /** Generated SQL, not execution approval: [executionError] may block lossy output.
-         *  [result] carries the engine SourceMap (identity-tied to [dorisSql]) for exact
-         *  server-error map-back; null only in unit-test fabrication. */
-        data class Ok(
-            val dorisSql: String,
-            val result: TranspileResult? = null,
-            val validationError: Err? = null,
-        ) : Transpile {
-            val unsupportedMessages: List<String> get() = result?.unsupportedMessages.orEmpty()
-
-            val executionError: Err? get() = validationError ?: unsupportedMessages.takeIf { it.isNotEmpty() }?.let {
-                    Err(null, null, "PIPE execution blocked: translation reports unsupported or lossy behavior.\n\n" + it.joinToString("\n\n"))
-                }
-        }
-
-        /** Pipe-looking but the engine rejects it; positions are 1-based like fe-sql-parser's. */
-        data class Err(val line: Int?, val col: Int?, val message: String) : Transpile
-
-        /** Parses fine but is NOT a pipe program (e.g. `|>` inside a string literal). */
-        object NotPipe : Transpile
-    }
-
-    /** Automatic statement detection must not execute a prefix of an unterminated construct. */
-    fun transpile(chunk: DorisPipes.Chunk): Transpile =
-        chunk.boundaryError?.let { Transpile.Err(null, null, it) } ?: transpile(chunk.text)
-
-    /**
-     * Parse [text] as Doris (the engine's Doris dialect accepts pipe syntax natively), and if it
-     * is a pipe program, produce the executable (desugared) Doris SQL + its SourceMap in one
-     * generator pass ([SqlFragment.toExecutable]; identity-guaranteed upstream).
-     */
-    fun transpile(text: String): Transpile = transpile(text, allowNamedParameters = true)
-
-    internal fun transpile(
-        text: String,
-        allowNamedParameters: Boolean,
-        allowFirstFromStage: Boolean = false,
-    ): Transpile {
-        val chunks = DorisPipes.chunks(text)
-        if (chunks.none { it.hasPipeOperator } && !allowFirstFromStage) return Transpile.NotPipe
-        chunks.firstOrNull { it.boundaryError != null }?.let {
-            return Transpile.Err(null, null, it.boundaryError!!)
-        }
-        if (chunks.count { it.hasSql } != 1) {
-            return Transpile.Err(null, null, "Select exactly one PIPE statement; multiple or mixed statements cannot be executed together.")
-        }
-        return try {
-            val fragment = SqlFragment(text.trim().removeSuffix(";"), "doris")
-            if (fragment.ast.findAll<PipeQuery>().none() && !(allowFirstFromStage && fragment.hasFromFirstQuery)) {
-                Transpile.NotPipe
-            } else {
-                val result = fragment.toExecutable("doris", pretty = true)
-                ProgressManager.checkCanceled()
-                outputRefusal(result) ?: run {
-                    val validationError = if (result.unsupportedMessages.isEmpty()) {
-                        validateGeneratedSql(result.sql, allowNamedParameters)
-                    } else {
-                        null
-                    }
-                    Transpile.Ok(result.sql, result, validationError)
-                }
-            }
-        } catch (e: ParseError) {
-            val first = e.errors.firstOrNull()
-            Transpile.Err(first?.line, first?.col, first?.description ?: (e.message ?: "pipe parse error"))
-        } catch (e: UnsupportedError) {
-            // An intentional lowering refusal is handled, never permission to execute raw PIPE SQL.
-            Transpile.Err(null, null, e.message ?: "Unsupported PIPE translation")
-        } catch (e: TokenError) {
-            Transpile.Err(null, null, e.message ?: "Invalid PIPE token")
-        } catch (e: ShapeError) {
-            Transpile.Err(null, null, e.message ?: "Invalid PIPE statement shape")
-        }
-    }
-
-    internal fun outputRefusal(result: TranspileResult): Transpile.Err? = when {
-        result.isRawPassthroughStatement -> Transpile.Err(null, null, "PIPE translation returned raw SQL.")
-        DorisPipes.containsPipeOperator(result.sql) -> Transpile.Err(null, null, "Translation left unlowered PIPE syntax.")
-        else -> null
-    }
-
-    private fun validateGeneratedSql(sql: String, allowNamedParameters: Boolean): Transpile.Err? {
-        ProgressManager.checkCanceled()
-        val parserInput = if (allowNamedParameters) maskNamedParameters(sql) else sql
-        return try {
-            NATIVE_PARSER.parseStatement(parserInput)
-            ProgressManager.checkCanceled()
-            null
-        } catch (failure: DorisParseException) {
-            Transpile.Err(
-                null,
-                null,
-                "PIPE execution blocked: generated SQL is not accepted by the embedded Doris parser.\n\n" +
-                    (failure.message ?: "Generated Doris SQL failed validation."),
-            )
-        }
-    }
-
-    /** Replace native `:name` tokens with scalar zeroes for the pre-substitution parser pass. */
-    private fun maskNamedParameters(sql: String): String {
-        val ranges = DorisPipes.namedParameterRanges(sql)
-        if (ranges.isEmpty()) return sql
-        return buildString(sql.length) {
-            append(sql)
-            for (range in ranges) {
-                setCharAt(range.first, '0')
-                for (index in range.first + 1..range.last) setCharAt(index, ' ')
-            }
-        }
-    }
-
-    private val NATIVE_PARSER = DorisSqlParser()
-
-    // ---------------------------------------------------------------------------------------
-    // Stage boundaries (execute-to-stage-N; IDEAS §3 "Execute up to stage N")
-    // ---------------------------------------------------------------------------------------
-
-    /** Where run-to-stage may cut a pipe program. */
-    sealed interface StageCut {
-        data object InsideNestedPipeline : StageCut
-        data object Unavailable : StageCut
-    }
-
-    /** The pipe-program prefix ending at the stage containing [relOffset], plus (1-based stage, total). */
-    data class StagePrefix(val text: String, val stage: Int, val totalStages: Int) : StageCut
-
-    /**
-     * Cut [chunkText] (one pipe program) down to the stages up to and including the one containing
-     * [relOffset] (an offset RELATIVE to [chunkText]). A prefix of pipe stages is itself a valid
-     * pipe program, so the result transpiles/executes like any other. Uses the engine's own
-     * [dev.brikk.house.sql.parser.PipeStageSplitter] (verified: per-stage char offsets). Returns
-     * null when the text isn't splittable or the offset lands before the first stage.
-     */
-    fun stagePrefixAt(chunkText: String, relOffset: Int): StagePrefix? = runPipeCatching {
-        PipeStageSplitter.split(chunkText, "doris").prefixAt(chunkText, relOffset)
-    }.getOrNull()
-
-    /** The run-to-stage cut: a top-level stage of a program with at least two stages. */
-    fun runnableStageCutAt(chunkText: String, relOffset: Int): StageCut = runPipeCatching {
-        val split = PipeStageSplitter.split(chunkText, "doris")
-        when {
-            split.isInsideNestedPipeline(relOffset) -> StageCut.InsideNestedPipeline
-            split.stages.size < 2 -> StageCut.Unavailable
-            else -> split.prefixAt(chunkText, relOffset) ?: StageCut.Unavailable
-        }
-    }.getOrDefault(StageCut.Unavailable)
-
-    private fun PipeSplitResult.prefixAt(chunkText: String, relOffset: Int): StagePrefix? {
-        val index = stages.indexOfLast { relOffset >= it.start }
-        if (index < 0) return null
-        val end = (stages[index].endInclusive + 1).coerceAtMost(chunkText.length)
-        return StagePrefix(chunkText.substring(0, end), index + 1, stages.size)
-    }
-
-    private data class Frame(val start: Int, val hasPipe: Boolean = false)
-
-    private fun PipeSplitResult.isInsideNestedPipeline(relOffset: Int): Boolean {
-        val frames = ArrayDeque<Frame>()
-        for (token in tokens) when (token.tokenType) {
-            TokenType.L_PAREN, TokenType.L_BRACKET, TokenType.L_BRACE -> frames.addLast(Frame(token.start))
-            TokenType.PIPE_GT -> frames.removeLastOrNull()?.let { frames.addLast(it.copy(hasPipe = true)) }
-            TokenType.R_PAREN, TokenType.R_BRACKET, TokenType.R_BRACE -> {
-                val frame = frames.removeLastOrNull()
-                if (frame != null && frame.hasPipe && relOffset in frame.start..token.end) return true
-            }
-            else -> Unit
-        }
-        return false
-    }
 
     // ---------------------------------------------------------------------------------------
     // Server-error map-back (exact, via the engine SourceMap)
@@ -252,8 +69,10 @@ object DorisPipesEngine {
     /** Kotlin slot contracts feed the existing engine, without a second SQL type system. */
     fun stageScopeAt(chunkText: String, relOffset: Int, baseTable: String?, baseColumns: List<String>?, slots: Map<String, Shape>): List<String>? =
         runPipeCatching {
-            val prefix = stagePrefixAt(chunkText, relOffset) ?: return null
-            val inputShapeIndex = prefix.stage - 2
+            val stages = PipeStageSplitter.split(chunkText, "doris").stages
+            val stage = stages.indexOfLast { relOffset >= it.start }
+            if (stage < 0) return null
+            val inputShapeIndex = stage - 1
             if (inputShapeIndex < 0) return baseColumns // inside FROM: only the base relation exists
             val normalizedSql = chunkText.trim().removeSuffix(";")
             val key = ShapeKey(normalizedSql, baseTable, baseColumns?.toList(), slots.toMap())
@@ -295,20 +114,24 @@ object DorisPipesEngine {
         val out = ArrayList<DorisSyntaxError>()
         for (chunk in DorisPipes.chunks(text)) {
             if (!chunk.hasPipeOperator) continue
-            val result = runPipeCatching { transpile(chunk) }.getOrElse {
+            val result = runPipeCatching { DorisPipeDialect.lower(chunk.text) }.getOrElse {
                 DorisPipes.warn("PIPE diagnostics failed", it)
-                Transpile.Err(null, null, "PIPE translation failed: ${it.message ?: it.javaClass.simpleName}")
+                PipeTranslation.Refused(null, "PIPE translation failed: ${it.message ?: it.javaClass.simpleName}")
             }
-            val error = when (result) {
-                is Transpile.Err -> result
-                is Transpile.Ok -> result.executionError
-                Transpile.NotPipe -> null
+            val message = when (result) {
+                is PipeTranslation.Refused -> result.message
+                is PipeTranslation.Lowered -> result.blocker
+                PipeTranslation.NotPipe -> null
             } ?: continue
+            val firstContent = chunk.text.length - chunk.text.trimStart().length
+            val offset = if (chunk.boundaryError != null) firstContent
+                else (result as? PipeTranslation.Refused)?.range?.start ?: firstContent
+            val before = chunk.text.take(offset)
             out.add(DorisSyntaxError(
-                line = chunk.startLine + (error.line ?: 1) - 1,
-                col = ((error.col ?: 1) - 1).coerceAtLeast(0),
+                line = 1 + text.take(chunk.startOffset).count { it == '\n' } + before.count { it == '\n' },
+                col = before.length - (before.lastIndexOf('\n') + 1),
                 length = 2,
-                message = "$DORIS_PIPE_DIAGNOSTIC_PREFIX ${error.message}",
+                message = "$DORIS_PIPE_DIAGNOSTIC_PREFIX $message",
             ))
         }
         return out

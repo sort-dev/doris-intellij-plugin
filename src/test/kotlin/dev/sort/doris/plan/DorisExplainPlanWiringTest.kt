@@ -59,6 +59,6 @@ class DorisExplainPlanWiringTest : BasePlatformTestCase() {
 
         val claimedCommand = prepareDorisExplainSql("RENAME TABLE a TO b |> LIMIT 1", pipesEnabled = true)
         assertNull(claimedCommand.sql)
-        assertTrue(claimedCommand.error!!.contains("not an executable PIPE query"))
+        assertEquals("The statement is not a pipe query", claimedCommand.error)
     }
 }

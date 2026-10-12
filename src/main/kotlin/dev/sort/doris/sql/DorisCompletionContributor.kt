@@ -11,6 +11,7 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.codeInsight.lookup.LookupElementDecorator
 import com.intellij.codeInsight.lookup.LookupElementPresentation
+import com.intellij.database.console.JdbcConsoleProvider
 import com.intellij.icons.AllIcons
 import com.intellij.patterns.PlatformPatterns
 import icons.DatabaseIcons
@@ -53,7 +54,6 @@ class DorisCompletionContributor : CompletionContributor() {
     init {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), FunctionProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), TvfArgumentProvider)
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeStageKeywordProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), PipeColumnProvider)
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), QualifiedPathIntrospectProvider)
     }
@@ -82,7 +82,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val tail = text.substring((offset - 160).coerceAtLeast(0), offset)
                 val parts = PATH_BEFORE_CARET.find(tail)?.groupValues?.get(1)
                     ?.split('.')?.map { it.trim('`') } ?: return
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return
+                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile) ?: return
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
@@ -139,7 +139,7 @@ class DorisCompletionContributor : CompletionContributor() {
         /** Columns of an arbitrary table path, resolved like the FROM base (no banner side-effects). */
         private fun lookupColumns(file: com.intellij.psi.PsiFile, parts: List<String>): List<String>? =
             runCatching {
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
+                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile)
                     ?: return@runCatching null
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
@@ -238,7 +238,7 @@ class DorisCompletionContributor : CompletionContributor() {
                 val m = Regex("""\b(?:FROM|JOIN)\s+([\w`.]*)$""", RegexOption.IGNORE_CASE)
                     .find(visibleText) ?: return false
                 val parents = m.groupValues[1].split('.').map { it.trim('`') }.dropLast(1)
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file) ?: return true
+                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile) ?: return true
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
@@ -343,7 +343,7 @@ class DorisCompletionContributor : CompletionContributor() {
             }
             val dasColumns: List<String>? = runCatching {
                 val parts = qualified?.split('.') ?: return@runCatching null
-                val console = dev.sort.doris.pipes.DorisPipesUi.consoleFor(file.project, file)
+                val console = JdbcConsoleProvider.getValidConsole(file.project, file.viewProvider.virtualFile)
                     ?: return@runCatching null.also { dev.sort.doris.pipes.DorisPipes.info("columns: no console for file") }
                 val local = console.session.connectionPoint.dataSource
                 val facade = com.intellij.database.psi.DbPsiFacade.getInstance(file.project)
@@ -462,41 +462,6 @@ class DorisCompletionContributor : CompletionContributor() {
                             .withIcon(com.intellij.icons.AllIcons.Nodes.Field)
                             .withTypeText("table column", true),
                         94.0,
-                    ),
-                )
-            }
-        }
-    }
-
-    /**
-     * DORIS PIPES: stage-operator keywords right after a `|>`. The pipe
-     * statement is a lenient token run, so the platform offers nothing there itself. Textual gate:
-     * only immediately after `|>` (up to three partial words for JOIN forms), never elsewhere.
-     */
-    private object PipeStageKeywordProvider : CompletionProvider<CompletionParameters>() {
-        private val STAGE_KEYWORDS = dev.sort.doris.pipes.DorisPipeStageKeywords.phrases
-        private val AFTER_PIPE = Regex("""(?<!\|)\|>\s*([A-Za-z]*(?:\s+[A-Za-z]*){0,2})$""", RegexOption.IGNORE_CASE)
-
-        override fun addCompletions(
-            parameters: CompletionParameters,
-            context: ProcessingContext,
-            result: CompletionResultSet
-        ) {
-            if (!dev.sort.doris.pipes.DorisPipes.isEditingEnabled(parameters.originalFile)) return
-            if (!parameters.originalFile.language.isKindOf(DorisSqlDialect.INSTANCE)) return
-            val text = parameters.originalFile.text
-            val offset = parameters.offset.coerceAtMost(text.length)
-            val tail = text.substring((offset - 120).coerceAtLeast(0), offset)
-            val visibleTail = dev.sort.doris.pipes.DorisPipes.codeBefore(tail, tail.length)
-            val typed = AFTER_PIPE.find(visibleTail)?.groupValues?.get(1)?.trim() ?: return
-            if (visibleTail.lastOrNull()?.isWhitespace() == true && STAGE_KEYWORDS.any { it.equals(typed, true) }) return
-            if (STAGE_KEYWORDS.none { it.startsWith(typed, ignoreCase = true) }) return
-            val sink = result.caseInsensitive()
-            for (kw in STAGE_KEYWORDS) {
-                sink.addElement(
-                    PrioritizedLookupElement.withPriority(
-                        LookupElementBuilder.create(kw).bold().withTypeText("pipe stage", true),
-                        90.0,
                     ),
                 )
             }

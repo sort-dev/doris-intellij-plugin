@@ -1,5 +1,7 @@
 package dev.sort.doris.pipes
 
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+
 import dev.brikk.house.sql.ast.Command
 import dev.brikk.house.sql.dialects.transpile
 import dev.brikk.house.sql.shape.SqlFragment
@@ -81,8 +83,8 @@ class Doris414UpgradeTest {
             assertEquals(nullable, column.nullable)
             assertEquals(true, SqlFragment("SELECT $function(NULL) AS v", "doris").outputShape().columns.single().nullable)
             val result = DorisPipesEngine.transpile("FROM t |> SELECT $function('{\"k\":1}') AS v")
-            assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Ok)
-            result as DorisPipesEngine.Transpile.Ok
+            assertTrue(result.toString(), result is PipeTranslation.Lowered)
+            result as PipeTranslation.Lowered
             assertNull(result.executionError)
             native.parseStatement(result.dorisSql)
         }

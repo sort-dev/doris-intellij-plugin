@@ -18,6 +18,7 @@ import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.ui.components.JBCheckBox
+import dev.brikk.house.sql.intellij.ToggleSettings
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisSqlDialect
 import java.lang.reflect.Proxy
@@ -72,7 +73,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         DorisPipes.setExecMark(project, "file:///shared.sql", mark)
         assertEquals(mark, DorisPipes.execMarkFor(project, "file:///shared.sql", text))
         assertNull(DorisPipes.execMarkFor(other, "file:///shared.sql", text))
-        otherSettings.loadState(DorisPipesSettings.Options(enabled = true))
+        otherSettings.loadState(ToggleSettings.Options(enabled = true))
         settings.enabled = false
         assertTrue(DorisPipes.isEnabled(other))
         assertFalse(DorisPipes.isEnabled(project))
@@ -110,11 +111,11 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
             assertTrue(settings.enabled)
             assertFalse(configurable.isModified)
             val xml = serialize(settings.state, createElementIfEmpty = true)!!
-            val restored = deserialize<DorisPipesSettings.Options>(xml)
+            val restored = deserialize<ToggleSettings.Options>(xml)
             assertEquals("true", xml.getChild("option")?.getAttributeValue("value"))
             assertTrue(restored.enabled)
             assertEquals(settings.state, restored)
-            settings.loadState(DorisPipesSettings.Options())
+            settings.loadState(ToggleSettings.Options())
             configurable.reset()
             assertFalse(checkbox.isSelected)
         } finally {
@@ -173,11 +174,11 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         fun tree() = DebugUtil.psiToString(PsiManager.getInstance(project).findFile(virtualFile)!!, true)
         val offTree = tree()
         ApplicationManager.getApplication().executeOnPooledThread {
-            settings.loadState(DorisPipesSettings.Options(enabled = true))
+            settings.loadState(ToggleSettings.Options(enabled = true))
         }.get()
         PlatformTestUtil.waitWithEventsDispatching("External enable must reparse cached PSI", { tree() != offTree }, 10)
         assertFalse(offTree == tree())
-        settings.loadState(DorisPipesSettings.Options(enabled = false))
+        settings.loadState(ToggleSettings.Options(enabled = false))
         PlatformTestUtil.waitWithEventsDispatching("External disable must restore cached PSI", { tree() == offTree }, 10)
         assertEquals(offTree, tree())
     }

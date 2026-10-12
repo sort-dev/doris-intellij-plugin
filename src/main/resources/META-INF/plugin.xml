@@ -438,6 +438,7 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
         <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMysqlFunctionFilter"/>
         <!-- Exposes SELECT-list aliases as resolution/completion targets in HAVING / GROUP BY /

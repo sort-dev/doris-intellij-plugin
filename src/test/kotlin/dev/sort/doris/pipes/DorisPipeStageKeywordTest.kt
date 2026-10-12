@@ -34,8 +34,16 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
         val sql = "FROM t |> EXTEND 1 AS x |> AGGREGATE count(*) AS n |> OFFSET 1"
         val highlights = highlight(sql)
         assertTrue(isForcedKeyword(highlights, sql, "EXTEND"))
-        assertFalse(isForcedKeyword(highlights, sql, "AGGREGATE"))
-        assertFalse(isForcedKeyword(highlights, sql, "OFFSET"))
+        assertTrue(isForcedKeyword(highlights, sql, "AGGREGATE"))
+        assertTrue(isForcedKeyword(highlights, sql, "OFFSET"))
+    }
+
+    fun testIncompleteTailKeepsEarlierStageColoringWithoutAllowingExecution() {
+        val sql = "FROM t |> EXTEND 1 AS x |> SELECT 'unfinished"
+        assertTrue(isForcedKeyword(highlight(sql), sql, "EXTEND"))
+        assertNotNull(DorisPipes.chunks(sql).single().boundaryError)
+        assertTrue(DorisPipesEngine.transpile(sql) is dev.brikk.house.sql.intellij.pipe.PipeTranslation.Refused)
+        assertEmpty(pipeStageItems("FROM t |> SELECT 'unfinished |> <caret>"))
     }
 
     fun testContextAndNativeOperatorGatePreventGlobalColoring() {

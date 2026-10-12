@@ -11,15 +11,15 @@ are especially welcome — real, hostile SQL is how this plugin got good.
 ./gradlew test          # without the optional Kotlin host (light platform fixture, no IDE install needed)
 ```
 
-The plugin's Doris function catalog comes from `dev.brikk.house:brikk-sql-metadata-jvm`, resolved
-from the **Maven Central snapshots** repository — no authentication or setup required. (It will move
-to a Central release coordinate once brikk-house cuts a stable release.)
-- **JVM 21**, **Kotlin 2.3.0**, JetBrains IntelliJ Platform Gradle plugin. The DataGrip 2026.1 SDK
+The plugin's Doris function catalog comes from `dev.brikk.house:brikk-sql-metadata-jvm`. Snapshot
+versions resolve only from Maven Local; matching snapshots must be published there before building.
+Released artifacts resolve from Maven Central.
+- **JVM 21**, **Kotlin 2.4.10**, JetBrains IntelliJ Platform Gradle plugin. The IntelliJ IDEA 2026.1 SDK
   is downloaded automatically on first build.
 - The suite runs against a headless platform fixture; it does **not** need a running Doris server.
-- One artifact targets both the **261** (2026.1) and **262** (2026.2) platform lines. Before
+- One artifact targets the **261** (2026.1), **262** (2026.2) and **263** (2026.3) platform lines. Before
   changing anything near the database metadata model, run `./gradlew verifyPlugin` — it checks the
-  plugin against both generations and must report **zero compatibility problems**.
+  plugin against all three generations and must report **zero compatibility problems**.
 
 > Note: the Gradle `test` task can report *up-to-date* and skip re-running after some changes. When
 > in doubt, `./gradlew test --rerun-tasks` and read the counts from `build/test-results/`.

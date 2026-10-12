@@ -17,7 +17,9 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.pipes.DorisPipes
-import dev.sort.doris.pipes.DorisPipesEngine
+import dev.sort.doris.pipes.DorisPipeDialect
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -206,15 +208,15 @@ internal data class PreparedExplainSql(val sql: String?, val error: String?)
 
 internal fun prepareDorisExplainSql(sql: String, pipesEnabled: Boolean): PreparedExplainSql {
     if (!pipesEnabled || !DorisPipes.containsPipeOperator(sql)) return PreparedExplainSql(sql, null)
-    return when (val result = DorisPipesEngine.transpile(sql)) {
-        is DorisPipesEngine.Transpile.Err -> PreparedExplainSql(null, result.message)
-        DorisPipesEngine.Transpile.NotPipe ->
+    return when (val result = DorisPipeDialect.lower(sql)) {
+        is PipeTranslation.Refused -> PreparedExplainSql(null, result.message)
+        PipeTranslation.NotPipe ->
             PreparedExplainSql(null, "The selected text contains PIPE syntax but is not an executable PIPE query.")
-        is DorisPipesEngine.Transpile.Ok -> when {
-            result.executionError != null -> PreparedExplainSql(null, result.executionError!!.message)
-            DorisPipes.namedParameterRanges(result.dorisSql).isNotEmpty() ->
+        is PipeTranslation.Lowered -> when {
+            result.blocker != null -> PreparedExplainSql(null, result.blocker)
+            DorisPipes.namedParameterRanges(result.sql).isNotEmpty() ->
                 PreparedExplainSql(null, "PIPE parameters must be resolved with Execute before EXPLAIN.")
-            else -> PreparedExplainSql(result.dorisSql, null)
+            else -> PreparedExplainSql(result.sql, null)
         }
     }
 }
