@@ -5,8 +5,10 @@ import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.sql.dialects.mysql.MysqlDialect
+import com.intellij.sql.dialects.mysql.MysqlLexer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
+import dev.brikk.house.sql.intellij.testing.lexAll
 import java.io.File
 
 /**
@@ -136,13 +138,22 @@ class DorisGoldenCorpusTest : BasePlatformTestCase() {
     fun testMysqlGoldenTrees() = runDialect("mysql", mysqlLang())
 
     fun testCorpusLexerRestarts() {
+        var maxBaseState = 0
         for (file in corpusFiles()) {
             try {
-                assertRestartsMatchFullLex(::DorisLexer, norm(file.readText()))
-                assertRestartsMatchFullLex({ DorisLexer(brikkHouse = true) }, norm(file.readText()))
+                val sql = norm(file.readText())
+                val base = MysqlLexer()
+                val states = base.lexAll(sql).map { it.state and 0xffff } + (base.state and 0xffff)
+                for (state in states) {
+                    assertTrue("MySQL base state must fit 15 bits: $state", state in 0..0x7fff)
+                    maxBaseState = maxOf(maxBaseState, state)
+                }
+                assertRestartsMatchFullLex(::DorisLexer, sql)
+                assertRestartsMatchFullLex({ DorisLexer(brikkHouse = true) }, sql)
             } catch (error: AssertionError) {
                 throw AssertionError(relPath(file), error)
             }
         }
+        println("Maximum MySQL base state across the Doris corpus: $maxBaseState")
     }
 }
