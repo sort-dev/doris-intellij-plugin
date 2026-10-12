@@ -8,7 +8,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.pipe.PipeTranslation
 import dev.brikk.house.sql.intellij.pipe.lower
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 
 class DorisPipeStageKeywordTest : BasePlatformTestCase() {

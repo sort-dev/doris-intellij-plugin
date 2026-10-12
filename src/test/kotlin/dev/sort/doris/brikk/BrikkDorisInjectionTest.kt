@@ -672,7 +672,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
     fun testDdlDatasourceInspectionsDistinguishColumnAndBind() {
         val ddl = myFixture.addFileToProject("schema.sql",
             "CREATE TABLE customers (tenant VARCHAR(64) NOT NULL, customer_id VARCHAR(64));")
-        dev.sort.doris.setSqlDialectMapping(project, ddl.virtualFile, DorisSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, ddl.virtualFile, DorisSqlDialect.INSTANCE)
         val manager = com.intellij.sql.database.SqlDataSourceManager.getInstance(project)
         val source = manager.createEmpty().apply {
             name = "Brikk test DDL"

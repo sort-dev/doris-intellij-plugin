@@ -4,7 +4,7 @@ import com.intellij.openapi.components.service
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.PipeExecutionContract
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 import java.util.UUID
 

@@ -3,7 +3,7 @@ package dev.sort.doris.sql
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**

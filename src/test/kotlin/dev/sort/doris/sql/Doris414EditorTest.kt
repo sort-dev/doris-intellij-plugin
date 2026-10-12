@@ -5,7 +5,7 @@ import com.intellij.database.settings.DatabaseSettings
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import org.apache.doris.sqlparser.DorisSqlParser
 
 /** Exercise the shipped grammar and the platform's caret execution chooser together. */

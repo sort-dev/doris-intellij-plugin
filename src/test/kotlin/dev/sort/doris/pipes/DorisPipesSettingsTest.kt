@@ -14,7 +14,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.impl.DebugUtil
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.ui.components.JBCheckBox

@@ -3,7 +3,7 @@ package dev.sort.doris.pipes
 import com.intellij.psi.PsiFileFactory
 import com.intellij.openapi.components.service
 import com.intellij.psi.util.PsiTreeUtil
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect

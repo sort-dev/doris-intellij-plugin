@@ -7,7 +7,7 @@ import com.intellij.sql.psi.SqlFunctionCallExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlTableType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.brikk.house.sql.metadata.ColumnDef
 import dev.brikk.house.sql.metadata.OutputSchema
 

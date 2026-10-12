@@ -60,7 +60,7 @@ import dev.brikk.house.sql.intellij.pipe.ValidationTiming
 import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.sort.doris.DorisDbms
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 import java.awt.Component
 import java.awt.Container

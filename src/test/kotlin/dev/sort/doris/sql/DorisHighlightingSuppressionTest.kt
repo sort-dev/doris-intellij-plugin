@@ -2,7 +2,7 @@ package dev.sort.doris.sql
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sqlResolveInspection
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 

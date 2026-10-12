@@ -1,10 +1,15 @@
 package dev.sort.doris.sql
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
-import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.HighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
-import dev.sort.doris.setSqlDialectMapping
+import com.intellij.openapi.fileTypes.SyntaxHighlighterFactory
+import com.intellij.psi.tree.IElementType
+import com.intellij.sql.dialects.base.SqlSyntaxHighlighterFactory
+import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.lexAll
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 
 /**
  * Pins [DorisMaskedSpanRecolorAnnotator] (dogfood 2026-07-08 P3: CAST targets colored like
@@ -33,17 +38,47 @@ class DorisMaskedSpanRecolorTest : BasePlatformTestCase() {
             .mapNotNull { it.forcedTextAttributesKey }
     }
 
+    private fun sqlColor(type: IElementType): TextAttributesKey =
+        SyntaxHighlighterFactory.getSyntaxHighlighter(DorisSqlDialect.INSTANCE, project, myFixture.file.virtualFile)
+            .getTokenHighlights(type).lastOrNull() ?: HighlighterColors.TEXT
+
+    fun testKeywordOverlayUsesSqlColorsAndPreservesOtherTokens() {
+        val sql = "distributed DISTRIBUTED plain_column `distributed` 'distributed' \"distributed\" 42 /* DISTRIBUTED */"
+        val base = object : SqlSyntaxHighlighterFactory.Base(DorisSqlDialect.INSTANCE) {}
+            .getSyntaxHighlighter(project, null)
+        val overlay = DorisSyntaxHighlighterFactory().getSyntaxHighlighter(project, null)
+        val repeated = DorisSyntaxHighlighterFactory().getSyntaxHighlighter(project, null)
+        val original = base.highlightingLexer.lexAll(sql)
+        val actual = overlay.highlightingLexer.lexAll(sql)
+        assertEquals(original.size, actual.size)
+        assertEquals(2, original.zip(actual).count { (before, after) -> before.type != after.type })
+        assertEquals(actual, repeated.highlightingLexer.lexAll(sql))
+        for ((before, after) in original.zip(actual)) {
+            assertEquals(before.start, after.start)
+            assertEquals(before.end, after.end)
+            assertEquals(before.state, after.state)
+            if (before.type == SqlTokens.SQL_IDENT && sql.substring(before.start, before.end).uppercase() in DORIS_KEYWORDS) {
+                assertNotSame(before.type, after.type)
+                assertTrue(base.getTokenHighlights(SqlTokens.SQL_KEYWORD_TOKEN)
+                    .contentEquals(overlay.getTokenHighlights(after.type)))
+            } else {
+                assertSame(before.type, after.type)
+                assertTrue(base.getTokenHighlights(before.type).contentEquals(overlay.getTokenHighlights(after.type)))
+            }
+        }
+    }
+
     fun testCastTargetTypeRecoloredAsKeyword() {
         val sql = "SELECT CAST(v AS LARGEINT) FROM t;"
         val all = highlight(sql)
         assertTrue(
             "masked cast target LARGEINT must be recolored as a keyword",
-            recolorsAt(all, sql, "LARGEINT").contains(DefaultLanguageHighlighterColors.KEYWORD),
+            recolorsAt(all, sql, "LARGEINT").contains(sqlColor(SqlTokens.SQL_KEYWORD_TOKEN)),
         )
         // the masked AS keyword too (space-anchored: 'CAST' contains the substring 'AS')
         assertTrue(
             "masked AS must be recolored as a keyword",
-            recolorsAt(all, sql, "AS", sql.indexOf(" AS ") + 1).contains(DefaultLanguageHighlighterColors.KEYWORD),
+            recolorsAt(all, sql, "AS", sql.indexOf(" AS ") + 1).contains(sqlColor(SqlTokens.SQL_KEYWORD_TOKEN)),
         )
     }
 
@@ -52,11 +87,11 @@ class DorisMaskedSpanRecolorTest : BasePlatformTestCase() {
         val all = highlight(sql)
         assertTrue(
             "MAP recolored as keyword",
-            recolorsAt(all, sql, "MAP").contains(DefaultLanguageHighlighterColors.KEYWORD),
+            recolorsAt(all, sql, "MAP").contains(sqlColor(SqlTokens.SQL_KEYWORD_TOKEN)),
         )
         assertTrue(
             "STRING recolored as keyword",
-            recolorsAt(all, sql, "STRING").contains(DefaultLanguageHighlighterColors.KEYWORD),
+            recolorsAt(all, sql, "STRING").contains(sqlColor(SqlTokens.SQL_KEYWORD_TOKEN)),
         )
     }
 
@@ -65,11 +100,11 @@ class DorisMaskedSpanRecolorTest : BasePlatformTestCase() {
         val all = highlight(sql)
         assertTrue(
             "masked EXCEPT recolored as keyword",
-            recolorsAt(all, sql, "EXCEPT").contains(DefaultLanguageHighlighterColors.KEYWORD),
+            recolorsAt(all, sql, "EXCEPT").contains(sqlColor(SqlTokens.SQL_KEYWORD_TOKEN)),
         )
         assertTrue(
             "masked excluded column recolored as identifier",
-            recolorsAt(all, sql, "secret_col").contains(DefaultLanguageHighlighterColors.IDENTIFIER),
+            recolorsAt(all, sql, "secret_col").contains(sqlColor(SqlTokens.SQL_IDENT)),
         )
     }
 

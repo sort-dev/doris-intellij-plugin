@@ -34,7 +34,7 @@ class DorisSqlDialect private constructor() : MysqlDialectBase("DorisSQL") {
     override fun getDbms(): Dbms = DorisDbms.DORIS
 
     // MySQL keyword tokens for the parser; Doris-specific keyword *coloring* is added separately by
-    // DorisKeywordHighlighter (from the Doris keyword lists).
+    // DorisSyntaxHighlighterFactory (from the Doris keyword lists).
     //
     // CRITICAL: the builtin-function map must be MySQL's, loaded explicitly. The base
     // createTokensHelper(Class) resolves `functions.xml` relative to the DIALECT'S OWN class package

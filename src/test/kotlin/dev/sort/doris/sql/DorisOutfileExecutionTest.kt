@@ -7,7 +7,7 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.dialects.EvaluationHelper
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sqlResolveInspection
 import com.intellij.sql.dialects.mysql.MysqlDialect
 import com.intellij.sql.psi.SqlSelectIntoClause
