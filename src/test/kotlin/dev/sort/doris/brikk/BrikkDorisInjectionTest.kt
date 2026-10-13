@@ -65,6 +65,12 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         return (result as ContextResult.Available).context
     }
 
+    private fun sharedColumnsAt(file: PsiFile, offset: Int): List<String> {
+        val facts = dev.sort.doris.sql.DorisRelationScope.providers.mapNotNull { it.facts(file) }
+            .filterIsInstance<dev.brikk.house.sql.intellij.relation.RelationFactsResult.Available>().first().facts
+        return dev.brikk.house.sql.scope.RelationScope.complete(file.text, "doris", facts, offset).items.mapNotNull { it.column?.name }
+    }
+
     fun testScalarReferencesAreNamedBindsOnInitialInjection() {
         val host = configure("SELECT tenant FROM customers WHERE tenant = ${'$'}tenant OR tenant = ${'$'}{tenant}")
         val performers = com.intellij.lang.injection.general.LanguageInjectionPerformer.INJECTOR_EXTENSION.allForLanguage(host.language)
@@ -398,16 +404,16 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
 
     fun testKotlinSlotInputsPropagateThroughExistingPipeStageAnalysis() {
         val sql = relationSql("FROM ${'$'}src() |> EXTEND id + 1 AS added |> SELECT code, added |> WHERE code <> ''")
-        val engineScope = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("WHERE") + 6)
-        assertEquals(setOf("code", "added"), engineScope?.toSet())
-        val before = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("EXTEND") + 7)
-        assertEquals(setOf("id", "code"), before?.toSet())
+        val engineScope = sharedColumnsAt(sql, sql.text.indexOf("WHERE") + 6)
+        assertEquals(setOf("code", "added"), engineScope.toSet())
+        val before = sharedColumnsAt(sql, sql.text.indexOf("EXTEND") + 7)
+        assertEquals(setOf("id", "code"), before.toSet())
     }
 
     fun testRowsKeywordSlotUsesThe019EngineWithoutBindingUnusedParameters() {
         val sql = relationSql("FROM ${'$'}rows() |> SELECT id, code |> WHERE id > 0", second = "rows: Rel<Row>")
-        val scope = dev.sort.doris.sql.BrikkRelationColumns.pipeScope(sql, sql.text, sql.text.indexOf("WHERE") + 6)
-        assertEquals(setOf("id", "code"), scope?.toSet())
+        val scope = sharedColumnsAt(sql, sql.text.indexOf("WHERE") + 6)
+        assertEquals(setOf("id", "code"), scope.toSet())
         val fragment = dev.brikk.house.sql.shape.SqlFragment(sql.text, "doris")
         assertEquals(listOf("rows"), fragment.tableSlots)
     }
