@@ -5,7 +5,6 @@ import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.database.model.ObjectKind
-import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -21,7 +20,6 @@ import dev.brikk.house.intellij.NavigationKind
 import dev.brikk.house.intellij.ShapeResult
 import dev.brikk.house.sql.intellij.SqlColumnCompletion
 import dev.brikk.house.sql.intellij.SqlColumnFacts
-import dev.brikk.house.sql.intellij.completion.SqlLookupStyle
 import dev.sort.doris.brikk.BrikkDorisContext
 
 /** Display metadata only. SQL types, resolution, insertion and navigation stay with the platform. */
@@ -43,7 +41,7 @@ internal data class BrikkColumnDisplay(
             else -> "PIPE column"
         }, source)
 
-    fun lookup(): LookupElement = SqlColumnCompletion.create(facts(), SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0))
+    fun lookup(): LookupElement = SqlColumnCompletion.create(facts())
 
     companion object {
         fun from(column: ColumnContract, origin: String) = BrikkColumnDisplay(column.name,
@@ -89,8 +87,7 @@ class BrikkColumnCompletion : CompletionContributor() {
             shadowed += aliases
             visible
         }
-        SqlColumnCompletion.createOrDecorate(parameters, result, columns,
-            SqlLookupStyle(icon = AllIcons.Nodes.Field, priority = 120.0)) { lookup ->
+        SqlColumnCompletion.createOrDecorate(parameters, result, columns) { lookup ->
             displayFor(lookup, queries, contracts, qualifier)
         }
     }

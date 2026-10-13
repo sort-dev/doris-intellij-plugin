@@ -369,6 +369,13 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals("  brikk column (src)", items.getValue("code").tailText)
     }
 
+    fun testPipeBrikkColumnsUseTheSharedBricksIcon() {
+        relationSql("FROM ${'$'}src() |> WHERE <caret>")
+        val items = columnPresentations()
+        assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, items.getValue("id").icon)
+        assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, items.getValue("code").icon)
+    }
+
     fun testNativeQualifiedCompletionRendersWithoutReplacingPlatformResolution() {
         relationSql("SELECT e.<caret> FROM ${'$'}src() AS e")
         val items = columnPresentations()
