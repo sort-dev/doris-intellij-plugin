@@ -12,7 +12,8 @@ import dev.brikk.house.sql.parser.TokenError
 import dev.brikk.house.sql.shape.ShapeError
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
-import dev.sort.doris.sql.DorisErrorAnnotator
+import dev.sort.doris.sql.DorisNativeErrorProfile
+import dev.sort.doris.sql.DorisNativeValidation
 import dev.sort.doris.sql.DorisSyntaxError
 import dev.sort.doris.sql.withoutPipeChunkErrors
 import kotlinx.serialization.json.Json
@@ -275,9 +276,8 @@ class DorisPipesTest {
 
     @Test
     fun `native errors beside same-line pipe chunks retain their exact statement`() {
-        val annotator = DorisErrorAnnotator()
         val text = "SELECT FROM; FROM t |> LIMIT 1;"
-        val errors = annotator.doAnnotate(DorisErrorAnnotator.Input(text, pipesEnabled = true)).errors
+        val errors = DorisNativeValidation.errors(text, DorisNativeErrorProfile.verifyScript(text, pipes = true, brikk = false))
         assertTrue(errors.isNotEmpty())
         assertTrue(errors.none { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors.all { (it.startOffsetIn(text) ?: -1) < text.indexOf(';') })

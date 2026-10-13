@@ -2,12 +2,22 @@ package dev.sort.doris.sql
 
 import com.intellij.openapi.progress.ProgressManager
 import dev.brikk.house.sql.intellij.pipe.NativeVerdict
+import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
+import dev.brikk.house.sql.intellij.pipe.toNativeVerdict
+import com.intellij.psi.PsiFile
 import dev.brikk.house.sql.intellij.recoverEditorOperation
 import dev.brikk.house.sql.verify.DorisVerifier
 import dev.brikk.house.sql.verify.VerifyResult
 
 internal object DorisNativeValidation {
     private val verifier by lazy { recoverEditorOperation { DorisVerifier.create() } }
+    val validator: NativeSqlValidator by lazy {
+        val parser = verifier.getOrThrow()
+        object : NativeSqlValidator by NativeSqlValidator.of(parser) {
+            override fun verify(sql: String, file: PsiFile?) = this@DorisNativeValidation.verify(sql)
+            override fun validate(sql: String, file: PsiFile?) = verify(sql, file).toNativeVerdict()
+        }
+    }
 
     fun verify(text: String, checkCanceled: () -> Unit = ProgressManager::checkCanceled): VerifyResult {
         checkCanceled()

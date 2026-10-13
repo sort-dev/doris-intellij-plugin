@@ -70,9 +70,7 @@ class DorisPipeDiagnosticsTest : BasePlatformTestCase() {
         val text = file.text
         val start = text.indexOf("missing")
         DorisPipes.setExecMark(project, file.virtualFile.url, DorisPipes.ExecMark(start, start + 7, "server rejected column", text.hashCode()))
-        val errors = DorisErrorAnnotator().run {
-            doAnnotate(collectInformation(file)!!).errors
-        }
+        val errors = dev.sort.doris.sql.dorisAnnotations(file)
         assertTrue(errors.any { it.message == "Doris (server): server rejected column" })
     }
 

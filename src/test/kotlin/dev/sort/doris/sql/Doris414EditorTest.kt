@@ -32,7 +32,7 @@ class Doris414EditorTest : BasePlatformTestCase() {
                 DorisSqlParser().parseStatement(sql)
                 val prefix = "SELECT 0;\n"
                 val text = "$prefix$sql;\nSELECT 99;"
-                val errors = DorisErrorAnnotator().doAnnotate(DorisErrorAnnotator.Input(text, false)).errors
+                val errors = DorisNativeValidation.errors(text, DorisNativeErrorProfile.verifyScript(text, pipes = false, brikk = false))
                 if (errors.isNotEmpty()) failures.add("Diagnostics for $sql: $errors")
                 val original = myFixture.configureByText("doris414.sql", text)
                 setSqlDialectMapping(project, original.virtualFile, DorisSqlDialect.INSTANCE)

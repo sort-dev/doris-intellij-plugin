@@ -52,6 +52,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return true
         val description = highlightInfo.description ?: return true
+        if (description.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) || description.startsWith(DORIS_SERVER_DIAGNOSTIC_PREFIX)) return true
         if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) {
             val ref = PsiTreeUtil.getNonStrictParentOfType(file.findElementAt(highlightInfo.startOffset), SqlReferenceExpression::class.java)
             val call = ref?.parent as? SqlFunctionCallExpression

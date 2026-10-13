@@ -13,9 +13,9 @@ class DorisNativeValidationTest : BasePlatformTestCase() {
         val text = "SELECT 1;\r\nSELECT '\uD83D\uDE00' FROM t;\nSELECT 2"
         assertSame(VerifyResult.Accepted, DorisNativeValidation.verify(text))
         assertSame(NativeVerdict.Accepted, DorisPipeDialect.validator.validate(text, null))
-        val result = DorisErrorAnnotator().doAnnotate(DorisErrorAnnotator.Input(text, false))
-        assertEmpty(result.errors)
-        assertSame(NativeVerdict.Accepted, result.nativeVerdict)
+        val file = myFixture.configureByText("valid.sql", text)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, DorisSqlDialect.INSTANCE)
+        assertEmpty(dorisAnnotations(myFixture.file))
     }
 
     fun testScriptErrorsKeepSortedExactTokenSpansAcrossUnicodeAndCrlf() {
@@ -23,11 +23,14 @@ class DorisNativeValidationTest : BasePlatformTestCase() {
         val expected = listOf(text.indexOf(';'), text.indexOf("FROM t"), text.lastIndexOf('`'))
         val result = DorisNativeValidation.verify(text) as VerifyResult.Rejected
         assertEquals(expected, result.errors.map { it.offset })
-        val errors = DorisErrorAnnotator().doAnnotate(DorisErrorAnnotator.Input(text, false)).errors
+        val errors = DorisNativeValidation.errors(text, DorisNativeErrorProfile.verifyScript(text, pipes = false, brikk = false))
         assertEquals(expected, errors.map { it.startOffsetIn(text) })
         assertEquals(listOf(1, 4, 1), errors.map { it.length })
         val document = myFixture.configureByText("positions.sql", text).viewProvider.document!!
         val editorText = document.text
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, myFixture.file.virtualFile, DorisSqlDialect.INSTANCE)
+        val annotations = dorisAnnotations(myFixture.file)
+        assertEquals(listOf(";", "FROM", "`"), annotations.map { editorText.substring(it.startOffset, it.endOffset) })
         assertEquals(listOf(editorText.indexOf(';'), editorText.indexOf("FROM t"), editorText.lastIndexOf('`')),
             errors.map { it.toTextRange(document)!!.startOffset })
         assertEquals(listOf(";", "FROM", "`"), errors.map { it.toTextRange(document)!!.substring(editorText) })

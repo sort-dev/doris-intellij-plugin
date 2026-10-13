@@ -149,7 +149,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         val actions = DorisPipesActionConfiguration.EXECUTE_IDS.map { ActionManager.getInstance().getAction(it) }
         val offTree = DebugUtil.psiToString(myFixture.file, true)
         val annotator = DorisErrorAnnotator()
-        assertTrue(annotator.doAnnotate(annotator.collectInformation(myFixture.file)!!).errors.isNotEmpty())
+        assertTrue(dev.sort.doris.sql.dorisAnnotations(myFixture.file).isNotEmpty())
         assertFalse(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
         settings.enabled = true
         PlatformTestUtil.waitWithEventsDispatching(
@@ -160,7 +160,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         val onTree = DebugUtil.psiToString(myFixture.file, true)
         assertFalse("setting change must rebuild existing PSI", offTree == onTree)
         assertTrue(onTree.contains("SQL_STATEMENT"))
-        assertTrue(annotator.doAnnotate(annotator.collectInformation(myFixture.file)!!).errors.isEmpty())
+        assertTrue(dev.sort.doris.sql.dorisAnnotations(myFixture.file).isEmpty())
         assertTrue(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
         assertTrue(RunPipesToStageIntention().isAvailable(project, editor, myFixture.file))
         settings.enabled = false
@@ -203,8 +203,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         settings.enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val stale = annotator.doAnnotate(collected)
-        assertFalse(stale.pipesEnabled)
-        assertTrue(stale.errors.isNotEmpty())
+        assertNotNull(stale)
         val holder = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(AnnotationHolder::class.java)) { _, method, _ ->
             error("stale diagnostics must not invoke ${method.name}")
         } as AnnotationHolder

@@ -4,6 +4,10 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.psi.PsiManager
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import dev.brikk.house.sql.dialects.Dialects
 import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import dev.brikk.house.sql.intellij.pipe.isEnabled
@@ -96,9 +100,22 @@ object DorisPipes {
     private val SIMPLE_IDENTIFIER = Regex("[A-Za-z_][A-Za-z0-9_]*")
     data class ExecMark(val start: Int, val end: Int, val message: String, val docHash: Int)
     fun setExecMark(project: Project, url: String, mark: ExecMark) {
-        if (!project.isDisposed && isEnabled(project)) project.service<DorisPipesSettings>().execMarks[url] = mark
+        if (!project.isDisposed && isEnabled(project)) {
+            val settings = project.service<DorisPipesSettings>()
+            if (settings.execMarks.put(url, mark) != mark) diagnosticsChanged(project, url)
+        }
     }
-    fun clearExecMark(project: Project, url: String) { project.service<DorisPipesSettings>().execMarks.remove(url) }
+    fun clearExecMark(project: Project, url: String) {
+        if (project.service<DorisPipesSettings>().execMarks.remove(url) != null) diagnosticsChanged(project, url)
+    }
+    private fun diagnosticsChanged(project: Project, url: String) {
+        project.service<DorisPipesSettings>().diagnosticRevision.incrementAndGet()
+        ApplicationManager.getApplication().invokeLater({
+            val virtual = VirtualFileManager.getInstance().findFileByUrl(url) ?: return@invokeLater
+            val file = PsiManager.getInstance(project).findFile(virtual) ?: return@invokeLater
+            DaemonCodeAnalyzer.getInstance(project).restart(file)
+        }, project.disposed)
+    }
     fun execMarkFor(project: Project, url: String, currentText: String): ExecMark? =
         project.service<DorisPipesSettings>().execMarks[url]
             ?.takeIf { it.docHash == currentText.hashCode() && it.end <= currentText.length }

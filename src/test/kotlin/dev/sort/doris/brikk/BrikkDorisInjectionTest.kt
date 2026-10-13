@@ -617,8 +617,10 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertNotNull(PsiTreeUtil.findChildOfType(sql, com.intellij.sql.psi.SqlWhereClause::class.java))
         val annotator = dev.sort.doris.sql.DorisErrorAnnotator()
         val input = annotator.collectInformation(sql)!!
-        assertEquals("SELECT '${'$'}literal', '${'$'}.path', 'λ' FROM customers\nWHERE tenant = :tenant", input.text)
-        assertTrue(annotator.doAnnotate(input).errors.toString(), annotator.doAnnotate(input).errors.isEmpty())
+        assertEquals("SELECT '${'$'}literal', '${'$'}.path', 'λ' FROM customers\nWHERE tenant = :tenant",
+            InjectedLanguageManager.getInstance(project).getUnescapedText(sql))
+        assertNotNull(annotator.doAnnotate(input))
+        assertTrue(dev.sort.doris.sql.dorisAnnotations(sql).isEmpty())
         val where = sql.text.indexOf("WHERE")
         assertEquals(host.textRange.startOffset + host.text.indexOf("WHERE"),
             InjectedLanguageManager.getInstance(project)
