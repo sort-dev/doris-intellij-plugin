@@ -487,6 +487,7 @@
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
+        <runConsoleAvailable implementation="dev.sort.doris.brikk.DorisHostSqlRunConsoleVeto"/>
         <dbms id="DORIS" instance="dev.sort.doris.DorisDbms.DORIS"/>
         <modelFacade dbms="DORIS" implementationClass="dev.sort.doris.DorisModelFacade"/>
         <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>

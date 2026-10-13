@@ -53,9 +53,9 @@ class DorisTextExplainServiceTest : BasePlatformTestCase() {
             recording.console.setSearchPath(SearchPath.of(ObjectPath.create("ware`house", ObjectKind.DATABASE).append("ana`lytics", ObjectKind.SCHEMA)))
             val result = runBlocking { service.explain(recording.console, "SELECT COUNT(*) FROM events") }
             assertEquals(ExplainOutcome.Plan("PLAN ROOT\n  SCAN rows"), result)
-            assertEquals(listOf("use `ware``house`.`ana``lytics`", "SET prefer_udf_over_builtin = false", "EXPLAIN SELECT COUNT(*) FROM events"), remote.executed)
+            assertEquals(listOf("use `ware``house`.`ana``lytics`", "EXPLAIN SELECT COUNT(*) FROM events"), remote.executed)
             assertEmpty(recording.requests)
-            assertEquals(3, remote.statementsClosed.get())
+            assertEquals(2, remote.statementsClosed.get())
             assertEquals(1, remote.resultsClosed.get())
         }
     }
@@ -72,15 +72,24 @@ class DorisTextExplainServiceTest : BasePlatformTestCase() {
         }
     }
 
-    fun testNonQueriesParametersAndUnprovedCallsOpenNoHelper() {
+    fun testNonQueriesAndParametersOpenNoHelper() {
         console("SELECT 1").use { recording ->
-            for (sql in listOf("CREATE TABLE t(id INT)", "INSERT INTO t VALUES (1)", "DROP TABLE t", "SELECT :id",
-                "SELECT unknown_udf(id) FROM t", "SELECT * FROM s3()", "SELECT /*+ SET_VAR(query_timeout=5) */ 1")) {
+            for (sql in listOf("CREATE TABLE t(id INT)", "INSERT INTO t VALUES (1)", "DROP TABLE t", "SELECT :id")) {
                 val result = runBlocking { service.explain(recording.console, sql) }
                 assertTrue("$sql: $result", result is ExplainOutcome.Refused)
             }
             assertEquals(0, service.opened)
             assertEmpty(remote.executed)
+        }
+    }
+
+    fun testUdfsTableFunctionsAndHintsAreLeftToTheEngine() {
+        console("SELECT 1").use { recording ->
+            for (sql in listOf("SELECT unknown_udf(id) FROM t", "SELECT * FROM s3()", "SELECT /*+ SET_VAR(query_timeout=5) */ 1")) {
+                val result = runBlocking { service.explain(recording.console, sql) }
+                assertTrue("$sql: $result", result is ExplainOutcome.Plan)
+                assertEquals("EXPLAIN $sql", remote.executed.last())
+            }
         }
     }
 

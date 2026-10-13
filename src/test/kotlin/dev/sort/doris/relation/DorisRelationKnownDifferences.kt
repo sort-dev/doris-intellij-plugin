@@ -7,8 +7,9 @@ package dev.sort.doris.relation
  * defer to native targets, diagnostics and completion use shared analysis plus native contributors,
  * and this harness's declaration-range probes still observe native PSI.
  * Every entry is keyed by case/axis; new differences and disappearing entries require review.
- * User impact is not uniformly benign: NATURAL JOIN can navigate to rhs.id and UNION ALL can
- * misleadingly choose the left origin; GROUP BY and INTERSECT/EXCEPT can stop at local SQL aliases.
+ * Remaining user impact: UNION ALL navigation can misleadingly choose the left origin and FULL JOIN
+ * USING / column-count-mismatch navigation follows native semantics; the other entries are
+ * native resolve-callback observations that shared navigation and completion no longer show.
  * Five real-editor samples have no extra column-resolution errors, but this is not a blanket
  * quietness claim: NATURAL gets an FE syntax rejection, and FULL JOIN USING highlighting exposed
  * a resolver-cache non-idempotence error awaiting library investigation.
@@ -26,21 +27,7 @@ internal object DorisRelationKnownDifferences {
             }
         }
         record("support-bug: pending library fix",
-            "Create-or-decorate leaves unmatched native items beside shared items: duplicates, hidden outer columns, and fixture-file-name display types with the native adapter enabled.",
-            "full-using-key-non-null-non-null/completion",
-            "full-using-key-non-null-nullable/completion",
-            "full-using-key-nullable-non-null/completion",
-            "full-using-key-nullable-nullable/completion",
-            "left-using-star-output-order/completion",
-            "local-alias-shadow/completion",
-            "natural-star-output-order/completion",
-            "ordinary-set-union-all/completion",
-            "self-join-same-slot/completion",
-            "set-column-count-mismatch/completion",
-        )
-        record("support-bug: pending library fix",
-            "The native adapter/shared resolve-navigation interaction returns rhs.id for LEFT JOIN USING where shared analysis identifies src.id; this can navigate to the wrong property.",
-            "left-using-merged-star/navigation",
+            "The native resolve callback returns rhs.id for LEFT JOIN USING where shared analysis identifies src.id; shared navigation now reaches src.id.",
             "left-using-merged-star/resolve",
             "left-using-star-output-order/resolve",
         )
@@ -56,22 +43,18 @@ internal object DorisRelationKnownDifferences {
             "full-using-key-nullable-nullable/resolve",
             "join-ambiguous/resolve",
             "natural-star-output-order/resolve",
-            "ordinary-group-alias/navigation",
             "ordinary-group-alias/resolve",
             "self-join-same-slot/resolve",
             "set-column-count-mismatch/navigation",
             "set-column-count-mismatch/resolve",
-            "set-nullability-names-except/navigation",
             "set-nullability-names-except/resolve",
-            "set-nullability-names-intersect/navigation",
             "set-nullability-names-intersect/resolve",
             "set-nullability-names-union-all/resolve",
             "unknown-table-open-catalog/resolve",
             "unknown-table/resolve",
         )
         record("platform",
-            "NATURAL JOIN's merged key resolves/navigates through the native adapter to rhs.id instead of the shared analyzer's src.id; a real Go to Declaration probe confirms the wrong origin.",
-            "natural-merged-star/navigation",
+            "NATURAL JOIN's merged key resolves through the native adapter to rhs.id instead of the shared analyzer's src.id; navigation now follows shared analysis.",
             "natural-merged-star/resolve",
         )
         record("platform",

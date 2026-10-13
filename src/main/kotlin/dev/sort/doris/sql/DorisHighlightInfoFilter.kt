@@ -15,6 +15,7 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlSetAssignment
 import com.intellij.sql.psi.SqlSetOperatorExpression
 import com.intellij.sql.psi.SqlStatement
+import dev.brikk.house.sql.intellij.relation.relationDiagnostics
 import dev.brikk.house.sql.metadata.OutputSchema.Open
 import dev.sort.doris.pipes.DorisPipes
 
@@ -65,11 +66,13 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             description.contains("always") &&
             (description.contains("'true'") || description.contains("'false'"))) return false
         // DORIS PIPES: inside a pipe statement the substrate PSI is
-        // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
-        // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
-        // "Doris PIPE:", from DorisErrorAnnotator) are the authority and must stay visible.
+        // unavoidably mangled (the spike does no |> masking), so EVERY native semantic complaint there
+        // is noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
+        // "Doris PIPE:", from DorisErrorAnnotator) and the shared relation analysis, which reads the
+        // PIPE text itself, are the authority and must stay visible.
         if (DorisPipes.isEditingEnabled(file) &&
-            isInsidePipeStatement(file, highlightInfo)
+            isInsidePipeStatement(file, highlightInfo) &&
+            relationDiagnostics(file, DorisRelationScope).none { it.message == description }
         ) {
             return false
         }

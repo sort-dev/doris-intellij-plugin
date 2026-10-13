@@ -8,8 +8,8 @@ import org.junit.Test
 class DorisRelationKnownDifferencesTest {
     @Test fun completeLedgerIsValid() {
         val ledger = DorisRelationKnownDifferences
-        assertEquals(110, ledger.entries.size)
-        assertEquals(mapOf("platform" to 91, "harness" to 6, "support-bug: pending library fix" to 13),
+        assertEquals(95, ledger.entries.size)
+        assertEquals(mapOf("platform" to 87, "harness" to 6, "support-bug: pending library fix" to 2),
             ledger.entries.values.groupingBy { it.classification }.eachCount())
         ledger.verify(ledger.entries.keys)
     }

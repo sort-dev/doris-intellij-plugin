@@ -6,7 +6,6 @@ import dev.brikk.house.sql.intellij.catalog.NamespaceProbe
 import dev.brikk.house.sql.intellij.catalog.TextExplainConfiguration
 import dev.brikk.house.sql.intellij.catalog.TextExplainProfile
 import dev.brikk.house.sql.intellij.catalog.TextExplainService
-import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
 import dev.brikk.house.sql.shape.ExplainableStatements
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.pipes.DorisPipeDialect
@@ -17,7 +16,6 @@ object DorisTextExplainProfile : TextExplainProfile {
     override val productLabel = "Doris"
     override val dialect = "doris"
     override val enabled = true
-    override val builtinFunctions = DORIS_FUNCTION_CATALOG
     override val pipe = DorisPipeDialect
     override val explainableStatements = ExplainableStatements.Queries
     override val searchPath = CatalogSchemaSearchPath('`', "use {catalog}.{schema}", "use {schema}", "SWITCH {catalog}",
