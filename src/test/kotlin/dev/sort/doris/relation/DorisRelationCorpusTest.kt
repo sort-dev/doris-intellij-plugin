@@ -1,6 +1,7 @@
-package dev.sort.doris.brikk
+package dev.sort.doris.relation
 
 import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.CodeInsightSettings
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
@@ -50,8 +51,10 @@ import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
+import dev.brikk.house.sql.generator.UnsupportedError
 import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
+import dev.sort.doris.brikk.BrikkDorisContext
 import dev.sort.doris.pipes.DorisPipesEngine
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesSettings
@@ -67,12 +70,14 @@ import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.apache.doris.sqlparser.DorisSqlParser
 import org.apache.doris.nereids.exceptions.ParseException as DorisParseException
 
-class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
+class DorisRelationCorpusTest : BasePlatformTestCase() {
     private val facts by lazy { Json.parseToJsonElement(resource("facts.json")).jsonObject }
     private val columns get() = facts.getValue("columns").jsonObject
     private val shapes get() = facts.getValue("facts").jsonObject
     private val cases by lazy { resource("cases.jsonl").lineSequence().filter(String::isNotBlank)
         .map { Json.parseToJsonElement(it).jsonObject }.toList() }
+    private val witnesses by lazy { Json.parseToJsonElement(resource("witnesses.json")).jsonObject }
+    private val brikk get() = System.getProperty("test.kotlin") == "present"
     private lateinit var errors: BackgroundErrors
     private var contracts = emptyMap<String, ShapeResult>()
     private val declarations = LinkedHashMap<String, PsiElement>()
@@ -81,19 +86,22 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
     private var dataSources = emptyList<DbDataSource>()
     private var previousPipes = false
     private var previousCatalogs: String? = null
+    private var previousAutocomplete = false
 
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        previousAutocomplete = CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION
+        CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = false
         previousPipes = project.service<DorisPipesSettings>().enabled
         previousCatalogs = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "false")
         project.service<DorisPipesSettings>().enabled = true
         setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE, testRootDisposable)
-        InjectedLanguageManager.getInstance(project).registerMultiHostInjector(object : MultiHostInjector {
+        if (brikk) InjectedLanguageManager.getInstance(project).registerMultiHostInjector(object : MultiHostInjector {
             override fun elementsToInjectIn() = listOf(KtStringTemplateExpression::class.java)
             override fun getLanguagesToInject(registrar: MultiHostRegistrar, context: PsiElement) {
-                if (context.containingFile.name != "RelationCase.kt") return
+                if (!context.containingFile.name.startsWith("RelationCase-")) return
                 val host = context as KtStringTemplateExpression
                 registrar.startInjecting(DorisSqlDialect.INSTANCE)
                     .addPlace(null, null, host, TextRange(3, host.textLength - 3)).doneInjecting()
@@ -102,14 +110,25 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         DataSourceProvider.EP_NAME.point.registerExtension(object : DataSourceProvider {
             override fun getDataSources(element: PsiFile) = dataSources
         }, testRootDisposable)
-        val ids = columns.values.mapNotNull { it.jsonObject.stringOrNull("navigationId") }
-            .filterNot { it.startsWith("physical.") }.distinct()
-        val navigationFile = myFixture.addFileToProject("corpus/Declarations.kt", ids.joinToString("\n") {
-            "val ${it.replace('.', '_')} = 0"
-        })
-        val properties = PsiTreeUtil.findChildrenOfType(navigationFile, KtProperty::class.java).associateBy { it.name }
+        val ids = columns.values.filter { it.jsonObject.string("origin") != "PHYSICAL_TABLE" }
+            .mapNotNull { it.jsonObject.stringOrNull("navigationId") }.distinct()
+        val navigationFile = if (brikk) myFixture.addFileToProject("corpus/Declarations.kt", ids.joinToString("\n") {
+            "val ${declarationName(it)} = 0"
+        }) else myFixture.addFileToProject("corpus/Declarations.xml", "<columns>" +
+            ids.joinToString("\n") { id ->
+                val name = columns.values.map { it.jsonObject }.first { it.stringOrNull("navigationId") == id }.string("name")
+                "<column id=\"$id\">$name</column>"
+            } + "</columns>")
+        val properties: Map<String?, PsiElement> = if (brikk) {
+            PsiTreeUtil.findChildrenOfType(navigationFile, KtProperty::class.java).associateBy { it.name }
+        } else {
+            PsiTreeUtil.findChildrenOfType(navigationFile, com.intellij.psi.xml.XmlTag::class.java)
+                .filter { it.name == "column" }.associate { tag ->
+                    declarationName(checkNotNull(tag.getAttributeValue("id"))) to tag.value.textElements.single()
+                }
+        }
         for (id in ids) {
-            val declaration = properties.getValue(id.replace('.', '_'))
+            val declaration = properties.getValue(declarationName(id))
             declarations[id] = declaration
             locations[id] = SourceLocation(navigationFile.virtualFile.url, declaration.textRange.startOffset, declaration.textRange.endOffset)
         }
@@ -117,6 +136,7 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
 
     override fun tearDown() = RunAll(
         { LookupManager.getInstance(project).hideActiveLookup() },
+        { CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = previousAutocomplete },
         { project.service<DorisPipesSettings>().enabled = previousPipes },
         { previousCatalogs?.let { System.setProperty(DorisCatalogs.PROPERTY, it) } ?: System.clearProperty(DorisCatalogs.PROPERTY) },
         { PlatformTestUtil.dispatchAllEventsInIdeEventQueue() },
@@ -126,10 +146,18 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
     ).run()
 
     fun testCurrentRelationImplementationsAgainstAcceptanceCorpus() {
+        assertEquals("2.1", facts.string("version"))
+        assertEquals(156, cases.size)
         assertEquals(cases.size, cases.map { it.string("id") }.toSet().size)
-        val known = Json.parseToJsonElement(resource("doris-disagreements.json")).jsonObject
-        assertTrue(known.keys.all { id -> cases.any { it.string("id") == id } })
-        val duckdb = Json.parseToJsonElement(resource("duckdb-disagreements.json")).jsonObject
+        val baseline = Json.parseToJsonElement(resource("doris-disagreements.json")).jsonObject
+        val shared = baseline["shared"]?.jsonObject ?: baseline
+        val local = baseline[if (brikk) "brikk" else "native"]?.jsonObject.orEmpty()
+        val known = (shared.keys + local.keys).associateWith { key ->
+            JsonArray((shared[key]?.jsonArray.orEmpty() + local[key]?.jsonArray.orEmpty()).distinct())
+        }
+        val applicable = cases.filter { JsonPrimitive("doris") in it.array("dialects") }
+        assertTrue(known.keys.all { id -> applicable.any { it.string("id") == id } })
+        val duckdb = Json.parseToJsonElement(resource("duckdb-disagreements.json")).jsonObject.getValue("shared").jsonObject
         val evidence = Json.parseToJsonElement(resource("doris-evidence.json")).jsonObject
         val differences = ArrayList<JsonObject>()
         val results = ArrayList<JsonObject>()
@@ -138,14 +166,16 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         val hookReports = LinkedHashMap<String, JsonElement>()
         val syntaxReports = LinkedHashMap<String, JsonElement>()
         val stageReports = LinkedHashMap<String, JsonElement>()
-        for (case in cases) {
+        val witnessReports = verifyWitnesses(applicable)
+        for (case in applicable) {
             val id = case.string("id")
-            val progress = Path.of("build", "relation-corpus", "progress-${ApplicationInfo.getInstance().build.baselineVersion}.txt")
+            val progress = Path.of("build", "relation-corpus", "progress-${lane()}.txt")
             Files.createDirectories(progress.parent)
             Files.writeString(progress, id)
             val sql = case.string("sql")
             val pipe = "|>" in sql
-            contracts = case.getValue("relations").jsonObject.mapValues { (_, value) -> contract(value.jsonPrimitive.content) }
+            contracts = (case.getValue("relations").jsonObject + case.getValue("callContracts").jsonObject)
+                .mapValues { (_, value) -> contract(value.jsonPrimitive.content) }
             val expected = expected(case).toMutableMap()
             val actual = withPhysicalTables(case) {
                 val file = configure(id, sql)
@@ -183,34 +213,37 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
                     "references" to JsonArray(references.map { reference -> reference(reference, nativeTargets(file, reference.int("start"))) }),
                     "resolve" to JsonArray(references.map { reference -> reference(reference, nativeTargets(file, reference.int("start"))) }),
                     "navigation" to JsonArray(references.map { reference -> navigationReference(reference, navigation(file, reference.int("start"))) }),
-                    "diagnostics" to diagnostics(file),
+                    "diagnostics" to diagnostics(file, case),
                 )
                 val scopes = ArrayList<JsonObject>()
                 val completions = ArrayList<JsonObject>()
                 val rawScopes = ArrayList<JsonElement>()
+                val orders = ArrayList<JsonObject>()
                 for (caret in case.array("carets").map { it.jsonObject }) {
                     val offset = caret.int("offset")
                     assertTrue("$id caret", offset in 0..sql.length)
                     val marked = sql.substring(0, offset) + "__brikk_caret" + sql.substring(offset)
                     val repaired = configure(id, marked)
-                    scopes += if (pipe) pipeScope(repaired, sql, offset) else nativeScope(repaired, offset)
+                    val scope = if (pipe) pipeScope(repaired, sql, offset) else nativeScope(repaired, offset)
+                    scopes += JsonObject(scope - "orderedNames")
+                    if (caret.string("order") == "SIGNIFICANT") orders += buildJsonObject {
+                        put("offset", offset); put("columns", scope.getValue("orderedNames"))
+                    }
                     if (id == "pipe-star-join") rawScopes += nullableStrings(BrikkRelationColumns.pipeScope(repaired, sql, offset))
                     if (id == "physical-pipe") rawScopes += nullableStrings(DorisPipesEngine.stageScopeAt(sql, offset, "physical", physicalColumns.toList()))
                     configure(id, sql.substring(0, offset) + "<caret>" + sql.substring(offset))
                     completions += buildJsonObject {
                         put("offset", offset)
-                        put("columns", sorted(myFixture.completeBasic().orEmpty().mapNotNull(::completion)))
+                        myFixture.completeBasic()
+                        put("columns", sorted(myFixture.lookupElements.orEmpty().mapNotNull(::completion)))
                     }
                     LookupManager.getInstance(project).hideActiveLookup()
                 }
                 observed["scope"] = JsonArray(scopes)
                 observed["completion"] = JsonArray(completions)
-                if (rawScopes.isNotEmpty()) {
-                    observed["stageScopeAt"] = JsonArray(rawScopes)
-                    val names = if (pipe && id == "pipe-star-join") contracts.values.filterIsInstance<ShapeResult.Available>()
-                        .flatMap { it.shape.columns.map(ColumnContract::name) }.distinct().sorted() else physicalColumns.sorted()
-                    expected["stageScopeAt"] = JsonArray(case.array("carets").map { strings(names) })
-                }
+                if (orders.isNotEmpty()) observed["order"] = JsonArray(orders)
+                case["coreOrder"]?.let { observed["coreOrder"] = coreOrder(case) }
+                case["coreRefusal"]?.let { observed["coreRefusal"] = coreRefusal(sql) }
                 observed
             }
             val allowed = known[id]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
@@ -240,18 +273,27 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
                 hookReports[id]?.let { put("nativeHooks", it) }
                 syntaxReports[id]?.let { put("nativeSyntax", it) }
                 stageReports[id]?.let { put("coreStageShapes", it) }
+                put("positions", JsonArray(case.array("carets").map { it.jsonObject.getValue("positionKind") }))
+                put("changes", case.getValue("changes"))
+                case.getValue("engine").jsonObject["doris"]?.takeUnless { it == JsonNull }?.let {
+                    put("witness", it); put("nativeWitness", witnessReports.getValue(it.jsonPrimitive.content))
+                }
             }
             errors.assertNone()
         }
         val report = buildJsonObject {
             put("corpusSize", cases.size); put("disagreementCount", differences.size)
+            put("applicableCases", applicable.size)
+            put("notApplicable", strings((cases - applicable.toSet()).map { it.string("id") }))
+            put("nativeWitnesses", JsonObject(witnessReports))
             put("disagreeingCases", differences.map { it.string("id") }.toSet().size)
             put("resolvedKnownDisagreements", strings(resolved))
             put("representationNotes", facts.getValue("representationNotes"))
             put("dorisEvidence", evidence)
-            put("adapter", "Identical post-replacement SQL in genuine Doris injection into a raw Kotlin string; copied relation contracts on the native Doris context provider. Ordinary references/resolve use native SQL PSI, scope uses native SqlTableType and source pointers, completion runs every registered contributor including BrikkColumnCompletion, navigation uses BrikkRelationNavigation and native fallback. PIPE uses BrikkRelationColumns.pipeScope/pipeDisplay and the registered completion contributors. Sparse APIs leave unsupported facts unknown; no new analyzer or inferred navigation. Physical tables are real DDL data sources plus an offline LocalDataSource model for the native PIPE resolver. Shared DuckDB engine witnesses are retained as evidence, not executed as Doris SQL.")
+            put("adapter", "Unchanged v2.1 Doris-tagged SQL with copied relation contracts on the native Doris hook. Ordinary references/resolve observe SQL PSI, scope observes SqlTableType, PIPE observes pipeScope/pipeDisplay. Completion reads lookupElements with auto-insert disabled. Unsupported PIPE identity, knowledge and navigation stay unknown. Physical tables use real DDL data sources and the same-id offline local model. Native witnesses prove FE syntax only, not rows or semantic rejection.")
+            put("lane", if (brikk) "Kotlin raw-string injection with Kotlin declaration targets" else "Native Doris SQL files with foreign XML navigation targets; Kotlin absent")
             put("categories", JsonObject(differences.groupBy { it.string("category") }.mapValues { JsonArray(it.value) }))
-            put("categorySummary", JsonObject(cases.groupBy { it.string("category") }.mapValues { (category, entries) ->
+            put("categorySummary", JsonObject(applicable.groupBy { it.string("category") }.mapValues { (category, entries) ->
                 val mismatches = differences.filter { it.string("category") == category }
                 buildJsonObject {
                     put("cases", entries.size); put("disagreements", mismatches.size)
@@ -260,12 +302,16 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
             }))
             put("results", JsonArray(results))
         }
-        val output = Path.of("build", "relation-corpus", "doris-${ApplicationInfo.getInstance().build.baselineVersion}.json")
+        val output = Path.of("build", "relation-corpus", "doris-${lane()}.json")
         Files.createDirectories(output.parent)
         Files.writeString(output, Json { prettyPrint = true }.encodeToString(JsonElement.serializer(), report))
         println("Doris relation corpus: ${cases.size} cases, ${differences.size} disagreements in ${differences.map { it.string("id") }.toSet().size} cases, ${resolved.size} resolved; $output")
         assertTrue("Unlisted relation disagreements: ${unexpected.joinToString()}; see $output", unexpected.isEmpty())
+        assertTrue("Fixed differences must turn green: ${resolved.joinToString()}", resolved.isEmpty())
     }
+
+    private fun lane() = "${ApplicationInfo.getInstance().build.baselineVersion}-${if (brikk) "brikk" else "native"}"
+    private fun declarationName(id: String) = id.replace(Regex("[^A-Za-z0-9_]"), "_")
 
     private fun resource(name: String) = Files.readString(Path.of(System.getProperty("corpus.dir"))
         .resolveSibling("relation-corpus").resolve(name))
@@ -290,16 +336,24 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
     }
 
     private fun configure(id: String, sql: String): PsiFile {
-        val hostFile = myFixture.configureByText("RelationCase.kt", "val sql = \"\"\"$sql\"\"\"")
+        if (!brikk) {
+            val file = myFixture.configureByText("RelationCase-$id.sql", sql)
+            file.putUserData(BrikkDorisContext.PROFILE, true)
+            file.putUserData(BrikkDorisContext.RELATIONS, relationProvider())
+            return file
+        }
+        val hostFile = myFixture.configureByText("RelationCase-$id.kt", "val sql = \"\"\"$sql\"\"\"")
         val manager = InjectedLanguageManager.getInstance(project)
         val host = requireNotNull(PsiTreeUtil.findChildOfType(manager.getTopLevelFile(hostFile), KtStringTemplateExpression::class.java))
         host.putUserData(BrikkDorisContext.PROFILE, true)
-        host.putUserData(BrikkDorisContext.RELATIONS, BrikkDorisContext.RelationProvider {
-            ContextResult.Available(BrikkContext(BrikkDialect.DORIS, emptyList(), emptyList(), contracts))
-        })
+        host.putUserData(BrikkDorisContext.RELATIONS, relationProvider())
         val file = requireNotNull(manager.getInjectedPsiFiles(host)?.single()).first.containingFile
         assertEquals(id, sql.replace("<caret>", ""), file.text)
         return file
+    }
+
+    private fun relationProvider() = BrikkDorisContext.RelationProvider {
+        ContextResult.Available(BrikkContext(BrikkDialect.DORIS, emptyList(), emptyList(), contracts))
     }
 
     private fun <T> withPhysicalTables(case: JsonObject, action: () -> T): T {
@@ -327,7 +381,7 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
             PlatformTestUtil.waitForFuture(ApplicationManager.getApplication().executeOnPooledThread { source.sync() }, 30_000)
             DbPsiFacade.getInstance(project).clearCaches()
             dataSources = listOf(requireNotNull(DbPsiFacade.getInstance(project).findDataSource(source.uniqueId)))
-            local = LocalDataSource().apply {
+            local = object : LocalDataSource() { init { setUniqueId(source.uniqueId) } }.apply {
                 name = "Offline ${case.string("id")}"
                 databaseDriver = requireNotNull(DatabaseDriverManager.getInstance().getDriver("doris"))
                 url = "jdbc:offline:relation-corpus"; isAutoSynchronize = false; isKeepAlive = false
@@ -375,7 +429,17 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
                 shadowed += aliases
             }
         }
-        return buildJsonObject { put("offset", offset); put("complete", complete); put("columns", sorted(selected)) }
+        return buildJsonObject {
+            put("offset", offset)
+            put("knowledge", when {
+                ref?.referenceElementType?.targetKind != ObjectKind.COLUMN -> "NONE"
+                complete -> "FULL"
+                selected.isNotEmpty() -> "PARTIAL"
+                else -> "UNKNOWN"
+            })
+            put("columns", sorted(selected))
+            put("orderedNames", strings(selected.map { it.jsonObject.string("name") }))
+        }
     }
 
     private fun pipeScope(file: PsiFile, sql: String, offset: Int): JsonObject {
@@ -392,12 +456,14 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
                 put("origin", when { display?.relationFallback == true -> "RELATION_CONTRACT"; display?.kotlinClassId != null -> "KOTLIN_RELATION"; else -> "COMPUTED" })
                 put("kotlinType", nullable(display?.kotlinClassId)); put("sqlType", JsonNull)
                 put("nullability", (display?.nullability ?: ColumnNullability.UNKNOWN).name); put("navigationId", JsonNull)
+                put("identity", JsonNull)
             }
         }
         return buildJsonObject {
             put("offset", offset)
-            put("complete", JsonNull)
+            put("knowledge", JsonNull)
             put("columns", sorted(selected))
+            put("orderedNames", strings(selected.map { it.string("name") }))
         }
     }
 
@@ -407,7 +473,8 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
             ?.targetSymbol?.let { it as? DasVirtualSymbol }?.contextElement
         val id = idOf(context?.navigationElement) ?: idOf(reference?.reference?.resolve()?.navigationElement) ?: idOf(source?.navigationElement)
         val supplied = contracts.values.filterIsInstance<ShapeResult.Available>().flatMap { it.shape.columns }
-        if (id != null) return supplied.singleOrNull { idOf(it.navigation?.location) == id }
+        if (id != null) return supplied.distinctBy { listOf(it.name, it.kotlinClassId, it.nullability, idOf(it.navigation?.location)) }
+            .singleOrNull { idOf(it.navigation?.location) == id && it.name.equals(name, true) }
         val call = source as? SqlFunctionCallExpression ?: return null
         return (BrikkRelationColumns.slot(call) as? ShapeResult.Available)?.shape?.columns?.singleOrNull { it.name.equals(name, true) }
     }
@@ -417,7 +484,8 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         put("origin", when { physical != null -> "PHYSICAL_TABLE"; contract?.navigation?.kind == NavigationKind.RELATION_FALLBACK -> "RELATION_CONTRACT"; contract != null -> "KOTLIN_RELATION"; else -> "COMPUTED" })
         put("kotlinType", nullable(contract?.kotlinClassId)); put("sqlType", nullable(physical?.dasType?.toDataType()?.typeName?.uppercase()))
         put("nullability", contract?.nullability?.name ?: if (physical != null) { if (physical.isNotNull) "NON_NULL" else "NULLABLE" } else "UNKNOWN")
-        put("navigationId", nullable(if (physical != null) "physical.${physical.name}" else idOf(contract?.navigation?.location)))
+        put("navigationId", nullable(if (physical != null) "decl:physical.${physical.name}" else idOf(contract?.navigation?.location)))
+        put("identity", if (physical != null) "physical.${physical.name}" else identity(contract, name))
     }
 
     private fun nativeReference(file: PsiFile, start: Int): SqlReferenceExpression? =
@@ -431,12 +499,14 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         val qualifier = reference.qualifierExpression?.text ?: (result?.immediateQualifier as? SqlNameElement)?.name
             ?: (result?.qualifier as? SqlNameElement)?.name.orEmpty()
         val symbol = resolved as? DasColumnSymbol ?: reference.resolveSymbol()
-        if (symbol is DasColumnSymbol) return symbol.dasObject?.name?.let { listOf(target(qualifier, it, "physical.$it")) }.orEmpty()
+        if (symbol is DasColumnSymbol) return symbol.dasObject?.name?.let {
+            listOf(target(qualifier, it, "physical.$it", "decl:physical.$it"))
+        }.orEmpty()
         val context = (result?.targetSymbol as? DasVirtualSymbol)?.contextElement
         val authored = (resolved as? PsiNamedElement)?.name ?: reference.identifier?.text ?: return emptyList()
         val declaration = sourceContract(context ?: resolved, authored)
         val name = declaration?.name?.takeIf { it.equals(authored, true) } ?: authored
-        return listOf(target(qualifier, name, idOf(context?.navigationElement ?: resolved.navigationElement)))
+        return listOf(target(qualifier, name, identity(declaration, name), idOf(context?.navigationElement ?: resolved.navigationElement)))
     }
 
     private fun navigation(file: PsiFile, start: Int): List<String> {
@@ -445,7 +515,7 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         return targets.ifEmpty { nativeTargets(file, start).mapNotNull { it.stringOrNull("navigationId") } }.distinct()
     }
 
-    private fun diagnostics(file: PsiFile): JsonArray {
+    private fun diagnostics(file: PsiFile, case: JsonObject): JsonArray {
         val type = try { Class.forName("com.intellij.sql.inspections.resolve.SqlResolveInspection") }
             catch (_: ClassNotFoundException) { Class.forName("com.intellij.sql.inspections.SqlResolveInspection") }
         val inspection = type.getConstructor().newInstance() as LocalInspectionTool
@@ -454,13 +524,23 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         PsiTreeUtil.processElements(file) { it.accept(visitor); true }
         return sorted(holder.results.mapNotNull { problem ->
             val description = problem.descriptionTemplate
-            if (!description.contains("Unable to resolve column") && !description.contains("Ambiguous")) return@mapNotNull null
+            if (!description.contains("Unable to resolve") && !description.contains("Ambiguous")) return@mapNotNull null
             val range = problem.psiElement.textRange
             val highlight = HighlightInfo.newHighlightInfo(HighlightInfoType.ERROR).range(range)
                 .descriptionAndTooltip(description).create() ?: return@mapNotNull null
             if (!DorisHighlightInfoFilter().accept(highlight, file)) return@mapNotNull null
+            val probe = case.array("references").map { it.jsonObject }.firstOrNull {
+                it.int("start") == range.startOffset && it.int("end") == range.endOffset
+            }
+            val subject = probe?.string("kind") ?: "COLUMN"
             buildJsonObject {
-                put("kind", if (description.contains("Ambiguous")) "AMBIGUOUS" else "MISSING")
+                put("kind", when {
+                    description.contains("Ambiguous") -> "AMBIGUOUS"
+                    subject == "QUALIFIER" -> "UNKNOWN_QUALIFIER"
+                    subject == "TABLE" -> "UNKNOWN_TABLE"
+                    else -> "MISSING"
+                })
+                put("subject", subject)
                 put("start", range.startOffset); put("end", range.endOffset)
             }
         })
@@ -495,25 +575,21 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
         val carets = case.array("carets").map { it.jsonObject }
         val resolved = JsonArray(references.map { value ->
             val reference = value.jsonObject
-            val name = case.string("sql").substring(reference.int("start"), reference.int("end"))
-            reference(reference, reference.array("targets").map { target ->
-                val id = target.jsonPrimitive.content
-                val column = carets.flatMap { it.array("columns").map(::expectedColumn) }.distinct().single {
-                    it.string("name").equals(name, true) && (it.stringOrNull("navigationId") == id || id == "computed.${it.string("name")}")
-                }
-                target(column.string("relation"), column.string("name"), column.stringOrNull("navigationId"))
+            reference(reference, reference.array("targets").map { value ->
+                val column = expectedColumn(value)
+                target(column.string("relation"), column.string("name"), column.string("identity"), column.stringOrNull("navigationId"))
             })
         })
-        return linkedMapOf(
+        return linkedMapOf<String, JsonElement>(
             "references" to resolved, "resolve" to resolved,
             "navigation" to JsonArray(references.map { ref ->
                 val reference = ref.jsonObject
-                navigationReference(reference, (reference["navigationTargets"] ?: reference.getValue("targets")).jsonArray
-                    .map { it.jsonPrimitive.content }.filterNot { it.startsWith("computed.") })
+                navigationReference(reference, reference["navigationTargets"]?.jsonArray?.map { it.jsonPrimitive.content }
+                    ?: reference.array("targets").mapNotNull { expectedColumn(it).stringOrNull("navigationId") })
             }),
             "diagnostics" to sorted(case.array("diagnostics")),
             "scope" to JsonArray(carets.map { caret -> buildJsonObject {
-                put("offset", caret.int("offset")); put("complete", caret.getValue("complete"))
+                put("offset", caret.int("offset")); put("knowledge", caret.getValue("knowledge"))
                 put("columns", sorted(caret.array("columns").map(::expectedColumn)))
             } }),
             "completion" to JsonArray(carets.map { caret -> buildJsonObject {
@@ -523,7 +599,14 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
                     completionColumn(column.string("name"), column.string("relation"), column.string("origin"), display(column), column.string("nullability"))
                 }))
             } }),
-        )
+        ).apply {
+            val ordered = carets.filter { it.string("order") == "SIGNIFICANT" }
+            if (ordered.isNotEmpty()) put("order", JsonArray(ordered.map { caret -> buildJsonObject {
+                put("offset", caret.int("offset")); put("columns", strings(caret.array("columns").map { expectedColumn(it).string("name") }))
+            } }))
+            case["coreOrder"]?.let { put("coreOrder", it) }
+            case["coreRefusal"]?.let { put("coreRefusal", it) }
+        }
     }
 
     private fun nativeSyntax(sql: String): JsonObject {
@@ -548,6 +631,7 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
             put("name", override(2, "name")); put("relation", tuple[1]); put("origin", override(4, "origin"))
             put("kotlinType", column.getValue("kotlinType")); put("sqlType", column.getValue("sqlType"))
             put("nullability", override(3, "nullability")); put("navigationId", override(5, "navigationId"))
+            put("identity", override(6, "identity"))
         }
     }
 
@@ -561,8 +645,51 @@ class BrikkDorisRelationCorpusTest : BasePlatformTestCase() {
     private fun idOf(element: PsiElement?) = declarations.entries.firstOrNull { (_, declaration) ->
         element != null && element.containingFile === declaration.containingFile && declaration.textRange.contains(element.textRange)
     }?.key
-    private fun target(relation: String, column: String, navigation: String?) = buildJsonObject {
-        put("relation", relation); put("column", column); put("navigationId", nullable(navigation))
+    private fun target(relation: String, column: String, identity: String, navigation: String?) = buildJsonObject {
+        put("relation", relation); put("column", column); put("identity", identity); put("navigationId", nullable(navigation))
+    }
+    private fun identity(contract: ColumnContract?, name: String): String {
+        val id = idOf(contract?.navigation?.location)
+        return columns.values.map { it.jsonObject }.firstOrNull {
+            id != null && it.stringOrNull("navigationId") == id && it.string("name").equals(contract?.name, true)
+        }?.string("identity") ?: "computed.$name"
+    }
+
+    private fun coreOrder(case: JsonObject): JsonElement {
+        fun shape(fact: JsonElement) = Shape(shapes.getValue(fact.jsonPrimitive.content).jsonObject.array("columns").map { value ->
+            val column = columns.getValue(value.jsonPrimitive.content).jsonObject
+            ColumnShape(column.string("name"), column.stringOrNull("sqlType") ?: "UNKNOWN", when (column.string("nullability")) {
+                "NON_NULL" -> false; "NULLABLE" -> true; else -> null
+            })
+        })
+        val slots = case.getValue("relations").jsonObject.mapValues { shape(it.value) }
+        val tables = case.getValue("physicalTables").jsonObject.mapValues { shape(it.value) }
+        return strings(SqlFragment(case.string("sql"), "doris").outputShape(ShapeCatalog(tables, slots)).names())
+    }
+
+    private fun coreRefusal(sql: String): JsonElement = JsonPrimitive(try {
+        SqlFragment(sql, "doris").toExecutable("doris")
+        false
+    } catch (_: UnsupportedError) { true })
+
+    private fun verifyWitnesses(applicable: List<JsonObject>): Map<String, JsonObject> {
+        val fixes = Json.parseToJsonElement(resource("doris-witnesses.json")).jsonObject
+        val keys = applicable.mapNotNull { it.getValue("engine").jsonObject["doris"]?.takeUnless { it == JsonNull }?.jsonPrimitive?.content }.toSet()
+        assertEquals(witnesses.keys.filter { it.startsWith("doris:") }.toSet(), keys)
+        assertTrue(fixes.keys.all { it in keys })
+        return keys.associateWith { key ->
+            val original = witnesses.getValue(key).jsonObject
+            assertFalse(key, original.getValue("verified").jsonPrimitive.boolean)
+            val sql = fixes[key]?.jsonObject?.string("sql") ?: original.string("sql")
+            val syntax = nativeSyntax(sql)
+            assertTrue("$key: $syntax", syntax.getValue("accepted").jsonPrimitive.boolean)
+            buildJsonObject {
+                put("sql", sql); put("originalSql", original.getValue("sql")); put("syntaxVerified", true)
+                put("verified", false); put("verification", "Doris 4.1.4 FE grammar only; no server execution")
+                put("rows", original["rows"] ?: JsonNull); put("failure", original["failure"] ?: JsonNull)
+                fixes[key]?.let { put("correction", it) }
+            }
+        }
     }
     private fun reference(expected: JsonObject, targets: List<JsonObject>) = buildJsonObject {
         put("start", expected.int("start")); put("end", expected.int("end")); put("targets", sorted(targets))

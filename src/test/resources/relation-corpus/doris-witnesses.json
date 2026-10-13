@@ -1,0 +1,6 @@
+{
+  "doris:natural-merged-star": {
+    "sql": "SELECT e.id,e.event_kind,e.price,e.qty,r.code FROM events e INNER JOIN customers r ON e.id=r.id",
+    "reason": "Doris 4.1.4 rejects NATURAL JOIN. Explicit equality and projection preserve the merged-id output column order."
+  }
+}
