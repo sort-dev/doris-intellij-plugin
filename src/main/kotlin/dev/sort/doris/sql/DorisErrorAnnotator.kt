@@ -15,6 +15,7 @@ import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.brikk.house.sql.verify.VerifyError
 import dev.brikk.house.sql.verify.VerifyResult
 import dev.sort.doris.brikk.BrikkDorisContext
+import dev.sort.doris.brikk.DorisHostSqlChannel
 import dev.sort.doris.pipes.DorisPipeDialect
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesEngine
@@ -28,6 +29,7 @@ object DorisNativeErrorProfile : NativeErrorProfile {
     override val dialect = "doris"
     override val label = "Doris"
     override val unit = VerificationUnit.File
+    override val hostSql get() = DorisHostSqlChannel
     private data class Context(val brikk: Boolean, val pipes: Boolean)
     private val contextKey = Key.create<Context>("doris.native.errors.context")
 

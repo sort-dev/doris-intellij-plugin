@@ -14,6 +14,7 @@ import dev.brikk.house.sql.intellij.pipe.ValidationTiming
 import dev.brikk.house.sql.parser.SqlScriptSnapshot
 import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.sort.doris.DorisDbms
+import dev.sort.doris.brikk.DorisHostSqlChannel
 import dev.sort.doris.brikk.BrikkDorisContext
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.sort.doris.sql.DorisNativeValidation
@@ -27,10 +28,11 @@ object DorisPipeDialect : PipeDialect {
     override val firstStage = FirstStageRule.AnyQuery
     override val serverFirstColumn = 0
     override val submitListener: PipeSubmitListener get() = DorisPipesExecution
+    override val hostSql get() = DorisHostSqlChannel
 
     override fun isProjectEnabled(project: Project) = project.service<DorisPipesSettings>().enabled
+    // Initial injected parsing precedes the channel's file marker; retain the existing editing flag.
     override fun enablesEditing(file: PsiFile) = BrikkDorisContext.isActive(file)
-    override fun isInspectionHost(file: PsiFile) = BrikkDorisContext.isActive(file)
     override fun enablesPreview(file: PsiFile) = !isInspectionHost(file)
     override fun ownsSession(session: DatabaseSession) = session.connectionPoint.dbms === DorisDbms.DORIS
 

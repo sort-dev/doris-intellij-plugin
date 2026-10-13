@@ -81,6 +81,25 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertFalse("Automatic editing must not enable console execution", DorisPipes.isEnabled(project))
     }
 
+    fun testHostSqlExecutionContractFromARealKotlinHost() {
+        dev.brikk.house.sql.intellij.testing.HostSqlExecutionContract(dev.sort.doris.pipes.DorisPipeDialect) {
+            val host = configure("FROM ${'$'}src() |> WHERE id > ${'$'}minId")
+            injected(host)
+            myFixture.editor.caretModel.moveToOffset(host.textOffset + 4)
+            myFixture.editor
+        }.refusesInspectionOnlySqlFromTheHostEditor()
+    }
+
+    fun testInspectionViewRuleAlsoProtectsAnotherBrikkDialect() {
+        val host = configure("SELECT ${'$'}tenant", entryPoint = "Sql.duckdb")
+        val files = InjectedLanguageManager.getInstance(project).getInjectedPsiFiles(host).orEmpty()
+        assertNotEmpty(files)
+        val sql = files.first().first.containingFile
+        assertTrue(dev.sort.doris.pipes.DorisPipeDialect.isInspectionHost(sql))
+        assertFalse(dev.sort.doris.pipes.DorisPipeDialect.enablesPreview(sql))
+        assertTrue(dev.brikk.house.intellij.BrikkInspectionView.isInspectionOnly(sql, 0))
+    }
+
     fun testRelationSlotAndScalarRemainDistinctAndPipesActivate() {
         val sql = injected(configure("FROM ${'$'}src() |> WHERE id > ${'$'}minId"))
         assertEquals("FROM src() |> WHERE id > :minId", sql.text)
