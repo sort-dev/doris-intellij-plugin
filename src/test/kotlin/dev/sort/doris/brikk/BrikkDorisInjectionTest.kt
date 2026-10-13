@@ -190,9 +190,9 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals(host.textRange.startOffset + entry.range.end, highlight.endOffset)
     }
 
-    fun testUnavailableContextNeverFallsThroughToGuessedNativePlaceholders() {
+    fun testUnresolvedUnregisteredEntryDoesNotClaimDoris() {
         val host = configure("SELECT ${'$'}tenant", entryPoint = "notResolved")
-        assertTrue(BrikkDorisTemplate.inspect(host) is ContextResult.Unavailable)
+        assertEquals(ContextResult.NotBrikk, BrikkDorisTemplate.inspect(host))
         host.putUserData(BrikkDorisContext.PROFILE, true)
         host.putUserData(BrikkDorisContext.UNCERTAIN, true)
         var registered = false
@@ -212,7 +212,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
             override fun getSuffix() = ""
             override fun getSupportId() = "kotlin"
         }
-        assertTrue("Unavailable resolution must claim without guessing SQL", BrikkDorisInjectionPerformer().performInjection(registrar, injection, host))
+        assertFalse(BrikkDorisInjectionPerformer().performInjection(registrar, injection, host))
         assertFalse(registered)
         assertNull(host.getUserData(BrikkDorisContext.PROFILE))
         assertNull(host.getUserData(BrikkDorisContext.UNCERTAIN))

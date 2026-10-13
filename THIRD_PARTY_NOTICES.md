@@ -58,9 +58,9 @@ preparation and shared column completion rendering. Its JAR contains its license
 the distribution does not bundle an IDE SDK, verifier, database driver or Kotlin stdlib.
 Source artifact in Maven Local: `brikk-sql-intellij-support-0.2.0-SNAPSHOT-sources.jar`.
 
-## Brikk Kotlin IntelliJ support 0.2.0 (bundled)
+## Brikk Kotlin IntelliJ support 0.3.0-SNAPSHOT (bundled)
 
-- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.2.0`
+- Artifact: `dev.brikk.house:brikk-engine-kotlin-intellij-support:0.3.0-SNAPSHOT`
 - Project: https://github.com/brikk/brikk-house
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
