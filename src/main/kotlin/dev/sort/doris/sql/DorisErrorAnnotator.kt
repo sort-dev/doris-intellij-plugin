@@ -1,6 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.openapi.components.service
+import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiFile
 import dev.brikk.house.sql.diagnostics.DiagnosticSeverity
 import dev.brikk.house.sql.diagnostics.DiagnosticSource
@@ -10,8 +11,7 @@ import dev.brikk.house.sql.intellij.diagnostics.NativeErrorProfile
 import dev.brikk.house.sql.intellij.diagnostics.NativeErrorPsiFilter
 import dev.brikk.house.sql.intellij.diagnostics.VerificationUnit
 import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
-import dev.brikk.house.sql.intellij.pipe.NativeVerdict
-import dev.brikk.house.sql.intellij.pipe.toNativeVerdict
+import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.brikk.house.sql.verify.VerifyError
 import dev.brikk.house.sql.verify.VerifyResult
 import dev.sort.doris.brikk.BrikkDorisContext
@@ -28,17 +28,39 @@ object DorisNativeErrorProfile : NativeErrorProfile {
     override val dialect = "doris"
     override val label = "Doris"
     override val unit = VerificationUnit.File
-    private val validators = listOf(false, true).associateWith { brikk ->
-        listOf(false, true).associateWith { pipes ->
-            object : NativeSqlValidator by DorisNativeValidation.validator {
-                override fun validate(sql: String, file: PsiFile?): NativeVerdict = verify(sql, file).toNativeVerdict()
-                override fun verify(sql: String, file: PsiFile?): VerifyResult = verifyScript(sql, pipes, brikk)
-            }
-        }
+    private data class Context(val brikk: Boolean, val pipes: Boolean)
+    private val contextKey = Key.create<Context>("doris.native.errors.context")
+
+    private fun captureContext(file: PsiFile): Context {
+        val context = Context(BrikkDorisContext.isActive(file), DorisPipes.isEditingEnabled(file))
+        file.putUserData(contextKey, context)
+        return context
     }
 
-    override fun validator(file: PsiFile): NativeSqlValidator =
-        validators.getValue(BrikkDorisContext.isActive(file)).getValue(DorisPipes.isEditingEnabled(file))
+    override fun validator(file: PsiFile): NativeSqlValidator {
+        captureContext(file)
+        return DorisNativeValidation.validator
+    }
+
+    override fun verificationText(file: PsiFile, sql: String): String =
+        verificationText(sql, file.getUserData(contextKey)?.brikk == true)
+
+    override fun statementDiagnostics(file: PsiFile, script: String, statement: SqlStatementRange): List<SqlDiagnostic>? {
+        val context = file.getUserData(contextKey) ?: return null
+        if (!context.pipes || !DorisPipes.containsPipeOperator(script)) return null
+        return when (val result = verifyScript(script, pipes = true, brikk = context.brikk)) {
+            VerifyResult.Accepted -> emptyList()
+            is VerifyResult.Rejected -> result.errors.map { error ->
+                val offset = (error.offset ?: 0).coerceIn(0, script.length)
+                val start = if (offset == script.length) script.offsetByCodePoints(offset, -1) else offset
+                val end = error.endOffset?.takeIf { it > start && it <= script.length }
+                    ?: script.offsetByCodePoints(start, 1)
+                SqlDiagnostic(DiagnosticSeverity.ERROR, error.message, start, end,
+                    if (error.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX)) DiagnosticSource.OTHER else DiagnosticSource.NATIVE)
+            }
+            is VerifyResult.Unverified, is VerifyResult.Unavailable -> null
+        }
+    }
 
     internal fun verificationText(sql: String, brikk: Boolean): String = if (!brikk) sql else buildString {
         append(sql)
@@ -75,8 +97,11 @@ object DorisNativeErrorProfile : NativeErrorProfile {
             start, end, DiagnosticSource.OTHER))
     }
 
-    override fun modificationCount(file: PsiFile): Long = file.project.service<DorisPipesSettings>().let {
-        it.stateModificationCount + it.diagnosticRevision.get()
+    override fun modificationCount(file: PsiFile): Long {
+        val context = captureContext(file)
+        val settings = file.project.service<DorisPipesSettings>()
+        return (settings.stateModificationCount + settings.diagnosticRevision.get()) * 4 +
+            (if (context.brikk) 1 else 0) + (if (context.pipes) 2 else 0)
     }
 
     override fun message(diagnostic: SqlDiagnostic): String = diagnostic.message

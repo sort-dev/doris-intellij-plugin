@@ -16,10 +16,24 @@ class DorisErrorAnnotatorTest : BasePlatformTestCase() {
 
     fun testOnlyBrikkBindsAreMaskedAtEqualLength() {
         val text = "SELECT :tenant, :second"
-        val masked = DorisNativeErrorProfile.verificationText(text, brikk = true)
+        val original = myFixture.configureByText("binds.sql", text)
+        setSqlDialectMapping(project, original.virtualFile, DorisSqlDialect.INSTANCE)
+        val file = myFixture.file
+        val validator = DorisNativeErrorProfile.validator(file)
+        val ordinaryRevision = DorisNativeErrorProfile.modificationCount(file)
+        assertEquals(text, DorisNativeErrorProfile.verificationText(file, text))
+        file.putUserData(dev.sort.doris.brikk.BrikkDorisContext.PROFILE, true)
+        assertSame(validator, DorisNativeErrorProfile.validator(file))
+        assertTrue(DorisNativeErrorProfile.modificationCount(file) != ordinaryRevision)
+        val masked = com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread<String> {
+            DorisNativeErrorProfile.verificationText(file, text)
+        }.get()
         assertEquals(text.length, masked.length)
         assertEquals("SELECT ?      , ?      ", masked)
-        assertEquals(text, DorisNativeErrorProfile.verificationText(text, brikk = false))
+        assertEmpty(dorisAnnotations(file))
+        file.putUserData(dev.sort.doris.brikk.BrikkDorisContext.PROFILE, false)
+        DorisNativeErrorProfile.validator(file)
+        assertEquals(text, DorisNativeErrorProfile.verificationText(file, text))
         assertTrue(DorisNativeErrorProfile.verifyScript(text, pipes = false, brikk = false) is dev.brikk.house.sql.verify.VerifyResult.Rejected)
         assertSame(dev.brikk.house.sql.verify.VerifyResult.Accepted,
             DorisNativeErrorProfile.verifyScript(text, pipes = false, brikk = true))
