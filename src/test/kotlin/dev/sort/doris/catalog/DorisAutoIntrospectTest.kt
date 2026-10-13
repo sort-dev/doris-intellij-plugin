@@ -225,6 +225,9 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         myFixture.completeBasic()
         introspections.next().finish { schema.tables.createOrGet("events").columns.createOrGet("id") }
         awaitDone(listOf("warehouse", "analytics"))
+        PlatformTestUtil.waitWithEventsDispatching("Doris model indexing finishes", {
+            !com.intellij.openapi.project.DumbService.getInstance(project).isDumb
+        }, 10)
         myFixture.lookup?.hideLookup(false)
         myFixture.completeBasic()
         assertContainsElements(myFixture.lookupElementStrings.orEmpty(), "id")

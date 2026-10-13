@@ -1,11 +1,8 @@
 package dev.sort.doris.pipes
 
-import dev.brikk.house.sql.parser.ParseError
 import dev.brikk.house.sql.parser.SqlScriptSnapshot
-import dev.brikk.house.sql.parser.TokenError
 import dev.brikk.house.sql.shape.ParamStyle
-import dev.brikk.house.sql.shape.ShapeError
-import dev.brikk.house.sql.shape.parseParameterOccurrences
+import dev.brikk.house.sql.shape.SqlScriptParameters
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -25,13 +22,16 @@ import java.nio.file.Path
 
 class DorisCoreScannerParityTest {
     @Test
-    fun `core scanners match native corpus except listed expected failures`() {
+    fun `core scanners match native corpus except accepted known differences`() {
         val corpus = Json.parseToJsonElement(Files.readString(
             Path.of(System.getProperty("corpus.dir")).resolveSibling("parity").resolve("doris-scanners.json"),
         )).jsonObject
+        val knownDifferences = corpus.getValue("knownDifferences").jsonObject.mapValues { (_, axes) ->
+            axes.jsonArray.map { it.jsonPrimitive.content }.toSet()
+        }
         val cases = corpus.getValue("cases").jsonArray.map { it.jsonObject }
         assertEquals(cases.size, cases.map { it.getValue("id") }.toSet().size)
-        assertTrue(corpus.getValue("expectedFailures").jsonObject.keys.all { id ->
+        assertTrue(knownDifferences.keys.all { id ->
             cases.any { it.getValue("id").jsonPrimitive.content == id }
         })
         val differences = ArrayList<JsonElement>()
@@ -44,14 +44,13 @@ class DorisCoreScannerParityTest {
                     input.replace("{projections}", (1..count).joinToString(", ") { "$it AS c$it" })
                 } ?: input
             }
-            val expected = (corpus.getValue("expectedFailures").jsonObject[id] ?: case.getValue("expectedFailures"))
-                .jsonArray.map { it.jsonPrimitive.content }.toSet()
+            val expected = knownDifferences[id].orEmpty()
             assertTrue(id, expected.all { it in setOf("statements", "parameters") })
             val native = mapOf(
-                "statements" to JsonArray(DorisPipes.chunks(sql).map {
+                "statements" to JsonArray(DorisNativeScanner.chunks(sql).map {
                     statement(it.startOffset, it.endOffset, it.hasSql, it.hasPipeOperator, it.boundaryError != null)
                 }),
-                "parameters" to JsonArray(DorisPipes.namedParameterRanges(sql).map {
+                "parameters" to JsonArray(DorisNativeScanner.namedParameterRanges(sql).map {
                     parameter(sql.substring(it.first + 1, it.last + 1), it.first, it.last + 1)
                 }),
             )
@@ -101,6 +100,7 @@ class DorisCoreScannerParityTest {
         Files.writeString(output, Json { prettyPrint = true }.encodeToString(JsonElement.serializer(), report))
         println("Doris scanner parity: ${cases.size} cases, ${differences.size} disagreements, ${resolved.size} resolved expected failures; $output")
         assertTrue("Unexpected scanner disagreements: ${unexpected.joinToString()}; see $output", unexpected.isEmpty())
+        assertTrue("Resolved known differences: ${resolved.joinToString()}", resolved.isEmpty())
     }
 
     private fun statement(start: Int, end: Int, hasSql: Boolean, hasPipe: Boolean, boundaryError: Boolean) = buildJsonObject {
@@ -117,20 +117,9 @@ class DorisCoreScannerParityTest {
         put("end", end)
     }
 
-    private fun coreParameters(sql: String): JsonElement = try {
-        JsonArray(parseParameterOccurrences(sql, "doris").filter { it.style == ParamStyle.NAMED_COLON }.map {
+    private fun coreParameters(sql: String): JsonElement =
+        JsonArray(SqlScriptParameters.parse(sql, "doris").occurrences.filter { it.style == ParamStyle.NAMED_COLON }.map {
             parameter(it.name!!, it.range.start, it.range.end)
         })
-    } catch (failure: ParseError) {
-        refusal(failure)
-    } catch (failure: TokenError) {
-        refusal(failure)
-    } catch (failure: ShapeError) {
-        refusal(failure)
-    }
 
-    private fun refusal(failure: Exception) = buildJsonObject {
-        put("errorType", failure.javaClass.simpleName)
-        put("message", failure.message?.replace(Regex("\u001B\\[[;\\d]*m"), ""))
-    }
 }

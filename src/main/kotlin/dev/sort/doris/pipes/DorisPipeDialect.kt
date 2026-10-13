@@ -2,15 +2,16 @@ package dev.sort.doris.pipes
 
 import com.intellij.database.console.session.DatabaseSession
 import com.intellij.openapi.components.service
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
-import dev.brikk.house.sql.intellij.SqlParameterSpan
 import dev.brikk.house.sql.intellij.pipe.FirstStageRule
 import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
 import dev.brikk.house.sql.intellij.pipe.NativeVerdict
 import dev.brikk.house.sql.intellij.pipe.PipeDialect
 import dev.brikk.house.sql.intellij.pipe.PipeSubmitListener
 import dev.brikk.house.sql.intellij.pipe.ValidationTiming
+import dev.brikk.house.sql.parser.SqlScriptSnapshot
 import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.brikk.BrikkDorisContext
@@ -33,24 +34,9 @@ object DorisPipeDialect : PipeDialect {
     override fun enablesPreview(file: PsiFile) = !isInspectionHost(file)
     override fun ownsSession(session: DatabaseSession) = session.connectionPoint.dbms === DorisDbms.DORIS
 
-    override fun scriptRanges(text: String) = DorisPipes.chunks(text).map {
-        SqlStatementRange(it.startOffset, it.endOffset, it.hasSql, it.hasPipeOperator, it.boundaryError)
-    }
-
-    override fun parameterSpans(sql: String) = DorisPipes.namedParameterRanges(sql).map {
-        SqlParameterSpan(sql.substring(it.first + 1, it.last + 1), it.first, it.last + 1)
-    }
-
-    override fun maskParameters(sql: String): String {
-        val ranges = DorisPipes.namedParameterRanges(sql)
-        if (ranges.isEmpty()) return sql
-        return buildString(sql.length) {
-            append(sql)
-            for (range in ranges) {
-                setCharAt(range.first, '0')
-                for (index in range.first + 1..range.last) setCharAt(index, ' ')
-            }
-        }
+    override fun scriptRanges(text: String): List<SqlStatementRange> {
+        ProgressManager.checkCanceled()
+        return SqlScriptSnapshot.parse(text, dialect, ProgressManager::checkCanceled).statements
     }
 
     override val validator = object : NativeSqlValidator {

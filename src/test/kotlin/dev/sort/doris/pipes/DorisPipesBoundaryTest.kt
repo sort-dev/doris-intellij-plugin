@@ -1,6 +1,7 @@
 package dev.sort.doris.pipes
 
 import com.intellij.psi.PsiFileFactory
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.psi.util.PsiTreeUtil
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
@@ -9,6 +10,9 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.brikk.house.sql.intellij.pipe.statementAt
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 
 class DorisPipesBoundaryTest : BasePlatformTestCase() {
     private var previousPipes: String? = null
@@ -68,6 +72,23 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
                 }
             }
         }
+    }
+
+    fun testCoreEditorScannersPropagateCancellation() {
+        val text = "FROM t |> WHERE id = :id"
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val scans = mapOf<String, () -> Any>("chunks" to { DorisPipes.chunks(text) },
+                "ranges" to { DorisPipeDialect.scriptRanges(text) }, "parameters" to { DorisPipes.namedParameterRanges(text) },
+                "code" to { DorisPipes.codeBefore(text, text.length) })
+            for ((name, scan) in scans) {
+                val indicator = EmptyProgressIndicator()
+                ProgressManager.getInstance().runProcess(Runnable {
+                    indicator.cancel()
+                    val failure = runCatching(scan).exceptionOrNull()
+                    assertTrue("$name: $failure", failure is ProcessCanceledException)
+                }, indicator)
+            }
+        }.get()
     }
 
     fun testPreviewUsesWholeChunkRegardlessOfEditorSelection() {

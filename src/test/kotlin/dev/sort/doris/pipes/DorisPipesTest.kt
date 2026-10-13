@@ -8,6 +8,8 @@ import dev.brikk.house.sql.metadata.FunctionDef
 import dev.brikk.house.sql.parser.PipeStageCut
 import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.parser.SqlScriptSnapshot
+import dev.brikk.house.sql.parser.TokenError
+import dev.brikk.house.sql.shape.ShapeError
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import dev.sort.doris.sql.DorisErrorAnnotator
@@ -20,6 +22,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /** Pure-logic coverage for the pipes SPIKE seam (engine calls run headless — no IDE needed). */
@@ -293,7 +296,9 @@ class DorisPipesTest {
         assertEquals(2, errors.size)
         assertTrue(errors.all { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors[0].message, errors[0].line == 1)
-        assertTrue(errors[1].message.contains("Unterminated SQL string"))
+        val tail = DorisPipes.chunks(text).last().text
+        val boundary = SqlScriptSnapshot.parse(tail, "doris").statements.single().boundaryError!!
+        assertTrue(errors[1].message, errors[1].message.contains(boundary))
     }
 
     @Test
@@ -414,13 +419,17 @@ class DorisPipesTest {
             assertEquals(null, DorisPipes.chunkAt(text, -1))
             assertEquals(null, DorisPipes.chunkAt(text, text.length + 1))
         }
-        assertTrue(DorisPipes.chunks(" \n\t").isEmpty())
+        val whitespace = DorisPipes.chunks(" \n\t").single()
+        assertEquals(" \n\t", whitespace.text)
+        assertFalse(whitespace.hasSql)
+        assertFalse(whitespace.hasPipeOperator)
         assertEquals(null, DorisPipes.chunkAt("", 0))
         val withoutSemicolon = "FROM t |> LIMIT 1"
         assertEquals(withoutSemicolon, DorisPipes.chunkAt(withoutSemicolon, withoutSemicolon.length)?.text)
         for (trailing in listOf("", " ", "\n", "\r\n  ")) {
             val statement = "FROM t |> LIMIT 1;"
-            assertEquals(statement, DorisPipes.chunkAt(statement + trailing, statement.length)?.text)
+            assertEquals(if (trailing.isEmpty()) statement else trailing,
+                DorisPipes.chunkAt(statement + trailing, statement.length)?.text)
         }
     }
 
@@ -440,12 +449,37 @@ class DorisPipesTest {
     }
 
     @Test
-    fun `transaction keywords and malformed syntax do not merge independent statements`() {
+    fun `unbalanced tails stay opaque after complete transaction statements`() {
         val text = "BEGIN;FROM t |> SELECT * EXCEPT(x;SELECT 2;COMMIT;"
         assertEquals(
-            listOf("BEGIN;", "FROM t |> SELECT * EXCEPT(x;", "SELECT 2;", "COMMIT;"),
+            listOf("BEGIN;", "FROM t |> SELECT * EXCEPT(x;SELECT 2;COMMIT;"),
             DorisPipes.chunks(text).map { it.text },
         )
+        assertNotNull(DorisPipes.chunks(text).last().boundaryError)
+        assertTrue(DorisPipeDialect.lower(DorisPipes.chunks(text).last().text) is PipeTranslation.Refused)
+    }
+
+    @Test
+    fun `editor parameters span scripts while execution requires one complete statement`() {
+        val sql = "SELECT :first; SELECT :second;"
+        assertEquals(listOf(":first", ":second"), DorisPipes.namedParameterRanges(sql).map { sql.substring(it) })
+        assertThrows(ShapeError::class.java) { DorisPipeDialect.parameterSpans(sql) }
+        val incomplete = "SELECT :first, 'unfinished :phantom"
+        assertEquals(listOf(":first"), DorisPipes.namedParameterRanges(incomplete).map { incomplete.substring(it) })
+        assertThrows(TokenError::class.java) { DorisPipeDialect.parameterSpans(incomplete) }
+    }
+
+    @Test
+    fun `core visible code retains native UTF16 trivia and quoting conventions`() {
+        for (sql in listOf(
+            "SELECT '\uD83D\uDE00; hidden', `simple`, `not;simple` /* hidden */ FROM t |> SELECT :p",
+            "SELECT \$\$hidden; :p |>\$\$ -- continued\\\n; still hidden\n FROM t |> SELECT :after",
+            "FROM t /* outer /* inner */ outer */ |> SELECT 'unfinished :phantom",
+        )) {
+            for (end in listOf(0, sql.length / 2, sql.length)) {
+                assertEquals(sql, DorisNativeScanner.codeBefore(sql, end), DorisPipes.codeBefore(sql, end))
+            }
+        }
     }
 
     @Test

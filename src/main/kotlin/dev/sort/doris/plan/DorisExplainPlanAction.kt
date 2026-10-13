@@ -214,7 +214,7 @@ internal fun prepareDorisExplainSql(sql: String, pipesEnabled: Boolean): Prepare
             PreparedExplainSql(null, "The selected text contains PIPE syntax but is not an executable PIPE query.")
         is PipeTranslation.Lowered -> when {
             result.blocker != null -> PreparedExplainSql(null, result.blocker)
-            DorisPipes.namedParameterRanges(result.sql).isNotEmpty() ->
+            DorisPipeDialect.parameterSpans(result.sql).isNotEmpty() ->
                 PreparedExplainSql(null, "PIPE parameters must be resolved with Execute before EXPLAIN.")
             else -> PreparedExplainSql(result.sql, null)
         }
