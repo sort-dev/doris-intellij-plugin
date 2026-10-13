@@ -401,6 +401,9 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
     <depends optional="true" config-file="doris-kotlin.xml">org.jetbrains.kotlin</depends>
+    <extensionPoints>
+        <extensionPoint name="hostInspectionRule" interface="dev.sort.doris.brikk.DorisHostInspectionRule" dynamic="true"/>
+    </extensionPoints>
     <xi:include href="/META-INF/doris-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
     <!-- Kotlin checks this marker before loading the optional descriptor. -->
@@ -428,6 +431,7 @@
         <lang.quoteHandler language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisQuoteHandler"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisNativeErrorPsiFilter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.brikk.DorisHostPlaceholderErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.catalog.DorisOutOfScopeReferenceFilter"/>
         <intentionAction>

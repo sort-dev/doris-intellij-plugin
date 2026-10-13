@@ -563,6 +563,33 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testRememberedHostKeepsAPlaceholderProjectionWhileIndexing() {
+        val host = configure("SELECT ${'$'}tenant")
+        injected(host)
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                val claim = BrikkDorisInjectionPerformer().claimHost(host) as dev.brikk.house.sql.intellij.host.HostSqlClaim.Injected
+                assertTrue(claim.pending)
+                assertTrue(claim.inspectionOnly)
+                assertTrue(claim.entries.entries.any { it.placeholder })
+                assertFalse(claim.entries.entries.any { it.replacement == ":tenant" })
+            })
+    }
+
+    fun testNeverRecognizedExplicitHostIsClaimedWithoutInjectionWhileIndexing() {
+        val file = myFixture.configureByText("Pending.kt", """
+            import dev.brikk.house.sql.runtime.BrikkSql
+            import dev.brikk.house.sql.runtime.Sql
+            @BrikkSql fun query(tenant: String) = Sql.doris("SELECT ${'$'}tenant")
+        """.trimIndent())
+        val host = PsiTreeUtil.findChildOfType(file, KtStringTemplateExpression::class.java)!!
+        dev.brikk.house.intellij.BrikkHosts.forget(host)
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                assertTrue(BrikkDorisInjectionPerformer().claimHost(host) is dev.brikk.house.sql.intellij.host.HostSqlClaim.Unavailable)
+            })
+    }
+
     fun testPlainNamedBindAndUnresolvedInterpolationAreParameters() {
         val host = configure("SELECT tenant FROM customers WHERE tenant = :tenant OR tenant = ${'$'}missing")
         val placeholder = context(host).entries.single { it.role == EntryRole.PENDING }.replacement
@@ -582,6 +609,10 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
             .descriptionAndTooltip("Condition is always 'true'").create()!!
         assertFalse(dev.sort.doris.sql.DorisHighlightInfoFilter().accept(info, pending))
         myFixture.addFileToProject("Later.kt", "val later: String = \"not sql\"")
+        com.intellij.testFramework.PlatformTestUtil.waitWithEventsDispatching("Pending host is reanalyzed after dependency indexing", {
+            val current = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).single()
+            injected(current).text == "SELECT :later"
+        }, 10)
         val resolved = injected(host)
         assertEquals("SELECT :later", resolved.text)
         assertFalse(BrikkDorisContext.hasUncertainTemplates(resolved))

@@ -1,8 +1,13 @@
 <idea-plugin>
     <extensions defaultExtensionNs="com.intellij">
+        <languageInjectionContributor language="kotlin" order="first"
+                                      implementationClass="dev.sort.doris.brikk.BrikkDorisInjectionPerformer"/>
         <languageInjectionPerformer language="kotlin" order="first"
                                     implementationClass="dev.sort.doris.brikk.BrikkDorisInjectionPerformer"/>
         <annotator language="kotlin" implementationClass="dev.sort.doris.brikk.BrikkDorisTemplateAnnotator"/>
         <editorNotificationProvider implementation="dev.sort.doris.brikk.BrikkDorisNotificationProvider"/>
+    </extensions>
+    <extensions defaultExtensionNs="dev.sort.doris-intellij-plugin">
+        <hostInspectionRule implementation="dev.sort.doris.brikk.BrikkDorisInspectionRule"/>
     </extensions>
 </idea-plugin>
