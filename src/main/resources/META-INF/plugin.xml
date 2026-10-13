@@ -466,6 +466,9 @@
 
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisAutoIntrospectService"/>
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisExecutionObserver"/>
+        <projectService serviceImplementation="dev.sort.doris.plan.DorisTextExplainService"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.plan.DorisTextExplainConfiguration"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.cancel.DorisCancelConfiguration"/>
         <postStartupActivity implementation="dev.sort.doris.catalog.DorisExecutionObserverStartup"/>
         <editorNotificationProvider implementation="dev.sort.doris.catalog.DorisIntrospectBannerProvider"/>
 
@@ -526,15 +529,6 @@
                   topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
     </projectListeners>
 
-    <!-- Clean Doris cancel, cancel-time half: replaces the stock stop-button action
-         (database-plugin.xml registers Console.Jdbc.Cancel; there is no dialect-level cancel
-         seam — the JDBC chain ends in the MySQL driver's broken second-connection
-         KILL QUERY <conn-id>, see RESEARCH-query-cancel.md). The replacement subclasses the
-         stock action and delegates to it verbatim for non-Doris sessions and when
-         -Ddoris.cancel.experimental=false; for Doris sessions the stock (client-side) cancel
-         still runs first and a server-side KILL QUERY "<trace-id>" follows on a pooled thread.
-         Text/description/icon replicate the stock registration (the platform reads them from
-         the declaring plugin, i.e. us, after the override). -->
     <actions>
         <action id="Doris.RefreshFunctions"
                 class="dev.sort.doris.sql.DorisRefreshFunctionsAction"
@@ -542,23 +536,7 @@
                 description="Reload function names from the Doris server">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
-        <action id="Console.Jdbc.Cancel"
-                class="dev.sort.doris.cancel.DorisCancelRunningStatementsAction"
-                overrides="true"
-                text="Cancel Running Statements"
-                description="Cancel running and queued statements"
-                use-shortcut-of="Stop"
-                icon="AllIcons.Actions.Suspend"/>
 
-        <!-- Explain Plan: for Doris, run EXPLAIN <query> as a query so the plan shows as text rows in
-             the grid (the graphical diagram is a poor fit for Doris's text plan). Non-Doris dbms fall
-             through to the stock graphical behaviour. See DorisExplainPlanAction. -->
-        <action id="Console.Jdbc.ExplainPlan"
-                class="dev.sort.doris.plan.DorisExplainPlanAction"
-                overrides="true"
-                text="Explain Plan"
-                description="Show the plan for the current statement"
-                icon="DatabaseIcons.ConsoleShowPlan"/>
 
     </actions>
 </idea-plugin>

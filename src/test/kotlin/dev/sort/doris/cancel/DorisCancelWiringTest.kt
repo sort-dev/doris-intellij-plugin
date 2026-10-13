@@ -19,21 +19,14 @@ class DorisCancelWiringTest : BasePlatformTestCase() {
     fun testStopButtonActionIsReplaced() {
         val action = ActionManager.getInstance().getAction("Console.Jdbc.Cancel")
         assertNotNull("Console.Jdbc.Cancel not registered at all", action)
-        assertEquals(
-            "dev.sort.doris.cancel.DorisCancelRunningStatementsAction",
-            action!!.javaClass.name,
-        )
+        assertEquals("dev.brikk.house.sql.intellij.CooperativeAction", action!!.javaClass.name)
     }
 
     /** Our subclass must remain a CancelRunningStatementsAction (stock delegation contract). */
     fun testReplacementActionExtendsStockAction() {
         val action = ActionManager.getInstance().getAction("Console.Jdbc.Cancel")!!
-        var cls: Class<*>? = action.javaClass.superclass
-        val superNames = generateSequence(cls) { it.superclass }.map { it.name }.toList()
-        assertTrue(
-            "expected stock CancelRunningStatementsAction in super chain, got $superNames",
-            superNames.contains("com.intellij.database.actions.CancelRunningStatementsAction"),
-        )
+        val previous = (action as com.intellij.openapi.actionSystem.ActionWithDelegate<*>).delegate
+        assertEquals("com.intellij.database.actions.CancelRunningStatementsAction", previous!!.javaClass.name)
     }
 
     /** The connect-time interceptor is registered on the platform EP. */

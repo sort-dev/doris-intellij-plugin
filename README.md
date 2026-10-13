@@ -32,6 +32,8 @@ Part of our SQL-tooling family alongside:
 
 ## Features
 
+Explain Plan now accepts only builtin-safe queries, not DDL/DML, pending live Doris evidence that broader planning is read-only.
+
 - **Correct statement & run-block boundaries** for Doris constructs the MySQL grammar mis-parses:
   `CREATE [OR REPLACE] VIEW` bodies with modern SQL, multi-line window functions (`… OVER (…)`),
   `SELECT * EXCEPT(…)`, `QUALIFY`, `INSERT OVERWRITE`, `DISTRIBUTED BY` / `PROPERTIES` DDL,

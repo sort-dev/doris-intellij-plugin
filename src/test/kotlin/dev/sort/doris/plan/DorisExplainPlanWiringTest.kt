@@ -3,62 +3,34 @@ package dev.sort.doris.plan
 import com.intellij.database.plan.ExplainPlanProvider
 import com.intellij.database.util.Version
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionWithDelegate
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.DorisDbms
 
-/**
- * Wiring: the "Explain Plan" action shows for Doris (provider reports it supported) and is
- * overridden by [DorisExplainPlanAction], which runs `EXPLAIN <query>` over a helper connection and
- * shows the plan text in a scrollable popup instead of the graphical diagram. Running the EXPLAIN +
- * the popup render are the live-Doris bake.
- */
 class DorisExplainPlanWiringTest : BasePlatformTestCase() {
-
-    private val version: Version = Version.of(5, 7, 99)
-
     fun testProviderMakesTheItemVisiblePlainOnly() {
-        val provider = ExplainPlanProvider.EP.forDbms(DorisDbms.DORIS)
-        assertNotNull(provider)
-        assertEquals("dev.sort.doris.plan.DorisExplainPlanProvider", provider!!.javaClass.name)
-        // isSupported = the graphical "Explain Plan" action is visible for plain EXPLAIN...
-        assertTrue(provider.isSupported(version, false))
-        // ...but "Explain Analyse" stays hidden (Doris EXPLAIN doesn't run the query), and no raw.
-        assertFalse(provider.isSupported(version, true))
-        assertFalse(provider.isRawSupported(version, false))
+        val provider = checkNotNull(ExplainPlanProvider.EP.forDbms(DorisDbms.DORIS))
+        assertTrue(provider.isSupported(Version.of(5, 7, 99), false))
+        assertFalse(provider.isSupported(Version.of(5, 7, 99), true))
+        assertFalse(provider.isRawSupported(Version.of(5, 7, 99), false))
     }
 
-    /** `overrides="true"` replaced the stock Explain Plan action with ours (compare by FQN). */
-    fun testExplainPlanActionIsOverridden() {
-        val action = ActionManager.getInstance().getAction("Console.Jdbc.ExplainPlan")
-        assertNotNull("Console.Jdbc.ExplainPlan not registered", action)
-        assertEquals("dev.sort.doris.plan.DorisExplainPlanAction", action!!.javaClass.name)
-    }
-
-    /** Our action must remain an Explain Plan action (stock delegation for non-Doris). */
-    fun testOverrideExtendsStockExplainAction() {
+    fun testExplainIsWrappedCooperatively() {
         val action = ActionManager.getInstance().getAction("Console.Jdbc.ExplainPlan")!!
-        val superNames = generateSequence(action.javaClass.superclass) { it.superclass }.map { it.name }.toList()
-        assertTrue(
-            "expected ExplainActionBase in super chain, got $superNames",
-            superNames.any { it.startsWith("com.intellij.database.actions.ExplainActionBase") },
-        )
+        assertEquals("dev.brikk.house.sql.intellij.CooperativeAction", action.javaClass.name)
+        val predecessor = (action as ActionWithDelegate<*>).delegate as AnAction
+        assertTrue(predecessor.javaClass.name, predecessor.javaClass.name.startsWith("com.intellij.database.actions.ExplainActionBase"))
     }
 
-    fun testPipeExplainUsesGeneratedSqlAndFailsClosed() {
-        val source = "FROM t |> WHERE id > 0 |> SELECT id"
-        val prepared = prepareDorisExplainSql(source, pipesEnabled = true)
-        assertNull(prepared.error)
-        assertNotNull(prepared.sql)
-        assertFalse(prepared.sql!!.contains("|>"))
-        assertTrue(prepared.sql!!.contains("WHERE"))
+    fun testProfileExplainsQueriesOnly() {
+        assertSame(dev.brikk.house.sql.shape.ExplainableStatements.Queries, DorisTextExplainProfile.explainableStatements)
+        assertSame(dev.sort.doris.pipes.DorisPipeDialect, DorisTextExplainProfile.pipe)
+    }
 
-        val parameter = prepareDorisExplainSql("FROM t |> WHERE id = :id", pipesEnabled = true)
-        assertNull(parameter.sql)
-        assertTrue(parameter.error!!.contains("parameters"))
-        assertEquals(source, prepareDorisExplainSql(source, pipesEnabled = false).sql)
-
-        val claimedCommand = prepareDorisExplainSql("RENAME TABLE a TO b |> LIMIT 1", pipesEnabled = true)
-        assertNull(claimedCommand.sql)
-        assertEquals("The statement is not a pipe query", claimedCommand.error)
+    fun testHelperSchemaSwitchUsesTheDorisPathShape() {
+        val path = com.intellij.database.util.SearchPath.of(com.intellij.database.util.ObjectPath
+            .create("warehouse", com.intellij.database.model.ObjectKind.DATABASE).append("analytics", com.intellij.database.model.ObjectKind.SCHEMA))
+        assertEquals("use `warehouse`.`analytics`", DorisTextExplainProfile.searchPath.switchSql(path))
     }
 }

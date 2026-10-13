@@ -1,31 +1,22 @@
 package dev.sort.doris.cancel
 
-import com.intellij.database.actions.CancelRunningStatementsAction
 import com.intellij.database.console.JdbcEngine
 import com.intellij.database.console.client.SessionClient
 import com.intellij.database.console.session.DatabaseSession
 import com.intellij.database.dataSource.DatabaseConnection
+import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dataSource.DatabaseConnectionManager
 import com.intellij.database.dataSource.connection.ConnectionRequestor
 import com.intellij.database.datagrid.DataRequest
 import com.intellij.database.remote.jdbc.RemoteConnection
 import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
 import com.intellij.database.run.audit.CancelProgressAuditor
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.ui.Messages
 import com.intellij.util.TimeoutUtil
 
 /**
- * Replaces `Console.Jdbc.Cancel` (`overrides="true"` in plugin.xml) — cancel-time half of the
- * clean Doris cancel (RESEARCH-query-cancel.md; see [DorisCancel] for the design and the live
- * 4.1.2 verification table).
- *
- * For non-Doris sessions (or with `-Ddoris.cancel.experimental=false`, or on the second press
- * where the stock action escalates to deactivate-with-confirmation) this is byte-for-byte the
- * stock [CancelRunningStatementsAction] — `performAction` delegates straight to `super`.
- *
  * ## Ordering — ours first, stock only as a genuine fallback (P0b)
  *
  * The first cut ran stock **first**, ours after. Behind a k8s LB stock's `KILL QUERY <conn-id>`
@@ -103,7 +94,7 @@ import com.intellij.util.TimeoutUtil
  * Every resolution step logs under the `DorisCancel:` prefix so a real-IDE press leaves a
  * definitive trail (the flow is not headless-drivable).
  */
-class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
+internal open class DorisCancelCoordinator {
 
     private companion object {
         /** How long to wait after an accepted `KILL QUERY` before re-scanning to confirm it took. */
@@ -111,13 +102,13 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
     }
 
     /** A running statement the FE would not actually kill (see [DorisCancel.KillOutcome.STILL_RUNNING]). */
-    private data class StillRunning(val queryId: String, val kind: String?)
+    internal data class StillRunning(val queryId: String, val kind: String?)
 
     /**
      * Result of our server-side cancel attempt: the [outcome], the [stillRunning] detail when the
      * kill was a no-op, and this console's [connections] (attached late, for the detach step).
      */
-    private data class CancelResult(
+    internal data class CancelResult(
         val outcome: DorisCancel.KillOutcome,
         val stillRunning: StillRunning? = null,
         val connections: List<DatabaseConnection> = emptyList(),
@@ -125,10 +116,9 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         fun withConnections(c: List<DatabaseConnection>): CancelResult = copy(connections = c)
     }
 
-    override fun performAction(e: AnActionEvent, session: DatabaseSession) {
+    fun perform(session: DatabaseSession, fallback: () -> Unit): Boolean {
         if (!DorisCancel.shouldHandle(session.connectionPoint.dbms)) {
-            super.performAction(e, session)
-            return
+            return false
         }
 
         // Dedupe FIRST: our bare client-side cancel flips the session's cancelled state almost
@@ -138,13 +128,12 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
             DorisCancel.info(
                 "session '${session.title}': a Doris cancel is already in flight; ignoring repeat press",
             )
-            return
+            return true
         }
 
         if (session.isCancelled) {
             // Genuine second press after a completed cancel cycle: stock's deactivate escalation.
-            super.performAction(e, session)
-            return
+            return false
         }
 
         val dataSourceId = dataSourceId(session)
@@ -156,8 +145,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                 "session '${session.title}' (ds=$dataSourceId): no trace id ever minted for this " +
                     "data source (connected before the plugin/flag?); delegating to stock",
             )
-            super.performAction(e, session)
-            return
+            return false
         }
 
         // CAS backstop for the isCancelInFlight check above (racing presses).
@@ -165,7 +153,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
             DorisCancel.info(
                 "session '${session.title}': a Doris cancel is already in flight; ignoring repeat press",
             )
-            return
+            return true
         }
 
         DorisCancel.info(
@@ -208,7 +196,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                                 "session '${session.title}': our path found nothing to kill and the " +
                                     "session is still busy; delegating to stock as fallback",
                             )
-                            runStockCancel(e, session)
+                            fallback()
                         } else {
                             DorisCancel.info(
                                 "session '${session.title}': our server path found nothing to kill, but " +
@@ -218,6 +206,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
                     }
             }
         }
+        return true
     }
 
     // ---------------------------------------------------------------------------------------
@@ -344,17 +333,6 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         }
     }
 
-    /**
-     * Bridge so the stock (super) cancel can be invoked from an async continuation.
-     *
-     * R5 note: [e] was captured at action-invocation time and is replayed here up to several seconds
-     * later — technically past an `AnActionEvent`'s intended lifetime. We accept the replay (the stock
-     * fallback needs an event and one cannot be faithfully reconstructed off the EDT continuation) but
-     * gate it on `project.isDisposed` at both call sites so a disposed project never reaches stock.
-     */
-    private fun runStockCancel(e: AnActionEvent, session: DatabaseSession) {
-        super.performAction(e, session)
-    }
 
     private fun dataSourceId(session: DatabaseSession): String? =
         try {
@@ -376,7 +354,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
      *   cannot force through the blocked console thread.
      * @property guids the trace-id marker(s) on those connections, for the processlist kill match.
      */
-    private data class ResolvedConsole(
+    internal data class ResolvedConsole(
         val connections: List<DatabaseConnection>,
         val guids: Set<String>,
     )
@@ -393,7 +371,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
      * the proxy). Usually one connection/guid; a session that reconnected can carry more than one
      * (stale guids simply never match a *running* processlist row).
      */
-    private fun resolveConsole(session: DatabaseSession): ResolvedConsole {
+    internal open fun resolveConsole(session: DatabaseSession): ResolvedConsole {
         val id = session.id
         val clients = try {
             session.clients
@@ -484,7 +462,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
      * and [DorisCancel.KillOutcome.NOTHING] when we did nothing — the caller then runs the stock
      * fallback.
      */
-    private fun killOnServer(
+    internal open fun killOnServer(
         session: DatabaseSession,
         dataSourceId: String?,
         scoped: Set<String>,
@@ -498,13 +476,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
             return CancelResult(DorisCancel.KillOutcome.NOTHING)
         }
         return try {
-            val ref = DatabaseConnectionManager.getInstance()
-                .build(session.project, session.connectionPoint)
-                .setRequestor(ConnectionRequestor.Anonymous())
-                .createBlockingNonCancellable()
-                ?: throw IllegalStateException("no helper connection")
-            ref.use { r ->
-                val helper = r.get()
+            withHelperConnection(session) { helper ->
                 DorisCancel.info("$context: matching ${guids.size} guid(s) in the processlist")
                 widenProcesslist(helper)
                 val candidates = collectRunningCandidates(helper, guids)
@@ -518,9 +490,16 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         }
     }
 
+    internal open fun withHelperConnection(session: DatabaseSession, use: (DatabaseConnectionCore) -> CancelResult): CancelResult {
+        val ref = DatabaseConnectionManager.getInstance().build(session.project, session.connectionPoint)
+            .setRequestor(ConnectionRequestor.Anonymous()).createBlockingNonCancellable()
+            ?: error("no helper connection")
+        return ref.use { use(it.get()) }
+    }
+
     /** Kill exactly one candidate; refuse (log) on zero or ambiguous multiple. */
     private fun killSingleCandidate(
-        helper: DatabaseConnection,
+        helper: DatabaseConnectionCore,
         candidates: List<Candidate>,
         context: String,
         guids: Set<String>,
@@ -572,7 +551,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
      * the day the FE is patched (a working kill simply verifies as gone).
      */
     private fun verifyKill(
-        helper: DatabaseConnection,
+        helper: DatabaseConnectionCore,
         killed: Candidate,
         context: String,
         guids: Set<String>,
@@ -596,7 +575,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
     }
 
     /** Widen the processlist to all FEs (both variable generations; failures ignored). */
-    private fun widenProcesslist(helper: DatabaseConnection) {
+    private fun widenProcesslist(helper: DatabaseConnectionCore) {
         for (sql in listOf(DorisCancel.SQL_ALL_FE_PROCESSLIST_NEW, DorisCancel.SQL_ALL_FE_PROCESSLIST_OLD)) {
             try {
                 execute(helper, sql)
@@ -615,7 +594,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
      * [guids]. Idle (`Command=Sleep`) rows and the helper's own SHOW/KILL statements are excluded
      * by [DorisCancel.isRunningCancelCandidate].
      */
-    private fun collectRunningCandidates(helper: DatabaseConnection, guids: Set<String>): List<Candidate> {
+    private fun collectRunningCandidates(helper: DatabaseConnectionCore, guids: Set<String>): List<Candidate> {
         val statement = JdbcNativeUtil.computeRemote {
             helper.remoteConnection.createStatement()
         } ?: return emptyList()
@@ -658,7 +637,7 @@ class DorisCancelRunningStatementsAction : CancelRunningStatementsAction() {
         }
     }
 
-    private fun execute(connection: DatabaseConnection, sql: String) {
+    private fun execute(connection: DatabaseConnectionCore, sql: String) {
         val statement = JdbcNativeUtil.computeRemote {
             connection.remoteConnection.createStatement()
         } ?: throw IllegalStateException("could not create statement")

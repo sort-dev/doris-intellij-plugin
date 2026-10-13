@@ -17,6 +17,7 @@ import org.apache.doris.sqlparser.DorisSqlParser
 
 class DorisDefinitionProviderTest : BasePlatformTestCase() {
     private val provider = DorisDefinitionProvider()
+    private fun query(obj: com.intellij.database.model.DasObject) = checkNotNull(provider.query(obj)).sql
 
     fun testCatalogModePreservesFullObjectIdentity() {
         val model = ModelFactory(NoopStorage()).createModel(DorisDbms.DORIS)
@@ -30,16 +31,16 @@ class DorisDefinitionProviderTest : BasePlatformTestCase() {
         val internalView = internalSales.views.createOrGet("orders_v")
         val externalView = externalSales.views.createOrGet("orders_v")
 
-        assertEquals("SHOW CREATE CATALOG `hive`", provider.buildShowCreateSql(external))
-        assertEquals("SHOW CREATE DATABASE `hive`.`sales`", provider.buildShowCreateSql(externalSales))
-        assertEquals("SHOW CREATE TABLE `internal`.`sales`.`orders`", provider.buildShowCreateSql(internalTable))
-        assertEquals("SHOW CREATE TABLE `hive`.`sales`.`orders`", provider.buildShowCreateSql(externalTable))
-        assertEquals("SHOW CREATE VIEW `internal`.`sales`.`orders_v`", provider.buildShowCreateSql(internalView))
-        assertEquals("SHOW CREATE TABLE `hive`.`sales`.`orders_v`", provider.buildShowCreateSql(externalView))
+        assertEquals("SHOW CREATE CATALOG `hive`", query(external))
+        assertEquals("SHOW CREATE DATABASE `hive`.`sales`", query(externalSales))
+        assertEquals("SHOW CREATE TABLE `internal`.`sales`.`orders`", query(internalTable))
+        assertEquals("SHOW CREATE TABLE `hive`.`sales`.`orders`", query(externalTable))
+        assertEquals("SHOW CREATE VIEW `internal`.`sales`.`orders_v`", query(internalView))
+        assertEquals("SHOW CREATE TABLE `hive`.`sales`.`orders_v`", query(externalView))
 
         val parser = DorisSqlParser()
         listOf(external, externalSales, externalTable, externalView).forEach {
-            parser.parseStatement(provider.buildShowCreateSql(it))
+            parser.parseStatement(query(it))
         }
     }
 
@@ -50,7 +51,7 @@ class DorisDefinitionProviderTest : BasePlatformTestCase() {
         val table = database.tables.createOrGet("or`ders")
         assertEquals(
             "SHOW CREATE TABLE `we``ird`.`db``x`.`or``ders`",
-            provider.buildShowCreateSql(table),
+            query(table),
         )
     }
 
@@ -59,9 +60,9 @@ class DorisDefinitionProviderTest : BasePlatformTestCase() {
         val schema = (model.root as MysqlRoot).schemas.createOrGet("sales")
         val table = schema.tables.createOrGet("orders")
         val view = schema.views.createOrGet("orders_v")
-        assertEquals("SHOW CREATE DATABASE `sales`", provider.buildShowCreateSql(schema))
-        assertEquals("SHOW CREATE TABLE `sales`.`orders`", provider.buildShowCreateSql(table))
-        assertEquals("SHOW CREATE VIEW `sales`.`orders_v`", provider.buildShowCreateSql(view))
+        assertEquals("SHOW CREATE DATABASE `sales`", query(schema))
+        assertEquals("SHOW CREATE TABLE `sales`.`orders`", query(table))
+        assertEquals("SHOW CREATE VIEW `sales`.`orders_v`", query(view))
     }
 
     fun testCancellationEscapesSourceConsumption() {
@@ -69,15 +70,34 @@ class DorisDefinitionProviderTest : BasePlatformTestCase() {
         val table = (model.root as MsRoot).databases.createOrGet("internal")
             .schemas.createOrGet("sales").tables.createOrGet("orders")
         val cancellation = ProcessCanceledException()
-        var consumed = false
+        val consumed = StringBuilder()
 
+        val rows = dev.sort.doris.testing.RemoteRowsFixture().apply { query = { throw cancellation } }
         try {
-            provider.consumeSource(table, PairConsumer { _, _ -> consumed = true }) { throw cancellation }
+            provider.load(listOf(table), rows.connection, consumed)
             fail("expected ProcessCanceledException")
         } catch (thrown: ProcessCanceledException) {
             assertSame(cancellation, thrown)
         }
-        assertFalse("cancellation must not be delivered as an object definition", consumed)
+        assertTrue("cancellation must not be delivered as an object definition", consumed.isEmpty())
+        assertEquals(1, rows.statementsClosed.get())
+    }
+
+    fun testSharedProviderReadsCreateColumnAndClosesResults() {
+        val model = ModelFactory(NoopStorage()).createModel(DorisDbms.DORIS)
+        val table = (model.root as MsRoot).databases.createOrGet("internal")
+            .schemas.createOrGet("sales").tables.createOrGet("orders")
+        val rows = dev.sort.doris.testing.RemoteRowsFixture().apply {
+            query = { sql ->
+                assertEquals("SHOW CREATE TABLE `internal`.`sales`.`orders`", sql)
+                listOf("Table", "Create Table") to listOf(listOf("orders", "CREATE TABLE orders(id INT)"))
+            }
+        }
+        val consumed = StringBuilder()
+        provider.load(listOf(table), rows.connection, consumed)
+        assertTrue(consumed.toString(), consumed.contains("CREATE TABLE orders(id INT)"))
+        assertEquals(1, rows.resultsClosed.get())
+        assertEquals(1, rows.statementsClosed.get())
     }
 
     private class NoopStorage : ModelTextStorage {
