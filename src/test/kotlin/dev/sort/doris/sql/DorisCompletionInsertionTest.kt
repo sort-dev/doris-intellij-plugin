@@ -6,7 +6,7 @@ import com.intellij.testFramework.RunAll
 import dev.brikk.house.sql.metadata.FunctionPresentation
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
-import icons.DatabaseIcons
+import dev.brikk.house.sql.intellij.completion.SqlLookupIcons
 
 class DorisCompletionInsertionTest : BasePlatformTestCase() {
     private lateinit var catalog: DorisFunctionCatalogFixture
@@ -101,11 +101,11 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testWindowFunctionUsesAggregateIconAndDorisLabel() {
+    fun testWindowFunctionUsesSharedWindowIconAndDorisLabel() {
         configure("SELECT ra<caret>")
         val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "rank" && it.`object` is FunctionPresentation }
         val presentation = LookupElementPresentation.renderElement(item)
-        assertEquals(DatabaseIcons.Aggregate, presentation.icon)
+        assertEquals(SqlLookupIcons.WindowFunction, presentation.icon)
         assertEquals("Doris window function", presentation.typeText)
     }
 

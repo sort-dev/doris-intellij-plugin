@@ -101,7 +101,7 @@ class DorisLiveCatalogTest : BasePlatformTestCase() {
             assertContainsElements(functions.map { it.name.lowercase() }, "cast", "extract")
             assertSame(DorisCompletionProfile.snapshot(myFixture.file), DorisCompletionProfile.snapshot(myFixture.file))
             assertEquals(DorisTableFunctions.all, DorisCompletionProfile.snapshot(myFixture.file).tableFunctions)
-            assertTrue(DorisCompletionProfile.serverOnlyFunctions(myFixture.file).isEmpty())
+            assertEquals(listOf("BINLOG"), DorisCompletionProfile.serverOnlyFunctions(myFixture.file).map { it.name })
         }
     }
 }

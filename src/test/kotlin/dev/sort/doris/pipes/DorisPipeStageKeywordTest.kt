@@ -99,13 +99,31 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
 
     fun testStageCompletionStopsAfterACompleteHead() {
         assertTrue("EXTEND" in pipeStageItems("FROM t |> <caret>"))
-        assertTrue("FULL OUTER JOIN" in pipeStageItems("FROM t |> FULL O<caret>"))
+        assertTrue("FULL JOIN" in pipeStageItems("FROM t |> FULL <caret>"))
         assertEmpty(pipeStageItems("FROM t |> EXTEND <caret>"))
         assertEmpty(pipeStageItems("FROM t |> ORDER BY <caret>"))
         assertEmpty(pipeStageItems("SELECT <caret>1"))
         assertEmpty(pipeStageItems("FROM t ||> <caret>"))
         assertEmpty(pipeStageItems("SELECT '|> <caret>'"))
         assertEmpty(pipeStageItems("SELECT 1 /* |> <caret> */"))
+    }
+
+    fun testStageHeadOffersOnlySharedUppercaseBoldPhrases() {
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
+        try {
+            myFixture.configureByText("stage-style.sql", "FROM t |> <caret>")
+            val items = myFixture.completeBasic().orEmpty()
+            assertNotEmpty(items.toList())
+            assertEquals(DorisPipeDialect.stagePhrases.toSet(), items.map { it.lookupString }.toSet())
+            for (item in items) {
+                val presentation = LookupElementPresentation.renderElement(item)
+                assertEquals(item.lookupString.uppercase(), item.lookupString)
+                assertTrue(presentation.isItemTextBold)
+                assertEquals("PIPE stage", presentation.typeText)
+            }
+        } finally {
+            setSqlDialectMapping(project, null, null)
+        }
     }
 
     private fun highlight(sql: String): List<HighlightInfo> {
@@ -121,7 +139,7 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
             return myFixture.completeBasic().orEmpty().mapNotNull { item ->
                 val presentation = LookupElementPresentation()
                 item.renderElement(presentation)
-                item.lookupString.takeIf { presentation.typeText == "pipe stage" }
+                item.lookupString.takeIf { presentation.typeText == "PIPE stage" }
             }
         } finally {
             setSqlDialectMapping(project, null, null)

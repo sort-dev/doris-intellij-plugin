@@ -206,6 +206,18 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         }
     }
 
+    fun testPipeStageHeadHidesLoadedColumns() {
+        catalog("warehouse").schemas.createOrGet("analytics").tables.createOrGet("events").columns.createOrGet("id")
+        source.introspectionScope = CatalogScopes.select(DorisCatalogProfile.levels, listOf("warehouse", "analytics"))
+        project.service<DorisPipesSettings>().enabled = true
+        configure("FROM warehouse.analytics.events |> <caret>")
+        val items = myFixture.completeBasic().orEmpty()
+        assertNotEmpty(items.toList())
+        assertTrue(items.all { LookupElementPresentation.renderElement(it).typeText == "PIPE stage" })
+        assertFalse(items.any { it.lookupString == "id" })
+        introspections.assertNone()
+    }
+
     fun testPipeColumnCompletionRequestsTheUnloadedParent() {
         val schema = catalog("warehouse").schemas.createOrGet("analytics")
         project.service<DorisPipesSettings>().enabled = true
