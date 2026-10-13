@@ -15,7 +15,7 @@ final class DorisBrikkFunctionCall extends SqlFunctionCallExpressionImpl {
     @Override
     public Object computeDasType(DeepRecursiveScope<SqlDasTypeAwareDeepRecursiveElement, DasType> scope,
                                  Continuation<? super DasType> continuation) {
-        SqlTableType type = BrikkRelationColumns.INSTANCE.tableType(this);
+        SqlTableType type = dev.brikk.house.sql.intellij.relation.RelationTableTypes.INSTANCE.of(this, DorisRelationScope.INSTANCE);
         return type != null ? type : super.computeDasType(scope, continuation);
     }
 }

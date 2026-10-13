@@ -21,7 +21,7 @@ import dev.brikk.house.intellij.ContextResult
 import dev.brikk.house.intellij.ShapeResult
 import dev.sort.doris.brikk.BrikkDorisContext
 
-/** Statement-local Kotlin relation inputs. Never added to a physical datasource or builtin registry. */
+/** Legacy corpus observation only; production relation features use DorisRelationScope. */
 object BrikkRelationColumns {
     fun contracts(file: PsiFile): Map<String, ShapeResult> =
         (BrikkDorisContext.relations(file) as? ContextResult.Available)?.context?.relations.orEmpty()

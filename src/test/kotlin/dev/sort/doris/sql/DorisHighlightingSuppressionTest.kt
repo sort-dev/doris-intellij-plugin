@@ -238,7 +238,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
             "WITH t AS (SELECT 1 AS fid) " +
                 "SELECT (fid DIV 10) % 1000 AS bucket, count(*) AS c FROM t GROUP BY buckit;",
         )
-        assertHasInfo(infos, "Unable to resolve column 'buckit'")
+        assertHasInfo(infos, "Unknown column 'buckit'")
     }
 
     // --- P2-10: CTAS key/order columns + ENGINE = OLAP ---
@@ -325,7 +325,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
                 "SELECT bogus FROM t LATERAL VIEW EXPLODE(arr) tv AS item;",
             replay = true,
         )
-        assertHasInfo(infos, "Unable to resolve column 'bogus'")
+        assertHasInfo(infos, "Unknown column 'bogus'")
     }
 
     fun testWrongNameWithoutLateralViewStillRedDespiteAliasWord() {
@@ -334,14 +334,14 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
             "WITH t AS (SELECT 1 AS arr) SELECT item FROM t;",
             replay = true,
         )
-        assertHasInfo(infos, "Unable to resolve column 'item'")
+        assertHasInfo(infos, "Unknown column 'item'")
     }
 
     // --- guard: ordinary wrong column names keep their error (no over-suppression) ---
 
     fun testGenuineUnresolvedColumnStaysRed() {
         val infos = highlight("WITH t AS (SELECT 1 AS a) SELECT b FROM t;")
-        assertHasInfo(infos, "Unable to resolve column 'b'")
+        assertHasInfo(infos, "Unknown column 'b'")
     }
 
     /**

@@ -276,7 +276,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "e.code" }
         val resolved = ref.resolve()
         assertNotNull("Known slot column must resolve without a physical datasource", resolved)
-        val targets = dev.sort.doris.sql.BrikkRelationNavigation().getGotoDeclarationTargets(ref, ref.textOffset, myFixture.editor)
+        val targets = dev.sort.doris.sql.DorisRelationNavigation().getGotoDeclarationTargets(ref.identifier, ref.identifier!!.textOffset, myFixture.editor)
         assertNotNull(targets)
         assertTrue(targets!!.single().text, targets.single().text.contains("val code: String?"))
     }
@@ -289,6 +289,15 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         }
         val wrong = relationSql("SELECT e.code FROM ${'$'}src() AS hidden")
         assertNull(PsiTreeUtil.findChildrenOfType(wrong, SqlReferenceExpression::class.java).single { it.text == "e.code" }.resolve())
+    }
+
+    fun testOrdinarySqlFindUsagesKeepTheNativeTableTypeAdapter() {
+        relationSql("SELECT e.code FROM ${'$'}src() AS e WHERE e.code IS NOT NULL")
+        val property = PsiTreeUtil.findChildrenOfType(myFixture.file, org.jetbrains.kotlin.psi.KtProperty::class.java)
+            .single { it.name == "code" }
+        val usages = com.intellij.psi.search.searches.ReferencesSearch.search(property).findAll()
+        assertEquals("Both ordinary SQL references belong to the authored property", 2,
+            usages.count { it.element.containingFile.language == dev.sort.doris.sql.DorisSqlDialect.INSTANCE })
     }
 
     fun testRelationTraitEditRefreshesSqlWithoutEditingTheTemplate() {
@@ -320,10 +329,9 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         """.trimIndent())
         val sql = injected(PsiTreeUtil.findChildOfType(file, KtStringTemplateExpression::class.java)!!)
         val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "s.extra" }
-        assertTrue(dev.sort.doris.sql.BrikkRelationColumns.openColumnContext(ref))
-        val info = com.intellij.codeInsight.daemon.impl.HighlightInfo.newHighlightInfo(com.intellij.codeInsight.daemon.impl.HighlightInfoType.ERROR)
-            .range(ref.textRange).descriptionAndTooltip("Unable to resolve column 'extra'").create()!!
-        assertFalse(dev.sort.doris.sql.DorisHighlightInfoFilter().accept(info, sql))
+        assertTrue(dev.sort.doris.sql.DorisRelationInspectionSuppressor().isSuppressedFor(ref.identifier!!, "SqlResolve"))
+        val diagnostics = dev.brikk.house.sql.intellij.relation.relationDiagnostics(sql, dev.sort.doris.sql.DorisRelationScope)
+        assertFalse("A partial inventory does not prove absence", diagnostics.any { it.severity == dev.brikk.house.sql.diagnostics.DiagnosticSeverity.ERROR })
     }
 
     fun testKotlinSlotInputsPropagateThroughExistingPipeStageAnalysis() {
@@ -407,7 +415,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals("Long", com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(id).typeText)
         val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation.renderElement(code)
         assertEquals("String?", presentation.typeText)
-        assertEquals("  brikk column (src)", presentation.tailText)
+        assertEquals("  brikk column (d)", presentation.tailText)
     }
 
     fun testDerivedProjectionDoesNotRestoreDroppedBrikkColumns() {
@@ -457,7 +465,7 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertEquals("SELECT e.code FROM src() AS e", sql.text)
         val ref = PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java).single { it.text == "e.code" }
         assertNotNull(ref.resolve())
-        val targets = dev.sort.doris.sql.BrikkRelationNavigation().getGotoDeclarationTargets(ref, ref.textOffset, myFixture.editor)!!
+        val targets = dev.sort.doris.sql.DorisRelationNavigation().getGotoDeclarationTargets(ref.identifier, ref.identifier!!.textOffset, myFixture.editor)!!
         assertTrue(targets.single().text, targets.single().text.contains("val code: String?"))
     }
 
@@ -493,9 +501,9 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         relationSql("FROM ${'$'}src() AS e |> EXTEND id + 1 AS id |> SELECT code AS renamed, id |> WHERE <caret>")
         val items = columnPresentations()
         assertEquals("String?", items.getValue("renamed").typeText)
-        assertEquals("  brikk column (e)", items.getValue("renamed").tailText)
+        assertEquals("  brikk column (src)", items.getValue("renamed").tailText)
         assertEquals("unknown type (nullability unknown)", items.getValue("id").typeText)
-        assertEquals("  PIPE column", items.getValue("id").tailText)
+        assertEquals("  computed column (SELECT)", items.getValue("id").tailText)
         assertFalse(items.containsKey("code"))
     }
 

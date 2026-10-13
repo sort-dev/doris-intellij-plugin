@@ -9,5 +9,6 @@
     </extensions>
     <extensions defaultExtensionNs="dev.sort.doris-intellij-plugin">
         <hostInspectionRule implementation="dev.sort.doris.brikk.BrikkDorisInspectionRule"/>
+        <relationFacts implementation="dev.sort.doris.brikk.BrikkDorisRelationFacts"/>
     </extensions>
 </idea-plugin>

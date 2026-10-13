@@ -59,7 +59,7 @@ import dev.sort.doris.pipes.DorisPipesEngine
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesSettings
 import dev.sort.doris.sql.BrikkRelationColumns
-import dev.sort.doris.sql.BrikkRelationNavigation
+import dev.sort.doris.sql.DorisRelationNavigation
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.sort.doris.sql.DorisHighlightInfoFilter
 import java.nio.file.Files
@@ -523,7 +523,7 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
 
     private fun navigation(file: PsiFile, start: Int): List<String> {
         val element = file.findElementAt(start) ?: return emptyList()
-        val targets = BrikkRelationNavigation().getGotoDeclarationTargets(element, start, myFixture.editor)?.mapNotNull(::idOf).orEmpty()
+        val targets = DorisRelationNavigation().getGotoDeclarationTargets(element, start, myFixture.editor)?.mapNotNull(::idOf).orEmpty()
         return targets.ifEmpty { nativeTargets(file, start).mapNotNull { it.stringOrNull("navigationId") } }.distinct()
     }
 

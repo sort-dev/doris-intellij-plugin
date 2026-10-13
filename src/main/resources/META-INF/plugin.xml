@@ -403,6 +403,7 @@
     <depends optional="true" config-file="doris-kotlin.xml">org.jetbrains.kotlin</depends>
     <extensionPoints>
         <extensionPoint name="hostInspectionRule" interface="dev.sort.doris.brikk.DorisHostInspectionRule" dynamic="true"/>
+        <extensionPoint name="relationFacts" interface="dev.brikk.house.sql.intellij.relation.ExternalRelationFacts" dynamic="true"/>
     </extensionPoints>
     <xi:include href="/META-INF/doris-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
@@ -447,14 +448,17 @@
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisRelationCompletion"/>
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisRelationAnnotator"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisQualifiedPathIntrospectContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
         <sql.resolveExtension implementation="dev.sort.doris.sql.DorisAliasResolveExtension"/>
-        <gotoDeclarationHandler implementation="dev.sort.doris.sql.BrikkRelationNavigation"/>
+        <sql.resolveExtension implementation="dev.sort.doris.sql.DorisRelationResolve"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.doris.sql.DorisRelationInspectionSuppressor"/>
+        <gotoDeclarationHandler implementation="dev.sort.doris.sql.DorisRelationNavigation"/>
         <completion.confidence language="DorisSQL" order="first"
                                implementationClass="dev.sort.doris.sql.DorisCompletionConfidence"/>
 
