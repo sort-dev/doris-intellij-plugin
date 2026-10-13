@@ -5,7 +5,7 @@
         <languageInjectionPerformer language="kotlin" order="first"
                                     implementationClass="dev.sort.doris.brikk.BrikkDorisInjectionPerformer"/>
         <annotator language="kotlin" implementationClass="dev.sort.doris.brikk.BrikkDorisTemplateAnnotator"/>
-        <editorNotificationProvider implementation="dev.sort.doris.brikk.BrikkDorisNotificationProvider"/>
+        <codeInsight.lineMarkerProvider language="kotlin" implementationClass="dev.sort.doris.brikk.BrikkDorisLineMarkerProvider"/>
     </extensions>
     <extensions defaultExtensionNs="dev.sort.doris-intellij-plugin">
         <hostInspectionRule implementation="dev.sort.doris.brikk.BrikkDorisInspectionRule"/>

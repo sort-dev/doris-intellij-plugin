@@ -90,6 +90,43 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         }.refusesInspectionOnlySqlFromTheHostEditor()
     }
 
+    fun testGutterMarksEachBrikkStringButNoOrdinaryString() {
+        val file = myFixture.configureByText("Gutters.kt", """
+            import dev.brikk.house.sql.runtime.*
+            @BrikkSql fun query(tenant: String) {
+                Sql.doris("SELECT ${'$'}tenant")
+                Sql.doris("SELECT 2")
+                val plain = "plain"
+            }
+        """.trimIndent())
+        val provider = BrikkDorisLineMarkerProvider()
+        val leaves = PsiTreeUtil.collectElements(file) { it.firstChild == null }.toList()
+        val markers = mutableListOf<com.intellij.codeInsight.daemon.LineMarkerInfo<*>>()
+        provider.collectSlowLineMarkers(leaves, markers)
+        assertEquals(2, markers.size)
+        assertEquals("Brikk Doris SQL inspection views", provider.name)
+        assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, provider.icon)
+        assertTrue(markers.all { it.icon == provider.icon })
+        assertTrue(markers.all { it.lineMarkerTooltip!!.contains("DorisSQL: Kotlin binds, relation contracts, PIPE; inspection only, not executable") })
+    }
+
+    fun testPendingGutterIsDimmedAndHasWaitingTooltip() {
+        val host = configure("SELECT ${'$'}tenant")
+        injected(host)
+        val registrar = object : com.intellij.lang.injection.MultiHostRegistrar {
+            override fun startInjecting(language: com.intellij.lang.Language) = this
+            override fun addPlace(prefix: String?, suffix: String?, host: com.intellij.psi.PsiLanguageInjectionHost, range: com.intellij.openapi.util.TextRange) = this
+            override fun doneInjecting() = Unit
+        }
+        DorisHostSqlChannel.perform(registrar, host, dev.brikk.house.sql.intellij.host.HostSqlClaim.Unavailable("indexing"))
+        val provider = BrikkDorisLineMarkerProvider()
+        val markers = mutableListOf<com.intellij.codeInsight.daemon.LineMarkerInfo<*>>()
+        provider.collectSlowLineMarkers(listOf(PsiTreeUtil.getDeepestFirst(host)), markers)
+        assertEquals(1, markers.size)
+        assertEquals(com.intellij.openapi.util.IconLoader.getDisabledIcon(provider.icon), markers.single().icon)
+        assertTrue(markers.single().lineMarkerTooltip!!.contains("waiting for indexing"))
+    }
+
     fun testInspectionViewRuleAlsoProtectsAnotherBrikkDialect() {
         val host = configure("SELECT ${'$'}tenant", entryPoint = "Sql.duckdb")
         val files = InjectedLanguageManager.getInstance(project).getInjectedPsiFiles(host).orEmpty()
