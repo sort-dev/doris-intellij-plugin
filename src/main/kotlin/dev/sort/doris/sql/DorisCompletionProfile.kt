@@ -53,7 +53,7 @@ object DorisCompletionProfile : SqlCompletionProfile {
                 SqlLookupKind.WINDOW to "Doris window function",
                 SqlLookupKind.TABLE_FUNCTION to "Doris table function",
             ).map { (kind, label) ->
-                kind to defaults[kind].copy(typeText = label, case = LookupCase.LOWER,
+                kind to defaults[kind].copy(typeText = label, case = LookupCase.UPPER,
                     showsSignature = true, showsReturnType = true)
             }.toTypedArray(),
             SqlLookupKind.SERVER_FUNCTION to defaults[SqlLookupKind.SERVER_FUNCTION].copy(typeText = "Doris function"),

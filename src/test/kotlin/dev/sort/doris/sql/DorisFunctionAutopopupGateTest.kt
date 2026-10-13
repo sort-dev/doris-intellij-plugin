@@ -64,10 +64,10 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
         )
     }
 
-    fun testDigitPrefixOffersNoFunctionsEvenOnExplicitInvoke() {
-        val lookups = explicitCompletions("SELECT count(*) FROM t GROUP BY 1<caret>")
-        assertFalse("`sha1` must not be offered for a digit prefix, got: ${lookups.take(25)}", lookups.contains("sha1"))
-        assertFalse("`log10` must not be offered for a digit prefix", lookups.contains("log10"))
+    fun testDigitPrefixOffersNoMetadataFunctionsEvenOnExplicitInvoke() {
+        configure("SELECT count(*) FROM t GROUP BY 1<caret>")
+        val functions = myFixture.completeBasic().orEmpty().mapNotNull { it.`object` as? FunctionPresentation }
+        assertEmpty(functions)
     }
 
     // --- Criterion 2/3: after AS / BY / FROM — not an expression position, no function autopopup ---
@@ -109,13 +109,13 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     fun testExplicitInvokeOffersFunctionsInExpressionPosition() {
         val lookups = explicitCompletions("SELECT da<caret>")
-        assertTrue("`date_trunc` offered from prefix `da`, got: ${lookups.take(25)}", lookups.contains("date_trunc"))
+        assertTrue("`date_trunc` offered from prefix `da`, got: ${lookups.take(25)}", lookups.contains("DATE_TRUNC"))
     }
 
     fun testExplicitInvokeOffersFunctionsEvenAfterKeyword() {
         // Criterion 7: confidence/allowlist only gate AUTOPOPUP; explicit invoke gets functions
         // anywhere sensible — even right after AS, which is not an autopopup position.
         val lookups = explicitCompletions("CREATE VIEW v AS as<caret>")
-        assertTrue("`asin` offered on explicit invoke after AS, got: ${lookups.take(25)}", lookups.contains("asin"))
+        assertTrue("`asin` offered on explicit invoke after AS, got: ${lookups.take(25)}", lookups.contains("ASIN"))
     }
 }
