@@ -347,13 +347,19 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         assertNull(PsiTreeUtil.findChildrenOfType(wrong, SqlReferenceExpression::class.java).single { it.text == "e.code" }.resolve())
     }
 
-    fun testOrdinarySqlFindUsagesKeepTheNativeTableTypeAdapter() {
+    fun testOrdinarySqlFindUsagesAndRenameKeepTheNativeTableTypeAdapter() {
         relationSql("SELECT e.code FROM ${'$'}src() AS e WHERE e.code IS NOT NULL")
         val property = PsiTreeUtil.findChildrenOfType(myFixture.file, org.jetbrains.kotlin.psi.KtProperty::class.java)
             .single { it.name == "code" }
         val usages = com.intellij.psi.search.searches.ReferencesSearch.search(property).findAll()
         assertEquals("Both ordinary SQL references belong to the authored property", 2,
             usages.count { it.element.containingFile.language == dev.sort.doris.sql.DorisSqlDialect.INSTANCE })
+        myFixture.renameElement(property, "renamed")
+        val host = PsiTreeUtil.findChildOfType(myFixture.file, KtStringTemplateExpression::class.java)!!
+        val sql = injected(host)
+        assertEquals("SELECT e.renamed FROM src() AS e WHERE e.renamed IS NOT NULL", sql.text)
+        assertTrue(PsiTreeUtil.findChildrenOfType(sql, SqlReferenceExpression::class.java)
+            .filter { it.text == "e.renamed" }.all { it.resolve() != null })
     }
 
     fun testRelationTraitEditRefreshesSqlWithoutEditingTheTemplate() {
