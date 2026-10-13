@@ -97,6 +97,26 @@ class DorisCompletionInsertionTest : BasePlatformTestCase() {
         assertEquals("SELECT", myFixture.editor.document.text.trim())
     }
 
+    fun testMetadataAndNativeKeywordsDoNotCompleteInsideStringsOrComments() {
+        for (sql in listOf("SELECT 'ab<caret>'", "SELECT \"sel<caret>\"", "SELECT 1 -- ab<caret>",
+            "SELECT /* sel<caret> */ 1", "SELECT \$\$ab<caret>\$\$")) {
+            configure(sql)
+            myFixture.completeBasic()
+            val items = myFixture.lookupElements.orEmpty()
+            assertFalse(sql, items.any { it.`object` is FunctionPresentation })
+            assertFalse(sql, items.any { it.lookupString.equals("SELECT", true) &&
+                LookupElementPresentation.renderElement(it).isItemTextBold })
+        }
+    }
+
+    fun testMetadataFunctionDeduplicatesTheStockBuiltin() {
+        configure("SELECT ab<caret>")
+        myFixture.completeBasic()
+        val items = myFixture.lookupElements.orEmpty().filter { it.lookupString.equals("abs", true) }
+        assertEquals(1, items.size)
+        assertTrue(items.single().`object` is FunctionPresentation)
+    }
+
     fun testDelegatedNativeKeywordUsesUppercaseForAMixedCasePrefix() {
         acceptKeyword("SELECT 1; sEl<caret>", "SELECT")
         myFixture.checkResult("SELECT 1; SELECT <caret>")
