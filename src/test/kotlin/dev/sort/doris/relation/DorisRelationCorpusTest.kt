@@ -83,6 +83,7 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
     private val declarations = LinkedHashMap<String, PsiElement>()
     private val locations = LinkedHashMap<String, SourceLocation>()
     private var physicalColumns = emptySet<String>()
+    private var physicalFacts = emptyMap<Pair<String, String>, JsonObject>()
     private var dataSources = emptyList<DbDataSource>()
     private var previousPipes = false
     private var previousCatalogs: String? = null
@@ -146,8 +147,8 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
     ).run()
 
     fun testCurrentRelationImplementationsAgainstAcceptanceCorpus() {
-        assertEquals("2.1", facts.string("version"))
-        assertEquals(156, cases.size)
+        assertEquals("2.2", facts.string("version"))
+        assertEquals(177, cases.size)
         assertEquals(cases.size, cases.map { it.string("id") }.toSet().size)
         val baseline = Json.parseToJsonElement(resource("doris-disagreements.json")).jsonObject
         val shared = baseline["shared"]?.jsonObject ?: baseline
@@ -215,6 +216,7 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
                     "navigation" to JsonArray(references.map { reference -> navigationReference(reference, navigation(file, reference.int("start"))) }),
                     "diagnostics" to diagnostics(file, case),
                 )
+                case["declarationRanges"]?.let { observed["declarationRanges"] = declarationRanges(file, case) }
                 val scopes = ArrayList<JsonObject>()
                 val completions = ArrayList<JsonObject>()
                 val rawScopes = ArrayList<JsonElement>()
@@ -244,6 +246,7 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
                 if (orders.isNotEmpty()) observed["order"] = JsonArray(orders)
                 case["coreOrder"]?.let { observed["coreOrder"] = coreOrder(case) }
                 case["coreRefusal"]?.let { observed["coreRefusal"] = coreRefusal(sql) }
+                case["coreExecution"]?.let { observed["coreExecution"] = coreExecution(case) }
                 observed
             }
             val allowed = known[id]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
@@ -290,7 +293,7 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
             put("resolvedKnownDisagreements", strings(resolved))
             put("representationNotes", facts.getValue("representationNotes"))
             put("dorisEvidence", evidence)
-            put("adapter", "Unchanged v2.1 Doris-tagged SQL with copied relation contracts on the native Doris hook. Ordinary references/resolve observe SQL PSI, scope observes SqlTableType, PIPE observes pipeScope/pipeDisplay. Completion reads lookupElements with auto-insert disabled. Unsupported PIPE identity, knowledge and navigation stay unknown. Physical tables use real DDL data sources and the same-id offline local model. Native witnesses prove FE syntax only, not rows or semantic rejection.")
+            put("adapter", "Unchanged v2.2 Doris-tagged SQL with copied relation contracts on the native Doris hook. Ordinary references/resolve/declaration ranges observe SQL PSI, scope observes SqlTableType, PIPE observes pipeScope/pipeDisplay. Completion reads lookupElements with auto-insert disabled. Unsupported PIPE identity, knowledge and navigation stay unknown. Physical tables use real DDL data sources and the same-id offline local model. Native witnesses prove FE syntax only, not rows or semantic rejection. Core execution observes generated SQL syntax and output columns; Doris rows remain unverified.")
             put("lane", if (brikk) "Kotlin raw-string injection with Kotlin declaration targets" else "Native Doris SQL files with foreign XML navigation targets; Kotlin absent")
             put("categories", JsonObject(differences.groupBy { it.string("category") }.mapValues { JsonArray(it.value) }))
             put("categorySummary", JsonObject(applicable.groupBy { it.string("category") }.mapValues { (category, entries) ->
@@ -358,6 +361,12 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
 
     private fun <T> withPhysicalTables(case: JsonObject, action: () -> T): T {
         val tables = case.getValue("physicalTables").jsonObject
+        physicalFacts = tables.entries.flatMap { (name, fact) ->
+            shapes.getValue(fact.jsonPrimitive.content).jsonObject.array("columns").map { key ->
+                val column = columns.getValue(key.jsonPrimitive.content).jsonObject
+                (name to column.string("name")) to column
+            }
+        }.toMap()
         physicalColumns = tables.values.flatMap { fact -> shapes.getValue(fact.jsonPrimitive.content).jsonObject.array("columns") }
             .map { columns.getValue(it.jsonPrimitive.content).jsonObject.string("name") }.toSet()
         if (tables.isEmpty()) return action()
@@ -418,7 +427,9 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
                 val aliases = HashSet<String>()
                 for (index in 0 until type.columnCount) {
                     val name = type.getColumnName(index) ?: continue
-                    val relation = (type.getColumnQualifier(index) as? PsiNamedElement)?.name.orEmpty()
+                    val sourceRelation = type.getColumnQualifier(index)
+                    val relation = (sourceRelation as? SqlReferenceExpression)?.text
+                        ?: (sourceRelation as? PsiNamedElement)?.name.orEmpty()
                     aliases += relation.lowercase()
                     if (relation.lowercase() in shadowed || qualifier != null && !qualifier.equals(relation, true)) continue
                     val source = type.getSourceColumnElement(index) ?: type.getColumnElement(index)
@@ -484,8 +495,8 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
         put("origin", when { physical != null -> "PHYSICAL_TABLE"; contract?.navigation?.kind == NavigationKind.RELATION_FALLBACK -> "RELATION_CONTRACT"; contract != null -> "KOTLIN_RELATION"; else -> "COMPUTED" })
         put("kotlinType", nullable(contract?.kotlinClassId)); put("sqlType", nullable(physical?.dasType?.toDataType()?.typeName?.uppercase()))
         put("nullability", contract?.nullability?.name ?: if (physical != null) { if (physical.isNotNull) "NON_NULL" else "NULLABLE" } else "UNKNOWN")
-        put("navigationId", nullable(if (physical != null) "decl:physical.${physical.name}" else idOf(contract?.navigation?.location)))
-        put("identity", if (physical != null) "physical.${physical.name}" else identity(contract, name))
+        put("navigationId", nullable(if (physical != null) physicalFact(physical)?.stringOrNull("navigationId") else idOf(contract?.navigation?.location)))
+        put("identity", if (physical != null) physicalFact(physical)?.getValue("identity") ?: JsonNull else JsonPrimitive(identity(contract, name)))
     }
 
     private fun nativeReference(file: PsiFile, start: Int): SqlReferenceExpression? =
@@ -500,7 +511,8 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
             ?: (result?.qualifier as? SqlNameElement)?.name.orEmpty()
         val symbol = resolved as? DasColumnSymbol ?: reference.resolveSymbol()
         if (symbol is DasColumnSymbol) return symbol.dasObject?.name?.let {
-            listOf(target(qualifier, it, "physical.$it", "decl:physical.$it"))
+            val fact = symbol.dasObject?.let(::physicalFact)
+            listOf(target(qualifier, it, fact?.string("identity") ?: "physical.$it", fact?.stringOrNull("navigationId")))
         }.orEmpty()
         val context = (result?.targetSymbol as? DasVirtualSymbol)?.contextElement
         val authored = (resolved as? PsiNamedElement)?.name ?: reference.identifier?.text ?: return emptyList()
@@ -606,6 +618,8 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
             } }))
             case["coreOrder"]?.let { put("coreOrder", it) }
             case["coreRefusal"]?.let { put("coreRefusal", it) }
+            case["coreExecution"]?.let { put("coreExecution", it) }
+            case["declarationRanges"]?.let { put("declarationRanges", it) }
         }
     }
 
@@ -653,6 +667,41 @@ class DorisRelationCorpusTest : BasePlatformTestCase() {
         return columns.values.map { it.jsonObject }.firstOrNull {
             id != null && it.stringOrNull("navigationId") == id && it.string("name").equals(contract?.name, true)
         }?.string("identity") ?: "computed.$name"
+    }
+
+    private fun physicalFact(column: DasColumn): JsonObject? {
+        val table = column.table ?: return null
+        val schema = com.intellij.database.util.DasUtil.getSchema(table)
+        return physicalFacts["$schema.${table.name}" to column.name]
+            ?: physicalFacts[table.name to column.name]
+            ?: physicalFacts.entries.filter { (key, _) -> key.first.substringAfterLast('.') == table.name && key.second == column.name }
+                .singleOrNull()?.value
+    }
+
+    private fun declarationRanges(file: PsiFile, case: JsonObject) = JsonArray(case.array("declarationRanges").map { value ->
+        val probe = value.jsonObject
+        val resolved = nativeReference(file, probe.int("start"))?.reference?.resolve()
+        val identifier = (resolved as? com.intellij.psi.PsiNameIdentifierOwner)?.nameIdentifier
+            ?: (resolved as? SqlReferenceExpression)?.identifier ?: resolved
+        val targets = if (identifier?.containingFile === file) listOf(buildJsonObject {
+            put("start", identifier.textRange.startOffset); put("end", identifier.textRange.endOffset)
+        }) else emptyList()
+        buildJsonObject {
+            put("start", probe.int("start")); put("end", probe.int("end")); put("targets", JsonArray(targets))
+        }
+    })
+
+    private fun coreExecution(case: JsonObject): JsonObject {
+        val input = case.getValue("engineRelations").jsonObject.entries.fold(case.string("sql")) { text, (slot, table) ->
+            text.replace(Regex("\\b${Regex.escape(slot)}\\s*\\(\\s*\\)"), table.jsonPrimitive.content)
+        }
+        val lowered = SqlFragment(input, "doris").toExecutable("doris")
+        val syntax = nativeSyntax(lowered.sql)
+        return buildJsonObject {
+            put("rows", JsonNull)
+            put("columns", coreOrder(case))
+            if (!syntax.getValue("accepted").jsonPrimitive.boolean) put("nativeSyntax", syntax)
+        }
     }
 
     private fun coreOrder(case: JsonObject): JsonElement {

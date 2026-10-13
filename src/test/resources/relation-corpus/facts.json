@@ -1,5 +1,5 @@
 {
-  "version": "2.1",
+  "version": "2.2",
   "coordinates": "UTF-16, zero-based, half-open, relative to unescaped SQL without a dialect header",
   "columns": {
     "src.id": {
@@ -214,7 +214,7 @@
       "name": "bucket",
       "kotlinType": null,
       "nullability": "NON_NULL",
-      "sqlType": "INTEGER",
+      "sqlType": null,
       "origin": "COMPUTED",
       "navigationId": null
     },
@@ -241,7 +241,7 @@
       "name": "value",
       "kotlinType": null,
       "nullability": "NULLABLE",
-      "sqlType": "INTEGER",
+      "sqlType": null,
       "origin": "COMPUTED",
       "navigationId": null
     },
@@ -262,6 +262,42 @@
       "origin": "KOTLIN_RELATION",
       "navigationId": "decl:src.eventKind",
       "identity": "src.eventKind"
+    },
+    "computed.literal-a": {
+      "name": "a",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.a"
+    },
+    "computed.lateral-b": {
+      "name": "b",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.b"
+    },
+    "physical.one-id": {
+      "name": "id",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.one.t.id",
+      "identity": "physical.one.t.id"
+    },
+    "physical.two-id": {
+      "name": "id",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.two.t.id",
+      "identity": "physical.two.t.id"
     }
   },
   "facts": {
@@ -344,6 +380,24 @@
       "columns": [
         "src.eventKind"
       ]
+    },
+    "single-right-id": {
+      "knowledge": "FULL",
+      "columns": [
+        "rhs.id"
+      ]
+    },
+    "physical-one": {
+      "knowledge": "FULL",
+      "columns": [
+        "physical.one-id"
+      ]
+    },
+    "physical-two": {
+      "knowledge": "FULL",
+      "columns": [
+        "physical.two-id"
+      ]
     }
   },
   "representationNotes": [
@@ -362,7 +416,10 @@
     "At an ordinary USING/NATURAL JOIN WHERE position both qualified input inventories remain visible plus a single merged unqualified key. Projection-star order is probed only after a CTE/subquery boundary, not by conflating WHERE scope with SELECT output.",
     "catalogKnowledge CLOSED permits UNKNOWN_TABLE when a table is absent; UNKNOWN must not assert absence. Provider slots/physicalTables are copied facts, not proof that the whole catalog is closed.",
     "Every witness uses failure:null for success or failure:{kind,messageContains} for rejection; verified:true means executed by its native engine harness. Authored but unexecuted Trino/Doris witnesses are verified:false. A parsed alternative is not evidence of execution.",
-    "SerializableResults messages/details are normalized corpus labels, not promises of exact UI text. Ranges and identities are independent of any host/injection objects."
+    "SerializableResults messages/details are normalized corpus labels, not promises of exact UI text. Ranges and identities are independent of any host/injection objects.",
+    "SQL types are optional supplied facts, never inferred from Kotlin display types. price+qty and UNPIVOT value remain SQL-type unknown when operand facts omit SQL types, even if native engine metadata knows INTEGER.",
+    "declarationRanges probes reference-to-declaration navigation in SQL coordinates. Target ranges cover only the declared CTE name, column alias or table alias, not the whole defining expression.",
+    "coreExecution substitutes zero-argument provider slots with declared engineRelations before lowering, then executes the real core toExecutable output. Rows and columns are compared to independently executed ordinary SQL witnesses; SQL rejection and lowering refusal remain disagreements."
   ],
   "evidence": {
     "aliases": "Owner Q13 option C and PipeDesugar.kt stage boundaries: changing stages lose all old range variables; AS replaces them. Unknown qualifiers are relation-level errors, not missing-column or partial-row claims.",
@@ -387,7 +444,9 @@
     "ordering": "AGGREGATE grouping projections precede aggregates, as both the spec and PipeDesugar.kt applyAggregateGroupOrderBy lines 626-630 implement; stars and set operations preserve defined positional order.",
     "arity": "Native binders reject positional set operations with different column counts. BY NAME is a separately tagged dialect extension, not positional arity repair.",
     "quoting": "SQL identifier folding is a dialect rule, independent of exact Kotlin/provider keys. Quoted-case semantics are tagged, not imposed by a DuckDB witness on Trino or Doris.",
-    "pipeline-shapes": "SELECT-first, parenthesized input and nested pipelines expose their projected row independently of the surrounding query namespace."
+    "pipeline-shapes": "SELECT-first, parenthesized input and nested pipelines expose their projected row independently of the surrounding query namespace.",
+    "execution": "Sequential PIPE stages must preserve row-selection and outer-join boundaries. Independently authored ordinary SQL witnesses are checked against actual toExecutable output, not parser acceptance.",
+    "declarations": "Navigation exposes UTF-16 half-open ranges of SQL declarations, independently of provider lineage/navigation ids."
   },
   "resultContract": {
     "model": "Plain serializable data only; no IntelliJ, injection, Kotlin-host, PSI, Database Tools, database connection or live analysis-session objects.",
@@ -418,12 +477,14 @@
     "trino": "a61ed1a: 12 DuckDB witnesses need Trino-native forms; no SQL/offset adaptation in input.",
     "doris": "Doris summary.md: LEFT SEMI/LEFT ANTI ordinary spellings; no wrong relational expectation proved; PIPE completeness/navigation not exposed by current APIs.",
     "controller": "Serializable text-offset-only future core results; owner Q13 and controller set-lineage rules govern v2.",
-    "fable": "v2.1: completion auto-insert fixture defect, qualified USING scope, left-only INTERSECT/EXCEPT nullability, conditional PIPE aliases, realistic camelCase, closed-catalog diagnostics and unverified native witnesses."
+    "fable": "v2.1: completion auto-insert fixture defect, qualified USING scope, left-only INTERSECT/EXCEPT nullability, conditional PIPE aliases, realistic camelCase, closed-catalog diagnostics and unverified native witnesses.",
+    "controller-v22": "Anonymous unaliased PIPE boundaries, unknown CALL output, optional SQL facts, dialect-specific alias visibility/quoting, duplicate navigation, FULL USING nullability, multipart qualifiers, declaration coordinates and execution boundaries."
   },
   "dialects": [
     "duckdb",
     "trino",
-    "doris"
+    "doris",
+    "postgres"
   ],
   "stageAliasPolicy": {
     "drop": [
@@ -464,7 +525,8 @@
     "duckdb": [
       "GROUP BY may use SELECT aliases. Quoted SQL identifiers also compare case-insensitively; Kotlin slot names never do.",
       "Native SEMI/ANTI have no LEFT prefix and RIGHT SEMI/ANTI are rejected; brikk PIPE right variants use swapped-input witnesses. Native derived tables deduplicate repeated names with _1 suffixes, unlike portable duplicate-name ambiguity.",
-      "TABLESAMPLE (100 PERCENT), SELECT * EXCLUDE/REPLACE, UNION BY NAME and native UNPIVOT have DuckDB-specific witnesses."
+      "TABLESAMPLE (100 PERCENT), SELECT * EXCLUDE/REPLACE, UNION BY NAME and native UNPIVOT have DuckDB-specific witnesses.",
+      "Projection aliases are visible in WHERE and to later expressions in the same SELECT list."
     ],
     "trino": [
       "GROUP BY does not see SELECT aliases. No native SEMI/ANTI join spellings: use EXISTS/NOT EXISTS witnesses.",
@@ -474,7 +536,12 @@
     "doris": [
       "Native semi/anti spellings use LEFT SEMI/LEFT ANTI or RIGHT SEMI/RIGHT ANTI. Bare SEMI/ANTI SQL cases are not applicable.",
       "No DuckDB star EXCLUDE/REPLACE or derived-name dedup assumption. TABLESAMPLE, PIVOT and UNPIVOT have only explicitly supplied portable/native alternatives.",
-      "The native table-type hook and PIPE scanner are separate observation axes; a native type hook cannot supply PSI inside a flat PIPE statement."
+      "The native table-type hook and PIPE scanner are separate observation axes; a native type hook cannot supply PSI inside a flat PIPE statement.",
+      "Double quotes delimit strings, not identifiers. Double-quoted source-alias SQL is not applicable."
+    ],
+    "postgres": [
+      "PostgreSQL-family baseline: HAVING does not see projection aliases; quoted identifiers retain case, while unquoted identifiers fold to lowercase. Redshift extensions are not implied.",
+      "No PostgreSQL engine was run here. Engine witnesses are null, not DuckDB substitutes."
     ]
   },
   "engineSetup": {
@@ -492,7 +559,15 @@
       "CREATE TABLE nullable_measures(id BIGINT NOT NULL, price INTEGER, qty INTEGER)",
       "INSERT INTO nullable_measures VALUES (1,NULL,2)",
       "CREATE TABLE camel_events(eventKind VARCHAR)",
-      "INSERT INTO camel_events VALUES ('a'),(NULL)"
+      "INSERT INTO camel_events VALUES ('a'),(NULL)",
+      "CREATE TABLE nullable_customers(id BIGINT)",
+      "INSERT INTO nullable_customers VALUES (NULL),(1),(3)",
+      "CREATE SCHEMA one",
+      "CREATE SCHEMA two",
+      "CREATE TABLE one.t(id INTEGER NOT NULL)",
+      "CREATE TABLE two.t(id INTEGER NOT NULL)",
+      "INSERT INTO one.t VALUES (1)",
+      "INSERT INTO two.t VALUES (2)"
     ],
     "trino": [
       "CREATE TABLE events(id BIGINT NOT NULL, event_kind VARCHAR, price INTEGER NOT NULL, qty INTEGER NOT NULL)",

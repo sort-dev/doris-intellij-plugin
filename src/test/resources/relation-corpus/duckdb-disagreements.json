@@ -39,6 +39,62 @@
     "cte-shadow-slot": [
       "completion"
     ],
+    "duckdb-lateral-select-alias": [
+      "completion",
+      "references",
+      "resolve",
+      "scope"
+    ],
+    "duckdb-where-projection-alias": [
+      "completion",
+      "diagnostics",
+      "references",
+      "resolve",
+      "scope"
+    ],
+    "exec-extend-window-after-limit": [
+      "coreExecution"
+    ],
+    "exec-full-join-after-where": [
+      "coreExecution"
+    ],
+    "exec-order-after-limit": [
+      "coreExecution"
+    ],
+    "exec-right-join-after-where": [
+      "coreExecution"
+    ],
+    "exec-set-input-alias": [
+      "coreExecution"
+    ],
+    "full-using-key-non-null-non-null": [
+      "completion",
+      "diagnostics",
+      "navigation",
+      "resolve",
+      "scope"
+    ],
+    "full-using-key-non-null-nullable": [
+      "completion",
+      "diagnostics",
+      "navigation",
+      "resolve",
+      "scope"
+    ],
+    "full-using-key-nullable-non-null": [
+      "completion",
+      "diagnostics",
+      "navigation",
+      "resolve",
+      "scope"
+    ],
+    "full-using-key-nullable-nullable": [
+      "completion",
+      "diagnostics",
+      "navigation",
+      "resolve",
+      "scope"
+    ],
     "incomplete-parenthesis": [
       "completion",
       "scope"
@@ -73,6 +129,10 @@
     ],
     "mixed-case-column-folding": [
       "completion"
+    ],
+    "multipart-same-table-name": [
+      "references",
+      "scope"
     ],
     "natural-merged-star": [
       "completion",
@@ -210,7 +270,10 @@
     "pipe-as-replaces-old-alias": [
       "diagnostics"
     ],
-    "pipe-call-unknown-output": [
+    "pipe-distinct": [
+      "completion",
+      "references",
+      "resolve",
       "scope"
     ],
     "pipe-distinct-multi-source-qualifier-refused": [
@@ -277,6 +340,12 @@
       "resolve",
       "scope"
     ],
+    "pipe-limit": [
+      "completion",
+      "references",
+      "resolve",
+      "scope"
+    ],
     "pipe-limit-multi-source-qualifier-refused": [
       "completion",
       "diagnostics",
@@ -289,6 +358,12 @@
       "completion",
       "diagnostics",
       "navigation",
+      "references",
+      "resolve",
+      "scope"
+    ],
+    "pipe-offset": [
+      "completion",
       "references",
       "resolve",
       "scope"
@@ -432,7 +507,8 @@
       "scope"
     ],
     "portable-group-expression": [
-      "completion"
+      "completion",
+      "scope"
     ],
     "provider-case-exact-match": [
       "completion"
@@ -577,6 +653,9 @@
     "pipe-select-hides-alias/completion"
   ],
   "notes": [
-    "All completion observations disable auto-insert. Six former runtime-specific axes are shared known PIPE fallback/duplicate-entry differences; semantic expectations are not bypassed."
+    "v2.2: regenerated from actual DuckDB observations on 261/262/263. Shared disagreement axes are identical on all three IDE generations. Expectations are not replaced by implementation behavior.",
+    "All completion observations disable auto-insert. Physical identity serialization uses resolved DAS schema/table/column facts, not ambiguous column names.",
+    "Native witnesses execute independently. coreExecution also executes actual toExecutable output; five known boundary/alias failures are retained as coreExecution disagreements. INNER/LEFT JOIN and SQL declaration ranges pass.",
+    "PostgreSQL-family and Trino-only cases are not DuckDB evidence. Their native witnesses are null or explicitly unverified."
   ]
 }

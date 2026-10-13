@@ -2241,22 +2241,6 @@
     "failure": null,
     "verified": false
   },
-  "doris:quoted-source-alias": {
-    "sql": "SELECT `Odd Alias`.id FROM events AS `Odd Alias`",
-    "rows": [
-      [
-        1
-      ],
-      [
-        2
-      ]
-    ],
-    "failure": null,
-    "verified": false,
-    "columns": [
-      "id"
-    ]
-  },
   "duckdb:pivot-surviving-key": {
     "sql": "SELECT * FROM (SELECT id,event_kind,qty FROM events) PIVOT(sum(qty) FOR event_kind IN ('a' AS a,'b' AS b))",
     "rows": null,
@@ -2609,6 +2593,300 @@
     "verified": true,
     "columns": [
       "range"
+    ]
+  },
+  "duckdb:duckdb-where-projection-alias": {
+    "sql": "SELECT price+qty AS total FROM events WHERE total > 5",
+    "rows": [
+      [
+        9
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "total"
+    ]
+  },
+  "duckdb:duckdb-lateral-select-alias": {
+    "sql": "SELECT 1 AS a, a+1 AS b",
+    "rows": [
+      [
+        1,
+        2
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "a",
+      "b"
+    ]
+  },
+  "trino:having-projection-alias-rejected": {
+    "sql": "SELECT count(*) AS n FROM events HAVING n > 0",
+    "rows": null,
+    "failure": {
+      "kind": "REJECTION",
+      "messageContains": null
+    },
+    "verified": false
+  },
+  "duckdb:full-using-key-non-null-non-null": {
+    "sql": "SELECT q.id FROM (SELECT id FROM events FULL JOIN customers USING (id)) q",
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:full-using-key-nullable-non-null": {
+    "sql": "SELECT q.id FROM (SELECT id FROM nullable_events FULL JOIN customers USING (id)) q",
+    "rows": [
+      [
+        null
+      ],
+      [
+        1
+      ],
+      [
+        3
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:full-using-key-non-null-nullable": {
+    "sql": "SELECT q.id FROM (SELECT id FROM events FULL JOIN nullable_customers USING (id)) q",
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        null
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:full-using-key-nullable-nullable": {
+    "sql": "SELECT q.id FROM (SELECT id FROM nullable_events FULL JOIN nullable_customers USING (id)) q",
+    "rows": [
+      [
+        null
+      ],
+      [
+        1
+      ],
+      [
+        3
+      ],
+      [
+        null
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:multipart-same-table-name": {
+    "sql": "SELECT two.t.id FROM one.t CROSS JOIN two.t",
+    "rows": [
+      [
+        2
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:cte-declaration-range": {
+    "sql": "WITH q AS (SELECT id FROM events) SELECT q.id FROM q",
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:column-alias-declaration-range": {
+    "sql": "SELECT id AS renamed FROM events ORDER BY renamed",
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "renamed"
+    ]
+  },
+  "duckdb:table-alias-declaration-range": {
+    "sql": "SELECT e.id FROM events AS e",
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:exec-order-after-limit": {
+    "sql": "SELECT id FROM (SELECT * FROM events ORDER BY id LIMIT 1) q ORDER BY id DESC",
+    "rows": [
+      [
+        1
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id"
+    ]
+  },
+  "duckdb:exec-extend-window-after-limit": {
+    "sql": "SELECT id,row_number() OVER (ORDER BY id) AS rn FROM (SELECT * FROM events ORDER BY id DESC LIMIT 1) q",
+    "rows": [
+      [
+        2,
+        1
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id",
+      "rn"
+    ]
+  },
+  "duckdb:exec-set-input-alias": {
+    "sql": "SELECT id,price+qty AS price FROM events",
+    "rows": [
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        9
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "id",
+      "price"
+    ]
+  },
+  "duckdb:exec-inner-join-after-where": {
+    "sql": "SELECT e.id AS left_id,r.id AS right_id FROM (SELECT * FROM events WHERE id=2) e INNER JOIN customers r ON e.id=r.id",
+    "rows": [],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "left_id",
+      "right_id"
+    ]
+  },
+  "duckdb:exec-left-join-after-where": {
+    "sql": "SELECT e.id AS left_id,r.id AS right_id FROM (SELECT * FROM events WHERE id=2) e LEFT JOIN customers r ON e.id=r.id",
+    "rows": [
+      [
+        2,
+        null
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "left_id",
+      "right_id"
+    ]
+  },
+  "duckdb:exec-right-join-after-where": {
+    "sql": "SELECT e.id AS left_id,r.id AS right_id FROM (SELECT * FROM events WHERE id=2) e RIGHT JOIN customers r ON e.id=r.id",
+    "rows": [
+      [
+        null,
+        1
+      ],
+      [
+        null,
+        3
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "left_id",
+      "right_id"
+    ]
+  },
+  "duckdb:exec-full-join-after-where": {
+    "sql": "SELECT e.id AS left_id,r.id AS right_id FROM (SELECT * FROM events WHERE id=2) e FULL JOIN customers r ON e.id=r.id",
+    "rows": [
+      [
+        2,
+        null
+      ],
+      [
+        null,
+        1
+      ],
+      [
+        null,
+        3
+      ]
+    ],
+    "failure": null,
+    "verified": true,
+    "columns": [
+      "left_id",
+      "right_id"
     ]
   }
 }
