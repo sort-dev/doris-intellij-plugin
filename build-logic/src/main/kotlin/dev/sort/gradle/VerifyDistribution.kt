@@ -33,6 +33,9 @@ abstract class VerifyDistribution : DefaultTask() {
     abstract val pluginJar: Property<String>
 
     @get:Input
+    abstract val expectedVersion: Property<String>
+
+    @get:Input
     abstract val embeddedLibraries: SetProperty<String>
 
     @get:Input
@@ -110,6 +113,10 @@ abstract class VerifyDistribution : DefaultTask() {
             check(absentNotices.isEmpty()) { "THIRD_PARTY_NOTICES.md lacks $absentNotices" }
 
             val descriptor = resources[PLUGIN_XML]?.decodeToString() ?: error("META-INF/plugin.xml is not packaged")
+            val descriptorVersion = Regex("""<version>\s*([^<]+)\s*</version>""").find(descriptor)?.groupValues?.get(1)?.trim()
+            check(descriptorVersion == expectedVersion.get()) {
+                "plugin.xml version $descriptorVersion differs from archive version ${expectedVersion.get()}"
+            }
             for (sibling in siblingPluginIds.get()) {
                 check(!Regex("""<depends\b[^>]*>\s*${Regex.escape(sibling)}\s*</depends>""").containsMatchIn(descriptor)) {
                     "plugin.xml depends on $sibling"

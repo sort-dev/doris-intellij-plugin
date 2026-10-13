@@ -15,6 +15,13 @@ dependencies {
     compileOnly(gradleKotlinDsl())
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.intellij.platform.gradle.plugin)
+    testImplementation(gradleTestKit())
+    testImplementation(libs.junit)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnit()
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
 }
 
 java {

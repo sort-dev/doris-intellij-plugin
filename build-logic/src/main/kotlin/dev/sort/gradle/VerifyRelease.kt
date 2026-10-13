@@ -18,6 +18,9 @@ abstract class VerifyRelease : DefaultTask() {
     @TaskAction
     fun verify() {
         if (pluginVersion.get().endsWith("-SNAPSHOT")) return
+        check(!Regex("""-dev\.\d{12}\+[0-9a-f]+(?:\.dirty)?$""").containsMatchIn(pluginVersion.get())) {
+            "Dev plugin ${pluginVersion.get()} must not be published; choose the release base and pass -Prelease=true"
+        }
         val snapshots = embeddedComponents.get().filter { it.endsWith("-SNAPSHOT") }
         check(snapshots.isEmpty()) { "Release ${pluginVersion.get()} embeds snapshot libraries: $snapshots" }
     }

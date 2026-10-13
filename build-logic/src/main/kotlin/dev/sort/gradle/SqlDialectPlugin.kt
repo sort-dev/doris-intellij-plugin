@@ -48,6 +48,17 @@ class SqlDialectPlugin : Plugin<Project> {
         val catalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
         fun version(alias: String) = catalog.findVersion(alias).get().requiredVersion
 
+        val baseVersion = objects.property(String::class.java)
+        afterEvaluate { baseVersion.set(project.version.toString()) }
+        val release = providers.gradleProperty("release").map {
+            require(it in setOf("true", "false")) { "release must be true or false" }
+            it.toBoolean()
+        }.orElse(false)
+        val identity = providers.of(GitBuildIdentity::class.java) { parameters.directory.set(layout.projectDirectory) }
+        val buildVersion = release.flatMap { isRelease ->
+            if (isRelease) baseVersion else baseVersion.zip(identity) { base, git -> pluginBuildVersion(base, git, false) }
+        }
+
         val dialect = name.removeSuffix("-intellij-plugin")
         val siblings = dialects - dialect
         val extension = extensions.create<SqlDialectPluginExtension>("sqlDialectPlugin").apply {
@@ -80,9 +91,11 @@ class SqlDialectPlugin : Plugin<Project> {
                     worktree?.let { checkoutRoot.resolve("$sibling-intellij-plugin-worktrees/${rootDir.name}") },
                     checkoutRoot.resolve("$sibling-intellij-plugin"),
                 )
-                checkouts.firstNotNullOfOrNull { checkout ->
-                    checkout.resolve("build/distributions/$sibling-intellij-plugin.zip").takeIf { it.isFile }
-                } ?: error("Missing local $sibling plugin ZIP for isolation. Run ./gradlew buildPlugin in ${checkouts.joinToString()} or set -P$property=<zip>. Isolation does not fall back to Marketplace.")
+                providers.of(LocalPluginZip::class.java) {
+                    parameters.checkouts.set(checkouts.map { it.absolutePath })
+                    parameters.pluginName.set("$sibling-intellij-plugin")
+                }.orNull?.let(::file)
+                    ?: error("Missing local $sibling plugin ZIP for isolation. Expected $sibling-intellij-plugin-*.zip in build/distributions. Run ./gradlew buildPlugin in ${checkouts.joinToString()} or set -P$property=<zip>. Isolation does not fall back to Marketplace.")
             } else null
             zip?.let { sibling to it }
         }.toMap()
@@ -139,6 +152,7 @@ class SqlDialectPlugin : Plugin<Project> {
         extensions.configure<IntelliJPlatformExtension> {
             buildSearchableOptions.set(false)
             pluginConfiguration {
+                version.set(buildVersion)
                 ideaVersion {
                     sinceBuild.set(version("intellij-since-build"))
                     untilBuild.set(version("intellij-until-build"))
@@ -247,7 +261,10 @@ class SqlDialectPlugin : Plugin<Project> {
         }
         tasks.named<Test>("test") { configureSuite() }
 
-        val buildPlugin = tasks.named<BuildPluginTask>("buildPlugin") { archiveVersion.set("") }
+        val buildPlugin = tasks.named<BuildPluginTask>("buildPlugin") {
+            archiveBaseName.set(extension.pluginId.map { it.substringAfterLast('.') })
+            archiveVersion.set(buildVersion)
+        }
         val embedded = configurations.named("runtimeClasspath").flatMap { it.incoming.artifacts.resolvedArtifacts }.map { artifacts ->
             artifacts.mapNotNull { (it.id.componentIdentifier as? ModuleComponentIdentifier)?.displayName }
         }
@@ -255,6 +272,7 @@ class SqlDialectPlugin : Plugin<Project> {
             group = "verification"
             description = "Checks the embedded libraries, bytecode levels, notices and descriptor of the plugin ZIP."
             distribution.set(buildPlugin.flatMap { it.archiveFile })
+            expectedVersion.set(buildPlugin.flatMap { it.archiveVersion })
             pluginJar.set(tasks.named<Jar>("composedJar").flatMap { it.archiveFileName })
             embeddedLibraries.set(extension.embeddedLibraries)
             embeddedComponents.set(embedded)
@@ -276,7 +294,7 @@ class SqlDialectPlugin : Plugin<Project> {
         val verifyRelease = tasks.register<VerifyRelease>("verifyRelease") {
             group = "verification"
             description = "Refuses snapshot libraries in a release version."
-            pluginVersion.set(provider { project.version.toString() })
+            pluginVersion.set(buildVersion)
             embeddedComponents.set(embedded)
         }
         tasks.named("publishPlugin") { dependsOn(verifyDistribution, verifyRelease) }
@@ -288,7 +306,7 @@ class SqlDialectPlugin : Plugin<Project> {
             distribution.set(buildPlugin.flatMap { it.archiveFile })
             sinceBuild.set(ideaVersion.sinceBuild)
             untilBuild.set(ideaVersion.untilBuild)
-            val path = provider { "dogfood/${project.name}-${project.version}.zip" }
+            val path = buildPlugin.flatMap { it.archiveFileName }.map { "dogfood/$it" }
             archive.set(layout.buildDirectory.file(path))
             checksum.set(layout.buildDirectory.file(path.map { "$it.sha256" }))
         }
