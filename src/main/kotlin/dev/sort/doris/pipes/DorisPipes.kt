@@ -113,7 +113,7 @@ object DorisPipes {
         ApplicationManager.getApplication().invokeLater({
             val virtual = VirtualFileManager.getInstance().findFileByUrl(url) ?: return@invokeLater
             val file = PsiManager.getInstance(project).findFile(virtual) ?: return@invokeLater
-            DaemonCodeAnalyzer.getInstance(project).restart(file)
+            DaemonCodeAnalyzer.getInstance(project).restart(file, "Doris PIPE execution diagnostics changed")
         }, project.disposed)
     }
     fun execMarkFor(project: Project, url: String, currentText: String): ExecMark? =

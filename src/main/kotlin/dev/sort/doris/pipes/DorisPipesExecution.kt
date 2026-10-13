@@ -105,7 +105,7 @@ internal object DorisPipesExecution : PipeSubmitListener {
             ))
             ApplicationManager.getApplication().invokeLater {
                 runPipeCatching {
-                    DaemonCodeAnalyzer.getInstance(run.console.project).restart()
+                    DaemonCodeAnalyzer.getInstance(run.console.project).restart("Doris PIPE server error mapped")
                 }
             }
         }

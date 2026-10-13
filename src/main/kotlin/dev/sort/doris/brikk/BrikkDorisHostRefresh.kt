@@ -1,7 +1,6 @@
 package dev.sort.doris.brikk
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
@@ -30,7 +29,7 @@ class BrikkDorisHostRefresh(private val project: Project) {
         if (pending.isEmpty()) return
         ApplicationManager.getApplication().invokeLater({
             DumbService.getInstance(project).runWhenSmart {
-                runReadAction {
+                ApplicationManager.getApplication().runReadAction {
                     val ready = pending.mapNotNull { pointer ->
                         val host = pointer.element
                         if (host == null) { pending.remove(pointer); null }

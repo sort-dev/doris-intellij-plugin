@@ -4,8 +4,10 @@ import com.intellij.database.console.client.SessionClientHolder
 import com.intellij.database.console.session.DatabaseSession
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.ActionUiKind
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import dev.brikk.house.sql.intellij.ActionInterceptor
 import dev.brikk.house.sql.intellij.CooperativeActionConfiguration
@@ -26,7 +28,7 @@ internal class DorisCancelInterceptor(
             if (!session.project.isDisposed && previous != null) {
                 val context = SimpleDataContext.builder().add(CommonDataKeys.PROJECT, session.project)
                     .add(SessionClientHolder.CLIENT_KEY, client).build()
-                previous.actionPerformed(AnActionEvent.createFromDataContext(place, presentation.clone(), context))
+                ActionUtil.performAction(previous, AnActionEvent.createEvent(context, presentation.clone(), place, ActionUiKind.NONE, null))
             }
         }
         return if (coordinator.perform(session, fallback)) ExecutionClaim.HANDLED else ExecutionClaim.DECLINED
