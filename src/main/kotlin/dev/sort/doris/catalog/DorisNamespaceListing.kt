@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 open class DorisNamespaceListing(private val project: Project, private val scope: CoroutineScope) {
     private val asked = ConcurrentHashMap.newKeySet<String>()
+    private val running = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
     /** The names a listing found: catalog names, then the databases of [catalog] when it was listed. */
     class Listing(val catalogs: List<Pair<Long, String>>?, val catalog: String?, val databases: List<String>?)
@@ -65,7 +66,7 @@ open class DorisNamespaceListing(private val project: Project, private val scope
         val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(file)
         val shown = path.joinToString(".")
         DorisCatalogs.info("namespace listing for '$shown' on '${local.name}': catalogs ${if (listCatalogs) "listing" else "known"}")
-        scope.launch(Dispatchers.IO) {
+        track(local, scope.launch(Dispatchers.IO) {
             val listing = try {
                 withQueries(local) { query ->
                     val catalogs = if (listCatalogs) listCatalogs(query) else null
@@ -99,7 +100,41 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 val queued = project.service<DorisAutoIntrospectService>().requestPath(target, path)
                 DorisCatalogs.info("namespace listing done for '$shown'; targeted introspection ${if (queued) "queued" else "not needed"}")
             }
+        })
+        return true
+    }
+
+    private fun track(local: LocalDataSource, job: kotlinx.coroutines.Job) {
+        running[local.uniqueId] = job
+        job.invokeOnCompletion { running.remove(local.uniqueId, job) }
+    }
+
+    /**
+     * The shared auto-introspection's top-level listing ([DorisAutoIntrospectService.listNamespaces]): the
+     * catalog names on a helper connection, written into the model, then a cleared data source's default
+     * scope and general refresh, all before the service loads any level. When a listing of this data source
+     * is already running (a completion or reference asked first), waits for it instead of listing again.
+     */
+    suspend fun listRoots(local: LocalDataSource): Boolean {
+        if (!claim(local, "catalogs")) {
+            running[local.uniqueId]?.join()
+            return true
         }
+        DorisCatalogs.info("namespace listing of the catalogs of '${local.name}' for the auto-introspection")
+        val catalogs = try {
+            withQueries(local) { query -> listCatalogs(query) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            DorisCatalogs.warn("namespace listing of the catalogs of '${local.name}' failed: ${e.message}")
+            asked.remove("${local.uniqueId}|catalogs")
+            return false
+        }
+        DorisCatalogs.info("namespace listing on '${local.name}': catalogs -> ${catalogs.map { it.second }}")
+        val cleared = withContext(Dispatchers.EDT) {
+            if (project.isDisposed) return@withContext false
+            write(local, Listing(catalogs, null, null)).also { DbPsiFacade.getInstance(project).clearCaches() }
+        }
+        if (cleared) syncCleared(local)
         return true
     }
 
@@ -127,7 +162,7 @@ open class DorisNamespaceListing(private val project: Project, private val scope
             claim(local, "databases of $catalog")
         if (!listCatalogs && !listDatabases) return
         DorisCatalogs.info("namespace listing after console switch to '$catalog${database?.let { ".$it" }.orEmpty()}' on '${local.name}'")
-        scope.launch(Dispatchers.IO) {
+        track(local, scope.launch(Dispatchers.IO) {
             val listing = try {
                 withQueries(local) { query ->
                     val catalogs = if (listCatalogs) listCatalogs(query) else null
@@ -147,7 +182,7 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 write(local, listing).also { DbPsiFacade.getInstance(project).clearCaches() }
             }
             if (cleared) syncCleared(local)
-        }
+        })
     }
 
     private fun claim(local: LocalDataSource, level: String): Boolean = asked.add("${local.uniqueId}|${level.lowercase()}")
@@ -176,6 +211,8 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 if (catalog != null && catalog.schemas.none { it.name.equals(name, ignoreCase = true) }) catalog.schemas.createOrGet(name)
             }
         }
+        // Every database of the catalog is listed now: the shared auto-introspection need not load it again.
+        listing.catalog?.let { DorisListedNamespaces.complete(project, local.uniqueId, listOf(it)) }
         return cleared
     }
 
@@ -247,30 +284,35 @@ open class DorisNamespaceListing(private val project: Project, private val scope
 }
 
 /**
- * The databases whose complete table list an introspection of this IDE session loaded. A database the
- * model knows only partly (a table a targeted load brought in, a model kept from an earlier session) is
- * not in it, so completing its path still loads the whole list once.
+ * Namespaces whose children Doris listed completely: a catalog whose databases a listing wrote, a database
+ * whose tables an introspection loaded. The shared auto-introspection cannot tell them from namespaces it
+ * knows only partly (a default scope selects nothing by name), so they are marked loaded in each project's
+ * [DorisAutoIntrospectService]; completing their path loads nothing again.
  */
 object DorisListedNamespaces {
-    private val listed = ConcurrentHashMap.newKeySet<String>()
-
     fun record(dataSourceId: String, catalog: String, database: String) {
-        listed.add(key(dataSourceId, catalog, database))
+        for (project in com.intellij.openapi.project.ProjectManager.getInstance().openProjects) {
+            if (!project.isDisposed) complete(project, dataSourceId, listOf(catalog, database))
+        }
     }
 
-    fun isListed(dataSourceId: String, catalog: String, database: String): Boolean = key(dataSourceId, catalog, database) in listed
-
-    private fun key(dataSourceId: String, catalog: String, database: String) = "$dataSourceId|${catalog.lowercase()}|${database.lowercase()}"
+    fun complete(project: Project, dataSourceId: String, path: List<String>) {
+        val engine = project.getService(DorisAutoIntrospectService::class.java)?.engine ?: return
+        val key = dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine.Key(dataSourceId, path)
+        // Not while a refresh of it runs: that one settles it.
+        if (engine.state(key) == dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine.State.Done || !engine.claim(key)) return
+        engine.finish(key, true)
+    }
 }
 
 /**
  * Completion after a qualified path (`catalog.`, `catalog.db.`, `db.`): from an empty or cleared model,
- * the names the path needs are listed first ([DorisNamespaceListing]); a database the model knows only
- * partly loads its whole table list once. Offers nothing itself.
+ * the names the path needs are listed first ([DorisNamespaceListing]); the shared contributor then loads
+ * the level. Offers nothing itself.
  */
 class DorisNamespaceListingContributor : com.intellij.codeInsight.completion.CompletionContributor(), com.intellij.openapi.project.DumbAware {
     override fun fillCompletionVariants(parameters: com.intellij.codeInsight.completion.CompletionParameters, result: com.intellij.codeInsight.completion.CompletionResultSet) {
-        if (!DorisCatalogs.enabled) return
+        if (!DorisCatalogs.enabled || qualifiesAStatementName(parameters.position)) return
         val file = parameters.originalFile
         val text = parameters.editor.document.charsSequence
         val start = (parameters.offset - 400).coerceAtLeast(0)
@@ -278,23 +320,7 @@ class DorisNamespaceListingContributor : com.intellij.codeInsight.completion.Com
             ?.split('.')?.map { it.trim().removeSurrounding("`") }?.filter { it.isNotEmpty() } ?: return
         if (path.isEmpty()) return
         val project = file.project
-        if (project.service<DorisNamespaceListing>().ensure(file, path)) return
-        requestPartlyKnownDatabase(file, path)
-    }
-
-    private fun requestPartlyKnownDatabase(file: PsiFile, path: List<String>) {
-        val local = dorisDataSourceResolver.resolve(file).dataSource ?: return
-        val model = DbPsiFacade.getInstance(file.project).findDataSource(local.uniqueId)?.model ?: return
-        val current = dorisDataSourceResolver.consoleNamespace(file)
-        val target = DorisCatalogProfile.pathResolver.resolve(model.modelRoots.toList(), path, current) ?: return
-        if (target.node.kind != com.intellij.database.model.ObjectKind.SCHEMA || target.path.size != 2) return
-        val (catalog, database) = target.path
-        if (DorisCatalogProfile.pathResolver.isChildless(target.node) || DorisListedNamespaces.isListed(local.uniqueId, catalog, database)) return
-        val requests = file.project.service<DorisAutoIntrospectService>()
-        if (requests.engine.state(dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine.Key(local.uniqueId, target.path)) != null) return
-        if (requests.introspect(file, local, target)) {
-            DorisCatalogs.info("database '$catalog.$database' is only partly loaded; loading its table list")
-        }
+        project.service<DorisNamespaceListing>().ensure(file, path)
     }
 
     private companion object {
