@@ -129,10 +129,9 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
     }
 
     fun testEverydaySqlHasNoFalseReports() {
-        // brikk-sql cc62bfd no longer offers a computed column named after a function call through a
-        // derived table (`FROM_SECOND(ts) AS ts2`); its highlighting is still checked. Routed as a library item.
-        val cases = RealSqlCases.ALL.map { if (it.name == "doris-star-in-derived") it.copy(completions = emptyList()) else it }
-        RealSqlContract(target, cases).check()
+        // Doris has no inline PRIMARY KEY / UNIQUE constraints in a column list; its own parser rejects that
+        // case, rightly. Routed for a feature gate in the shared cases.
+        RealSqlContract(target, RealSqlCases.ALL.filterNot { it.name == "create-table-own-constraints" }).check()
     }
 
     fun testExternalTableStatesNeverReportColumns() {
