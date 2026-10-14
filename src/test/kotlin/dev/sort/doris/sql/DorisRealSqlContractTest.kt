@@ -49,29 +49,41 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
         HeldIntrospections(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")
-        val model = ModelFactory.BLACK_HOLE.createModel(DorisDbms.DORIS)
-        val root = (model as BasicModModel).root as MsRoot
-        var id = 0L
-        fun table(path: String) = path.split('.').let { (catalog, schema, name) ->
-            (root.databases.firstOrNull { it.name == catalog } ?: root.databases.createOrGet(++id).apply { this.name = catalog })
-                .schemas.createOrGet(schema).tables.createOrGet(name)
+        myFixture.enableInspections(sqlResolveInspection())
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE, testRootDisposable)
+        install(RealSqlModel.STANDARD)
+    }
+
+    /** A multi-catalog data source holding [model]: introspected tables, tables listed without columns, namespaces listed but never loaded. */
+    private fun install(model: RealSqlModel) {
+        if (::source.isInitialized) {
+            console?.close()
+            console = null
+            LocalDataSourceManager.getInstance(project).removeDataSource(source)
         }
+        val created = ModelFactory.BLACK_HOLE.createModel(DorisDbms.DORIS)
+        val root = (created as BasicModModel).root as MsRoot
+        var id = 0L
+        fun catalog(name: String) = root.databases.firstOrNull { it.name == name } ?: root.databases.createOrGet(++id).apply { this.name = name }
+        fun table(path: String) = path.split('.').let { (catalog, schema, name) -> catalog(catalog).schemas.createOrGet(schema).tables.createOrGet(name) }
         table("internal.app.t").columns.createOrGet("id")
-        for ((path, columns) in RealSqlModel.STANDARD.tables) table(path).apply { columns.forEach { this.columns.createOrGet(it) } }
-        RealSqlModel.STANDARD.bare.forEach(::table)
-        val namespaces = (RealSqlModel.STANDARD.tables.keys + RealSqlModel.STANDARD.bare).map { it.split('.').dropLast(1) }.distinct()
+        for ((path, columns) in model.tables) table(path).apply { columns.forEach { this.columns.createOrGet(it) } }
+        model.bare.forEach(::table)
+        for (namespace in model.namespaces) namespace.split('.').let { parts ->
+            val catalog = catalog(parts[0])
+            if (parts.size > 1) catalog.schemas.createOrGet(parts[1])
+        }
+        val introspected = (model.tables.keys + model.bare).map { it.split('.').dropLast(1) }.distinct()
         source = LocalDataSource().apply {
             name = "Doris real SQL"
             databaseDriver = checkNotNull(DatabaseDriverManager.getInstance().getDriver("doris"))
             url = "jdbc:offline:doris-real-sql"; isAutoSynchronize = false; isKeepAlive = false
-            this.model = model
-            introspectionScope = namespaces.map { CatalogScopes.select(DorisCatalogProfile.levels, it) }
+            this.model = created
+            introspectionScope = introspected.map { CatalogScopes.select(DorisCatalogProfile.levels, it) }
                 .fold(DorisCatalogScopes.multiCatalogDefaultScope(), CatalogScopes::widen)
         }
         LocalDataSourceManager.getInstance(project).addDataSource(source)
         DbPsiFacade.getInstance(project).clearCaches()
-        myFixture.enableInspections(sqlResolveInspection())
-        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE, testRootDisposable)
         settle()
     }
 
@@ -98,6 +110,8 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
         )
         override val fixture: CodeInsightTestFixture get() = myFixture
 
+        override fun install(model: RealSqlModel) = this@DorisRealSqlContractTest.install(model)
+
         override fun open(sql: String) {
             LookupManager.getInstance(project).hideActiveLookup()
             console?.close()
@@ -113,5 +127,9 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
 
     fun testEverydaySqlHasNoFalseReports() {
         RealSqlContract(target).check()
+    }
+
+    fun testExternalTableStatesNeverReportColumns() {
+        RealSqlContract(target).checkModelStates()
     }
 }
