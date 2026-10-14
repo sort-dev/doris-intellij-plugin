@@ -159,6 +159,14 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
         "CREATE TABLE db.t4 (k BIGINT, `year` INT) DUPLICATE KEY(k) PARTITION BY LIST (year) () DISTRIBUTED BY HASH(k) BUCKETS 1",
     )
 
+    fun testSyntaxDorisSharesWithStarRocks() = assertQuiet(
+        "SELECT k FROM db.facts WHERE v > 0 INTO OUTFILE 's3://bucket/prefix-' FORMAT AS PARQUET PROPERTIES (\"k\" = \"v\")",
+        "SELECT GROUP_CONCAT(CONCAT('''', x, '''') SEPARATOR ',\\n  ') FROM db.facts WHERE v = 1",
+        "CREATE TABLE db.t5 (k BIGINT, ts DATETIME DEFAULT CURRENT_TIMESTAMP) DUPLICATE KEY(k) PARTITION BY RANGE(ts) () " +
+            "DISTRIBUTED BY HASH(k) BUCKETS 1 PROPERTIES (\"dynamic_partition.enable\" = \"true\", \"dynamic_partition.time_unit\" = \"DAY\")",
+        "SELECT k, SUM(v) AS total FROM db.facts GROUP BY ROLLUP(k, x)",
+    )
+
     fun testInsertIntoATableFunction() = assertQuiet(
         "INSERT INTO s3(\"uri\" = \"s3://bucket/path/\", \"format\" = \"parquet\") SELECT k, v FROM db.facts",
     )

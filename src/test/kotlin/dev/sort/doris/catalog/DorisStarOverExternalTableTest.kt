@@ -18,6 +18,7 @@ import com.intellij.testFramework.RunAll
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.catalog.CatalogScopes
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
+import dev.brikk.house.sql.intellij.testing.HeldIntrospections
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
@@ -52,6 +53,8 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        // Introspections the references ask for wait here rather than reaching the offline URL.
+        HeldIntrospections(testRootDisposable)
         productionReplay(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")

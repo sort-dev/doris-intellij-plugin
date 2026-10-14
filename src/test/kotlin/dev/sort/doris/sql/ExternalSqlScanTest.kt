@@ -101,6 +101,31 @@ class ExternalSqlScanTest : BasePlatformTestCase() {
         val known = tables.mapTo(HashSet()) { "${it.catalog}.${it.database}.${it.name}".lowercase() }
         for (table in referenced) if (known.add("${table.catalog}.${table.database}.${table.name}".lowercase()) && table.catalog.lowercase() in catalogs.map { it.lowercase() }) tables += table
         val out = File("build/realsql").apply { mkdirs() }
+        // Core's own grammar for each dialect named in -PrealSql.coreDialects (`starrocks,doris`, say): parsed,
+        // fell back to an unstructured command, or rejected.
+        val coreDialects = System.getProperty("realSql.coreDialects").orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val coreParsed = HashMap<Pair<String, Statement>, String>()
+        if (coreDialects.isNotEmpty()) out.resolve("core.tsv").writeText(buildString {
+            for (statement in statements) for (dialect in coreDialects) {
+                val verdict = coreVerdict(dialect, statement.sql)
+                coreParsed[dialect to statement] = verdict
+                append("${statement.file}:${statement.line}\t$dialect\t${verdict.replace('\n', ' ').take(300)}\n")
+            }
+            // Doris's own FE grammar decides what Doris accepts, so a core rejection can be told from Doris's.
+            if ("doris" in coreDialects) {
+                val fe = dev.brikk.house.sql.verify.DorisVerifier.create()
+                for (statement in statements) {
+                    val verdict = when (val result = fe.verifyScript(statement.sql) {}) {
+                        dev.brikk.house.sql.verify.VerifyResult.Accepted -> "accepted"
+                        is dev.brikk.house.sql.verify.VerifyResult.Rejected -> "rejected ${result.errors.firstOrNull()?.message}"
+                        else -> "unverified"
+                    }
+                    append("${statement.file}:${statement.line}\tdoris-fe\t${verdict.replace('\n', ' ').take(300)}\n")
+                }
+            }
+        })
+        // With -PrealSql.sharedOnly=true the editor sees only what core's Doris grammar parses.
+        if (System.getProperty("realSql.sharedOnly") == "true") statements.retainAll { (coreParsed["doris" to it] ?: coreVerdict("doris", it.sql)) == "parsed" }
         out.resolve("model.txt").writeText("catalogs=$catalogs\n" + tables.joinToString("\n") { "${it.catalog}.${it.database}.${it.name} ${it.columns}" })
         source = dataSource(catalogs, tables)
         val findings = StringBuilder()
@@ -124,6 +149,13 @@ class ExternalSqlScanTest : BasePlatformTestCase() {
         }
         out.resolve("findings.tsv").writeText(findings.toString())
         println("SCAN statements=${statements.size} tables=${tables.size} findings=$count -> ${out.absolutePath}")
+    }
+
+    private fun coreVerdict(dialect: String, sql: String): String = try {
+        val parsed = dev.brikk.house.sql.dialects.Dialects.forName(dialect).parse(sql).filterNotNull()
+        if (parsed.any { it is dev.brikk.house.sql.ast.Command }) "command-fallback" else "parsed"
+    } catch (e: Exception) {
+        "error ${e.javaClass.simpleName}: ${e.message}"
     }
 
     private fun layer(info: HighlightInfo): String = info.inspectionToolId ?: when {
