@@ -54,7 +54,7 @@ CREATE CATALOG IF NOT EXISTS ext_catalog PROPERTIES (
     "jdbc_url" = "jdbc:mysql://127.0.0.1:9030/archive_src",
     "driver_url" = "file:///opt/apache-doris/jdbc/mysql-connector-j.jar",
     "driver_class" = "com.mysql.cj.jdbc.Driver",
-    "include_database_list" = "archive_src"
+    "only_specified_database" = "true", "include_database_list" = "archive_src"
 );
 SHOW CATALOGS;
 SELECT COUNT(*) FROM ext_catalog.archive_src.facts;

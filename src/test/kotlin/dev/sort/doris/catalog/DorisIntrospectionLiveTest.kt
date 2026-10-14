@@ -102,8 +102,29 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         current
     }
 
-    /** Introspections started while [action] runs and for [quietMillis] after, counted by the sync manager's activity. */
+    /** Waits until no introspection runs and none has finished for two seconds. */
+    private fun awaitIdle(ds: LocalDataSource) {
+        var last = sessions()
+        var since = System.currentTimeMillis()
+        PlatformTestUtil.waitWithEventsDispatching("introspection settles", {
+            val now = sessions()
+            if (now != last || DataSourceSyncManager.getInstance().isActive(ds)) { last = now; since = System.currentTimeMillis() }
+            System.currentTimeMillis() - since > 2_000
+        }, 60)
+    }
+
+    /** Finished introspection sessions so far, as the introspector logs them. */
+    private fun sessions(): Int {
+        val log = java.nio.file.Path.of(com.intellij.openapi.application.PathManager.getLogPath(), "idea.log")
+        return if (java.nio.file.Files.exists(log)) java.nio.file.Files.readAllLines(log).count { "post-introspection refresh" in it } else 0
+    }
+
+    /**
+     * Introspections started while [action] runs and for [quietMillis] after: the larger of the sync
+     * manager's observed activity and the sessions the introspector finished.
+     */
     private fun countSyncs(ds: LocalDataSource, quietMillis: Long, action: () -> Unit = {}): Int {
+        val before = sessions()
         var count = 0
         var active = false
         fun sample() {
@@ -118,7 +139,7 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
             sample()
             Thread.sleep(50)
         }
-        return count
+        return maxOf(count, sessions() - before)
     }
 
     private fun errorsIn(ds: LocalDataSource, sql: String): List<String> {
@@ -136,13 +157,15 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         val ds = register()
 
         sync(LoaderContext.selectGeneralTask(project, ds))
+        awaitIdle(ds)
         val catalogs = roots(ds).map { it.name }
         println("LIVE catalogs=$catalogs scope=${ds.introspectionScope?.let(TreePatternUtils::serialize)}")
         assertTrue("SHOW CATALOGS lists internal and the external catalog: $catalogs", catalogs.containsAll(listOf("internal", "ext_catalog")))
         val internal = checkNotNull(node(ds, "internal"))
         assertTrue(children(internal, ObjectKind.SCHEMA).toString(), children(internal, ObjectKind.SCHEMA).containsAll(listOf("sales", "ops")))
         assertEquals(listOf("orders"), children(checkNotNull(node(ds, "internal", "ops")), ObjectKind.TABLE))
-        assertEquals("external catalogs are enumerated, not introspected", emptyList<String>(), children(checkNotNull(node(ds, "ext_catalog")), ObjectKind.SCHEMA))
+        assertTrue("an external catalog lists its databases", "archive_src" in children(checkNotNull(node(ds, "ext_catalog")), ObjectKind.SCHEMA))
+        assertEquals("but loads no tables until asked", emptyList<String>(), children(checkNotNull(node(ds, "ext_catalog", "archive_src")), ObjectKind.TABLE))
 
         val quiet = countSyncs(ds, 8_000)
         assertEquals("no introspection may follow a finished one by itself", 0, quiet)
@@ -151,9 +174,9 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         val star = "SELECT uid, * FROM (SELECT FROM_SECOND(ts) AS ts1, *, 0 AS k FROM ext_catalog.archive_src.facts) AS u"
         assertEmpty(errorsIn(ds, star))
 
-        // Completing `ext_catalog.` loads that catalog's databases, then `ext_catalog.archive_src.` its tables.
+        // Completing `ext_catalog.archive_src.` loads that database's tables.
         val service = project.service<DorisAutoIntrospectService>()
-        for (path in listOf(listOf("ext_catalog"), listOf("ext_catalog", "archive_src"))) {
+        for (path in listOf(listOf("ext_catalog", "archive_src"))) {
             myFixture.configureByText("complete.sql", "SELECT * FROM ${path.joinToString(".")}.<caret>")
             SqlResolveMappings.getInstance(project).setMapping(myFixture.file.virtualFile,
                 TreePattern(SqlImportUtil.createDataSources(arrayOf(ObjectName.quoted(ds.uniqueId)))))
@@ -166,14 +189,16 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         }
         val facts = checkNotNull(node(ds, "ext_catalog", "archive_src", "facts"))
         assertEquals(listOf("ts", "uid", "kind"), ReadAction.compute<List<String>, RuntimeException> { DasUtil.getColumns(facts).map { it.name }.toList() })
+        awaitIdle(ds)
         assertTrue("the default scope keeps enumerating every catalog: ${TreePatternUtils.serialize(ds.introspectionScope)}",
             DorisCatalogScopes.classifyCatalog(ds.introspectionScope!!, "internal") != null)
         assertEquals("no introspection follows the on-demand ones by itself", 0, countSyncs(ds, 8_000))
 
         // A full refresh keeps the external databases it loaded, and lists every catalog again.
         sync(LoaderContext.selectGeneralTask(project, ds))
+        awaitIdle(ds)
         assertTrue(roots(ds).map { it.name }.containsAll(listOf("internal", "ext_catalog")))
-        assertEquals(listOf("archive_src"), children(checkNotNull(node(ds, "ext_catalog")), ObjectKind.SCHEMA))
+        assertEquals(listOf("facts"), children(checkNotNull(node(ds, "ext_catalog", "archive_src")), ObjectKind.TABLE))
         assertEquals(0, countSyncs(ds, 8_000))
 
         // With the external table loaded, the star shapes and a same-named table in two databases stay quiet.
