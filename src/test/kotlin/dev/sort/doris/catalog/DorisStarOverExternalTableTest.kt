@@ -23,6 +23,7 @@ import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.sort.doris.sqlResolveInspection
+import dev.sort.doris.testing.productionReplay
 
 /**
  * Columns a `*` brings through a derived table or CTE over an external-catalog table, in every state
@@ -47,6 +48,7 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        productionReplay(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")
         myFixture.enableInspections(sqlResolveInspection())

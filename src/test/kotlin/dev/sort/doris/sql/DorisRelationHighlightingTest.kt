@@ -34,6 +34,7 @@ import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.pipes.DorisPipesSettings
 import dev.sort.doris.sqlResolveInspection
+import dev.sort.doris.testing.productionReplay
 
 /** Actual daemon/extension wiring over an offline model; never calls the annotator directly. */
 class DorisRelationHighlightingTest : BasePlatformTestCase() {
@@ -47,6 +48,7 @@ class DorisRelationHighlightingTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        productionReplay(testRootDisposable)
         previousPipes = project.service<DorisPipesSettings>().enabled
         previousCatalogs = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "false")

@@ -29,6 +29,7 @@ import dev.sort.doris.DorisDbms
 import dev.sort.doris.catalog.DorisCatalogProfile
 import dev.sort.doris.catalog.DorisCatalogScopes
 import dev.sort.doris.sqlResolveInspection
+import dev.sort.doris.testing.productionReplay
 
 /**
  * Minimized, anonymized shapes from a scan of real Doris SQL (ExternalSqlScanTest): each highlights
@@ -38,7 +39,6 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
     private lateinit var errors: BackgroundErrors
     private lateinit var source: LocalDataSource
     private var previousFlag: String? = null
-    private var previousReplay: String? = null
 
     override fun setUp() {
         super.setUp()
@@ -46,9 +46,7 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
         HeldIntrospections(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")
-        // The production default, which the rest of the suite pins off for its goldens.
-        previousReplay = System.getProperty(DorisReplay.PROPERTY)
-        System.setProperty(DorisReplay.PROPERTY, "true")
+        productionReplay(testRootDisposable)
         val model = ModelFactory.BLACK_HOLE.createModel(DorisDbms.DORIS)
         val db = ((model as BasicModModel).root as MsRoot).databases.createOrGet(1L).apply { name = "internal" }.schemas.createOrGet("db")
         mapOf("facts" to listOf("k", "x", "v", "ts"), "users" to listOf("id", "name"), "blocks" to listOf("uid", "data")).forEach { (table, columns) ->
@@ -74,7 +72,6 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
         { LocalDataSourceManager.getInstance(project).removeDataSource(source) },
         { DbPsiFacade.getInstance(project).clearCaches() },
         { previousFlag?.let { System.setProperty(DorisCatalogs.PROPERTY, it) } ?: System.clearProperty(DorisCatalogs.PROPERTY) },
-        { previousReplay?.let { System.setProperty(DorisReplay.PROPERTY, it) } ?: System.clearProperty(DorisReplay.PROPERTY) },
         { super.tearDown() },
     ).run()
 

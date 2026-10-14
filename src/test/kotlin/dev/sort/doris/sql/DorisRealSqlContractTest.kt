@@ -35,6 +35,7 @@ import dev.sort.doris.catalog.DorisCatalogProfile
 import dev.sort.doris.catalog.DorisCatalogScopes
 import dev.sort.doris.sqlResolveInspection
 import java.util.UUID
+import dev.sort.doris.testing.productionReplay
 
 /** The shared real-SQL contract through Doris's production registrations, on a multi-catalog model. */
 class DorisRealSqlContractTest : BasePlatformTestCase() {
@@ -46,6 +47,7 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        productionReplay(testRootDisposable)
         HeldIntrospections(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")

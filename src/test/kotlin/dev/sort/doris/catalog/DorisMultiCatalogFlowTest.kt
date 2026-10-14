@@ -34,6 +34,7 @@ import dev.sort.doris.DorisCatalogs
 import dev.sort.doris.DorisDbms
 import dev.sort.doris.sql.DorisSqlDialect
 import dev.sort.doris.sqlResolveInspection
+import dev.sort.doris.testing.productionReplay
 
 /**
  * End-to-end multi-catalog flows over an offline model: `internal` with `sales` and `ops` (both with an
@@ -51,6 +52,7 @@ class DorisMultiCatalogFlowTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
+        productionReplay(testRootDisposable)
         introspections = HeldIntrospections(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")

@@ -34,6 +34,7 @@ import dev.sort.doris.catalog.DorisCatalogProfile
 import dev.sort.doris.catalog.DorisCatalogScopes
 import dev.sort.doris.pipes.DorisPipesSettings
 import dev.sort.doris.sqlResolveInspection
+import dev.sort.doris.testing.productionReplay
 import java.io.File
 
 /**
@@ -45,16 +46,13 @@ import java.io.File
 class ExternalSqlScanTest : BasePlatformTestCase() {
     private val directory: String? = System.getProperty("realSql.dir")
     private var previousFlag: String? = null
-    private var previousReplay: String? = null
     private var source: LocalDataSource? = null
 
     override fun setUp() {
         super.setUp()
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")
-        // The production default, which the rest of the suite pins off for its goldens.
-        previousReplay = System.getProperty(DorisReplay.PROPERTY)
-        System.setProperty(DorisReplay.PROPERTY, "true")
+        productionReplay(testRootDisposable)
     }
 
     override fun tearDown() = RunAll(
@@ -62,7 +60,6 @@ class ExternalSqlScanTest : BasePlatformTestCase() {
         { source?.let { LocalDataSourceManager.getInstance(project).removeDataSource(it) } },
         { DbPsiFacade.getInstance(project).clearCaches() },
         { previousFlag?.let { System.setProperty(DorisCatalogs.PROPERTY, it) } ?: System.clearProperty(DorisCatalogs.PROPERTY) },
-        { previousReplay?.let { System.setProperty(DorisReplay.PROPERTY, it) } ?: System.clearProperty(DorisReplay.PROPERTY) },
         { super.tearDown() },
     ).run()
 
