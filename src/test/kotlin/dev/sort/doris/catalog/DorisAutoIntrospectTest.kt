@@ -115,7 +115,8 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         val reference = reference()
         val unresolved = report(reference, SqlBundle.message("unable.to.resolve.symbol.0.1", "table", "events"))
         assertFalse(DorisOutOfScopeReferenceFilter().accept(unresolved, myFixture.file))
-        assertTrue(DorisHighlightInfoFilter().accept(unresolved, myFixture.file))
+        // 1.5.8's own out-of-scope rule hides it too; it also covers columns read through derived tables.
+        assertFalse(DorisHighlightInfoFilter().accept(unresolved, myFixture.file))
         val server = report(reference, "$DORIS_SERVER_DIAGNOSTIC_PREFIX Unable to resolve table 'events'")
         assertTrue(DorisOutOfScopeReferenceFilter().accept(server, myFixture.file))
         assertTrue(DorisHighlightInfoFilter().accept(server, myFixture.file))
