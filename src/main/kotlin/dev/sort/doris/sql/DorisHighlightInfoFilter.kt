@@ -126,7 +126,8 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         ) {
             return false
         }
-        // M9 (flag-ON only): names inside enumerated-but-not-introspected catalogs are OUT-OF-SCOPE, not wrong.
+        // M9 (flag-ON only): names inside enumerated-but-not-introspected catalogs are OUT-OF-SCOPE, not wrong,
+        // and so is what a query reads from such a table or from one listed without columns.
         if (dev.sort.doris.DorisCatalogs.enabled &&
             description.contains(UNRESOLVED_PREFIX) &&
             isOutOfScopeReference(file, highlightInfo)
@@ -137,14 +138,49 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     }
 
     /**
-     * OUT-OF-SCOPE detection ([dev.sort.doris.catalog.DorisOutOfScope] holds the decision table): the
-     * failing reference is qualified and its qualifier resolves to an enumerated-but-childless namespace.
-     * Columns read from such tables are the shared suppressor's.
+     * OUT-OF-SCOPE detection ([dev.sort.doris.catalog.DorisOutOfScope] holds the decision table). The shared
+     * suppressor quiets columns of unknown relations; this also covers a relation's own name qualifying its
+     * columns (`t.c` over an unloaded `cat.db.t`) and statements the shared analysis does not read:
+     *  1. the failing reference is qualified and its qualifier resolves to an enumerated-but-childless
+     *     namespace;
+     *  2. the failing reference sits in a query whose FROM (derived tables included) contains a table
+     *     reference that is out of scope by rule 1, or in any query enclosing one.
      */
     private fun isOutOfScopeReference(file: PsiFile, info: HighlightInfo): Boolean {
         val element = file.findElementAt(info.startOffset) ?: return false
-        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false) ?: return false
-        return isQualifierOutOfScope(ref)
+        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false)
+        if (ref != null && isQualifierOutOfScope(ref)) return true
+        val visited = HashSet<PsiElement>()
+        var query: SqlQueryExpression? = PsiTreeUtil.getParentOfType(element, SqlQueryExpression::class.java)
+        while (query != null) {
+            if (readsUnknownRelation(query.tableExpression, visited)) return true
+            query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)
+        }
+        return false
+    }
+
+    /**
+     * Whether [from] reads, directly, through a derived table or through a CTE of this file, a table
+     * whose columns the model cannot know: one under an enumerated-but-childless namespace, or one
+     * listed without columns.
+     */
+    private fun readsUnknownRelation(from: PsiElement?, visited: MutableSet<PsiElement>): Boolean {
+        if (from == null || !visited.add(from)) return false
+        for (reference in PsiTreeUtil.findChildrenOfType(from, SqlReferenceExpression::class.java)) {
+            if (isQualifierOutOfScope(reference)) return true
+            if (reference.referenceElementType.targetKind != com.intellij.database.model.ObjectKind.TABLE) continue
+            when (val target = reference.reference?.resolve()) {
+                is com.intellij.database.model.DasTable ->
+                    if (com.intellij.database.util.DasUtil.getColumns(target).isEmpty) return true
+                null -> {}
+                else -> if (target.containingFile == from.containingFile) {
+                    val definition = PsiTreeUtil.getParentOfType(target, com.intellij.sql.psi.SqlAsExpression::class.java, false) ?: target
+                    if (PsiTreeUtil.findChildrenOfType(definition, SqlQueryExpression::class.java)
+                            .any { readsUnknownRelation(it.tableExpression, visited) }) return true
+                }
+            }
+        }
+        return false
     }
 
     /** True when [ref]'s immediate qualifier resolves to an enumerated-but-childless namespace. */

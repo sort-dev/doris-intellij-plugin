@@ -111,6 +111,11 @@ class DorisMultiCatalogFlowTest : BasePlatformTestCase() {
         PlatformTestUtil.waitWithEventsDispatching("$path introspected", {
             requests.engine.state(AutoIntrospectEngine.Key(source.uniqueId, path)) == AutoIntrospectEngine.State.Done
         }, 10)
+        // The refresh's own model and PSI updates land before the next highlighting pass starts.
+        PlatformTestUtil.waitWithEventsDispatching("the refresh of $path ends", {
+            !com.intellij.database.dataSource.DataSourceSyncManager.getInstance().isActive(source)
+        }, 10)
+        errors.awaitScopes()
         DbPsiFacade.getInstance(project).clearCaches()
         settle()
     }

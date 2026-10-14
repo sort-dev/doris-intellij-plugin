@@ -35,6 +35,10 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
         "WITH c AS (SELECT * FROM (SELECT FROM_SECOND(ts) AS ts, * EXCEPT(ts), 0 AS k FROM ext_catalog.archive_db.facts) AS u) SELECT ts, uid FROM c",
         "WITH c AS (SELECT * FROM (SELECT FROM_SECOND(ts) AS ts1, *, 0 AS k FROM ext_catalog.archive_db.facts) AS u) SELECT ts1, uid FROM c",
         "SELECT uid, * FROM (SELECT FROM_SECOND(ts) AS ts1, *, 0 AS k FROM ext_catalog.archive_db.facts) AS u",
+        // An unaliased three-part table qualifies its columns by its own name.
+        "SELECT facts.uid, MAX(facts.ts) AS last_ts FROM ext_catalog.archive_db.facts GROUP BY facts.uid",
+        // A view body Doris accepts without AS.
+        "CREATE OR REPLACE VIEW internal.app.v WITH c AS (SELECT * FROM ext_catalog.archive_db.facts) SELECT uid, kind FROM c",
     )
     private lateinit var errors: BackgroundErrors
     private var previousFlag: String? = null
@@ -102,10 +106,11 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
     }
 
     fun testStarColumnsThroughDerivedTablesAndCtesAreNeverFalseErrors() {
-        for (situation in Situation.entries) {
+        val failures = Situation.entries.flatMap { situation ->
             model(situation)
-            for (sql in shapes) assertEmpty("$situation: $sql", errorsIn(sql))
+            shapes.mapNotNull { sql -> errorsIn(sql).takeIf { it.isNotEmpty() }?.let { "$situation: $sql -> $it" } }
         }
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
     }
 
     fun testAMissingColumnOfAnIntrospectedTableStaysRed() {
