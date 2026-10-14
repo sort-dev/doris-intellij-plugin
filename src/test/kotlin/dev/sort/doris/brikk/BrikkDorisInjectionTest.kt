@@ -570,7 +570,8 @@ class BrikkDorisInjectionTest : BasePlatformTestCase() {
         val items = columnPresentations()
         assertEquals("String?", items.getValue("renamed").typeText)
         assertEquals("  brikk column (src)", items.getValue("renamed").tailText)
-        assertEquals("unknown type (nullability unknown)", items.getValue("id").typeText)
+        // A computed column of unknown type shows no type rather than a borrowed one.
+        assertNull(items.getValue("id").typeText)
         assertEquals("  computed column (SELECT)", items.getValue("id").tailText)
         assertFalse(items.containsKey("code"))
     }

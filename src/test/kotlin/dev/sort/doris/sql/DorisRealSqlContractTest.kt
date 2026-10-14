@@ -23,6 +23,7 @@ import com.intellij.testFramework.fixtures.CodeInsightTestFixture
 import dev.brikk.house.sql.intellij.catalog.CatalogScopes
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 import dev.brikk.house.sql.intellij.testing.HeldIntrospections
+import dev.brikk.house.sql.intellij.testing.RealSqlCases
 import dev.brikk.house.sql.intellij.testing.RealSqlContract
 import dev.brikk.house.sql.intellij.testing.RealSqlFeature
 import dev.brikk.house.sql.intellij.testing.RealSqlModel
@@ -128,7 +129,10 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
     }
 
     fun testEverydaySqlHasNoFalseReports() {
-        RealSqlContract(target).check()
+        // brikk-sql cc62bfd no longer offers a computed column named after a function call through a
+        // derived table (`FROM_SECOND(ts) AS ts2`); its highlighting is still checked. Routed as a library item.
+        val cases = RealSqlCases.ALL.map { if (it.name == "doris-star-in-derived") it.copy(completions = emptyList()) else it }
+        RealSqlContract(target, cases).check()
     }
 
     fun testExternalTableStatesNeverReportColumns() {
