@@ -205,6 +205,12 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         return myFixture.completeBasic()?.map { it.lookupString } ?: emptyList()
     }
 
+    fun testFixedTableFunctionColumnsReachTheSharedAnalysis() {
+        // Call facts from metadata: the shared analysis knows numbers()'s one column through a derived table.
+        val lookups = completionsAt("SELECT <caret> FROM (SELECT * FROM numbers(\"number\" = \"10\")) AS n;")
+        assertTrue(lookups.toString(), "number" in lookups)
+    }
+
     /** The other half of the required pin: mv-variant columns are OFFERED in SELECT position. */
     fun testCompletionOffersMvVariantColumns() {
         val lookups = completionsAt("SELECT <caret> FROM tasks(\"type\"=\"mv\");")

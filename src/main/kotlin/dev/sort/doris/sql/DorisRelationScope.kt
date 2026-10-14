@@ -13,9 +13,10 @@ import dev.sort.doris.brikk.DorisHostSqlChannel
 object DorisRelationScope : RelationScopeProfile {
     private val external = ExtensionPointName.create<ExternalRelationFacts>("dev.sort.doris-intellij-plugin.relationFacts")
     private val physical = DasRelationFacts(dorisDataSourceResolver)
+    private val tableFunctions = TableFunctionFacts(DorisCompletionProfile::snapshot)
     override val language get() = DorisSqlDialect.INSTANCE
     override val dialect = "doris"
-    override val providers get() = external.extensionList + physical
+    override val providers get() = external.extensionList + physical + tableFunctions
     override val hostSql get() = DorisHostSqlChannel
 }
 
