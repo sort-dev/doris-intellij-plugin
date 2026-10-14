@@ -454,7 +454,6 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisNamespaceListingContributor"/>
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisQualifiedPathIntrospectContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
         <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>

@@ -59,7 +59,7 @@ class DorisReferenceIntrospectAnnotator : Annotator {
         val roots0 = DbPsiFacade.getInstance(file.project).findDataSource(
             DorisCatalogProfile.dataSources.resolve(file).dataSource?.uniqueId ?: return)?.model?.modelRoots?.toList() ?: return
         if (DorisCatalogProfile.pathResolver.resolve(roots0, path.take(1), DorisCatalogProfile.dataSources.consoleNamespace(file)) == null) {
-            // From an empty or cleared model the first name is unknown: list the namespaces after this pass.
+            // From an empty or cleared model the first name is unknown: find it after this pass.
             file.project.service<DorisReferenceIntrospections>().later(file, path.dropLast(1))
             return
         }
@@ -81,7 +81,7 @@ class DorisReferenceIntrospections(private val project: Project) {
     private val wanted = ConcurrentHashMap<List<String>, Wanted>()
     private val listings = ConcurrentHashMap<List<String>, SmartPsiElementPointer<PsiFile>>()
 
-    /** Lists the namespaces [path] needs once the highlighting pass ends ([DorisNamespaceListing.ensure]). */
+    /** Finds [path], which the model does not hold, once the highlighting pass ends ([DorisAutoIntrospectService.requestPath]). */
     fun later(file: PsiFile, path: List<String>) {
         listings.putIfAbsent(listOf(file.viewProvider.virtualFile.url) + path, SmartPointerManager.getInstance(project).createSmartPsiElementPointer(file))
     }
@@ -101,11 +101,11 @@ class DorisReferenceIntrospections(private val project: Project) {
     private fun drain() {
         if (wanted.isEmpty() && listings.isEmpty()) return
         ApplicationManager.getApplication().invokeLater({
+            val requests = project.service<DorisAutoIntrospectService>()
             for (key in listings.keys.toList()) {
                 val file = listings.remove(key)?.element ?: continue
-                project.service<DorisNamespaceListing>().ensure(file, key.drop(1))
+                requests.requestPath(file, key.drop(1))
             }
-            val requests = project.service<DorisAutoIntrospectService>()
             for (key in wanted.keys.toList()) {
                 val next = wanted.remove(key) ?: continue
                 next.file.element?.let { requests.request(it, next.dataSource, next.target) }
