@@ -1,6 +1,7 @@
 package dev.sort.doris.sql
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
+import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.database.dataSource.DatabaseDriverManager
 import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.dataSource.LocalDataSourceManager
@@ -11,9 +12,11 @@ import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.util.ObjectPath
 import com.intellij.database.util.SearchPath
 import com.intellij.database.util.TreePattern
+import com.intellij.lang.Language
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
+import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.psi.PsiFile
 import com.intellij.sql.database.SqlDataSourceManager
 import com.intellij.sql.dialects.SqlImportUtil
@@ -23,11 +26,12 @@ import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.RunAll
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.relation.ExternalRelationFacts
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
-import dev.sort.doris.DorisDbms
 import dev.sort.doris.DorisCatalogs
+import dev.sort.doris.DorisDbms
 import dev.sort.doris.pipes.DorisPipesSettings
 import dev.sort.doris.sqlResolveInspection
 
@@ -54,6 +58,7 @@ class DorisRelationHighlightingTest : BasePlatformTestCase() {
         val schema = myFixture.addFileToProject("relations.sql", """
             CREATE TABLE a_db.orders (id BIGINT NOT NULL, a_only INT);
             CREATE TABLE b_db.orders (id BIGINT NOT NULL, b_only INT);
+            CREATE TABLE a_db.customers (id BIGINT NOT NULL, name VARCHAR(64), created DATETIME);
         """.trimIndent())
         setSqlDialectMapping(project, schema.virtualFile, DorisSqlDialect.INSTANCE, testRootDisposable)
         val manager = SqlDataSourceManager.getInstance(project)
@@ -83,6 +88,7 @@ class DorisRelationHighlightingTest : BasePlatformTestCase() {
     }
 
     override fun tearDown() = RunAll(
+        { LookupManager.getInstance(project).hideActiveLookup() },
         { project.service<DorisPipesSettings>().enabled = previousPipes },
         { previousCatalogs?.let { System.setProperty(DorisCatalogs.PROPERTY, it) } ?: System.clearProperty(DorisCatalogs.PROPERTY) },
         { errors.awaitScopes() }, { errors.assertNone() },
@@ -145,5 +151,55 @@ class DorisRelationHighlightingTest : BasePlatformTestCase() {
             val infos = myFixture.doHighlighting()
             assertTrue(infos.joinToString { "${it.severity}:${it.description}" }, infos.any { it.description == "Unknown column 'missing'" })
         }
+    }
+
+    fun testColumnCompletionFollowsTheConsoleDatabase() {
+        for ((database, column, other) in listOf(Triple("a_db", "a_only", "b_only"), Triple("b_db", "b_only", "a_only"))) {
+            val file = configure("SELECT o.<caret> FROM orders AS o")
+            RecordingConsole(project, file.virtualFile, local).use { recording ->
+                recording.console.setSearchPath(SearchPath.of(ObjectPath.create(database, ObjectKind.SCHEMA)))
+                myFixture.completeBasic()
+                val names = myFixture.lookupElementStrings.orEmpty()
+                assertTrue("$database: $names", names.containsAll(listOf("id", column)))
+                assertFalse("$database: $names", other in names)
+                LookupManager.getInstance(project).hideActiveLookup()
+            }
+        }
+    }
+
+    fun testRealisticDorisStatementsHaveNoFalseErrors() {
+        val plain = listOf(
+            """
+                WITH totals AS (
+                    SELECT c.name, count(*) AS n, sum(o.a_only) AS total
+                    FROM orders o JOIN customers c ON c.id = o.id
+                    WHERE c.created >= date_sub(now(), INTERVAL 7 DAY)
+                    GROUP BY c.name
+                )
+                SELECT name, total, row_number() OVER (ORDER BY total DESC) AS rn,
+                    CASE WHEN n > 1 THEN 'repeat' ELSE 'new' END AS kind
+                FROM totals ORDER BY total DESC LIMIT 20
+            """.trimIndent(),
+            "SELECT o.id, c.name FROM orders o LEFT JOIN customers c USING (id) WHERE o.a_only IS NOT NULL",
+            "SELECT date_trunc(created, 'day') AS day, group_concat(name ORDER BY name SEPARATOR ', ') FROM customers GROUP BY day",
+            "SELECT * EXCEPT (created) FROM customers",
+            "SET query_timeout = 600; SHOW TABLES; USE a_db;",
+        )
+        for (pipes in listOf(false, true)) {
+            setPipes(pipes)
+            val statements = plain + listOfNotNull(
+                "FROM orders |> WHERE a_only > 0 |> AGGREGATE count(*) AS n GROUP BY id |> ORDER BY n DESC".takeIf { pipes })
+            for (sql in statements) assertEmpty("$sql, PIPE $pipes", highlight(sql, "a_db").errors())
+        }
+    }
+
+    fun testKotlinAbsentStartupHasOnlyKotlinFreeExtensions() {
+        if (System.getProperty("test.kotlin") != "absent") return
+        assertNull(Language.findLanguageByID("kotlin"))
+        val facts = ExtensionPointName.create<ExternalRelationFacts>("dev.sort.doris-intellij-plugin.relationFacts")
+        assertTrue(facts.extensionList.none { it.javaClass.name.startsWith("dev.sort.doris.brikk.") })
+        assertEmpty(highlight("SELECT abs(-1), id FROM orders", "a_db").errors())
+        errors.awaitScopes()
+        errors.assertNone()
     }
 }
