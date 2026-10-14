@@ -207,16 +207,22 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         assertTrue(errorsIn(ds, "SELECT nope FROM internal.ops.orders").any { "nope" in it })
     }
 
-    fun testClearedModelListsOnDemandAndAllDatabasesLoadsInternal() {
+    fun testClearedModelListsOnDemandAndAllDatabasesLoadsInternal() =
+        // What the schemas pane holds after a clear: "All databases" at the root, no catalog level.
+        clearedFlow(TreePattern(com.intellij.database.util.TreePatternNode(
+            com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD, com.intellij.database.util.TreePatternNode.NO_GROUPS)))
+
+    fun testNewDataSourceWithNoScopeLoadsInternalWithoutATick() =
+        // A new or cleared data source: no selection at all (the tree says "No databases selected").
+        clearedFlow(TreePattern.EMPTY)
+
+    private fun clearedFlow(scope: TreePattern) {
         if (url.isNullOrBlank() || driverJar.isNullOrBlank()) { println("SKIP: doris.live.url not set"); return }
         myFixture.enableInspections(sqlResolveInspection())
         setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE, testRootDisposable)
         val ds = register()
-        // What the schemas pane holds after a clear: "All databases" at the root, no catalog level.
-        ds.introspectionScope = TreePattern(com.intellij.database.util.TreePatternNode(
-            com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD, com.intellij.database.util.TreePatternNode.NO_GROUPS))
+        ds.introspectionScope = scope
         assertEmpty(roots(ds))
-        println("LIVE model=${ds.model?.javaClass?.name} root=${(ds.model as? com.intellij.database.model.basic.BasicModModel)?.root?.javaClass?.name}")
 
         fun complete(text: String) {
             myFixture.configureByText("cleared.sql", text)
@@ -229,18 +235,31 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         PlatformTestUtil.waitWithEventsDispatching("the catalogs and ext_catalog's databases are listed", {
             node(ds, "ext_catalog")?.let { "archive_src" in children(it, ObjectKind.SCHEMA) } == true
         }, 60)
-        println("LIVE cleared listing: catalogs=${roots(ds).map { it.name }}")
+        // Nobody ticks anything or presses Refresh: the platform's own sync loads internal.
+        PlatformTestUtil.waitWithEventsDispatching("internal loads by itself", {
+            node(ds, "internal", "ops")?.let { children(it, ObjectKind.TABLE).isNotEmpty() } == true
+        }, 90)
+        PlatformTestUtil.waitWithEventsDispatching("the sync ends", { !DataSourceSyncManager.getInstance().isActive(ds) }, 60)
+        settle()
+        println("LIVE cleared scope=${com.intellij.database.util.TreePatternUtils.serialize(ds.introspectionScope)}")
+        assertEquals(listOf("orders"), children(checkNotNull(node(ds, "internal", "ops")), ObjectKind.TABLE))
+        // The data source tree lists the namespaces the stored scope matches: the catalogs, not "No databases selected".
+        for (catalog in listOf("internal", "ext_catalog")) {
+            assertTrue("the tree shows $catalog", com.intellij.database.dataSource.DataSourceSchemaMapping.matches(ds.introspectionScope, checkNotNull(node(ds, catalog))))
+        }
+
         complete("SELECT * FROM ext_catalog.archive_src.<caret>")
         PlatformTestUtil.waitWithEventsDispatching("archive_src's tables load", {
             node(ds, "ext_catalog", "archive_src")?.let { children(it, ObjectKind.TABLE).isNotEmpty() } == true
         }, 60)
         assertEquals(listOf("facts"), children(checkNotNull(node(ds, "ext_catalog", "archive_src")), ObjectKind.TABLE))
 
-        // A sync under "All databases" lists every catalog and loads internal, as the default does.
+        // The platform's Refresh keeps it all: internal loaded, the external catalog listed and its loaded database kept.
         sync(LoaderContext.selectGeneralTask(project, ds))
         val internal = checkNotNull(node(ds, "internal"))
         assertTrue(children(internal, ObjectKind.SCHEMA).containsAll(listOf("sales", "ops")))
         assertEquals(listOf("orders"), children(checkNotNull(node(ds, "internal", "ops")), ObjectKind.TABLE))
         assertTrue("the external catalog is listed", "archive_src" in children(checkNotNull(node(ds, "ext_catalog")), ObjectKind.SCHEMA))
+        assertEquals(listOf("facts"), children(checkNotNull(node(ds, "ext_catalog", "archive_src")), ObjectKind.TABLE))
     }
 }

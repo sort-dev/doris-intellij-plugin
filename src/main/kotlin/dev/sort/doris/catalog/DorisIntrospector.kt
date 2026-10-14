@@ -137,6 +137,7 @@ class DorisIntrospector(
     ) {
         super.initSpecificThings(model, config)
         val scope = introspectionScope ?: return
+        DorisCatalogs.info("introspection starts under scope " + com.intellij.database.util.TreePatternUtils.serialize(scope))
         val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
         if (expanded !== scope) {
             DorisCatalogs.info(

@@ -86,12 +86,14 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 DorisCatalogs.warn("namespace listing for '$shown' failed: ${e.message}")
                 return@launch
             }
-            withContext(Dispatchers.EDT) {
-                if (project.isDisposed) return@withContext
-                write(local, listing)
-                DbPsiFacade.getInstance(project).clearCaches()
-                pointer.element?.let { DaemonCodeAnalyzer.getInstance(project).restart(it, "Doris namespace listing") }
+            val cleared = withContext(Dispatchers.EDT) {
+                if (project.isDisposed) return@withContext false
+                write(local, listing).also {
+                    DbPsiFacade.getInstance(project).clearCaches()
+                    pointer.element?.let { DaemonCodeAnalyzer.getInstance(project).restart(it, "Doris namespace listing") }
+                }
             }
+            if (cleared) syncCleared(local)
             readAction {
                 val target = pointer.element ?: return@readAction
                 val queued = project.service<DorisAutoIntrospectService>().requestPath(target, path)
@@ -140,26 +142,31 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 DorisCatalogs.warn("namespace listing after console switch failed: ${e.message}")
                 return@launch
             }
-            withContext(Dispatchers.EDT) {
-                if (project.isDisposed) return@withContext
-                write(local, listing)
-                DbPsiFacade.getInstance(project).clearCaches()
+            val cleared = withContext(Dispatchers.EDT) {
+                if (project.isDisposed) return@withContext false
+                write(local, listing).also { DbPsiFacade.getInstance(project).clearCaches() }
             }
+            if (cleared) syncCleared(local)
         }
     }
 
     private fun claim(local: LocalDataSource, level: String): Boolean = asked.add("${local.uniqueId}|${level.lowercase()}")
 
-    /** Adds the listed names to the model; nothing is removed, and nothing below a database is touched. */
-    internal fun write(local: LocalDataSource, listing: Listing) {
+    /**
+     * Adds the listed names to the model; nothing is removed, and nothing below a database is touched. True
+     * when [local] was cleared (no model yet, or a scope without a catalog level): its default sync is due.
+     */
+    internal fun write(local: LocalDataSource, listing: Listing): Boolean {
+        var cleared = false
         if (local.model !is BasicModModel) {
             // The first names a cleared data source learns start its model, as an introspection would.
             local.model = com.intellij.database.model.ModelFactory.BLACK_HOLE.createModel(local.dbms)
             DorisCatalogs.info("model created for '${local.name}' to hold the listed names")
+            cleared = true
         }
-        normalizeScope(local)
-        val model = local.model as? BasicModModel ?: return
-        val root = model.root as? MsRoot ?: return
+        if (normalizeScope(local)) cleared = true
+        val model = local.model as? BasicModModel ?: return cleared
+        val root = model.root as? MsRoot ?: return cleared
         DorisModelWrite.write(model) {
             listing.catalogs?.forEach { (id, name) ->
                 if (root.databases.none { it.name.equals(name, ignoreCase = true) }) root.databases.createOrGet(id).name = name
@@ -169,6 +176,27 @@ open class DorisNamespaceListing(private val project: Project, private val scope
                 if (catalog != null && catalog.schemas.none { it.name.equals(name, ignoreCase = true) }) catalog.schemas.createOrGet(name)
             }
         }
+        return cleared
+    }
+
+    /**
+     * The sync a cleared data source gets from the platform's Forget Model and Refresh, run once per session:
+     * the platform's own general refresh under the (normalized) scope, so `internal` loads and the other
+     * catalogs are listed without the user ticking anything. Waits for it to end; false when it did not run.
+     */
+    protected open suspend fun syncCleared(local: LocalDataSource): Boolean {
+        if (!claim(local, "cleared sync")) return false
+        val manager = com.intellij.database.dataSource.DataSourceSyncManager.getInstance()
+        if (manager.isActive(local)) {
+            DorisCatalogs.info("sync of cleared '${local.name}' not started: a refresh is already running")
+            return false
+        }
+        DorisCatalogs.info("sync starts for cleared '${local.name}' (the platform's general refresh) under scope " +
+            com.intellij.database.util.TreePatternUtils.serialize(local.introspectionScope))
+        val context = com.intellij.database.util.LoaderContext.selectGeneralTask(project, local)
+        val result = manager.tryPerformSync(context, stopRunning = false, merge = false)
+        DorisCatalogs.info("sync of cleared '${local.name}' ${if (result != null && context.errorHandler?.hasErrors() != true) "done" else "ended with errors or did not run"}")
+        return result != null
     }
 
     /**
@@ -176,15 +204,16 @@ open class DorisNamespaceListing(private val project: Project, private val scope
      * default it means, `internal` deep and the other catalogs listed, so the scope the auto-introspection
      * widens later keeps them, and the data source tree shows them selected.
      */
-    private fun normalizeScope(local: LocalDataSource) {
-        val scope = local.introspectionScope ?: return
-        if (scope.root?.getGroup(com.intellij.database.model.ObjectKind.DATABASE) != null) return
+    private fun normalizeScope(local: LocalDataSource): Boolean {
+        val scope = local.introspectionScope
+        if (scope.root?.getGroup(com.intellij.database.model.ObjectKind.DATABASE) != null) return false
         val normalized = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
-        if (normalized === scope) return
+        if (normalized === scope) return false
         local.introspectionScope = normalized
         com.intellij.database.dataSource.DataSourceStorage.getProjectStorage(project)?.takeIf { local in it.dataSources }?.updateDataSource(local)
-        DorisCatalogs.info("scope of '${local.name}' had no catalog level; stored as the default: " +
-            com.intellij.database.util.TreePatternUtils.serialize(normalized))
+        DorisCatalogs.info("scope of '${local.name}' normalized: '${com.intellij.database.util.TreePatternUtils.serialize(scope)}' " +
+            "(no catalog level) stored as the default '${com.intellij.database.util.TreePatternUtils.serialize(normalized)}'")
+        return true
     }
 
     /**

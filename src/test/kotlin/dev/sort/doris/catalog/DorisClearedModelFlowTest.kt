@@ -71,7 +71,6 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
             name = "Cleared Doris model"
             databaseDriver = checkNotNull(DatabaseDriverManager.getInstance().getDriver("doris"))
             url = "jdbc:offline:doris-cleared"; isAutoSynchronize = false; isKeepAlive = false
-            introspectionScope = DorisCatalogScopes.multiCatalogDefaultScope()
         }
         LocalDataSourceManager.getInstance(project).addDataSource(source)
         DbPsiFacade.getInstance(project).clearCaches()
@@ -139,11 +138,48 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
         settle()
     }
 
+    /**
+     * The platform's own general refresh the cleared data source gets once its first names are listed: it
+     * runs under the normalized scope, which the data source tree and the sync both read.
+     */
+    private fun finishClearedSync() {
+        val general = introspections.next()
+        val scope = general.context.dataSource.let { (it as LocalDataSource).introspectionScope }
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS, DorisCatalogScopes.classifyCatalog(scope, "internal"))
+        general.finish {
+            val internal = catalog("internal") ?: root.databases.createOrGet(0L).apply { name = "internal" }
+            internal.schemas.createOrGet("sales").tables.createOrGet("orders").columns.createOrGet("id")
+            // What the introspector records when it lists a database's tables.
+            DorisListedNamespaces.record(source.uniqueId, "internal", "sales")
+        }
+        settle()
+    }
+
+    fun testAClearedDataSourceGetsTheDefaultScopeAndItsSyncWithoutATick() {
+        assertTrue("a new or cleared data source selects nothing", source.introspectionScope.root == null || source.introspectionScope == TreePattern.EMPTY)
+        completions("SELECT * FROM internal.<caret>")
+        awaitListing { catalog("internal")?.schemas?.isEmpty == false }
+        finishClearedSync()
+        // The data source tree lists what the stored scope matches: both catalogs, not "No databases selected".
+        val stored = source.introspectionScope
+        for (name in listOf("internal", "ext_catalog")) {
+            assertTrue("the tree shows $name", com.intellij.database.dataSource.DataSourceSchemaMapping.matches(stored, catalog(name)!!))
+        }
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT, DorisCatalogScopes.classifyCatalog(stored, "ext_catalog"))
+        errors.awaitScopes()
+        DbPsiFacade.getInstance(project).clearCaches()
+        settle()
+        assertContainsElements(completions("SELECT * FROM internal.sales.<caret>"), "orders")
+        introspections.assertNone(500)
+    }
+
     fun testCompletingAnUnknownCatalogListsItThenLoadsTheDatabaseOnDemand() {
         assertFalse("a cleared data source has no model", source.model is BasicModModel)
         completions("SELECT * FROM ext_catalog.<caret>")
         awaitListing { catalog("ext_catalog")?.schemas?.isEmpty == false }
         assertEquals(listOf("SHOW CATALOGS", "SHOW DATABASES FROM `ext_catalog`"), listing.queries.toList())
+        finishClearedSync()
+        errors.awaitScopes()
         introspections.assertNone()
         assertContainsElements(completions("SELECT * FROM ext_catalog.<caret>"), "archive_db", "other_db")
 
@@ -160,6 +196,7 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
         configure("SELECT uid FROM ext_catalog.archive_db.facts")
         errors()
         awaitListing { catalog("ext_catalog")?.schemas?.isEmpty == false }
+        finishClearedSync()
         val refresh = introspections.next()
         assertEquals("ext_catalog", refresh.context.tasks.single().databaseName)
         refresh.finish { catalog("ext_catalog")!!.schemas.first { it.name == "archive_db" }.tables.createOrGet("facts").columns.createOrGet("uid") }
@@ -175,6 +212,7 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
         awaitListing { catalog("internal") != null }
         val asked = listing.queries.toList()
         assertEquals(listOf("SHOW CATALOGS", "SHOW DATABASES FROM `internal`"), asked)
+        finishClearedSync()
         repeat(2) { configure("SELECT * FROM nosuch_catalog.x.t"); errors() }
         errors.awaitScopes()
         assertEquals(asked, listing.queries.toList())
@@ -183,6 +221,7 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
 
     fun testAPartlyLoadedDatabaseCompletesItsWholeTableList() {
         source.model = ModelFactory.BLACK_HOLE.createModel(DorisDbms.DORIS)
+        source.introspectionScope = DorisCatalogScopes.multiCatalogDefaultScope()
         val sales = root.databases.createOrGet(0L).apply { name = "internal" }.schemas.createOrGet("sales")
         sales.tables.createOrGet("loaded_on_demand")
         DbPsiFacade.getInstance(project).clearCaches()
@@ -201,6 +240,7 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
         awaitListing { catalog("ext_catalog")?.schemas?.isEmpty == false }
         assertEquals(listOf("SHOW CATALOGS", "SHOW DATABASES FROM `ext_catalog`"), listing.queries.toList())
         assertEquals(listOf("archive_db", "other_db"), catalog("ext_catalog")!!.schemas.map { it.name }.sorted())
+        finishClearedSync()
         listing.ensureNamespace(source, "ext_catalog", "archive_db")
         errors.awaitScopes()
         assertEquals(2, listing.queries.size)

@@ -173,7 +173,10 @@ object DorisCatalogScopes {
      * Returns the same instance when nothing needed expansion (cheap identity check for callers).
      */
     fun expandExplicitCatalogSelections(scope: TreePattern): TreePattern {
-        val root = scope.root ?: return scope
+        // No selection at all (a new or cleared data source): the platform introspects such a data source
+        // with the default scope, so it means the default.
+        val root = scope.root ?: return multiCatalogDefaultScope()
+        if (scope == TreePattern.EMPTY || root.groups.isNullOrEmpty() && !TreePatternUtils.isWildcard(root)) return multiCatalogDefaultScope()
         // "All databases" at the data source root, with no catalog level below it (what the schemas pane
         // leaves after its data was cleared): the default, `internal` deep and the other catalogs listed.
         val dbGroup = root.getGroup(ObjectKind.DATABASE)

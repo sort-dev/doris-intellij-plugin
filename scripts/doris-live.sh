@@ -62,7 +62,7 @@ SQL
 
 cd "$here"
 # One Gradle run per test: each test IDE starts its remote JDBC host in that test's project directory.
-tests=${DORIS_LIVE_TESTS:-"dev.sort.doris.catalog.DorisIntrospectionLiveTest.testCatalogsEnumerateAndExternalNamespacesLoadOnDemandWithoutRetrigger dev.sort.doris.catalog.DorisIntrospectionLiveTest.testClearedModelListsOnDemandAndAllDatabasesLoadsInternal"}
+tests=${DORIS_LIVE_TESTS:-"dev.sort.doris.catalog.DorisIntrospectionLiveTest.testCatalogsEnumerateAndExternalNamespacesLoadOnDemandWithoutRetrigger dev.sort.doris.catalog.DorisIntrospectionLiveTest.testClearedModelListsOnDemandAndAllDatabasesLoadsInternal dev.sort.doris.catalog.DorisIntrospectionLiveTest.testNewDataSourceWithNoScopeLoadsInternalWithoutATick"}
 for test in $tests; do
     ./gradlew test --rerun --tests "$test" -Pdoris.live.url="jdbc:mysql://127.0.0.1:$port/" -Pdoris.live.driverJar="$driver" "$@"
 done
