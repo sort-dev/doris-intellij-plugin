@@ -40,6 +40,10 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
         "SELECT facts.uid, MAX(facts.ts) AS last_ts FROM ext_catalog.archive_db.facts GROUP BY facts.uid",
         // A view body Doris accepts without AS.
         "CREATE OR REPLACE VIEW internal.app.v WITH c AS (SELECT * FROM ext_catalog.archive_db.facts) SELECT uid, kind FROM c",
+        // Statements wrapping a query: EXPLAIN, a scheduled job's DML, an export through a table function.
+        "EXPLAIN WITH a AS (SELECT facts.uid, facts.ts FROM ext_catalog.archive_db.facts) SELECT uid FROM a WHERE ts > 0",
+        "CREATE JOB j ON SCHEDULE AT CURRENT_TIMESTAMP DO INSERT INTO internal.app.t SELECT * EXCEPT(kind) FROM ext_catalog.archive_db.facts WHERE uid = 1",
+        "INSERT INTO s3(\"uri\" = \"s3://bucket/path/\", \"format\" = \"csv\") SELECT ts, uid FROM ext_catalog.archive_db.facts WHERE kind = 'a'",
     )
     private lateinit var errors: BackgroundErrors
     private var previousFlag: String? = null

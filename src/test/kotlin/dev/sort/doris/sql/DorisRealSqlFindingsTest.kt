@@ -163,6 +163,12 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
         "INSERT INTO s3(\"uri\" = \"s3://bucket/path/\", \"format\" = \"parquet\") SELECT k, v FROM db.facts",
     )
 
+    fun testCastToAParameterizedArrayKeepsLaterCtes() {
+        assertParses("SELECT CAST(x AS ARRAY<VARCHAR(120)>) AS xs FROM db.facts")
+        assertQuiet("INSERT OVERWRITE TABLE db.facts PARTITION(*) WITH a AS (SELECT k, CAST(MIN_BY(x, ts) AS ARRAY<VARCHAR(120)>) AS xs " +
+            "FROM db.facts GROUP BY k), b AS (SELECT * FROM a) SELECT * FROM b")
+    }
+
     fun testInsertOverwriteWithCtes() = assertQuiet(
         "INSERT OVERWRITE TABLE db.facts PARTITION(*) WITH a AS (SELECT * FROM db.facts), b AS (SELECT * FROM a) SELECT * FROM b",
     )
@@ -170,6 +176,7 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
     fun testPartitionNamesAreNotModelObjects() = assertQuiet(
         "ALTER TABLE db.facts DROP PARTITION p_20240101_day",
         "SELECT k FROM db.facts PARTITION (p1)",
+        "SELECT k FROM db.facts PARTITIONS (p1, p2) WHERE v > 0",
     )
 
     fun testTimestampLiteralWithTimeZone() = assertQuiet(

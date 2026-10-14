@@ -139,8 +139,8 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
 
     /**
      * OUT-OF-SCOPE detection ([dev.sort.doris.catalog.DorisOutOfScope] holds the decision table). The shared
-     * suppressor quiets columns of unknown relations; this also covers a relation's own name qualifying its
-     * columns (`t.c` over an unloaded `cat.db.t`) and statements the shared analysis does not read:
+     * suppressor quiets columns of unknown relations in what the shared analysis reads; this also covers the
+     * statements it does not read (a scheduled job's DML, an export through a table function):
      *  1. the failing reference is qualified and its qualifier resolves to an enumerated-but-childless
      *     namespace;
      *  2. the failing reference sits in a query whose FROM (derived tables included) contains a table
