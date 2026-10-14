@@ -190,8 +190,9 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertEquals(listOf("Label"), unresolvedColumnErrors("SELECT Label FROM tasks(\"type\"=\"mv\");"))
     }
 
-    fun testUnknownFunctionColumnsStayRed() {
-        assertEquals(listOf("c1"), unresolvedColumnErrors("SELECT c1 FROM some_unknown_tvf('a'='b');"))
+    fun testUnknownFunctionColumnsAreOpen() {
+        // Nothing is known about an unknown function's output, so no column of it can be called missing.
+        assertEquals(emptyList<String>(), unresolvedColumnErrors("SELECT c1 FROM some_unknown_tvf('a'='b');"))
     }
 
     // ---------------------------------------------------------------------------------------

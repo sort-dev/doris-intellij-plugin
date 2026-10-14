@@ -54,7 +54,7 @@ tasks.withType<Test>().configureEach {
         systemProperty("golden.record", "true")
     }
     systemProperty("doris.replay.poc", "false")
-    for (live in listOf("doris.live.url", "doris.live.driverJar")) {
+    for (live in listOf("doris.live.url", "doris.live.driverJar", "realSql.dir")) {
         providers.gradleProperty(live).orNull?.let { systemProperty(live, it) }
     }
     systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.20.0-SNAPSHOT" else "jvm-0.6.0")

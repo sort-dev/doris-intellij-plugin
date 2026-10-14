@@ -143,6 +143,9 @@ internal object ReplayMapping {
         // `primaryExpression # dereference` around a reference + trailing identifier.
         "SelectClauseContext" to SQL_SELECT_CLAUSE,
         "UnquotedIdentifierContext" to SQL_IDENTIFIER,
+        // A backquoted name is an identifier too (MySQL wraps the delimited token the same way); left bare,
+        // a column declared `` `c` `` had no name, so references to it from the statement did not resolve.
+        "QuotedIdentifierAlternativeContext" to SQL_IDENTIFIER,
         "DereferenceContext" to SQL_COLUMN_REFERENCE,
 
         // FROM ... : the from clause.

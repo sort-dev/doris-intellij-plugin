@@ -112,6 +112,9 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             if (element != null && isDorisUnresolvedFalsePositive(element)) return false
         }
         if (description.contains(UNRESOLVED_COLUMN) && isTvfFalsePositive(file, highlightInfo)) return false
+        // `INSERT INTO s3(...)` / `hdfs(...)` / `local(...)` writes through a table function the substrate reads as a table name.
+        if (description.contains(UNRESOLVED_PREFIX) && isTableFunctionTarget(file, highlightInfo)) return false
+        if (description.contains(UNRESOLVED_PREFIX) && isPartitionName(file, highlightInfo)) return false
         // Dogfood 2026-07-15: Doris (MySQL-default sql_mode) reads "..." as a STRING LITERAL, but
         // the MySQL substrate lexes it as an ANSI quoted IDENTIFIER — so a double-quoted TVF
         // property value like 'query' = "select ..." became an "identifier", tripping the MySQL
@@ -435,6 +438,27 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         return false
     }
 
+    /** A name in `PARTITION (...)` / `PARTITIONS (...)`: Doris introspection loads no partitions, whatever shape the name parses to. */
+    private fun isPartitionName(file: PsiFile, info: HighlightInfo): Boolean {
+        val text = file.text
+        var i = info.startOffset - 1
+        while (i >= 0 && (text[i].isLetterOrDigit() || text[i] in "_`, \t\r\n")) i--
+        if (i < 0 || text[i] != '(') return false
+        i--
+        while (i >= 0 && text[i].isWhitespace()) i--
+        val end = i + 1
+        while (i >= 0 && text[i].isLetter()) i--
+        return text.substring(i + 1, end).uppercase() in setOf("PARTITION", "PARTITIONS")
+    }
+
+    private fun isTableFunctionTarget(file: PsiFile, info: HighlightInfo): Boolean {
+        val name = file.text.substring(info.startOffset, info.endOffset)
+        if (DorisTableFunctions.byName(name.trim('`')) == null) return false
+        var i = info.endOffset
+        while (i < file.textLength && file.text[i].isWhitespace()) i++
+        return file.text.getOrNull(i) == '('
+    }
+
     /** Is the highlighted range a double-quoted token ("..." — a string literal in Doris)? */
     private fun isDoubleQuotedToken(file: PsiFile, info: HighlightInfo): Boolean {
         val text = file.text
@@ -515,6 +539,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         private val SUPPRESSED_PREFIXES = listOf(
             "Unable to resolve object type", // Doris types unknown to the SQL92 substrate
             "Unknown database function",     // Doris built-ins absent from the introspected model
+            "Unable to resolve partition",   // Doris introspection loads no partitions, so none can resolve
         )
     }
 }

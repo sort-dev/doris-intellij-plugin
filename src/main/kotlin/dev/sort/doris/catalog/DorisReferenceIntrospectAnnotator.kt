@@ -17,6 +17,9 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.SmartPsiElementPointer
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.sql.psi.SqlCreateStatement
+import com.intellij.sql.psi.SqlQueryExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import dev.brikk.house.sql.intellij.catalog.NamespaceTarget
 import dev.brikk.house.sql.intellij.catalog.pathResolver
@@ -35,6 +38,10 @@ class DorisReferenceIntrospectAnnotator : Annotator {
         val reference = element as? SqlReferenceExpression ?: return
         if (!DorisCatalogs.enabled || !DorisCatalogProfile.autoIntrospect || reference.parent is SqlReferenceExpression) return
         if (reference.referenceElementType.targetKind != ObjectKind.TABLE) return
+        // A DDL statement's own names (CREATE TABLE t LIKE s, say) are declarations: resolving them from
+        // here recurses through the statement's implicit context. Queries inside DDL are still read.
+        if (PsiTreeUtil.getParentOfType(reference, SqlCreateStatement::class.java) != null &&
+            PsiTreeUtil.getParentOfType(reference, SqlQueryExpression::class.java) == null) return
         val names = generateSequence(reference) { it.qualifierExpression as? SqlReferenceExpression }.map { it.name }.toList().asReversed()
         if (names.size < 2 || names.any { it.isNullOrEmpty() }) return
         val file = reference.containingFile ?: return

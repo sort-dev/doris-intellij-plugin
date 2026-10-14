@@ -431,6 +431,7 @@
              splits the string into '…' || '…'. Same opt-out JetBrains' MySQL dialect uses. -->
         <lang.quoteHandler language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisQuoteHandler"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.sql.DorisDatetimeZoneErrorFilter"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisNativeErrorPsiFilter"/>
         <highlightErrorFilter implementation="dev.sort.doris.brikk.DorisHostPlaceholderErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
