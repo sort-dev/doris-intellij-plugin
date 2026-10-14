@@ -34,9 +34,15 @@ import java.util.concurrent.ConcurrentHashMap
  * introspection service drops repeats and highlights the file again when a refresh ends.
  */
 class DorisReferenceIntrospectAnnotator : Annotator {
+    companion object {
+        const val PROPERTY: String = "doris.referenceIntrospection"
+    }
+
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
         val reference = element as? SqlReferenceExpression ?: return
         if (!DorisCatalogs.enabled || !DorisCatalogProfile.autoIntrospect || reference.parent is SqlReferenceExpression) return
+        // Tests of highlighting alone switch the requests off (`-Ddoris.referenceIntrospection=false`).
+        if (System.getProperty(PROPERTY) == "false") return
         if (reference.referenceElementType.targetKind != ObjectKind.TABLE) return
         // A DDL statement's own names (CREATE TABLE t LIKE s, say) are declarations: resolving them from
         // here recurses through the statement's implicit context. Queries inside DDL are still read.
@@ -50,6 +56,13 @@ class DorisReferenceIntrospectAnnotator : Annotator {
         val roots = DbPsiFacade.getInstance(file.project).findDataSource(dataSource.uniqueId)?.model?.modelRoots?.toList() ?: return
         val current = DorisCatalogProfile.dataSources.consoleNamespace(file)
         val resolver = DorisCatalogProfile.pathResolver
+        val roots0 = DbPsiFacade.getInstance(file.project).findDataSource(
+            DorisCatalogProfile.dataSources.resolve(file).dataSource?.uniqueId ?: return)?.model?.modelRoots?.toList() ?: return
+        if (DorisCatalogProfile.pathResolver.resolve(roots0, path.take(1), DorisCatalogProfile.dataSources.consoleNamespace(file)) == null) {
+            // From an empty or cleared model the first name is unknown: list the namespaces after this pass.
+            file.project.service<DorisReferenceIntrospections>().later(file, path.dropLast(1))
+            return
+        }
         val target = when (val resolved = reference.resolve()) {
             null -> (path.size - 1 downTo 1).firstNotNullOfOrNull { resolver.resolve(roots, path.take(it), current) }
                 ?.takeIf { it.node.kind in DorisCatalogProfile.levels && resolver.isChildless(it.node) }
@@ -66,6 +79,12 @@ class DorisReferenceIntrospections(private val project: Project) {
     private class Wanted(val file: SmartPsiElementPointer<PsiFile>, val dataSource: LocalDataSource, val target: NamespaceTarget)
 
     private val wanted = ConcurrentHashMap<List<String>, Wanted>()
+    private val listings = ConcurrentHashMap<List<String>, SmartPsiElementPointer<PsiFile>>()
+
+    /** Lists the namespaces [path] needs once the highlighting pass ends ([DorisNamespaceListing.ensure]). */
+    fun later(file: PsiFile, path: List<String>) {
+        listings.putIfAbsent(listOf(file.viewProvider.virtualFile.url) + path, SmartPointerManager.getInstance(project).createSmartPsiElementPointer(file))
+    }
 
     init {
         project.messageBus.connect().subscribe(DaemonCodeAnalyzer.DAEMON_EVENT_TOPIC, object : DaemonCodeAnalyzer.DaemonListener {
@@ -80,8 +99,12 @@ class DorisReferenceIntrospections(private val project: Project) {
     }
 
     private fun drain() {
-        if (wanted.isEmpty()) return
+        if (wanted.isEmpty() && listings.isEmpty()) return
         ApplicationManager.getApplication().invokeLater({
+            for (key in listings.keys.toList()) {
+                val file = listings.remove(key)?.element ?: continue
+                project.service<DorisNamespaceListing>().ensure(file, key.drop(1))
+            }
             val requests = project.service<DorisAutoIntrospectService>()
             for (key in wanted.keys.toList()) {
                 val next = wanted.remove(key) ?: continue

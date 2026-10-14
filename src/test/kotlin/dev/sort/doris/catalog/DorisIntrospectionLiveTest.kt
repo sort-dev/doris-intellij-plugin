@@ -206,4 +206,41 @@ class DorisIntrospectionLiveTest : BasePlatformTestCase() {
         assertEmpty(errorsIn(ds, "SELECT o.amount, p.status FROM internal.sales.orders o JOIN internal.ops.orders p ON p.id = o.id"))
         assertTrue(errorsIn(ds, "SELECT nope FROM internal.ops.orders").any { "nope" in it })
     }
+
+    fun testClearedModelListsOnDemandAndAllDatabasesLoadsInternal() {
+        if (url.isNullOrBlank() || driverJar.isNullOrBlank()) { println("SKIP: doris.live.url not set"); return }
+        myFixture.enableInspections(sqlResolveInspection())
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE, testRootDisposable)
+        val ds = register()
+        // What the schemas pane holds after a clear: "All databases" at the root, no catalog level.
+        ds.introspectionScope = TreePattern(com.intellij.database.util.TreePatternNode(
+            com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD, com.intellij.database.util.TreePatternNode.NO_GROUPS))
+        assertEmpty(roots(ds))
+        println("LIVE model=${ds.model?.javaClass?.name} root=${(ds.model as? com.intellij.database.model.basic.BasicModModel)?.root?.javaClass?.name}")
+
+        fun complete(text: String) {
+            myFixture.configureByText("cleared.sql", text)
+            SqlResolveMappings.getInstance(project).setMapping(myFixture.file.virtualFile,
+                TreePattern(SqlImportUtil.createDataSources(arrayOf(ObjectName.quoted(ds.uniqueId)))))
+            settle()
+            myFixture.completeBasic()
+        }
+        complete("SELECT * FROM ext_catalog.<caret>")
+        PlatformTestUtil.waitWithEventsDispatching("the catalogs and ext_catalog's databases are listed", {
+            node(ds, "ext_catalog")?.let { "archive_src" in children(it, ObjectKind.SCHEMA) } == true
+        }, 60)
+        println("LIVE cleared listing: catalogs=${roots(ds).map { it.name }}")
+        complete("SELECT * FROM ext_catalog.archive_src.<caret>")
+        PlatformTestUtil.waitWithEventsDispatching("archive_src's tables load", {
+            node(ds, "ext_catalog", "archive_src")?.let { children(it, ObjectKind.TABLE).isNotEmpty() } == true
+        }, 60)
+        assertEquals(listOf("facts"), children(checkNotNull(node(ds, "ext_catalog", "archive_src")), ObjectKind.TABLE))
+
+        // A sync under "All databases" lists every catalog and loads internal, as the default does.
+        sync(LoaderContext.selectGeneralTask(project, ds))
+        val internal = checkNotNull(node(ds, "internal"))
+        assertTrue(children(internal, ObjectKind.SCHEMA).containsAll(listOf("sales", "ops")))
+        assertEquals(listOf("orders"), children(checkNotNull(node(ds, "internal", "ops")), ObjectKind.TABLE))
+        assertTrue("the external catalog is listed", "archive_src" in children(checkNotNull(node(ds, "ext_catalog")), ObjectKind.SCHEMA))
+    }
 }

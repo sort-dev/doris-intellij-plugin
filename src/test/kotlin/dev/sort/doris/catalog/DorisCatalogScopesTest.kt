@@ -224,24 +224,30 @@ class DorisCatalogScopesTest : BasePlatformTestCase() {
         )
     }
 
-    fun testBareAllCatalogsWildcardTickIsExplicitDeep() {
-        // The pane's "*" pseudo-entry serializes as NegativeNaming with NO exception names —
-        // distinct from the default's negative-with-exceptions node. Ticking it means everything.
+    fun testAllDatabasesTickSelectsInternalDeepAndListsTheOthers() {
+        // The pane's "All databases" ("*") tick, NegativeNaming with NO exception names: every catalog,
+        // `internal` deep-introspected and the other catalogs listed, like the default.
         val allTick = com.intellij.database.util.TreePatternNode(
             com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD,
             com.intellij.database.util.TreePatternNode.NO_GROUPS,
         )
-        val scope = scopeOf(allTick)
-        assertEquals(
-            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_DEEP,
-            DorisCatalogScopes.classifyCatalog(scope, "extcat"),
+        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scopeOf(allTick))
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS, DorisCatalogScopes.classifyCatalog(expanded, DorisCatalogScopes.INTERNAL_CATALOG))
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT, DorisCatalogScopes.classifyCatalog(expanded, "extcat"))
+        // A catalog ticked beside it is still deep.
+        val withTick = DorisCatalogScopes.expandExplicitCatalogSelections(scopeOf(allTick, tickedCatalog("extcat")))
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS, DorisCatalogScopes.classifyCatalog(withTick, "extcat"))
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT, DorisCatalogScopes.classifyCatalog(withTick, "othercat"))
+    }
+
+    fun testAllDatabasesAtTheRootWithoutACatalogLevelIsTheDefault() {
+        // What the schemas pane leaves after a clear: "All databases" checked at the data source root, no catalog nodes.
+        val rootAll = com.intellij.database.util.TreePattern(
+            com.intellij.database.util.TreePatternNode(com.intellij.database.util.TreePatternNode.NegativeNaming.WILDCARD, com.intellij.database.util.TreePatternNode.NO_GROUPS),
         )
-        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
-        assertNotSame(scope, expanded)
-        assertEquals(
-            DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS,
-            DorisCatalogScopes.classifyCatalog(expanded, "anything"),
-        )
+        val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(rootAll)
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.EXPLICIT_WITH_SCHEMAS, DorisCatalogScopes.classifyCatalog(expanded, DorisCatalogScopes.INTERNAL_CATALOG))
+        assertEquals(DorisCatalogScopes.CatalogScopeClass.ENUMERATED_DEFAULT, DorisCatalogScopes.classifyCatalog(expanded, "extcat"))
     }
 
     fun testMostSpecificNodeWinsClassification() {

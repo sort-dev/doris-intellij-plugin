@@ -49,6 +49,9 @@ class DorisRealSqlContractTest : BasePlatformTestCase() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
         productionReplay(testRootDisposable)
+        // Highlighting alone: the references ask for no introspection here (DorisMultiCatalogFlowTest covers that).
+        System.setProperty(dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator.PROPERTY, "false")
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) { System.clearProperty(dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator.PROPERTY) }
         HeldIntrospections(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")

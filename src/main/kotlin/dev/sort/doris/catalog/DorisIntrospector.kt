@@ -379,6 +379,7 @@ class DorisIntrospector(
             DorisCatalogs.info(
                 "catalog '$catalog' db '$schemaName' -> ${counts.tables} tables, ${counts.views} views",
             )
+            dataSourceId?.let { DorisListedNamespaces.record(it, catalog, schemaName) }
             return affectedObjects
         } catch (pce: ProcessCanceledException) {
             throw pce

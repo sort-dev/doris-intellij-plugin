@@ -53,8 +53,10 @@ class DorisStarOverExternalTableTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         errors = BackgroundErrors(testRootDisposable)
-        // Introspections the references ask for wait here rather than reaching the offline URL.
+        // Highlighting alone: the references ask for no introspection here (DorisMultiCatalogFlowTest covers that).
         HeldIntrospections(testRootDisposable)
+        System.setProperty(DorisReferenceIntrospectAnnotator.PROPERTY, "false")
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) { System.clearProperty(DorisReferenceIntrospectAnnotator.PROPERTY) }
         productionReplay(testRootDisposable)
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")

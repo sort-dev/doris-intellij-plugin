@@ -242,6 +242,8 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
             recording.console.dataSource.model = source.model
             recording.console.dataSource.introspectionScope = CatalogScopes.select(DorisCatalogProfile.levels, listOf("warehouse", "analytics"))
             recording.console.setSearchPath(SearchPath.of(ObjectPath.create("warehouse", ObjectKind.DATABASE).append("analytics", ObjectKind.SCHEMA)))
+            // Its table list was loaded whole this session, as a sync would have.
+            DorisListedNamespaces.record(recording.console.dataSource.uniqueId, "warehouse", "analytics")
             DbPsiFacade.getInstance(project).clearCaches()
             myFixture.completeBasic()
             assertContainsElements(myFixture.lookupElementStrings.orEmpty(), "events")

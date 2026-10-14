@@ -47,6 +47,9 @@ class DorisRealSqlFindingsTest : BasePlatformTestCase() {
         previousFlag = System.getProperty(DorisCatalogs.PROPERTY)
         System.setProperty(DorisCatalogs.PROPERTY, "true")
         productionReplay(testRootDisposable)
+        // Highlighting alone: the references ask for no introspection here (DorisMultiCatalogFlowTest covers that).
+        System.setProperty(dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator.PROPERTY, "false")
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) { System.clearProperty(dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator.PROPERTY) }
         val model = ModelFactory.BLACK_HOLE.createModel(DorisDbms.DORIS)
         val db = ((model as BasicModModel).root as MsRoot).databases.createOrGet(1L).apply { name = "internal" }.schemas.createOrGet("db")
         mapOf("facts" to listOf("k", "x", "v", "ts"), "users" to listOf("id", "name"), "blocks" to listOf("uid", "data")).forEach { (table, columns) ->

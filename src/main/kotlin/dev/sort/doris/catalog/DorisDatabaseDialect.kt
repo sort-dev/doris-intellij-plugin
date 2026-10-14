@@ -122,6 +122,13 @@ class DorisDatabaseDialect(private val dbms: Dbms) : MysqlBaseDialect() {
             "search-path read-back: catalog=$catalog (via $catalogSource), database=$database " +
                 "-> ${path.getCurrent()?.getDisplayName()}",
         )
+        // A console on a catalog or database a cleared model does not list gets it listed (helper connection, off this thread).
+        (runCatching { connection.connectionPoint.dataSource }.getOrNull() as? com.intellij.database.dataSource.LocalDataSource)?.let { local ->
+            for (project in com.intellij.openapi.project.ProjectManager.getInstance().openProjects) {
+                if (project.isDisposed || local !in com.intellij.database.dataSource.LocalDataSourceManager.getInstance(project).dataSources) continue
+                project.getService(DorisNamespaceListing::class.java)?.ensureNamespace(local, catalog, database)
+            }
+        }
         return path
     }
 
