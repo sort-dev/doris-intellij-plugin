@@ -268,6 +268,22 @@ class SqlDialectPlugin : Plugin<Project> {
         val embedded = configurations.named("runtimeClasspath").flatMap { it.incoming.artifacts.resolvedArtifacts }.map { artifacts ->
             artifacts.mapNotNull { (it.id.componentIdentifier as? ModuleComponentIdentifier)?.displayName }
         }
+        tasks.register<VerifyBundledSnapshotHashes>("verifyBundledSnapshotHashes") {
+            group = "verification"
+            description = "Explicitly compares bundled dev.brikk.house snapshots with Maven Local by SHA-256."
+            distribution.set(buildPlugin.flatMap { it.archiveFile })
+            snapshotPaths.set(configurations.named("runtimeClasspath").map { configuration ->
+                configuration.resolvedConfiguration.resolvedArtifacts.filter {
+                    it.moduleVersion.id.group == "dev.brikk.house" && it.moduleVersion.id.version.endsWith("-SNAPSHOT") && it.extension == "jar"
+                }.associate { artifact ->
+                    val id = artifact.moduleVersion.id
+                    val classifier = artifact.classifier?.let { "-$it" }.orEmpty()
+                    artifact.file.name to "${id.group.replace('.', '/')}/${id.name}/${id.version}/${id.name}-${id.version}$classifier.${artifact.extension}"
+                }
+            })
+            mavenLocal.set(layout.dir(providers.systemProperty("maven.repo.local")
+                .orElse(providers.systemProperty("user.home").map { "$it/.m2/repository" }).map(::file)))
+        }
         val verifyDistribution = tasks.register<VerifyDistribution>("verifyDistribution") {
             group = "verification"
             description = "Checks the embedded libraries, bytecode levels, notices and descriptor of the plugin ZIP."
