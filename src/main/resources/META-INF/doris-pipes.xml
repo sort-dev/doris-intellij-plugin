@@ -26,7 +26,7 @@
     <actions>
         <!-- DORIS PIPES: right-click "Doris PIPE" submenu — same operations as the Alt+Enter
              intentions, visible only with the caret inside a pipe statement of a Doris file. -->
-        <group id="DorisPipes.EditorMenu" text="Doris PIPE" popup="true">
+        <group id="DorisPipes.EditorMenu" class="com.intellij.ide.actions.NonEmptyActionGroup" text="Doris PIPE" popup="true">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <action id="DorisPipes.PreviewSql"
                     class="dev.sort.doris.pipes.PreviewPipeSqlAction"
