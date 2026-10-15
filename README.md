@@ -54,7 +54,7 @@ Explain Plan now accepts only builtin-safe queries, not DDL/DML, pending live Do
   run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Execute
   variants keep their configured statement/script scope, new-tab behavior, parameter prompting,
   and console ownership when ordinary SQL and pipe statements are mixed.
-  Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
+  Enable it per project in **Settings → Tools → Database → Apache Doris PIPE**; it defaults off.
   See [Doris PIPE](#doris-pipe--pipe-syntax-sql-optional-since-070).
 - **Brikk-house Kotlin editing**: recognized `Sql.doris` calls inside `@BrikkSql` automatically
   enable pipe parsing and treat scalar Kotlin interpolations as SQL binds, preserving Kotlin
@@ -208,7 +208,7 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
   plugin maps them back through the transpiler's source map to the exact line and column of your
   pipe program (balloon + editor squiggle).
 
-**Enabling it**: open **Settings → Tools → Apache Doris PIPE** and select
+**Enabling it**: open **Settings → Tools → Database → Apache Doris PIPE** and select
 **Enable PIPE syntax in this project**. The setting defaults off and is stored in
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.

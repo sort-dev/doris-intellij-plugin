@@ -56,7 +56,7 @@ schema-aware rename API is tested separately; the plugin does not yet supply a
 catalog to its execution path. The plugin-side B3/B10 safeguards are described in
 [the execution safety report](REVIEW-pipes-B3-B10.md).
 
-The per-project checkbox under Settings > Tools > Apache Doris PIPE defaults off.
+The per-project checkbox under Settings > Tools > Database > Apache Doris PIPE defaults off.
 It is stored in workspace.xml, not inferred from installed plugins. The legacy
 `-Ddoris.pipes=false` veto remains; a true value does not force enablement. Setting
 changes reparse cached/open Doris files and restart diagnostics without editing SQL.

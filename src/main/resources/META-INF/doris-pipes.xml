@@ -7,7 +7,7 @@
         <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.pipes.DorisPipesActionConfiguration"/>
         <actionPromoter implementation="dev.sort.doris.pipes.DorisPipesActionPromoter" order="first"/>
         <projectConfigurable id="dev.sort.doris.pipes" displayName="Apache Doris PIPE"
-                             parentId="tools" nonDefaultProject="true"
+                             parentId="database.main" nonDefaultProject="true"
                              instance="dev.sort.doris.pipes.DorisPipesConfigurable"/>
         <!-- DORIS PIPES: Alt+Enter surface — "preview generated SQL" (the §3 trust surface) and
              "run stages up to caret" (execute-to-stage-N; a stage prefix is a valid pipe program). -->
