@@ -1,13 +1,18 @@
 package dev.sort.doris.pipes
 
 import com.intellij.psi.PsiFileFactory
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.psi.util.PsiTreeUtil
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.sql.DorisSqlDialect
+import dev.brikk.house.sql.intellij.pipe.statementAt
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 
 class DorisPipesBoundaryTest : BasePlatformTestCase() {
     private var previousPipes: String? = null
@@ -47,6 +52,7 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
             "FROM `ta;ble` |> SELECT `co``;lumn`;",
             "FROM t |> SELECT * /* ; */ |> LIMIT 5;",
             "FROM t |> WHERE s = '\uD83D\uDE00;\nvalue' |> LIMIT 5;",
+            "SELECT " + (1..600).joinToString(", ") { "$it AS c$it" } + " FROM t |> LIMIT 1;",
         )
         for (replay in listOf("false", "true")) {
             System.setProperty("doris.replay.poc", replay)
@@ -68,6 +74,23 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
         }
     }
 
+    fun testCoreEditorScannersPropagateCancellation() {
+        val text = "FROM t |> WHERE id = :id"
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val scans = mapOf<String, () -> Any>("chunks" to { DorisPipes.chunks(text) },
+                "ranges" to { DorisPipeDialect.scriptRanges(text) }, "parameters" to { DorisPipes.namedParameterRanges(text) },
+                "code" to { DorisPipes.codeBefore(text, text.length) })
+            for ((name, scan) in scans) {
+                val indicator = EmptyProgressIndicator()
+                ProgressManager.getInstance().runProcess(Runnable {
+                    indicator.cancel()
+                    val failure = runCatching(scan).exceptionOrNull()
+                    assertTrue("$name: $failure", failure is ProcessCanceledException)
+                }, indicator)
+            }
+        }.get()
+    }
+
     fun testPreviewUsesWholeChunkRegardlessOfEditorSelection() {
         val statement = "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;"
         val text = "SELECT 0;\n$statement\nSELECT 2;"
@@ -77,10 +100,13 @@ class DorisPipesBoundaryTest : BasePlatformTestCase() {
         editor.caretModel.moveToOffset(text.indexOf("WHERE"))
         editor.selectionModel.setSelection(text.indexOf("FROM"), text.indexOf(" --"))
         val selection = editor.selectionModel.selectedText
-        val chunk = DorisPipesUi.pipeChunkAtCaret(myFixture.file, editor)!!
-        assertEquals("\n$statement", chunk.text)
+        assertTrue(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
+        val range = DorisPipeDialect.statementAt(editor.document.text, editor.caretModel.offset)!!
+        assertEquals("\n$statement", text.substring(range.start, range.end))
         assertEquals(selection, editor.selectionModel.selectedText)
         assertEquals(text, editor.document.text)
-        assertEquals(DorisPipes.chunkAt(text, editor.caretModel.offset), chunk)
+        val chunk = DorisPipes.chunkAt(text, editor.caretModel.offset)!!
+        assertEquals(chunk.startOffset, range.start)
+        assertEquals(chunk.endOffset, range.end)
     }
 }

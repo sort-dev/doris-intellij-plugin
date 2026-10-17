@@ -1,16 +1,18 @@
 package dev.sort.doris.sql
 
 import com.intellij.psi.PsiElement
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ThreeState
+import com.intellij.codeInsight.completion.CompletionType
+import dev.brikk.house.sql.metadata.FunctionPresentation
 
 /**
  * Dogfood 2026-07-08 P1 (0.5.0): [DorisCompletionContributor]'s ~900-name function list was
  * contributed at every psi position and broke ordinary typing — `GROUP BY 1` offered `sha1`, `AS `
  * offered `asin`. The fix is an ALLOWLIST: functions autopopup only in positively-detected
- * expression positions ([DorisExpressionPosition]) and are otherwise explicit-invoke-only; a
- * digit-led prefix is skipped globally by [DorisFunctionAutoPopupConfidence].
+ * expression positions and are otherwise explicit-invoke-only; a
+ * digit-led prefix is skipped globally by [DorisCompletionConfidence].
  *
  * These tests pin the autopopup DECISION functions the platform consults (the confidence and the
  * position allowlist) plus the contributor's explicit-invoke and digit guards. Autopopup is a
@@ -20,7 +22,7 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            SqlDialectMappings.getInstance(project).setMapping(null, null)
+            setSqlDialectMapping(project, null, null)
         } finally {
             super.tearDown()
         }
@@ -28,7 +30,7 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     /** Configure DorisSQL text with a single `<caret>` and return the caret offset. */
     private fun configure(sql: String): Int {
-        SqlDialectMappings.getInstance(project).setMapping(null, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", sql)
         return myFixture.caretOffset
     }
@@ -37,13 +39,14 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
         myFixture.file.findElementAt((offset - 1).coerceAtLeast(0)) ?: myFixture.file
 
     private fun allowsFunctionAutopopup(sql: String): Boolean {
-        val offset = configure(sql)
-        return DorisExpressionPosition.isFunctionAutopopupPosition(myFixture.file, offset)
+        configure(sql)
+        val items = myFixture.complete(CompletionType.BASIC, 0).orEmpty()
+        return items.any { it.`object` is FunctionPresentation }
     }
 
     private fun skipAutopopup(sql: String): ThreeState {
         val offset = configure(sql)
-        return DorisFunctionAutoPopupConfidence().shouldSkipAutopopup(contextAt(offset), myFixture.file, offset)
+        return DorisCompletionConfidence().shouldSkipAutopopup(contextAt(offset), myFixture.file, offset)
     }
 
     private fun explicitCompletions(sql: String): List<String> {
@@ -61,10 +64,10 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
         )
     }
 
-    fun testDigitPrefixOffersNoFunctionsEvenOnExplicitInvoke() {
-        val lookups = explicitCompletions("SELECT count(*) FROM t GROUP BY 1<caret>")
-        assertFalse("`sha1` must not be offered for a digit prefix, got: ${lookups.take(25)}", lookups.contains("sha1"))
-        assertFalse("`log10` must not be offered for a digit prefix", lookups.contains("log10"))
+    fun testDigitPrefixOffersNoMetadataFunctionsEvenOnExplicitInvoke() {
+        configure("SELECT count(*) FROM t GROUP BY 1<caret>")
+        val functions = myFixture.completeBasic().orEmpty().mapNotNull { it.`object` as? FunctionPresentation }
+        assertEmpty(functions)
     }
 
     // --- Criterion 2/3: after AS / BY / FROM — not an expression position, no function autopopup ---
@@ -91,6 +94,9 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
         assertTrue("inside a function call's parens is an expression position", allowsFunctionAutopopup("SELECT count(<caret>"))
         assertTrue("after a comma inside a call is an expression position", allowsFunctionAutopopup("SELECT date_trunc(x, <caret>"))
         assertTrue("after WHERE is an expression position", allowsFunctionAutopopup("SELECT a FROM t WHERE ab<caret>"))
+        for (operator in listOf("XOR", "DIV", "MOD", "<=>", "&", "|", "^", ":=")) {
+            assertTrue("after $operator", allowsFunctionAutopopup("SELECT a $operator ab<caret>"))
+        }
     }
 
     fun testExpressionPositionNotSkippedByConfidence() {
@@ -103,13 +109,13 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     fun testExplicitInvokeOffersFunctionsInExpressionPosition() {
         val lookups = explicitCompletions("SELECT da<caret>")
-        assertTrue("`date_trunc` offered from prefix `da`, got: ${lookups.take(25)}", lookups.contains("date_trunc"))
+        assertTrue("`date_trunc` offered from prefix `da`, got: ${lookups.take(25)}", lookups.contains("DATE_TRUNC"))
     }
 
     fun testExplicitInvokeOffersFunctionsEvenAfterKeyword() {
         // Criterion 7: confidence/allowlist only gate AUTOPOPUP; explicit invoke gets functions
         // anywhere sensible — even right after AS, which is not an autopopup position.
         val lookups = explicitCompletions("CREATE VIEW v AS as<caret>")
-        assertTrue("`asin` offered on explicit invoke after AS, got: ${lookups.take(25)}", lookups.contains("asin"))
+        assertTrue("`asin` offered on explicit invoke after AS, got: ${lookups.take(25)}", lookups.contains("ASIN"))
     }
 }

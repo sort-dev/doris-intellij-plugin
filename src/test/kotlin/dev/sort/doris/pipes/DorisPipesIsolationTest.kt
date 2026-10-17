@@ -19,25 +19,49 @@ import com.intellij.testFramework.PlatformTestUtil
 class DorisPipesIsolationTest : BasePlatformTestCase() {
     fun testProductsOwnTheirEngineClassesAndTranspileIndependently() {
         if (System.getProperty("test.pluginIsolation") != "true") return
+        assertEquals(setOf("trino", "duckdb", "clickhouse"), System.getProperty("test.siblingPlugins", "").split(',').toSet())
+        assertEquals("installed", System.getProperty("test.sqlTranspiler"))
         val dorisLoader = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.doris-intellij-plugin"))!!.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
-        assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.brikkKotlin") == "true",
+        assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.kotlin") == "present",
             PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
         for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.1.1.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0.jar"))
         }
+        for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
+            "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver",
+            "catalog.CatalogProfile", "catalog.NamespacePathResolver", "catalog.CatalogScopes", "catalog.AutoIntrospectEngine",
+            "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider", "catalog.QualifiedPathIntrospectContributor",
+            "catalog.OutOfScopeReferenceFilter", "catalog.IntrospectNamespaceIntention", "catalog.CatalogImports")) {
+            val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
+            assertSame(dorisLoader, shared.classLoader)
+            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0.jar"))
+        }
+        val verifier = dorisLoader.loadClass("dev.brikk.house.sql.verify.DorisVerifier")
+        assertSame(dorisLoader, verifier.classLoader)
+        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-0.20.0.jar"))
+        val verifyResult = dorisLoader.loadClass("dev.brikk.house.sql.verify.VerifyResult")
+        assertSame(dorisLoader, verifyResult.classLoader)
+        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-0.20.0.jar"))
+        val factory = verifier.getField("Companion").get(null)
+        val native = factory.javaClass.getMethod("create", java.nio.file.Path::class.java).invoke(factory, null)
+        val checkCanceled: () -> Unit = com.intellij.openapi.progress.ProgressManager::checkCanceled
+        val verified = verifier.getMethod("verifyScript", String::class.java, Function0::class.java)
+            .invoke(native, "SELECT 1; SELECT 2", checkCanceled)
+        assertEquals("Accepted", verified.javaClass.simpleName)
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
-        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.2.0.jar"))
+        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.3.0.jar"))
         val family = families.getMethod("forClassId", String::class.java).invoke(families.getField("INSTANCE").get(null), "kotlin.String")
         assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
         val settings = project.getService(settingsType)!!
-        val introspectionType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesIntrospectionService")
+        val introspectionType = dorisLoader.loadClass("dev.sort.doris.catalog.DorisAutoIntrospectService")
         assertSame(dorisLoader, project.getService(introspectionType)!!.javaClass.classLoader)
+        assertSame(dorisLoader.loadClass("dev.brikk.house.sql.intellij.catalog.AutoIntrospectService"), introspectionType.superclass)
         assertEquals(false, settingsType.getMethod("getEnabled").invoke(settings))
         val setEnabled = settingsType.getMethod("setEnabled", Boolean::class.javaPrimitiveType)
         val policy = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipes")
@@ -49,11 +73,15 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.19.1")
-            val adapter = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesEngine")
-            val translated = adapter.getMethod("transpile", String::class.java)
-                .invoke(adapter.getField("INSTANCE").get(null), "FROM t |> LIMIT 1")
-            assertFalse((translated.javaClass.getMethod("getDorisSql").invoke(translated) as String).contains("|>"))
+            checkEngine(dorisLoader, "jvmMain-0.20.0")
+            val profile = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipeDialect").getField("INSTANCE").get(null)
+            val profileType = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeDialect")
+            assertSame(dorisLoader, profileType.classLoader)
+            val lowering = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeEngineKt")
+            val translated = lowering.getMethod("lower", profileType, String::class.java,
+                Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, com.intellij.psi.PsiFile::class.java)
+                .invoke(null, profile, "FROM t |> LIMIT 1", false, false, null)
+            assertFalse((translated.javaClass.getMethod("getSql").invoke(translated) as String).contains("|>"))
 
             val companion = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.sql-transpiler-intellij-plugin"))
             if (System.getProperty("test.sqlTranspiler") == "installed") {
@@ -61,7 +89,9 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
                 val companionLoader = companion!!.pluginClassLoader!!
                 assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", companionLoader.javaClass.name)
                 assertNotSame(dorisLoader, companionLoader)
-                checkEngine(companionLoader, "jvm-0.6.0")
+                val source = companionLoader.loadClass("dev.brikk.house.sql.shape.SqlFragment").getResource("SqlFragment.class").toString()
+                assertTrue(source, source.contains("brikk-sql-") && source.contains(".jar"))
+                checkEngine(companionLoader, source.substringAfterLast("brikk-sql-").substringBefore(".jar"))
                 for (type in listOf("dev.brikk.house.sql.shape.SqlFragment", "dev.brikk.house.sql.metadata.FunctionDef")) {
                     assertNotSame(dorisLoader.loadClass(type), companionLoader.loadClass(type))
                 }
@@ -73,8 +103,12 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
                 val peerShared = runCatching { peer.pluginClassLoader!!.loadClass("dev.brikk.house.sql.intellij.CooperativeExecuteAction") }.getOrNull()
                 if (peerShared != null) assertNotSame(dorisLoader.loadClass(peerShared.name), peerShared)
                 // 262 can leave dialect languages uninitialized until their first use.
-                val dialectClass = if (dialect == "trino") "dev.sort.trino.sql.TrinoSqlDialect"
-                    else "dev.sort.duckdb.sql.DuckdbSqlDialect"
+                val dialectClass = when (dialect) {
+                    "trino" -> "dev.sort.trino.sql.TrinoSqlDialect"
+                    "duckdb" -> "dev.sort.duckdb.sql.DuckdbSqlDialect"
+                    "clickhouse" -> "dev.sort.clickhouse.sql.ClickHouseDialect"
+                    else -> error("Unexpected sibling $dialect")
+                }
                 val language = peer.pluginClassLoader!!.loadClass(dialectClass).getField("INSTANCE").get(null) as Language
                 assertSame(language, Language.findLanguageByID(language.id))
                 val file = PsiFileFactory.getInstance(project).createFileFromText("$dialect.sql", language, "SELECT 1;")
@@ -88,21 +122,23 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertSame(action, ActionManager.getInstance().getAction("Console.Jdbc.Execute"))
     }
 
-    fun testActualThreePluginRegistrationsInAllSixOrders() {
+    fun testActualFourDialectRegistrationsInAllTwentyFourOrders() {
         if (System.getProperty("test.pluginIsolation") != "true") return
         val names = mapOf("doris" to "dev.sort.doris.pipes.DorisPipesActionConfiguration",
             "trino" to "dev.sort.trino.pipes.TrinoPipesActionConfiguration",
-            "duckdb" to "dev.sort.duckdb.pipes.DuckdbPipesActionConfiguration")
+            "duckdb" to "dev.sort.duckdb.pipes.DuckdbPipesActionConfiguration",
+            "clickhouse" to "dev.sort.clickhouse.pipe.ClickHouseExecuteConfiguration")
         val loaders = names.keys.associateWith {
             PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$it-intellij-plugin"))?.pluginClassLoader
         }
-        org.junit.Assume.assumeTrue("All three distributions are required", loaders.values.all { it != null })
+        assertTrue("All four dialect distributions are required", loaders.values.all { it != null })
         val ids = listOf("Console.Jdbc.Execute", "Console.Jdbc.Execute.2", "Console.Jdbc.Execute.3", "Console.Jdbc.Execute.Selection")
         val manager = ActionManager.getInstance()
         val originals = ids.associateWith { manager.getAction(it)!! }
-        val orders = names.keys.flatMap { first -> (names.keys - first).map { second ->
-            listOf(first, second, names.keys.single { it != first && it != second })
-        } }
+        fun orders(remaining: List<String>): List<List<String>> = if (remaining.isEmpty()) listOf(emptyList())
+            else remaining.flatMap { first -> orders(remaining - first).map { listOf(first) + it } }
+        val orders = orders(names.keys.toList())
+        assertEquals(24, orders.size)
         try {
             for (order in orders) {
                 var delegated = 0

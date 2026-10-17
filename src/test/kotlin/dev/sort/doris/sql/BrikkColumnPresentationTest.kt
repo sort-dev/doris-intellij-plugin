@@ -1,74 +1,67 @@
 package dev.sort.doris.sql
 
-import dev.brikk.house.intellij.ColumnContract
-import dev.brikk.house.intellij.ColumnNullability
-import dev.brikk.house.intellij.NavigationKind
-import dev.brikk.house.intellij.NavigationTarget
-import dev.brikk.house.intellij.RelationShape
-import dev.brikk.house.intellij.ShapeKnowledge
-import dev.brikk.house.intellij.ShapeOrigin
-import dev.brikk.house.intellij.ShapeResult
-import dev.brikk.house.intellij.SqlFamily
+import dev.brikk.house.sql.intellij.relation.RelationColumnLabels
+import dev.brikk.house.sql.scope.*
 import org.junit.Assert.*
 import org.junit.Test
 
 class BrikkColumnPresentationTest {
-    private fun contracts(type: String = "kotlin.Long") = mapOf("src" to ShapeResult.Available(RelationShape(
-        ShapeKnowledge.FULL, listOf(
-            ColumnContract("id", type, ColumnNullability.NON_NULL, SqlFamily.UNKNOWN),
-            ColumnContract("code", "kotlin.String", ColumnNullability.NULLABLE, SqlFamily.TEXT),
-        ), ShapeOrigin.DECLARED)))
+    private val labels = RelationColumnLabels(declared = "brikk column")
+    private fun facts(type: String = "Long") = RelationFacts(slots = mapOf("src" to RelationFact(listOf(
+        ColumnFact("id", displayType = type, nullability = Nullability.NON_NULL, provenance = "id"),
+        ColumnFact("code", displayType = "String", nullability = Nullability.NULLABLE, provenance = "code"),
+    ), Knowledge.FULL)))
+    private fun columns(sql: String, facts: RelationFacts = facts()) =
+        RelationScope.complete(sql, "doris", facts, sql.length).items.mapNotNull { it.column }.associateBy { it.name }
 
     @Test fun kotlinTypesAreLabelsNotNativeSqlTypes() {
-        val column = ColumnContract("amount", "java.math.BigDecimal", ColumnNullability.NULLABLE, SqlFamily.DECIMAL)
-        val display = BrikkColumnDisplay.from(column, "src")
-        assertEquals("BigDecimal?", display.typeText)
-        assertEquals("  brikk column (src)", display.tailText)
-        assertNull(column.exactSqlType)
+        val column = ScopeColumn("amount", "src", ColumnOrigin.DECLARED, Nullability.NULLABLE, displayType = "BigDecimal")
+        assertEquals("BigDecimal", labels.label(column).type)
+        assertEquals("brikk column", labels.label(column).origin)
+        assertNull(column.sqlType)
     }
 
     @Test fun relationFallbackIsNotPresentedAsAnAuthoredProperty() {
-        val fallback = object : NavigationTarget {
-            override val kind = NavigationKind.RELATION_FALLBACK
-            override fun navigate(requestFocus: Boolean) = error("Presentation must not navigate")
-        }
-        val display = BrikkColumnDisplay.from(ColumnContract("id", null, ColumnNullability.UNKNOWN,
-            SqlFamily.UNKNOWN, fallback), "src")
-        assertEquals("unknown type (nullability unknown)", display.typeText)
-        assertEquals("  relation contract (src)", display.tailText)
-    }
-
-    @Test fun sharedFormatterKeepsEqualNamesFromDifferentAliasesDistinct() {
-        val left = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "left").lookup()
-        val right = BrikkColumnDisplay("id", "kotlin.Long", ColumnNullability.NON_NULL, "right").lookup()
-        assertEquals(left.lookupString, right.lookupString)
-        assertNotEquals(left.`object`, right.`object`)
+        val column = ScopeColumn("id", "src", ColumnOrigin.RELATION_CONTRACT, Nullability.UNKNOWN)
+        assertEquals("relation contract", labels.label(column).origin)
+        assertEquals("src", labels.label(column).relation)
     }
 
     @Test fun incompleteCurrentStageUsesTheProvenInputPrefix() {
-        val sql = "FROM src() |> WHERE "
-        val items = BrikkPipeColumnDisplay.at(sql, sql.length, contracts())!!
-        assertEquals(setOf("id", "code"), items.keys)
-        assertEquals("Long", items.getValue("id").typeText)
+        val columns = columns("FROM src() |> WHERE ")
+        assertEquals(setOf("id", "code"), columns.keys)
+        assertEquals("Long", labels.label(columns.getValue("id")).type)
+    }
+
+    @Test fun equalNamesFromDifferentAliasesRemainDistinct() {
+        val sql = "FROM src() AS a |> JOIN src() AS b ON a.id=b.id |> WHERE "
+        val completion = RelationScope.complete(sql, "doris", facts(), sql.length)
+        val ids = completion.items.mapNotNull { it.column }.filter { it.name == "id" }
+        assertEquals(setOf("a", "b"), ids.map { it.relation }.toSet())
     }
 
     @Test fun directProjectionKeepsOriginWhileAnExpressionDoesNot() {
-        val sql = "FROM src() AS e |> SELECT code AS renamed, id + 1 AS id |> WHERE "
-        val items = BrikkPipeColumnDisplay.at(sql, sql.length, contracts())!!
-        assertEquals("String?", items.getValue("renamed").typeText)
-        assertEquals("  brikk column (e)", items.getValue("renamed").tailText)
-        assertNull(items.getValue("id").kotlinClassId)
-        assertEquals("  PIPE column", items.getValue("id").tailText)
+        val columns = columns("FROM src() AS e |> SELECT code AS renamed, id + 1 AS id |> WHERE ")
+        assertEquals("String", labels.label(columns.getValue("renamed")).type)
+        assertEquals("src", labels.label(columns.getValue("renamed")).relation)
+        assertEquals("computed column", labels.label(columns.getValue("id")).origin)
     }
 
-    @Test fun cachedLabelsInvalidateWithOnlyContractChanges() {
+    @Test fun labelsChangeWithOnlyContractChanges() {
         val sql = "FROM src() |> WHERE "
-        assertEquals("Long", BrikkPipeColumnDisplay.at(sql, sql.length, contracts())!!.getValue("id").typeText)
-        assertEquals("Int", BrikkPipeColumnDisplay.at(sql, sql.length, contracts("kotlin.Int"))!!.getValue("id").typeText)
+        assertEquals("Long", labels.label(columns(sql).getValue("id")).type)
+        assertEquals("Int", labels.label(columns(sql, facts("Int")).getValue("id")).type)
     }
 
     @Test fun physicalTablesDoNotReceiveKotlinMetadataByName() {
-        val sql = "FROM physical AS p |> JOIN src() AS s ON p.id = s.id |> WHERE "
-        assertNull(BrikkPipeColumnDisplay.at(sql, sql.length, contracts()))
+        val facts = facts().copy(tables = mapOf("physical" to RelationFact(listOf(
+            ColumnFact("id", sqlType = "INTEGER", origin = ColumnOrigin.PHYSICAL_TABLE),
+        ), Knowledge.FULL)))
+        val sql = "FROM physical AS p |> JOIN src() AS s ON p.id=s.id |> WHERE "
+        val completion = RelationScope.complete(sql, "doris", facts, sql.length)
+        val physical = completion.items.mapNotNull { it.column }.single { it.relation == "p" }
+        assertNull(physical.displayType)
+        assertEquals("column", labels.label(physical).origin)
+        assertEquals("INTEGER", labels.label(physical).type)
     }
 }

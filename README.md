@@ -32,6 +32,8 @@ Part of our SQL-tooling family alongside:
 
 ## Features
 
+Explain Plan now accepts only builtin-safe queries, not DDL/DML, pending live Doris evidence that broader planning is read-only.
+
 - **Correct statement & run-block boundaries** for Doris constructs the MySQL grammar mis-parses:
   `CREATE [OR REPLACE] VIEW` bodies with modern SQL, multi-line window functions (`… OVER (…)`),
   `SELECT * EXCEPT(…)`, `QUALIFY`, `INSERT OVERWRITE`, `DISTRIBUTED BY` / `PROPERTIES` DDL,
@@ -47,13 +49,13 @@ Part of our SQL-tooling family alongside:
   even behind a load balancer — and with several console windows on the same data source, each
   Stop kills exactly its own console's query (0.6.0).
   See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
-- **Doris Pipes** (0.7.0, optional): write GoogleSQL-style pipe syntax in Doris consoles and run it
+- **Doris PIPE** (0.7.0, optional): write queries supported by Doris PIPE syntax in Doris consoles and run them
   against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
   run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Execute
   variants keep their configured statement/script scope, new-tab behavior, parameter prompting,
   and console ownership when ordinary SQL and pipe statements are mixed.
-  Enable it per project in **Settings → Tools → Apache Doris PIPE**; it defaults off.
-  See [Doris Pipes](#doris-pipes--pipe-syntax-sql-optional-since-070).
+  Enable it per project in **Settings → Tools → Database → Apache Doris PIPE**; it defaults off.
+  See [Doris PIPE](#doris-pipe--pipe-syntax-sql-optional-since-070).
 - **Brikk-house Kotlin editing**: recognized `Sql.doris` calls inside `@BrikkSql` automatically
   enable pipe parsing and treat scalar Kotlin interpolations as SQL binds, preserving Kotlin
   references. Kotlin support is optional. See [Brikk-house editing](BRIKK-HOUSE.md) for scope and limits.
@@ -175,9 +177,9 @@ The escape hatch back to the stock (driver-only) cancel:
 Tip: prefer Doris' own `query_timeout` session/global variable over the data source's JDBC
 "query timeout" option — the JDBC timeout uses the same broken second-connection kill.
 
-## Doris Pipes — pipe-syntax SQL (optional, since 0.7.0)
+## Doris PIPE — pipe-syntax SQL (optional, since 0.7.0)
 
-Write queries in [GoogleSQL-style pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide)
+Write queries supported by Doris PIPE syntax, based on [GoogleSQL pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide),
 directly in a Doris console and run them against **any** Apache Doris — no server support needed:
 
 ```sql
@@ -198,22 +200,22 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 - **Per-stage completion**: after `|>`, stage keywords; inside a stage, the columns actually
   flowing *into* that stage — aliases from earlier stages, join relations, and qualified
   `alias.column` references included, fed by your introspected data source.
-- **Run to any stage**: right-click → **Doris Pipes → Run Stages up to Caret** executes just the
-  pipeline prefix at your caret, including the initial `FROM` stage. **Preview
+- **Run to any stage**: right-click → **Doris PIPE → Run Stages up to Caret** executes just the
+  pipeline prefix at your caret, including the initial `FROM` or `SELECT` stage. **Preview
   Generated SQL** shows the transpiled statement, syntax-highlighted, before you commit to running
   anything.
 - **Errors where you wrote them**: server errors carry positions in the *generated* SQL; the
   plugin maps them back through the transpiler's source map to the exact line and column of your
   pipe program (balloon + editor squiggle).
 
-**Enabling it**: open **Settings → Tools → Apache Doris PIPE** and select
+**Enabling it**: open **Settings → Tools → Database → Apache Doris PIPE** and select
 **Enable PIPE syntax in this project**. The setting defaults off and is stored in
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.
 
-The plugin bundles the published **brikk-sql engine and metadata 0.19.1** and the
+The plugin bundles **brikk-sql engine and metadata 0.20.0** and the
 native **Doris 4.1.4 grammar**. Execute actions and script preparation use
-**brikk-sql-intellij-support 0.1.1**. See the
+**brikk-sql-intellij-support 0.2.0**. See the
 [shared-support backport report](REVIEW-intellij-shared-extraction.md) and the
 [earlier grammar upgrade report](REVIEW-brikk-sql-0.16.0.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler
@@ -255,10 +257,21 @@ rather than copying independent global Execute overrides.
 
 ```bash
 ./gradlew buildPlugin
+# → build/distributions/doris-intellij-plugin-<version>-dev.<commit time>+<commit>.zip
+```
+
+A release build uses the version in `build.gradle.kts` unchanged and refuses snapshot libraries:
+
+```bash
+./gradlew -Prelease=true buildPlugin
 # → build/distributions/doris-intellij-plugin-<version>.zip
 ```
 
-The build targets the DataGrip 2026.1 SDK (`datagrip("2026.1.3")`), downloaded automatically on the
+After a local release build is verified, pushing a `release-*` branch runs the shared release workflow
+(`.github/workflows/release.yml`): it builds with `-Prelease=true`, validates the ZIP and attaches that
+exact ZIP to the GitHub release `v<version>`. Publishing to JetBrains Marketplace is done by the owner.
+
+The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
 first build. Kotlin 2.4.10, JVM target 21.
 
 ## The bundled Doris parser

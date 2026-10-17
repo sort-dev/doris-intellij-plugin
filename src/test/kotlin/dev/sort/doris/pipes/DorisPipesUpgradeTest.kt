@@ -8,10 +8,15 @@ import dev.brikk.house.sql.ast.Literal
 import dev.brikk.house.sql.ast.Offset
 import dev.brikk.house.sql.ast.Select
 import dev.brikk.house.sql.ast.Window
-import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.dialects.Dialects
 import dev.brikk.house.sql.dialects.sql
+import dev.brikk.house.sql.generator.UnsupportedError
+import dev.brikk.house.sql.intellij.pipe.NativeVerdict
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.optimizer.qualify
+import dev.brikk.house.sql.parser.PipeStageCut
+import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.shape.ColumnShape
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
@@ -21,29 +26,29 @@ import org.apache.doris.sqlparser.DorisSqlParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Upgrade coverage through the plugin adapter. Native parsing checks syntax, not server semantics. */
 class DorisPipesUpgradeTest {
     private val nativeParser = DorisSqlParser()
 
-    private fun generated(text: String): DorisPipesEngine.Transpile.Ok {
-        val result = DorisPipesEngine.transpile(text)
-        assertTrue("Expected generated SQL for $text, got $result", result is DorisPipesEngine.Transpile.Ok)
-        return (result as DorisPipesEngine.Transpile.Ok).also {
+    private fun generated(text: String): PipeTranslation.Lowered {
+        val result = DorisPipeDialect.lower(text)
+        assertTrue("Expected generated SQL for $text, got $result", result is PipeTranslation.Lowered)
+        return (result as PipeTranslation.Lowered).also {
             assertNotNull("The adapter must retain diagnostics and the source map", it.result)
-            assertEquals(it.dorisSql, it.result!!.sql)
+            assertEquals(it.sql, it.result.sql)
         }
     }
 
-    private fun supported(text: String, vararg expected: String): DorisPipesEngine.Transpile.Ok {
+    private fun supported(text: String, vararg expected: String): PipeTranslation.Lowered {
         val result = generated(text)
-        assertEquals("Unexpected lossy translation: $text", emptyList<String>(), result.result!!.unsupportedMessages)
+        assertEquals("Unexpected lossy translation: $text", emptyList<String>(), result.result.unsupportedMessages)
         // Use the throwing facade, not the annotator's recovery path, which can swallow exceptions.
-        nativeParser.parseStatement(result.dorisSql)
-        for (part in expected) assertTrue("Missing <$part> in:\n${result.dorisSql}", part in result.dorisSql)
+        nativeParser.parseStatement(result.sql)
+        for (part in expected) assertTrue("Missing <$part> in:\n${result.sql}", part in result.sql)
         return result
     }
 
@@ -113,7 +118,7 @@ class DorisPipesUpgradeTest {
         )) {
             val result = supported("FROM t |> SELECT id AS $name |> LIMIT 2", "id AS `$name`", "LIMIT 2")
             val catalog = ShapeCatalog(mapOf("t" to Shape(listOf(ColumnShape("id", "INT", false)))), emptyMap())
-            assertEquals(listOf(name), SqlFragment(result.dorisSql, "doris").outputShape(catalog).names())
+            assertEquals(listOf(name), SqlFragment(result.sql, "doris").outputShape(catalog).names())
         }
     }
 
@@ -122,8 +127,8 @@ class DorisPipesUpgradeTest {
         // MOD becomes a binary operator; dropping its parentheses changes division/multiplication.
         for (operator in listOf("*", "/")) {
             val result = supported("FROM t |> SELECT a $operator MOD(b, c) AS calculated |> LIMIT 2", "LIMIT 2")
-            val compact = result.dorisSql.replace(Regex("\\s+"), "")
-            assertTrue(result.dorisSql, compact.contains("a$operator(b%c)AScalculated"))
+            val compact = result.sql.replace(Regex("\\s+"), "")
+            assertTrue(result.sql, compact.contains("a$operator(b%c)AScalculated"))
         }
     }
 
@@ -138,8 +143,8 @@ class DorisPipesUpgradeTest {
                     "|> ORDER BY category |> LIMIT 5",
                 "SUM(amount)", "ORDER BY", "LIMIT 5",
             )
-            val compact = result.dorisSql.replace(Regex("\\s+"), "")
-            assertTrue(result.dorisSql, compact.contains("GROUPBY" + grouping.replace(" ", "")))
+            val compact = result.sql.replace(Regex("\\s+"), "")
+            assertTrue(result.sql, compact.contains("GROUPBY" + grouping.replace(" ", "")))
         }
     }
 
@@ -164,7 +169,7 @@ class DorisPipesUpgradeTest {
             // Both releases normalize the equivalent time format to %T, without adding a cast.
             "DATE_FORMAT(event_at, '%Y-%m-%d %T') AS formatted",
         )
-        assertFalse(result.dorisSql, result.dorisSql.contains("TS_OR_DS_TO_"))
+        assertFalse(result.sql, result.sql.contains("TS_OR_DS_TO_"))
     }
 
     @Test
@@ -184,7 +189,7 @@ class DorisPipesUpgradeTest {
                 "|> AGGREGATE GROUP_CONCAT(label, ';') AS labels GROUP BY category |> LIMIT 8",
             "GROUP_CONCAT(`label`, ';') AS labels", "tenant_id = 7", "GROUP BY", "category", "LIMIT 8",
         )
-        assertFalse(result.dorisSql, result.dorisSql.contains("SEPARATOR"))
+        assertFalse(result.sql, result.sql.contains("SEPARATOR"))
     }
 
     @Test
@@ -198,21 +203,21 @@ class DorisPipesUpgradeTest {
     fun `B3 unsupported LAST_DAY date part diagnostics survive the adapter`() {
         for (unit in listOf("YEAR", "QUARTER", "WEEK")) {
             val result = generated("FROM t |> SELECT LAST_DAY(d, $unit) AS period_end |> LIMIT 1")
-            val warnings = result.result!!.unsupportedMessages
+            val warnings = result.result.unsupportedMessages
             assertTrue(warnings.toString(), "Date parts are not supported in LAST_DAY." in warnings)
             // Syntax acceptance is NOT evidence that dropping the requested date part is safe.
-            nativeParser.parseStatement(result.dorisSql)
+            nativeParser.parseStatement(result.sql)
         }
     }
 
     @Test
     fun `B3 approximate count accuracy warning is retained and does not leak to the next query`() {
         val result = generated("FROM t |> AGGREGATE APPROX_COUNT_DISTINCT(user_id, 0.01) AS users")
-        val warnings = result.result!!.unsupportedMessages
+        val warnings = result.result.unsupportedMessages
         assertTrue(warnings.toString(), warnings.any {
             it.contains("'accuracy'") && it.contains("ApproxDistinct") && it.contains("Doris")
         })
-        nativeParser.parseStatement(result.dorisSql)
+        nativeParser.parseStatement(result.sql)
         supported("FROM t |> AGGREGATE APPROX_COUNT_DISTINCT(user_id) AS users",
             "APPROX_COUNT_DISTINCT(user_id) AS users")
     }
@@ -255,10 +260,10 @@ class DorisPipesUpgradeTest {
         assertEquals("\n$statement", chunk.text)
         assertEquals(3, DorisPipes.chunks(document).size)
         val result = supported(chunk.text, "tenant_id = 7", "LIMIT 5", "'a''; |> LIMIT 999'")
-        val chunkResult = DorisPipesEngine.transpile(chunk)
-        assertTrue(chunkResult is DorisPipesEngine.Transpile.Ok)
-        assertEquals(result.dorisSql, (chunkResult as DorisPipesEngine.Transpile.Ok).dorisSql)
-        assertEquals(emptyList<String>(), chunkResult.result!!.unsupportedMessages)
+        val chunkResult = DorisPipeDialect.lower(chunk.text)
+        assertTrue(chunkResult is PipeTranslation.Lowered)
+        assertEquals(result.sql, (chunkResult as PipeTranslation.Lowered).sql)
+        assertEquals(emptyList<String>(), chunkResult.result.unsupportedMessages)
     }
 
     @Test
@@ -266,11 +271,11 @@ class DorisPipesUpgradeTest {
         val text = "FROM t\n|> WHERE tenant_id = 7\n" +
             "|> EXTEND CONCAT(label, '; |> SELECT fake') AS display_label\n" +
             "|> SELECT display_label\n|> LIMIT 9"
-        val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("fake"))!!
-        assertEquals(3, prefix.stage)
-        assertEquals(5, prefix.totalStages)
-        assertEquals(text.substringBefore("\n|> SELECT display_label"), prefix.text)
-        supported(prefix.text, "tenant_id = 7", "CONCAT(`label`, '; |> SELECT fake') AS display_label")
+        val prefix = PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("fake"), "doris") as PipeStageCut.Prefix
+        assertEquals(3, prefix.stage + 1)
+        assertEquals(5, prefix.stageCount)
+        assertEquals(text.substringBefore("\n|> SELECT display_label"), prefix.sql)
+        supported(prefix.sql, "tenant_id = 7", "CONCAT(`label`, '; |> SELECT fake') AS display_label")
         supported(text, "tenant_id = 7", "LIMIT 9")
         assertEquals(listOf("tenant_id", "label", "display_label"),
             DorisPipesEngine.stageScopeAt(text, text.indexOf("SELECT display_label"), "t", listOf("tenant_id", "label")))
@@ -279,29 +284,14 @@ class DorisPipesUpgradeTest {
     }
 
     @Test
-    fun `source map identifies the filtered occurrence after escaped strings and repeated columns`() {
-        val text = "FROM t\n|> EXTEND 'O''Reilly' AS label\n" +
-            "|> WHERE missing_column > 0\n|> SELECT missing_column, label"
-        val result = supported(text, "missing_column > 0")
-        val lines = result.dorisSql.lines()
-        val line = lines.indexOfFirst { "missing_column > 0" in it }
-        val col = lines[line].indexOf("missing_column")
-        val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $col)", result.result!!)!!
-        assertEquals(3, mapped.originalLine)
-        assertEquals(text.indexOf("missing_column"), mapped.startOffset)
-        assertEquals("missing_column", text.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
-        assertEquals(null, DorisPipesEngine.mapServerErrorExact("Unknown column without a position", result.result!!))
-    }
-
-    @Test
     fun `pipe RENAME without a schema is a handled refusal instead of invalid SQL`() {
         val text = "FROM t |> RENAME x AS y |> WHERE y > 0 |> LIMIT 5"
         val refusal = assertThrows(UnsupportedError::class.java) {
             SqlFragment(text, "doris").toExecutable("doris", pretty = true)
         }
-        val result = DorisPipesEngine.transpile(text)
-        assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Err)
-        assertEquals(refusal.message, (result as DorisPipesEngine.Transpile.Err).message)
+        val result = DorisPipeDialect.lower(text)
+        assertTrue(result.toString(), result is PipeTranslation.Refused)
+        assertEquals(refusal.message, (result as PipeTranslation.Refused).message)
         assertTrue(result.message, result.message.contains("RENAME"))
     }
 
@@ -311,65 +301,16 @@ class DorisPipesUpgradeTest {
         for (payload in listOf("ascii", "\uD83D\uDE00", "\uD83D\uDE00\uD83D\uDE80")) {
             for (newline in listOf(" ", "\n", "\r\n")) {
                 val text = "FROM t${newline}|> EXTEND '$payload' AS label${newline}|> WHERE missing_column > 100${newline}|> LIMIT 5"
-                val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("WHERE"))!!
-                assertEquals(text.substringBefore("${newline}|> LIMIT"), prefix.text)
-                assertEquals(3, prefix.stage)
-                assertEquals(4, prefix.totalStages)
-                supported(prefix.text, "missing_column > 100")
+                val prefix = PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("WHERE"), "doris") as PipeStageCut.Prefix
+                assertEquals(text.substringBefore("${newline}|> LIMIT"), prefix.sql)
+                assertEquals(3, prefix.stage + 1)
+                assertEquals(4, prefix.stageCount)
+                supported(prefix.sql, "missing_column > 100")
                 supported(text, "missing_column > 100", "LIMIT 5")
-                assertEquals(text, DorisPipesEngine.stagePrefixAt(text, text.indexOf("LIMIT"))!!.text)
+                assertEquals(text, (PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("LIMIT"), "doris") as PipeStageCut.Prefix).sql)
                 assertEquals(listOf("missing_column", "label"), DorisPipesEngine.stageScopeAt(
                     text, text.indexOf("WHERE"), "t", listOf("missing_column")))
             }
-        }
-    }
-
-    @Test
-    fun `supplementary characters must not shift exact source offsets`() {
-        val text = "FROM t |> EXTEND '\uD83D\uDE00' AS label |> WHERE missing_column > 0 |> LIMIT 5"
-        val result = supported(text, "missing_column > 0", "LIMIT 5")
-        val lines = result.dorisSql.lines()
-        val line = lines.indexOfFirst { "missing_column > 0" in it }
-        val col = lines[line].indexOf("missing_column")
-        val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $col)", result.result!!)!!
-        assertEquals(text.indexOf("missing_column"), mapped.startOffset)
-        assertEquals("missing_column", text.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
-    }
-
-    @Test
-    fun `server code point columns map to UTF16 after supplementary characters on the same output line`() {
-        for (payload in listOf("ascii", "\uD83D\uDE00", "\uD83D\uDE00\uD83D\uDE80")) {
-            for (newline in listOf(" ", "\n", "\r\n")) {
-                val text = "FROM t${newline}|> WHERE CONCAT('$payload', missing_column) = 'x'${newline}|> LIMIT 5"
-                val result = supported(text, "missing_column", "LIMIT 5")
-                val lines = result.dorisSql.lines()
-                val line = lines.indexOfFirst { "missing_column" in it }
-                val col = lines[line].indexOf("missing_column")
-                val nativeToken = nativeParser.newLexer(result.dorisSql).allTokens.single { it.text == "missing_column" }
-                val pos = nativeToken.charPositionInLine
-                assertEquals(line + 1, nativeToken.line)
-                assertEquals(lines[line].codePointCount(0, col), pos)
-                val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $pos)", result.result!!)!!
-                assertEquals(text, text.indexOf("missing_column"), mapped.startOffset)
-                assertEquals("missing_column", text.substring(mapped.startOffset!!, mapped.endOffset!! + 1))
-                assertEquals(text.substringBefore("missing_column").count { it == '\n' } + 1, mapped.originalLine)
-                assertEquals(line + 1, mapped.transpiledLine)
-                assertEquals(pos, mapped.transpiledPos)
-            }
-        }
-    }
-
-    @Test
-    fun `invalid server coordinates never wrap onto a different generated line`() {
-        val result = supported("FROM t |> WHERE missing_column > 0 |> LIMIT 5").result!!
-        val lines = result.sql.lines()
-        val firstLineLength = lines.first().codePointCount(0, lines.first().length)
-        for (message in listOf(
-            "(line 0, pos 0)", "(line ${lines.size + 1}, pos 0)",
-            "(line 1, pos ${firstLineLength + 1})", "(line 1, pos 2147483647)",
-            "(line 999999999999, pos 0)", "(line 1, pos 999999999999)",
-        )) {
-            assertEquals(message, null, DorisPipesEngine.mapServerErrorExact(message, result))
         }
     }
 
@@ -378,7 +319,7 @@ class DorisPipesUpgradeTest {
         // Splitting the SELECT into separately aggregated UNION ALL branches changes the rows.
         val result = supported("FROM a |> FULL OUTER JOIN b ON a.id = b.id |> AGGREGATE COUNT(*) AS n",
             "FULL OUTER JOIN b", "COUNT(*) AS n")
-        assertFalse(result.dorisSql, result.dorisSql.contains("UNION"))
+        assertFalse(result.sql, result.sql.contains("UNION"))
     }
 
     @Test
@@ -387,7 +328,7 @@ class DorisPipesUpgradeTest {
             "FROM a |> FULL OUTER JOIN b ON a.id = b.id |> AGGREGATE COUNT(*) AS n GROUP BY COALESCE(a.category, b.category) AS bucket",
             "FULL OUTER JOIN b", "COUNT(*) AS n", "COALESCE(a.category, b.category) AS bucket",
         )
-        assertFalse(result.dorisSql, result.dorisSql.contains("UNION"))
+        assertFalse(result.sql, result.sql.contains("UNION"))
     }
 
     @Test
@@ -396,7 +337,7 @@ class DorisPipesUpgradeTest {
             "FROM a |> FULL OUTER JOIN b ON a.id = b.id |> SELECT DISTINCT COALESCE(a.category, b.category) AS category",
             "FULL OUTER JOIN b", "DISTINCT", "COALESCE(a.category, b.category) AS category",
         )
-        assertFalse(result.dorisSql, result.dorisSql.contains("UNION"))
+        assertFalse(result.sql, result.sql.contains("UNION"))
     }
 
     @Test
@@ -405,7 +346,7 @@ class DorisPipesUpgradeTest {
             "FROM a |> FULL OUTER JOIN b ON a.id = b.id |> WHERE a.id = 1 OR b.id = 3 |> ORDER BY 1 DESC, 3 |> LIMIT 2",
             "FULL OUTER JOIN b", "a.id = 1 OR b.id = 3", "ORDER BY", "LIMIT 2",
         )
-        assertFalse(result.dorisSql, result.dorisSql.contains("UNION"))
+        assertFalse(result.sql, result.sql.contains("UNION"))
     }
 
     @Test
@@ -415,22 +356,22 @@ class DorisPipesUpgradeTest {
             "SELECT ALL category FROM t |> SELECT DISTINCT category |> LIMIT 2",
         )) {
             val result = supported(text, "DISTINCT", "category", "LIMIT 2")
-            val selects = SqlFragment(result.dorisSql, "doris").ast.findAll(Select::class).toList()
-            assertEquals(result.dorisSql, 1, selects.count { it.args["distinct"] is Distinct })
+            val selects = SqlFragment(result.sql, "doris").ast.findAll(Select::class).toList()
+            assertEquals(result.sql, 1, selects.count { it.args["distinct"] is Distinct })
         }
     }
 
     @Test
     fun `pipe DISTINCT cannot move ahead of an earlier LIMIT stage`() {
         val text = "FROM t |> ORDER BY id |> LIMIT 3 |> SELECT DISTINCT category |> LIMIT 2"
-        val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("LIMIT 3"))!!
-        val beforeDistinct = supported(prefix.text, "LIMIT 3")
-        assertFalse(beforeDistinct.dorisSql.contains("DISTINCT"))
+        val prefix = PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("LIMIT 3"), "doris") as PipeStageCut.Prefix
+        val beforeDistinct = supported(prefix.sql, "LIMIT 3")
+        assertFalse(beforeDistinct.sql.contains("DISTINCT"))
         val result = supported(text, "DISTINCT", "LIMIT 3", "LIMIT 2")
-        val selects = SqlFragment(result.dorisSql, "doris").ast.findAll(Select::class).toList()
+        val selects = SqlFragment(result.sql, "doris").ast.findAll(Select::class).toList()
         val limitedInput = selects.single { ((it.args["limit"] as? Limit)?.expressionArg as? Literal)?.name == "3" }
         assertEquals("The first LIMIT must apply before deduplication", null, limitedInput.args["distinct"])
-        assertEquals(result.dorisSql, 1, selects.count { it.args["distinct"] is Distinct })
+        assertEquals(result.sql, 1, selects.count { it.args["distinct"] is Distinct })
     }
 
     @Test
@@ -439,11 +380,11 @@ class DorisPipesUpgradeTest {
             "FROM t |> ORDER BY id |> LIMIT 3 OFFSET 1 |> SELECT DISTINCT category |> LIMIT 2",
             "DISTINCT", "category",
         )
-        val selects = SqlFragment(result.dorisSql, "doris").ast.findAll(Select::class).toList()
+        val selects = SqlFragment(result.sql, "doris").ast.findAll(Select::class).toList()
         val restrictedInput = selects.single { ((it.args["offset"] as? Offset)?.expressionArg as? Literal)?.name == "1" }
         assertEquals("The OFFSET must select input rows before deduplication", null, restrictedInput.args["distinct"])
         assertEquals("3", ((restrictedInput.args["limit"] as? Limit)?.expressionArg as? Literal)?.name)
-        assertEquals(result.dorisSql, 1, selects.count { it.args["distinct"] is Distinct })
+        assertEquals(result.sql, 1, selects.count { it.args["distinct"] is Distinct })
     }
 
     @Test
@@ -463,7 +404,7 @@ class DorisPipesUpgradeTest {
         ))), emptyMap())
         assertEquals(listOf("id", "category"), SqlFragment(text, "doris").outputShape(catalog).names())
         assertEquals("Executable output must match the requested star projection",
-            listOf("id", "category"), SqlFragment(result.dorisSql, "doris").outputShape(catalog).names())
+            listOf("id", "category"), SqlFragment(result.sql, "doris").outputShape(catalog).names())
     }
 
     @Test
@@ -475,26 +416,25 @@ class DorisPipesUpgradeTest {
             val refusal = assertThrows(UnsupportedError::class.java) {
                 SqlFragment(text, "doris").toExecutable("doris", pretty = true)
             }
-            val result = DorisPipesEngine.transpile(text)
-            assertTrue("A safety refusal must not delegate or escape: $result", result is DorisPipesEngine.Transpile.Err)
-            val error = result as DorisPipesEngine.Transpile.Err
+            val result = DorisPipeDialect.lower(text)
+            assertTrue("A safety refusal must not delegate or escape: $result", result is PipeTranslation.Refused)
+            val error = result as PipeTranslation.Refused
             assertEquals(refusal.message, error.message)
-            assertEquals(null, error.line)
-            assertEquals(null, error.col)
+            assertEquals(null, error.range)
         }
     }
 
     @Test
     fun `refused stage prefixes retain the error and annotate only their own statement`() {
         val text = "FROM t AS a |> FULL OUTER JOIN u AS b ON a.id = b.id |> LIMIT 2 |> SELECT a.id"
-        val prefix = DorisPipesEngine.stagePrefixAt(text, text.indexOf("SELECT"))!!
-        assertEquals(text, prefix.text)
-        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Err)
-        val earlier = DorisPipesEngine.stagePrefixAt(text, text.indexOf("LIMIT"))!!
-        supported(earlier.text, "FULL OUTER JOIN", "LIMIT 2")
+        val prefix = PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("SELECT"), "doris") as PipeStageCut.Prefix
+        assertEquals(text, prefix.sql)
+        assertTrue(DorisPipeDialect.lower(prefix.sql) is PipeTranslation.Refused)
+        val earlier = PipeStageSplitter.topLevelPrefixAt(text, text.indexOf("LIMIT"), "doris") as PipeStageCut.Prefix
+        supported(earlier.sql, "FULL OUTER JOIN", "LIMIT 2")
         val document = "SELECT 0;\n$text;\nSELECT 2;"
         val chunk = DorisPipes.chunkAt(document, document.indexOf("FULL"))!!
-        assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+        assertTrue(DorisPipeDialect.lower(chunk.text) is PipeTranslation.Refused)
         val errors = DorisPipesEngine.pipeSyntaxErrors(document)
         assertEquals(1, errors.size)
         assertEquals(2, errors.single().line)
@@ -503,17 +443,17 @@ class DorisPipesUpgradeTest {
 
     private fun assertLateralProjectionOrRefusal(projection: String, expectedColumns: List<String>) {
         val text = "FROM t LATERAL VIEW EXPLODE(arr) e AS item |> LIMIT 2 |> SELECT $projection"
-        val result = DorisPipesEngine.transpile(text)
-        if (result is DorisPipesEngine.Transpile.Err) {
+        val result = DorisPipeDialect.lower(text)
+        if (result is PipeTranslation.Refused) {
             assertTrue("A safe refusal must explain why it cannot translate", result.message.isNotBlank())
             return
         }
-        assertTrue(result.toString(), result is DorisPipesEngine.Transpile.Ok)
-        result as DorisPipesEngine.Transpile.Ok
-        assertEquals(emptyList<String>(), result.result!!.unsupportedMessages)
-        nativeParser.parseStatement(result.dorisSql)
+        assertTrue(result.toString(), result is PipeTranslation.Lowered)
+        result as PipeTranslation.Lowered
+        assertEquals(emptyList<String>(), result.result.unsupportedMessages)
+        nativeParser.parseStatement(result.sql)
         val columns = linkedMapOf("id" to "INT", "category" to "STRING", "arr" to "ARRAY<INT>")
-        val generated = SqlFragment(result.dorisSql, "doris")
+        val generated = SqlFragment(result.sql, "doris")
         qualify(generated.ast.copy(), dialect = Dialects.forName("doris"),
             schema = mapOf("t" to columns), validateQualifyColumns = true)
         val catalog = ShapeCatalog(mapOf("t" to Shape(columns.map { (name, type) -> ColumnShape(name, type, true) })), emptyMap())
@@ -535,7 +475,7 @@ class DorisPipesUpgradeTest {
     fun `standalone OFFSET preserves its argument with an overflow safe Doris LIMIT`() {
         for (offset in listOf(0L, 1L, 2L, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
             val result = supported("FROM t |> ORDER BY id |> OFFSET $offset", "ORDER BY", "LIMIT")
-            val select = SqlFragment(result.dorisSql, "doris").ast as Select
+            val select = SqlFragment(result.sql, "doris").ast as Select
             val emittedOffset = ((select.args["offset"] as? Offset)?.expressionArg as? Literal)?.name?.toLong() ?: 0L
             val emittedLimit = ((select.args["limit"] as Limit).expressionArg as Literal).name.toLong()
             assertEquals(offset, emittedOffset)
@@ -547,10 +487,10 @@ class DorisPipesUpgradeTest {
     fun `unsafe standalone head OFFSET values are handled refusals`() {
         for (offset in listOf("-1", "1.5", "?", "'1'", "1 + 1", "9223372036854775808")) {
             // A head OFFSET exercises the generator check rather than pipe-stage validation.
-            val result = DorisPipesEngine.transpile("SELECT id FROM t OFFSET $offset |> ORDER BY id")
-            assertTrue("OFFSET $offset must not silently change its argument: $result", result is DorisPipesEngine.Transpile.Err)
+            val result = DorisPipeDialect.lower("SELECT id FROM t OFFSET $offset |> ORDER BY id")
+            assertTrue("OFFSET $offset must not silently change its argument: $result", result is PipeTranslation.Refused)
             assertEquals("Doris OFFSET without LIMIT requires a non-negative signed 64-bit integer literal",
-                (result as DorisPipesEngine.Transpile.Err).message)
+                (result as PipeTranslation.Refused).message)
         }
     }
 
@@ -574,14 +514,15 @@ class DorisPipesUpgradeTest {
             assertThrows(text, DorisParseException::class.java) { nativeParser.parseStatement(raw.sql) }
 
             val result = generated(text)
-            assertEquals(text, emptyList<String>(), result.unsupportedMessages)
-            assertNotNull(text, result.validationError)
-            assertTrue(result.executionError!!.message, result.executionError!!.message.contains("generated SQL"))
-            assertEquals(raw.sql, result.dorisSql)
+            assertEquals(text, emptyList<String>(), result.result.unsupportedMessages)
+            assertTrue(text, result.verdict is NativeVerdict.Rejected)
+            assertNotNull(result.blocker)
+            assertTrue(result.blocker!!, result.blocker!!.contains("Generated SQL"))
+            assertEquals(raw.sql, result.sql)
         }
 
         val valid = supported("SELECT id FROM t LIMIT 2 OFFSET 1 |> ORDER BY 1", "LIMIT 2", "OFFSET 1")
-        assertEquals(null, valid.executionError)
+        assertEquals(null, valid.blocker)
     }
 
     @Test
@@ -589,24 +530,25 @@ class DorisPipesUpgradeTest {
         for (name in listOf("id", "date", "limit")) {
             val text = "FROM t |> WHERE id = :$name |> SELECT id"
             val preflight = generated(text)
-            assertEquals(name, null, preflight.executionError)
-            val final = DorisPipesEngine.transpile(text, allowNamedParameters = false) as DorisPipesEngine.Transpile.Ok
-            assertNotNull(name, final.validationError)
-            assertTrue(final.executionError!!.message.contains("generated SQL"))
+            assertEquals(name, null, preflight.blocker)
+            val final = DorisPipeDialect.lower(text, substituted = true) as PipeTranslation.Lowered
+            assertTrue(name, final.verdict is NativeVerdict.Rejected)
+            assertNotNull(final.blocker)
+            assertTrue(final.blocker!!.contains("Generated SQL"))
         }
     }
 
     @Test
     fun `array slice colons are not treated as named parameters`() {
         val result = supported("FROM t |> SELECT arr[1:end_idx] AS sliced", "1:end_idx")
-        assertEquals(null, result.executionError)
+        assertEquals(null, result.blocker)
     }
 
     @Test
     fun `WHERE consumes earlier LIMIT and OFFSET results rather than filtering their input`() {
         for (restriction in listOf("LIMIT 2", "OFFSET 1", "LIMIT 2 OFFSET 1")) {
             val result = supported("FROM t |> ORDER BY id |> $restriction |> WHERE id > 1", "id > 1")
-            val tree = SqlFragment(result.dorisSql, "doris").ast as Select
+            val tree = SqlFragment(result.sql, "doris").ast as Select
             val restricted = tree.findAll(Select::class).single { it.args["limit"] != null || it.args["offset"] != null }
             assertEquals("Filtering must not move ahead of $restriction", null, restricted.args["where"])
             assertNotNull("The input ordering belongs with $restriction", restricted.args["order"])
@@ -620,7 +562,7 @@ class DorisPipesUpgradeTest {
             "SELECT DISTINCT ON (category) id, category FROM t ORDER BY id |> WHERE id > 1",
             "ROW_NUMBER() OVER", "PARTITION BY", "id > 1",
         )
-        val tree = SqlFragment(result.dorisSql, "doris").ast as Select
+        val tree = SqlFragment(result.sql, "doris").ast as Select
         val ranking = tree.findAll(Window::class).single()
         assertEquals("The later filter must not enter the ranking input", null,
             ranking.findAncestor(Select::class)!!.args["where"])
@@ -635,7 +577,7 @@ class DorisPipesUpgradeTest {
         )
         for (names in listOf(listOf("id", "category"), listOf("id", "category", "_w", "_row_number"))) {
             val catalog = ShapeCatalog(mapOf("t" to Shape(names.map { ColumnShape(it, "INT", true) })), emptyMap())
-            assertEquals(names, SqlFragment(result.dorisSql, "doris").outputShape(catalog).names())
+            assertEquals(names, SqlFragment(result.sql, "doris").outputShape(catalog).names())
         }
     }
 
@@ -648,9 +590,9 @@ class DorisPipesUpgradeTest {
             "FROM t |> OFFSET", "FROM t |> LIMIT",
         )
         for (text in inputs) {
-            val result = DorisPipesEngine.transpile(text)
-            assertTrue("Expected a handled pagination error for $text, got $result", result is DorisPipesEngine.Transpile.Err)
-            assertTrue((result as DorisPipesEngine.Transpile.Err).message.isNotBlank())
+            val result = DorisPipeDialect.lower(text)
+            assertTrue("Expected a handled pagination error for $text, got $result", result is PipeTranslation.Refused)
+            assertTrue((result as PipeTranslation.Refused).message.isNotBlank())
         }
     }
 
@@ -658,7 +600,7 @@ class DorisPipesUpgradeTest {
     fun `an OFFSET stage consumes a prior limited slice while same stage pagination keeps SQL order`() {
         for ((stages, expectedLimit) in listOf("LIMIT 2 |> OFFSET 1" to "1", "LIMIT 2 OFFSET 1" to "2")) {
             val result = supported("FROM t |> ORDER BY id |> $stages", "ORDER BY", "LIMIT", "OFFSET")
-            val select = SqlFragment(result.dorisSql, "doris").ast as Select
+            val select = SqlFragment(result.sql, "doris").ast as Select
             assertEquals(expectedLimit, ((select.args["limit"] as Limit).expressionArg as Literal).name)
             assertEquals("1", ((select.args["offset"] as Offset).expressionArg as Literal).name)
         }

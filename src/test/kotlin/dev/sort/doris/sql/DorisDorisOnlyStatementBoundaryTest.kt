@@ -60,7 +60,7 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
     )
 
     fun testDorisOnlyLeadsAreOneCleanStatement() {
-        val lang = Language.findLanguageByID("DorisSQL")!!
+        val lang = DorisSqlDialect.INSTANCE
         for (sql in dorisOnly) {
             val tree = treeOf(lang, sql)
             assertFalse("unexpected error PSI for: $sql\n$tree", tree.contains("PsiErrorElement"))
@@ -72,7 +72,7 @@ class DorisDorisOnlyStatementBoundaryTest : BasePlatformTestCase() {
     }
 
     fun testNonDorisFormsStayMysqlTyped() {
-        val lang = Language.findLanguageByID("DorisSQL")!!
+        val lang = DorisSqlDialect.INSTANCE
         for ((sql, mysqlMarker) in staysMysql) {
             val tree = treeOf(lang, sql)
             assertTrue(

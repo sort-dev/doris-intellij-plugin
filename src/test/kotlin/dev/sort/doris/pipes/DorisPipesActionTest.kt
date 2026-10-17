@@ -15,7 +15,6 @@ import com.intellij.openapi.actionSystem.PerformWithDocumentsCommitted
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
-import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.PlaceProvider
 import java.util.UUID
@@ -156,23 +155,6 @@ class DorisPipesActionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testStructureViewEditorFallbackPreservesThePipeCandidate() {
-        val file = myFixture.configureByText("structure.sql", "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;")
-        val editor = myFixture.editor
-        val context = SimpleDataContext.builder()
-            .add(CommonDataKeys.PROJECT, project)
-            .add(CommonDataKeys.PSI_FILE, file)
-            .add(PlatformCoreDataKeys.PSI_ELEMENT_ARRAY, arrayOf(file))
-            .add(PlatformCoreDataKeys.FILE_EDITOR, TextEditorProvider.getInstance().getTextEditor(editor))
-            .build()
-        val e = AnActionEvent.createFromDataContext("StructureViewPopup", Presentation(), context)
-        assertNull(e.getData(CommonDataKeys.EDITOR))
-        assertSame(editor, editorForPipeExecution(e))
-        val resolved = editorForPipeExecution(e)!!
-        assertEquals(file.text, DorisPipes.chunkAt(resolved.document.text, resolved.caretModel.offset)!!.text)
-        assertEquals(file.text, editor.document.text)
-    }
-
     fun testDisabledAndConsoleFreeExecutionReachThePreviousAction() {
         val oldFlag = System.getProperty(DorisPipes.PROPERTY)
         var calls = 0
@@ -218,36 +200,6 @@ class DorisPipesActionTest : BasePlatformTestCase() {
             }
         }
         assertEquals(0, calls)
-    }
-
-    fun testEngineSafetyRefusalReportsWithoutSubmittingOrDelegating() {
-        var calls = 0
-        var reports = 0
-        var submissions = 0
-        val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { calls++ } }
-        val text = "FROM t AS a |> FULL OUTER JOIN u AS b ON a.id = b.id |> LIMIT 2 |> SELECT a.id"
-        for (variant in 1..4) {
-            wrap(variant, previous) { _, _ ->
-                dispatchPipeTranslation(
-                    DorisPipesEngine.transpile(text),
-                    reportError = { error ->
-                        reports++
-                        assertTrue(error.message.contains("Cannot preserve a pipe SELECT/DISTINCT input boundary"))
-                    },
-                    submit = { submissions++; false },
-                )
-            }.actionPerformed(event("doris", true))
-        }
-        assertEquals(4, reports)
-        assertEquals(0, submissions)
-        assertEquals(0, calls)
-        assertFalse(dispatchPipeTranslation(DorisPipesEngine.Transpile.NotPipe, { fail("NotPipe is not an error") }, { fail("NotPipe must delegate"); false }))
-        for (submitted in listOf(false, true)) {
-            val success = DorisPipesEngine.Transpile.Ok("SELECT 1")
-            var submissionErrors = 0
-            assertTrue(dispatchPipeTranslation(success, { submissionErrors++ }, { assertSame(success, it); submitted }))
-            assertEquals(if (submitted) 0 else 1, submissionErrors)
-        }
     }
 
     fun testShortcutPromotionSurvivesAChainWithNoDatabasePackageCandidate() {

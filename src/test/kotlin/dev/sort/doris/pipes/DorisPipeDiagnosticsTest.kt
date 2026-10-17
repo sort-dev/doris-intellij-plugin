@@ -3,9 +3,10 @@ package dev.sort.doris.pipes
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.daemon.impl.HighlightInfoType
 import com.intellij.openapi.components.service
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisHighlightInfoFilter
 import dev.sort.doris.sql.DorisSqlDialect
@@ -58,7 +59,7 @@ class DorisPipeDiagnosticsTest : BasePlatformTestCase() {
     fun testDorisOwnedPipeAndServerDiagnosticsAlwaysSurviveFiltering() {
         val file = dorisFile("server.sql", "FROM t |> SELECT missing;")
         val filter = DorisHighlightInfoFilter()
-        assertTrue(filter.accept(infoAt(file.text, "missing", "Doris Pipes: invalid stage"), file))
+        assertTrue(filter.accept(infoAt(file.text, "missing", "$DORIS_PIPE_DIAGNOSTIC_PREFIX invalid stage"), file))
         assertTrue(
             filter.accept(
                 infoAt(file.text, "missing", "Doris (server): Unable to resolve object type at missing"),
@@ -69,9 +70,7 @@ class DorisPipeDiagnosticsTest : BasePlatformTestCase() {
         val text = file.text
         val start = text.indexOf("missing")
         DorisPipes.setExecMark(project, file.virtualFile.url, DorisPipes.ExecMark(start, start + 7, "server rejected column", text.hashCode()))
-        val errors = DorisErrorAnnotator().run {
-            doAnnotate(collectInformation(file)!!).errors
-        }
+        val errors = dev.sort.doris.sql.dorisAnnotations(file)
         assertTrue(errors.any { it.message == "Doris (server): server rejected column" })
     }
 

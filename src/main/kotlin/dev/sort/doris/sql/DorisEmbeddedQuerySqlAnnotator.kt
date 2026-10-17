@@ -57,7 +57,7 @@ class DorisEmbeddedQuerySqlAnnotator : Annotator {
                 c.isLetter() || c == '_' -> {
                     val s = i
                     while (i < end && (text[i].isLetterOrDigit() || text[i] == '_')) i++
-                    val key = if (DorisKeywordHighlighter.isDorisKeyword(text.substring(s, i))) {
+                    val key = if (text.substring(s, i).uppercase() in DORIS_KEYWORDS) {
                         DefaultLanguageHighlighterColors.KEYWORD
                     } else DefaultLanguageHighlighterColors.IDENTIFIER
                     paint(s, i, key)

@@ -1,12 +1,21 @@
 package dev.sort.doris.catalog
 
 import com.intellij.database.Dbms
+import com.intellij.database.dataSource.DatabaseConnectionCore
+import com.intellij.database.remote.jdbc.RemoteConnection
+import com.intellij.database.remote.jdbc.RemoteResultSet
+import com.intellij.database.remote.jdbc.RemoteResultSetMetaData
+import com.intellij.database.remote.jdbc.RemoteStatement
 import com.intellij.database.dialects.mysql.MysqlDialect
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.util.ObjectPath
 import com.intellij.database.util.SearchPath
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.doris.DorisDbms
+import com.intellij.openapi.progress.ProcessCanceledException
+import java.lang.reflect.Method
+import java.lang.reflect.Proxy
+import java.sql.SQLException
 
 /**
  * M4 offline assertions: the console namespace-switcher SQL composition and the dual-mode
@@ -102,6 +111,115 @@ class DorisDatabaseDialectTest : BasePlatformTestCase() {
     fun testReadBackProbeSql() {
         assertEquals("select current_catalog()", DorisCatalogQueries.SELECT_CURRENT_CATALOG)
         assertEquals("select database()", DorisCatalogQueries.SELECT_CURRENT_DATABASE)
+    }
+
+    fun testNativeSwitchAndUseCommandsMatchTheDorisGrammar() = withFlag(true) {
+        val dialect = DorisDatabaseDialect(DorisDbms.DORIS)
+        val parser = org.apache.doris.sqlparser.DorisSqlParser()
+        for (path in listOf(ObjectPath.create("warehouse", ObjectKind.DATABASE),
+            ObjectPath.create("analytics", ObjectKind.SCHEMA),
+            ObjectPath.create("ware`house", ObjectKind.DATABASE).append("ana`lytics", ObjectKind.SCHEMA))) {
+            parser.parseStatement(checkNotNull(dialect.sqlSetSearchPath(SearchPath.of(path))))
+        }
+    }
+
+    fun testReadBackUsesOnlyDocumentedDorisQueriesAndClosesThem() = withFlag(true) {
+        val queries = ReadBack { sql ->
+            when (sql) {
+                "select database()" -> listOf(listOf("analytics"))
+                "select current_catalog()" -> listOf(listOf("warehouse"))
+                else -> error("Unsupported Doris probe: $sql")
+            }
+        }
+        val path = DorisDatabaseDialect(DorisDbms.DORIS).tryToLoadSearchPath(queries.connection)!!.current!!
+        assertEquals("warehouse", path.parent!!.name)
+        assertEquals("analytics", path.name)
+        assertEquals(listOf("select database()", "select current_catalog()"), queries.sql)
+        assertEquals(2, queries.closedStatements)
+        assertEquals(2, queries.closedResults)
+    }
+
+    fun testReadBackFallsBackToShowCatalogsWhenTheFunctionIsUnavailable() = withFlag(true) {
+        val queries = ReadBack { sql ->
+            when (sql) {
+                "select database()" -> listOf(listOf("analytics"))
+                "select current_catalog()" -> throw SQLException("Unknown function current_catalog")
+                "SHOW CATALOGS" -> listOf(listOf("internal", ""), listOf("warehouse", "yes"))
+                else -> error("Unsupported Doris probe: $sql")
+            }
+        }
+        val path = DorisDatabaseDialect(DorisDbms.DORIS).tryToLoadSearchPath(queries.connection)!!.current!!
+        assertEquals("warehouse", path.parent!!.name)
+        assertEquals("analytics", path.name)
+        assertEquals(listOf("select database()", "select current_catalog()", "SHOW CATALOGS"), queries.sql)
+        assertEquals(3, queries.closedStatements)
+        assertEquals(2, queries.closedResults)
+    }
+
+    fun testReadBackPreservesCancellationWithoutFurtherProbes() = withFlag(true) {
+        val cancellation = ProcessCanceledException()
+        val queries = ReadBack { throw cancellation }
+        assertSame(cancellation, runCatching {
+            DorisDatabaseDialect(DorisDbms.DORIS).tryToLoadSearchPath(queries.connection)
+        }.exceptionOrNull())
+        assertEquals(listOf("select database()"), queries.sql)
+        assertEquals(1, queries.closedStatements)
+    }
+
+    private class ReadBack(val query: (String) -> List<List<String>>) {
+        val sql = ArrayList<String>()
+        var closedStatements = 0
+        var closedResults = 0
+        private val metadata = proxy<RemoteResultSetMetaData> { method, args ->
+            when (method.name) {
+                "getColumnCount" -> 2
+                "getColumnLabel" -> listOf("CatalogName", "IsCurrent")[(args[0] as Int) - 1]
+                else -> error("Unexpected metadata call: $method")
+            }
+        }
+        private val remote = proxy<RemoteConnection> { method, _ ->
+            check(method.name == "createStatement") { "Unexpected connection call: $method" }
+            proxy<RemoteStatement> { statementMethod, args ->
+                when (statementMethod.name) {
+                    "executeQuery" -> {
+                        val text = args[0] as String
+                        sql += text
+                        val data = query(text)
+                        var index = -1
+                        proxy<RemoteResultSet> { rowMethod, rowArgs ->
+                            when (rowMethod.name) {
+                                "next" -> ++index < data.size
+                                "getString" -> data[index][(rowArgs[0] as Int) - 1]
+                                "getMetaData" -> metadata
+                                "close" -> { closedResults++; null }
+                                else -> error("Unexpected result call: $rowMethod")
+                            }
+                        }
+                    }
+                    "close" -> { closedStatements++; null }
+                    else -> error("Unexpected statement call: $statementMethod")
+                }
+            }
+        }
+        val connection = proxy<DatabaseConnectionCore> { method, _ ->
+            when (method.name) {
+                "getRemoteConnection" -> remote
+                "getDbms" -> DorisDbms.DORIS
+                else -> error("Unexpected core call: $method")
+            }
+        }
+    }
+
+    companion object {
+        private inline fun <reified T> proxy(crossinline call: (Method, Array<out Any?>) -> Any?): T =
+            Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { proxy, method, args ->
+                when (method.name) {
+                    "equals" -> proxy === args?.get(0)
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "toString" -> "Doris read-back ${T::class.java.simpleName}"
+                    else -> call(method, args.orEmpty())
+                }
+            } as T
     }
 
     fun testSearchPathKindStaysSchemaForSteppedPopup() {

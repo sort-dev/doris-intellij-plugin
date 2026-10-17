@@ -1,174 +1,113 @@
 package dev.sort.doris.sql
 
-import com.intellij.lang.annotation.AnnotationHolder
-import com.intellij.lang.annotation.ExternalAnnotator
-import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.lang.injection.InjectedLanguageManager
-import com.intellij.openapi.editor.Document
-import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.components.service
+import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiFile
+import dev.brikk.house.sql.diagnostics.DiagnosticSeverity
+import dev.brikk.house.sql.diagnostics.DiagnosticSource
+import dev.brikk.house.sql.diagnostics.SqlDiagnostic
+import dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator
+import dev.brikk.house.sql.intellij.diagnostics.NativeErrorProfile
+import dev.brikk.house.sql.intellij.diagnostics.NativeErrorPsiFilter
+import dev.brikk.house.sql.intellij.diagnostics.VerificationUnit
+import dev.brikk.house.sql.intellij.pipe.NativeSqlValidator
+import dev.brikk.house.sql.parser.SqlStatementRange
+import dev.brikk.house.sql.verify.VerifyError
+import dev.brikk.house.sql.verify.VerifyResult
+import dev.sort.doris.brikk.BrikkDorisContext
+import dev.sort.doris.brikk.DorisHostSqlChannel
+import dev.sort.doris.pipes.DorisPipeDialect
 import dev.sort.doris.pipes.DorisPipes
 import dev.sort.doris.pipes.DorisPipesEngine
-import dev.sort.doris.pipes.runPipeCatching
-import org.antlr.v4.runtime.BaseErrorListener
-import org.antlr.v4.runtime.DefaultErrorStrategy
-import org.antlr.v4.runtime.RecognitionException
-import org.antlr.v4.runtime.Recognizer
-import org.antlr.v4.runtime.Token
-import org.apache.doris.sqlparser.DorisSqlParser
+import dev.sort.doris.pipes.DorisPipesSettings
 
-internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris Pipes:"
+internal const val DORIS_PIPE_DIAGNOSTIC_PREFIX = "Doris PIPE:"
 internal const val DORIS_SERVER_DIAGNOSTIC_PREFIX = "Doris (server):"
 
-internal fun withoutPipeChunkErrors(text: String, errors: List<DorisSyntaxError>): List<DorisSyntaxError> {
-    val pipeChunks = DorisPipes.chunks(text).filter { it.hasPipeOperator }
-    return errors.filterNot { error ->
-        val offset = error.startOffsetIn(text)
-        offset != null && pipeChunks.any { offset >= it.startOffset && offset < it.endOffset }
+object DorisNativeErrorProfile : NativeErrorProfile {
+    override val language get() = DorisSqlDialect.INSTANCE
+    override val dialect = "doris"
+    override val label = "Doris"
+    override val unit = VerificationUnit.File
+    override val hostSql get() = DorisHostSqlChannel
+    private data class Context(val brikk: Boolean, val pipes: Boolean)
+    private val contextKey = Key.create<Context>("doris.native.errors.context")
+
+    private fun captureContext(file: PsiFile): Context {
+        val context = Context(BrikkDorisContext.isActive(file), DorisPipes.isEditingEnabled(file))
+        file.putUserData(contextKey, context)
+        return context
     }
+
+    override fun validator(file: PsiFile): NativeSqlValidator {
+        captureContext(file)
+        return DorisNativeValidation.validator
+    }
+
+    override fun verificationText(file: PsiFile, sql: String): String =
+        verificationText(sql, file.getUserData(contextKey)?.brikk == true)
+
+    override fun statementDiagnostics(file: PsiFile, script: String, statement: SqlStatementRange): List<SqlDiagnostic>? {
+        val context = file.getUserData(contextKey) ?: return null
+        if (!context.pipes || !DorisPipes.containsPipeOperator(script)) return null
+        return when (val result = verifyScript(script, pipes = true, brikk = context.brikk)) {
+            VerifyResult.Accepted -> emptyList()
+            is VerifyResult.Rejected -> result.errors.map { error ->
+                val offset = (error.offset ?: 0).coerceIn(0, script.length)
+                val start = if (offset == script.length) script.offsetByCodePoints(offset, -1) else offset
+                val end = error.endOffset?.takeIf { it > start && it <= script.length }
+                    ?: script.offsetByCodePoints(start, 1)
+                SqlDiagnostic(DiagnosticSeverity.ERROR, error.message, start, end,
+                    if (error.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX)) DiagnosticSource.OTHER else DiagnosticSource.NATIVE)
+            }
+            is VerifyResult.Unverified, is VerifyResult.Unavailable -> null
+        }
+    }
+
+    internal fun verificationText(sql: String, brikk: Boolean): String = if (!brikk) sql else buildString {
+        append(sql)
+        for (range in DorisPipes.namedParameterRanges(sql)) {
+            setCharAt(range.first, '?')
+            for (index in range.first + 1..range.last) setCharAt(index, ' ')
+        }
+    }
+
+    internal fun verifyScript(sql: String, pipes: Boolean, brikk: Boolean): VerifyResult {
+        val native = DorisNativeValidation.validator.verify(verificationText(sql, brikk), null)
+        if (!pipes || !DorisPipes.containsPipeOperator(sql)) return native
+        val ranges = DorisPipeDialect.scriptRanges(sql).filter { it.hasPipe }
+        val errors = (native as? VerifyResult.Rejected)?.errors.orEmpty().filterNot { error ->
+            val offset = error.offset ?: 0
+            ranges.any { offset in it.start until it.end }
+        } + DorisPipesEngine.pipeSyntaxErrors(sql).map { error ->
+            val start = error.startOffsetIn(sql) ?: 0
+            VerifyError.atOffset(sql, error.message, start, (start + error.length).coerceAtMost(sql.length))
+        }
+        return when {
+            errors.isNotEmpty() -> VerifyResult.Rejected(errors.sortedBy { it.offset })
+            native is VerifyResult.Unavailable || native is VerifyResult.Unverified -> native
+            else -> VerifyResult.Accepted
+        }
+    }
+
+    override fun fileDiagnostics(file: PsiFile, script: String): List<SqlDiagnostic> {
+        if (!DorisPipes.isEditingEnabled(file) || script.isEmpty()) return emptyList()
+        val mark = DorisPipes.execMarkFor(file.project, file.viewProvider.virtualFile.url, script) ?: return emptyList()
+        val start = mark.start.coerceIn(0, script.lastIndex)
+        val end = mark.end.coerceIn(start + 1, script.length)
+        return listOf(SqlDiagnostic(DiagnosticSeverity.ERROR, "$DORIS_SERVER_DIAGNOSTIC_PREFIX ${mark.message}",
+            start, end, DiagnosticSource.OTHER))
+    }
+
+    override fun modificationCount(file: PsiFile): Long {
+        val context = captureContext(file)
+        val settings = file.project.service<DorisPipesSettings>()
+        return (settings.stateModificationCount + settings.diagnosticRevision.get()) * 4 +
+            (if (context.brikk) 1 else 0) + (if (context.pipes) 2 else 0)
+    }
+
+    override fun message(diagnostic: SqlDiagnostic): String = diagnostic.message
 }
 
-/**
- * Doris-accurate syntax validation, layered on separately from the SQL92 editor parser
- * (whose own errors are suppressed by [DorisHighlightErrorFilter]). Parses the file text with
- * the authoritative Doris grammar (fe-sql-parser) off the EDT and reports every syntax error
- * at its real location — this is what makes genuine Doris DDL/DML mistakes light up.
- */
-class DorisErrorAnnotator : ExternalAnnotator<DorisErrorAnnotator.Input, DorisErrorAnnotator.Result>() {
-    data class Input(val text: String, val pipesEnabled: Boolean, val execMark: DorisPipes.ExecMark? = null,
-                     val brikkHouse: Boolean = false)
-    data class Result(val pipesEnabled: Boolean, val errors: List<DorisSyntaxError>, val unescapedText: String? = null)
-
-    override fun collectInformation(file: PsiFile): Input? {
-        if (!file.language.isKindOf(DorisSqlDialect.INSTANCE)) return null
-        val brikkHouse = dev.sort.doris.brikk.BrikkDorisContext.isActive(file)
-        val text = if (brikkHouse) InjectedLanguageManager.getInstance(file.project).getUnescapedText(file) else file.text
-        if (text.isBlank()) return null
-        val enabled = DorisPipes.isEditingEnabled(file)
-        val mark = if (enabled) DorisPipes.execMarkFor(file.project, file.viewProvider.virtualFile.url, text) else null
-        return Input(text, enabled, mark, brikkHouse)
-    }
-
-    override fun doAnnotate(collectedInfo: Input): Result {
-        val (text, pipesEnabled, execMark) = collectedInfo
-        // The native grammar has no Brikk binds. Equal-length masks retain authored SQL offsets;
-        // this parser input is inspection-only and is never sent to a connection.
-        val validationText = if (collectedInfo.brikkHouse) maskBrikkBinds(text) else text
-        val feErrors = validate(validationText)
-        // DORIS PIPES: pipe statements are foreign to fe-sql-parser by design, so its errors on
-        // pipe chunks are noise — replace them with the ENGINE's verdict for those chunks (real
-        // pipe syntax errors, absolute positions). Non-pipe chunks keep fe validation untouched.
-        val base = if (!pipesEnabled || !text.contains(DorisPipes.MARKER)) feErrors
-        else runPipeCatching {
-            withoutPipeChunkErrors(text, feErrors) +
-                DorisPipesEngine.pipeSyntaxErrors(text)
-        }.getOrDefault(feErrors)
-        // DORIS PIPES: last pipe run's SERVER error, squiggled at the exact mapped span (source-map
-        // offsets); invalidated by any edit (doc-hash) or the next run for this file.
-        val exec = if (!pipesEnabled) emptyList() else runPipeCatching {
-            execMark?.let { m ->
-                val pre = text.substring(0, m.start.coerceIn(0, text.length))
-                val line = pre.count { it == '\n' } + 1
-                val col = m.start - (pre.lastIndexOf('\n') + 1)
-                listOf(
-                    DorisSyntaxError(
-                        line,
-                        col,
-                        (m.end - m.start).coerceAtLeast(1),
-                        "$DORIS_SERVER_DIAGNOSTIC_PREFIX ${m.message}",
-                    ),
-                )
-            }.orEmpty()
-        }.getOrDefault(emptyList())
-        return Result(pipesEnabled, base + exec, if (collectedInfo.brikkHouse) text else null)
-    }
-
-    override fun apply(file: PsiFile, annotationResult: Result, holder: AnnotationHolder) {
-        // A setting change can finish while the background pass is still running.
-        if (annotationResult.pipesEnabled != DorisPipes.isEditingEnabled(file)) return
-        if ((annotationResult.unescapedText != null) != dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) return
-        if (annotationResult.errors.isEmpty()) return
-        val document = file.viewProvider.document ?: return
-        for (error in annotationResult.errors) {
-            val range = if (annotationResult.unescapedText != null) {
-                val text = annotationResult.unescapedText
-                val start = error.startOffsetIn(text) ?: continue
-                val end = (start + error.length).coerceAtMost(text.length)
-                val manager = InjectedLanguageManager.getInstance(file.project)
-                val mappedStart = manager.mapUnescapedOffsetToInjected(file, start)
-                val mappedEnd = manager.mapUnescapedOffsetToInjected(file, end)
-                TextRange(mappedStart, mappedEnd.coerceAtLeast(mappedStart))
-            } else error.toTextRange(document) ?: continue
-            holder.newAnnotation(HighlightSeverity.ERROR, error.message)
-                .range(range)
-                .create()
-        }
-    }
-
-    private companion object {
-        private fun maskBrikkBinds(text: String): String = buildString {
-            append(text)
-            for (range in DorisPipes.namedParameterRanges(text)) {
-                setCharAt(range.first, '?')
-                for (index in range.first + 1..range.last) setCharAt(index, ' ')
-            }
-        }
-        // Stateless + thread-safe per fe-sql-parser docs; safe to share across background threads.
-        private val PARSER = DorisSqlParser()
-
-        private fun validate(text: String): List<DorisSyntaxError> {
-            val errors = ArrayList<DorisSyntaxError>()
-            val collector = object : BaseErrorListener() {
-                override fun syntaxError(
-                    recognizer: Recognizer<*, *>?,
-                    offendingSymbol: Any?,
-                    line: Int,
-                    charPositionInLine: Int,
-                    msg: String,
-                    e: RecognitionException?
-                ) {
-                    val length = (offendingSymbol as? Token)?.text?.length?.coerceAtLeast(1) ?: 1
-                    errors.add(DorisSyntaxError(line, charPositionInLine, length, msg))
-                }
-            }
-
-            val lexer = PARSER.newLexer(text)
-            lexer.removeErrorListeners()          // drop fe-sql-parser's throwing listener
-            lexer.addErrorListener(collector)
-
-            val parser = PARSER.newParser(lexer)
-            parser.removeErrorListeners()          // ditto — we collect instead of throwing on the first
-            parser.addErrorListener(collector)
-            parser.errorHandler = DefaultErrorStrategy() // recover past errors so we report all of them
-
-            runPipeCatching {
-                parser.multiStatements()           // console text is one or more ';'-separated statements
-            }
-            return errors
-        }
-    }
-}
-
-/** A single Doris syntax error at a 1-based [line] / 0-based [col], spanning [length] chars. */
-data class DorisSyntaxError(val line: Int, val col: Int, val length: Int, val message: String) {
-    fun startOffsetIn(text: String): Int? {
-        if (line < 1 || col < 0) return null
-        var lineStart = 0
-        repeat(line - 1) {
-            lineStart = text.indexOf('\n', lineStart).takeIf { it >= 0 }?.plus(1) ?: return null
-        }
-        val lineEnd = text.indexOf('\n', lineStart).takeIf { it >= 0 } ?: text.length
-        val contentEnd = if (lineEnd > lineStart && text[lineEnd - 1] == '\r') lineEnd - 1 else lineEnd
-        val codePoints = text.codePointCount(lineStart, contentEnd)
-        return text.offsetByCodePoints(lineStart, col.coerceAtMost(codePoints))
-    }
-
-    fun toTextRange(document: Document): TextRange? {
-        val start = startOffsetIn(document.text) ?: return null
-        val lineEnd = document.getLineEndOffset(line - 1)
-        val end = (start + length).coerceIn(start, lineEnd)
-        // Ensure a non-empty range (e.g. errors reported at end-of-line/EOF).
-        return if (end > start) TextRange(start, end)
-        else TextRange(start, (start + 1).coerceAtMost(document.textLength))
-    }
-}
+class DorisErrorAnnotator : NativeErrorAnnotator(DorisNativeErrorProfile)
+class DorisNativeErrorPsiFilter : NativeErrorPsiFilter(DorisNativeErrorProfile)

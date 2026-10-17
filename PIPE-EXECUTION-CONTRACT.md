@@ -8,10 +8,10 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 [B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.19.1` and `brikk-sql-metadata-jvm:0.19.1`, both
+`dev.brikk.house:brikk-sql-jvm:0.20.0` and `brikk-sql-metadata-jvm:0.20.0`, both
 from Maven Central. The [0.16 upgrade report](REVIEW-brikk-sql-0.16.0.md)
 records earlier Doris 4.1.4 coverage and intentional unsafe-boundary refusals.
-Plugin 1.5.8 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.1.1` from
+Plugin 1.6.1 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.2.0` from
 Central. `CooperativeExecuteConfiguration`, `CooperativeExecuteAction` and
 `CooperativeExecutePromoter` own registration, wrapper delegation and promotion.
 `TranslatingScriptModel` owns copied statement/parameter iterators, document revisions
@@ -56,7 +56,7 @@ schema-aware rename API is tested separately; the plugin does not yet supply a
 catalog to its execution path. The plugin-side B3/B10 safeguards are described in
 [the execution safety report](REVIEW-pipes-B3-B10.md).
 
-The per-project checkbox under Settings > Tools > Apache Doris PIPE defaults off.
+The per-project checkbox under Settings > Tools > Database > Apache Doris PIPE defaults off.
 It is stored in workspace.xml, not inferred from installed plugins. The legacy
 `-Ddoris.pipes=false` veto remains; a true value does not force enablement. Setting
 changes reparse cached/open Doris files and restart diagnostics without editing SQL.

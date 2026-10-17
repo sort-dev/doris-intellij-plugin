@@ -5,6 +5,7 @@ import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.configurationStore.deserialize
 import com.intellij.configurationStore.serialize
 import com.intellij.mock.MockProject
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
@@ -14,10 +15,11 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.impl.DebugUtil
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.ui.components.JBCheckBox
+import dev.brikk.house.sql.intellij.ToggleSettings
 import dev.sort.doris.sql.DorisErrorAnnotator
 import dev.sort.doris.sql.DorisSqlDialect
 import java.lang.reflect.Proxy
@@ -72,7 +74,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         DorisPipes.setExecMark(project, "file:///shared.sql", mark)
         assertEquals(mark, DorisPipes.execMarkFor(project, "file:///shared.sql", text))
         assertNull(DorisPipes.execMarkFor(other, "file:///shared.sql", text))
-        otherSettings.loadState(DorisPipesSettings.Options(enabled = true))
+        otherSettings.loadState(ToggleSettings.Options(enabled = true))
         settings.enabled = false
         assertTrue(DorisPipes.isEnabled(other))
         assertFalse(DorisPipes.isEnabled(project))
@@ -90,6 +92,17 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         DorisPipes.setExecMark(project, "file:///stale.sql", DorisPipes.ExecMark(5, 6, "delayed", text.hashCode()))
         settings.enabled = true
         assertNull(DorisPipes.execMarkFor(project, "file:///stale.sql", text))
+    }
+
+    fun testDecidedLabels() {
+        val configurable = DorisPipesConfigurable(project)
+        try {
+            val checkbox = configurable.createComponent().components.filterIsInstance<JBCheckBox>().single()
+            assertEquals("Doris PIPE support", checkbox.text)
+            assertEquals("Doris PIPE", NotificationGroup.getGroupTitle(DorisPipeDialect.notificationGroup))
+        } finally {
+            configurable.disposeUIResources()
+        }
     }
 
     fun testConfigurableApplyResetAndPersistentStateRoundTrip() {
@@ -110,11 +123,11 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
             assertTrue(settings.enabled)
             assertFalse(configurable.isModified)
             val xml = serialize(settings.state, createElementIfEmpty = true)!!
-            val restored = deserialize<DorisPipesSettings.Options>(xml)
+            val restored = deserialize<ToggleSettings.Options>(xml)
             assertEquals("true", xml.getChild("option")?.getAttributeValue("value"))
             assertTrue(restored.enabled)
             assertEquals(settings.state, restored)
-            settings.loadState(DorisPipesSettings.Options())
+            settings.loadState(ToggleSettings.Options())
             configurable.reset()
             assertFalse(checkbox.isSelected)
         } finally {
@@ -136,7 +149,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         val actions = DorisPipesActionConfiguration.EXECUTE_IDS.map { ActionManager.getInstance().getAction(it) }
         val offTree = DebugUtil.psiToString(myFixture.file, true)
         val annotator = DorisErrorAnnotator()
-        assertTrue(annotator.doAnnotate(annotator.collectInformation(myFixture.file)!!).errors.isNotEmpty())
+        assertTrue(dev.sort.doris.sql.dorisAnnotations(myFixture.file).isNotEmpty())
         assertFalse(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
         settings.enabled = true
         PlatformTestUtil.waitWithEventsDispatching(
@@ -147,7 +160,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         val onTree = DebugUtil.psiToString(myFixture.file, true)
         assertFalse("setting change must rebuild existing PSI", offTree == onTree)
         assertTrue(onTree.contains("SQL_STATEMENT"))
-        assertTrue(annotator.doAnnotate(annotator.collectInformation(myFixture.file)!!).errors.isEmpty())
+        assertTrue(dev.sort.doris.sql.dorisAnnotations(myFixture.file).isEmpty())
         assertTrue(PreviewPipeSqlIntention().isAvailable(project, editor, myFixture.file))
         assertTrue(RunPipesToStageIntention().isAvailable(project, editor, myFixture.file))
         settings.enabled = false
@@ -173,11 +186,11 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         fun tree() = DebugUtil.psiToString(PsiManager.getInstance(project).findFile(virtualFile)!!, true)
         val offTree = tree()
         ApplicationManager.getApplication().executeOnPooledThread {
-            settings.loadState(DorisPipesSettings.Options(enabled = true))
+            settings.loadState(ToggleSettings.Options(enabled = true))
         }.get()
         PlatformTestUtil.waitWithEventsDispatching("External enable must reparse cached PSI", { tree() != offTree }, 10)
         assertFalse(offTree == tree())
-        settings.loadState(DorisPipesSettings.Options(enabled = false))
+        settings.loadState(ToggleSettings.Options(enabled = false))
         PlatformTestUtil.waitWithEventsDispatching("External disable must restore cached PSI", { tree() == offTree }, 10)
         assertEquals(offTree, tree())
     }
@@ -190,8 +203,7 @@ class DorisPipesSettingsTest : BasePlatformTestCase() {
         settings.enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val stale = annotator.doAnnotate(collected)
-        assertFalse(stale.pipesEnabled)
-        assertTrue(stale.errors.isNotEmpty())
+        assertNotNull(stale)
         val holder = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(AnnotationHolder::class.java)) { _, method, _ ->
             error("stale diagnostics must not invoke ${method.name}")
         } as AnnotationHolder

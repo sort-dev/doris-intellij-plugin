@@ -2,7 +2,8 @@ package dev.sort.doris.sql
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
+import dev.sort.doris.sqlResolveInspection
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -19,7 +20,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         myFixture.enableInspections(
-            com.intellij.sql.inspections.SqlResolveInspection(),
+            sqlResolveInspection(),
             com.intellij.sql.inspections.SqlInsertValuesInspection(),
             com.intellij.sql.inspections.SqlAmbiguousColumnInspection(),
         )
@@ -40,7 +41,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         if (replay) System.setProperty(REPLAY_FLAG, "true") else System.setProperty(REPLAY_FLAG, "false")
         try {
             val psi = myFixture.configureByText("h${counter++}.sql", sql)
-            SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
             return myFixture.doHighlighting()
                 .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }
         } finally {
@@ -237,7 +238,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
             "WITH t AS (SELECT 1 AS fid) " +
                 "SELECT (fid DIV 10) % 1000 AS bucket, count(*) AS c FROM t GROUP BY buckit;",
         )
-        assertHasInfo(infos, "Unable to resolve column 'buckit'")
+        assertHasInfo(infos, "Unknown column 'buckit'")
     }
 
     // --- P2-10: CTAS key/order columns + ENGINE = OLAP ---
@@ -324,7 +325,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
                 "SELECT bogus FROM t LATERAL VIEW EXPLODE(arr) tv AS item;",
             replay = true,
         )
-        assertHasInfo(infos, "Unable to resolve column 'bogus'")
+        assertHasInfo(infos, "Unknown column 'bogus'")
     }
 
     fun testWrongNameWithoutLateralViewStillRedDespiteAliasWord() {
@@ -333,14 +334,14 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
             "WITH t AS (SELECT 1 AS arr) SELECT item FROM t;",
             replay = true,
         )
-        assertHasInfo(infos, "Unable to resolve column 'item'")
+        assertHasInfo(infos, "Unknown column 'item'")
     }
 
     // --- guard: ordinary wrong column names keep their error (no over-suppression) ---
 
     fun testGenuineUnresolvedColumnStaysRed() {
         val infos = highlight("WITH t AS (SELECT 1 AS a) SELECT b FROM t;")
-        assertHasInfo(infos, "Unable to resolve column 'b'")
+        assertHasInfo(infos, "Unknown column 'b'")
     }
 
     /**
@@ -383,7 +384,7 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
     fun testIdentifierTooLongSuppressionKeysOnDoubleQuotesOnly() {
         val long = "x".repeat(80)
         val psi = myFixture.configureByText("f.sql", "SELECT 1 AS `$long`, \"$long\" FROM t;")
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, DorisSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
         val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
         assertTrue("mapping must yield a Doris file", file.language.isKindOf(DorisSqlDialect.INSTANCE))
         val filter = DorisHighlightInfoFilter()

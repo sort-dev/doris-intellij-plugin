@@ -1,18 +1,30 @@
 package dev.sort.doris.pipes
 
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.isVetoed
+import dev.brikk.house.sql.intellij.pipe.lower
+import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
+import dev.brikk.house.sql.metadata.FunctionDef
+import dev.brikk.house.sql.parser.PipeStageCut
+import dev.brikk.house.sql.parser.PipeStageSplitter
+import dev.brikk.house.sql.parser.SqlScriptSnapshot
+import dev.brikk.house.sql.parser.TokenError
+import dev.brikk.house.sql.shape.ShapeError
+import dev.brikk.house.sql.shape.SqlFragment
+import dev.sort.doris.sql.DORIS_PIPE_DIAGNOSTIC_PREFIX
+import dev.sort.doris.sql.DorisNativeErrorProfile
+import dev.sort.doris.sql.DorisNativeValidation
+import dev.sort.doris.sql.DorisSyntaxError
+import dev.sort.doris.sql.withoutPipeChunkErrors
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
-import dev.brikk.house.sql.metadata.DORIS_FUNCTION_CATALOG
-import dev.brikk.house.sql.metadata.FunctionDef
-import dev.brikk.house.sql.shape.SqlFragment
-import kotlinx.serialization.json.Json
-import dev.sort.doris.sql.DorisErrorAnnotator
-import dev.sort.doris.sql.DorisSyntaxError
-import dev.sort.doris.sql.withoutPipeChunkErrors
 
 /** Pure-logic coverage for the pipes SPIKE seam (engine calls run headless — no IDE needed). */
 class DorisPipesTest {
@@ -27,26 +39,11 @@ class DorisPipesTest {
 
     @Test
     fun `embedded core and metadata use the latest pinned artifact and platform serialization`() {
-        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-0.19.1.jar"))
-        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-0.19.1.jar"))
+        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-0.20.0.jar"))
+        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-0.20.0.jar"))
         val function = DORIS_FUNCTION_CATALOG.functions.first()
         val encoded = Json.encodeToString(FunctionDef.serializer(), function)
         assertEquals(function, Json.decodeFromString(FunctionDef.serializer(), encoded))
-    }
-
-    @Test
-    fun `embedded core provides stage scopes and exact source maps`() {
-        val text = "FROM t |> EXTEND id + 1 AS n |> SELECT n"
-        val scope = DorisPipesEngine.stageScopeAt(text, text.indexOf("SELECT"), "t", listOf("id"))
-        assertTrue(scope.toString(), scope?.containsAll(listOf("id", "n")) == true)
-        val original = "FROM t |> WHERE missing_column > 0 |> SELECT missing_column"
-        val result = DorisPipesEngine.transpile(original) as DorisPipesEngine.Transpile.Ok
-        val lines = result.dorisSql.lines()
-        val line = lines.indexOfFirst { it.contains("missing_column > 0") }
-        assertTrue(result.dorisSql, line >= 0)
-        val col = lines[line].indexOf("missing_column")
-        val mapped = DorisPipesEngine.mapServerErrorExact("(line ${line + 1}, pos $col)", result.result!!)!!
-        assertTrue(original.substring(mapped.startOffset!!, mapped.endOffset!! + 1).contains("missing_column"))
     }
 
     @Test
@@ -100,32 +97,51 @@ class DorisPipesTest {
 
     @Test
     fun `bare FROM translation is restricted to the first-stage scope`() {
-        assertSame(DorisPipesEngine.Transpile.NotPipe, DorisPipesEngine.transpile("FROM t"))
-        val scoped = DorisPipesEngine.transpile("FROM t", allowNamedParameters = true, allowFirstFromStage = true)
-        assertTrue(scoped.toString(), scoped is DorisPipesEngine.Transpile.Ok)
-        scoped as DorisPipesEngine.Transpile.Ok
-        assertNull(scoped.executionError)
-        assertTrue(scoped.dorisSql, scoped.dorisSql.contains("FROM t"))
-        assertSame(
-            DorisPipesEngine.Transpile.NotPipe,
-            DorisPipesEngine.transpile("SELECT 1", allowNamedParameters = true, allowFirstFromStage = true),
-        )
+        assertSame(PipeTranslation.NotPipe, DorisPipeDialect.lower("FROM t"))
+        val scoped = DorisPipeDialect.lower("FROM t", firstStage = true)
+        assertTrue(scoped.toString(), scoped is PipeTranslation.Lowered)
+        scoped as PipeTranslation.Lowered
+        assertNull(scoped.blocker)
+        assertTrue(scoped.sql, scoped.sql.contains("FROM t"))
+        val select = DorisPipeDialect.lower("SELECT 1", firstStage = true) as PipeTranslation.Lowered
+        assertNull(select.blocker)
+        assertEquals("SELECT 1", select.sql.replace(Regex("\\s+"), " ").trim())
+    }
+
+    @Test
+    fun `SELECT first pipelines lower without blockers`() {
+        val sql = "SELECT id FROM t |> EXTEND id + 1 AS next_id |> SELECT next_id |> LIMIT 2"
+        val lowered = DorisPipeDialect.lower(sql) as PipeTranslation.Lowered
+        assertNull(lowered.blocker)
+        assertFalse(lowered.sql, "|>" in lowered.sql)
+        assertTrue(lowered.sql, "next_id" in lowered.sql && "LIMIT 2" in lowered.sql)
     }
 
     @Test
     fun `flag parsing matches the catalogs-cancel convention`() {
-        assertTrue(DorisPipes.isEnabledValue(null))
-        assertTrue(DorisPipes.isEnabledValue("true"))
-        assertTrue(DorisPipes.isEnabledValue("garbage"))
-        assertFalse(DorisPipes.isEnabledValue("false"))
-        assertFalse(DorisPipes.isEnabledValue("FALSE"))
+        val previous = System.getProperty(DorisPipes.PROPERTY)
+        try {
+            System.clearProperty(DorisPipes.PROPERTY)
+            assertFalse(DorisPipeDialect.isVetoed)
+            for (value in listOf("true", "garbage")) {
+                System.setProperty(DorisPipes.PROPERTY, value)
+                assertFalse(DorisPipeDialect.isVetoed)
+            }
+            for (value in listOf("false", "FALSE")) {
+                System.setProperty(DorisPipes.PROPERTY, value)
+                assertTrue(DorisPipeDialect.isVetoed)
+            }
+        } finally {
+            if (previous == null) System.clearProperty(DorisPipes.PROPERTY)
+            else System.setProperty(DorisPipes.PROPERTY, previous)
+        }
     }
 
     @Test
     fun `valid pipe program transpiles to CTE-form Doris SQL`() {
-        val r = DorisPipesEngine.transpile(pipe)
-        assertTrue("expected Ok, got $r", r is DorisPipesEngine.Transpile.Ok)
-        val sql = (r as DorisPipesEngine.Transpile.Ok).dorisSql
+        val r = DorisPipeDialect.lower(pipe)
+        assertTrue("expected Ok, got $r", r is PipeTranslation.Lowered)
+        val sql = (r as PipeTranslation.Lowered).sql
         assertTrue(sql.contains("WITH"))
         assertTrue(sql.contains("GROUP BY"))
         assertTrue(sql.contains("LIMIT 10"))
@@ -133,14 +149,74 @@ class DorisPipesTest {
     }
 
     @Test
+    fun `nested-only pipelines are lowered and diagnosed`() {
+        val nested = "SELECT * FROM (FROM t |> WHERE x > 0) s"
+        val result = DorisPipeDialect.lower(nested)
+        assertTrue("expected Ok, got $result", result is PipeTranslation.Lowered)
+        assertFalse(DorisPipes.containsPipeOperator((result as PipeTranslation.Lowered).sql))
+
+        val lossy = "SELECT * FROM (FROM t |> SELECT LAST_DAY(d, YEAR) AS period_end) s"
+        assertNotNull((DorisPipeDialect.lower(lossy) as PipeTranslation.Lowered).blocker)
+        val errors = DorisPipesEngine.pipeSyntaxErrors("SELECT 1;\n$lossy")
+        assertTrue(errors.isNotEmpty() && errors.all { it.line == 2 })
+    }
+
+    @Test
+    fun `Doris dollar strings lower without exposing quoted syntax`() {
+        for (text in listOf("FROM t |> WHERE s = \$\$a'b\$\$", "FROM t |> WHERE s = \$\$a;b\$\$")) {
+            val lowered = DorisPipeDialect.lower(text) as PipeTranslation.Lowered
+            assertNull(text, lowered.blocker)
+            assertFalse(text, DorisPipes.containsPipeOperator(lowered.sql))
+        }
+    }
+
+    @Test
+    fun `core Doris lexical boundaries match native comments hints and dollar strings`() {
+        for (text in listOf(
+            "SELECT \$\$; :hidden |>\$\$, :p; SELECT 2;",
+            "SELECT :p /* outer /* ; |> */ outer */; SELECT 2;",
+            "SELECT /*+ outer /* ; |> */ outer */ :p; SELECT 2;",
+            "SELECT :p -- continued\\\n; :hidden |>\n; SELECT 2;",
+            "SELECT :p # :visible; SELECT 2;",
+        )) {
+            val native = DorisPipes.chunks(text).map { listOf(it.startOffset, it.endOffset, it.hasSql, it.hasPipeOperator, it.boundaryError != null) }
+            val core = SqlScriptSnapshot.parse(text, "doris").statements.map { listOf(it.start, it.end, it.hasSql, it.hasPipe, it.boundaryError != null) }
+            assertEquals(text, native, core)
+        }
+    }
+
+    @Test
+    fun `Doris refuses unsupported executable joins call pivot and unpivot`() {
+        for (text in listOf(
+            "FROM t |> CALL transform()",
+            "FROM t STRAIGHT_JOIN u ON t.id = u.id |> SELECT t.id",
+            "FROM t NATURAL JOIN u |> SELECT *",
+            "FROM t |> PIVOT (SUM(v) FOR k IN ('x')) |> WHERE x > 0",
+            "FROM t |> UNPIVOT (v FOR k IN (a, b)) |> WHERE v > 0",
+        )) {
+            val result = DorisPipeDialect.lower(text)
+            assertTrue(text, result is PipeTranslation.Refused || result is PipeTranslation.Lowered && result.blocker != null)
+        }
+    }
+
+    @Test
+    fun `raw passthrough and unlowered output are refused`() {
+        assertTrue(DorisPipeDialect.lower("SHOW FRONTENDS |> LIMIT 1") is PipeTranslation.Refused)
+        val lowered = DorisPipeDialect.lower("FROM t |> SELECT '|>' AS marker") as PipeTranslation.Lowered
+        assertFalse(lowered.result.isRawPassthroughStatement)
+        assertFalse(DorisPipes.containsPipeOperator(lowered.sql))
+        assertNull(lowered.blocker)
+    }
+
+    @Test
     fun `trailing semicolon is tolerated`() {
-        assertTrue(DorisPipesEngine.transpile("$pipe;") is DorisPipesEngine.Transpile.Ok)
+        assertTrue(DorisPipeDialect.lower("$pipe;") is PipeTranslation.Lowered)
     }
 
     @Test
     fun `plain SQL with pipe marker inside a string literal is NotPipe`() {
-        val r = DorisPipesEngine.transpile("SELECT '|>' AS marker FROM t")
-        assertTrue("expected NotPipe, got $r", r is DorisPipesEngine.Transpile.NotPipe)
+        val r = DorisPipeDialect.lower("SELECT '|>' AS marker FROM t")
+        assertTrue("expected NotPipe, got $r", r is PipeTranslation.NotPipe)
     }
 
     @Test
@@ -159,10 +235,11 @@ class DorisPipesTest {
 
     @Test
     fun `broken pipe program yields positioned Err`() {
-        val r = DorisPipesEngine.transpile("FROM t\n|> WHERE\n|> LIMIT 5")
-        assertTrue("expected Err, got $r", r is DorisPipesEngine.Transpile.Err)
-        val err = r as DorisPipesEngine.Transpile.Err
-        assertEquals(3, err.line)
+        val text = "FROM t\n|> WHERE\n|> LIMIT 5"
+        val r = DorisPipeDialect.lower(text)
+        assertTrue("expected Err, got $r", r is PipeTranslation.Refused)
+        val err = r as PipeTranslation.Refused
+        assertEquals(3, 1 + text.take(err.range!!.start).count { it == '\n' })
         assertTrue(err.message.isNotBlank())
     }
 
@@ -178,15 +255,6 @@ class DorisPipesTest {
     }
 
     @Test
-    fun `lineInsidePipeChunk isolates pipe statements from neighbours`() {
-        val text = "SELECT 1;\nFROM t\n|> LIMIT 1;\nSELECT 2"
-        assertFalse(DorisPipes.lineInsidePipeChunk(text, 1))
-        assertTrue(DorisPipes.lineInsidePipeChunk(text, 2))
-        assertTrue(DorisPipes.lineInsidePipeChunk(text, 3))
-        assertFalse(DorisPipes.lineInsidePipeChunk(text, 4))
-    }
-
-    @Test
     fun `pipeSyntaxErrors reports absolute lines for broken pipe chunks only`() {
         val text = "SELECT 1;\nFROM t\n|> WHERE\n|> LIMIT 5"
         val errors = DorisPipesEngine.pipeSyntaxErrors(text)
@@ -194,9 +262,11 @@ class DorisPipesTest {
         // Engine says relative line 3 of the chunk; the chunk starts on document line 1 (after
         // the ';' on line 1), so the |> on document line 4 is the anchor.
         assertEquals(4, errors.single().line)
-        val engineError = DorisPipesEngine.transpile(DorisPipes.chunks(text).last()) as DorisPipesEngine.Transpile.Err
-        assertEquals(((engineError.col ?: 1) - 1).coerceAtLeast(0), errors.single().col)
-        assertTrue(errors.single().message.startsWith("Doris Pipes:"))
+        val chunk = DorisPipes.chunks(text).last()
+        val engineError = DorisPipeDialect.lower(chunk.text) as PipeTranslation.Refused
+        val before = chunk.text.take(engineError.range!!.start)
+        assertEquals(before.length - (before.lastIndexOf('\n') + 1), errors.single().col)
+        assertTrue(errors.single().message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX))
     }
 
     @Test
@@ -206,11 +276,10 @@ class DorisPipesTest {
 
     @Test
     fun `native errors beside same-line pipe chunks retain their exact statement`() {
-        val annotator = DorisErrorAnnotator()
         val text = "SELECT FROM; FROM t |> LIMIT 1;"
-        val errors = annotator.doAnnotate(DorisErrorAnnotator.Input(text, pipesEnabled = true)).errors
+        val errors = DorisNativeValidation.errors(text, DorisNativeErrorProfile.verifyScript(text, pipes = true, brikk = false))
         assertTrue(errors.isNotEmpty())
-        assertTrue(errors.none { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors.none { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors.all { (it.startOffsetIn(text) ?: -1) < text.indexOf(';') })
 
         val reverse = "FROM t |> LIMIT 1; SELECT \uD83D\uDE00 FROM;"
@@ -225,9 +294,11 @@ class DorisPipesTest {
         val text = "FROM t |> WHERE; FROM u |> WHERE name = 'unterminated"
         val errors = DorisPipesEngine.pipeSyntaxErrors(text)
         assertEquals(2, errors.size)
-        assertTrue(errors.all { it.message.startsWith("Doris Pipes:") })
+        assertTrue(errors.all { it.message.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) })
         assertTrue(errors[0].message, errors[0].line == 1)
-        assertTrue(errors[1].message.contains("Unterminated SQL string"))
+        val tail = DorisPipes.chunks(text).last().text
+        val boundary = SqlScriptSnapshot.parse(tail, "doris").statements.single().boundaryError!!
+        assertTrue(errors[1].message, errors[1].message.contains(boundary))
     }
 
     @Test
@@ -281,13 +352,13 @@ class DorisPipesTest {
     fun `comment semicolon never removes the filtering stage from automatic execution input`() {
         val statement = "FROM t |> SELECT * -- ;\n|> WHERE tenant_id = 7;"
         val text = "SELECT 0;\n$statement\nSELECT 2;"
-        val expectedSql = (DorisPipesEngine.transpile(statement) as DorisPipesEngine.Transpile.Ok).dorisSql
+        val expectedSql = (DorisPipeDialect.lower(statement) as PipeTranslation.Lowered).sql
         for (caret in text.indexOf("FROM") until text.indexOf("\nSELECT 2")) {
             val chunk = DorisPipes.chunkAt(text, caret)!!
             assertEquals("caret=$caret", "\n$statement", chunk.text)
-            val result = DorisPipesEngine.transpile(chunk)
-            assertTrue("caret=$caret: $result", result is DorisPipesEngine.Transpile.Ok)
-            val sql = (result as DorisPipesEngine.Transpile.Ok).dorisSql
+            val result = DorisPipeDialect.lower(chunk.text)
+            assertTrue("caret=$caret: $result", result is PipeTranslation.Lowered)
+            val sql = (result as PipeTranslation.Lowered).sql
             assertEquals(expectedSql, sql)
             assertTrue(sql.contains("tenant_id = 7"))
         }
@@ -300,14 +371,14 @@ class DorisPipesTest {
         val chunk = DorisPipes.chunkAt(text, text.indexOf("a;b"))!!
         assertEquals("\n$statement", chunk.text)
         assertEquals(
-            (DorisPipesEngine.transpile(statement) as DorisPipesEngine.Transpile.Ok).dorisSql,
-            (DorisPipesEngine.transpile(chunk) as DorisPipesEngine.Transpile.Ok).dorisSql,
+            (DorisPipeDialect.lower(statement) as PipeTranslation.Lowered).sql,
+            (DorisPipeDialect.lower(chunk.text) as PipeTranslation.Lowered).sql,
         )
-        val prefix = DorisPipesEngine.stagePrefixAt(chunk.text, chunk.text.indexOf("SELECT"))!!
-        assertEquals(3, prefix.stage)
-        assertEquals(4, prefix.totalStages)
-        assertEquals("FROM t\n|> WHERE s = 'a;b'\n|> SELECT s", prefix.text.trim())
-        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Ok)
+        val prefix = PipeStageSplitter.topLevelPrefixAt(chunk.text, chunk.text.indexOf("SELECT"), "doris") as PipeStageCut.Prefix
+        assertEquals(3, prefix.stage + 1)
+        assertEquals(4, prefix.stageCount)
+        assertEquals("FROM t\n|> WHERE s = 'a;b'\n|> SELECT s", prefix.sql.trim())
+        assertTrue(DorisPipeDialect.lower(prefix.sql) is PipeTranslation.Lowered)
         assertTrue(DorisPipesEngine.pipeSyntaxErrors(text).isEmpty())
     }
 
@@ -322,7 +393,7 @@ class DorisPipesTest {
             assertEquals(tail, chunk.text)
             assertEquals(text.length, chunk.endOffset)
             assertTrue(opener, chunk.boundaryError != null)
-            assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+            assertTrue(DorisPipeDialect.lower(chunk.text) is PipeTranslation.Refused)
             assertEquals(chunk, DorisPipes.chunkAt(text, text.indexOf("WHERE")))
             assertEquals(chunk, DorisPipes.chunkAt(text, text.length))
         }
@@ -334,7 +405,7 @@ class DorisPipesTest {
         val chunk = DorisPipes.chunkAt(text, text.indexOf("FROM"))!!
         assertEquals(text, chunk.text)
         assertTrue(chunk.boundaryError != null)
-        assertTrue(DorisPipesEngine.transpile(chunk) is DorisPipesEngine.Transpile.Err)
+        assertTrue(DorisPipeDialect.lower(chunk.text) is PipeTranslation.Refused)
     }
 
     @Test
@@ -348,13 +419,17 @@ class DorisPipesTest {
             assertEquals(null, DorisPipes.chunkAt(text, -1))
             assertEquals(null, DorisPipes.chunkAt(text, text.length + 1))
         }
-        assertTrue(DorisPipes.chunks(" \n\t").isEmpty())
+        val whitespace = DorisPipes.chunks(" \n\t").single()
+        assertEquals(" \n\t", whitespace.text)
+        assertFalse(whitespace.hasSql)
+        assertFalse(whitespace.hasPipeOperator)
         assertEquals(null, DorisPipes.chunkAt("", 0))
         val withoutSemicolon = "FROM t |> LIMIT 1"
         assertEquals(withoutSemicolon, DorisPipes.chunkAt(withoutSemicolon, withoutSemicolon.length)?.text)
         for (trailing in listOf("", " ", "\n", "\r\n  ")) {
             val statement = "FROM t |> LIMIT 1;"
-            assertEquals(statement, DorisPipes.chunkAt(statement + trailing, statement.length)?.text)
+            assertEquals(if (trailing.isEmpty()) statement else trailing,
+                DorisPipes.chunkAt(statement + trailing, statement.length)?.text)
         }
     }
 
@@ -374,45 +449,65 @@ class DorisPipesTest {
     }
 
     @Test
-    fun `transaction keywords and malformed syntax do not merge independent statements`() {
+    fun `unbalanced tails stay opaque after complete transaction statements`() {
         val text = "BEGIN;FROM t |> SELECT * EXCEPT(x;SELECT 2;COMMIT;"
         assertEquals(
-            listOf("BEGIN;", "FROM t |> SELECT * EXCEPT(x;", "SELECT 2;", "COMMIT;"),
+            listOf("BEGIN;", "FROM t |> SELECT * EXCEPT(x;SELECT 2;COMMIT;"),
             DorisPipes.chunks(text).map { it.text },
         )
+        assertNotNull(DorisPipes.chunks(text).last().boundaryError)
+        assertTrue(DorisPipeDialect.lower(DorisPipes.chunks(text).last().text) is PipeTranslation.Refused)
     }
 
     @Test
-    fun `mapServerError maps a transpiled-position token back to the pipe line`() {
-        val original = "FROM db1.events\n|> WHERE event_atx >= '2026-05-01'\n|> LIMIT 10"
-        val transpiled = "SELECT\n  *\nFROM db1.events\nWHERE\n  event_atx >= '2026-05-01'\nLIMIT 10"
-        val message = "errCode = 2, detailMessage = Unknown column 'event_atx' in 'table list' in FILTER clause(line 5, pos 2)"
-        val mapped = DorisPipes.mapServerError(message, transpiled, original)!!
-        assertEquals("event_atx", mapped.token)
-        assertEquals(2, mapped.originalLine)
-        assertEquals(5, mapped.transpiledLine)
-        assertEquals(original.indexOf("event_atx"), mapped.startOffset)
-        assertEquals(original.indexOf("event_atx") + "event_atx".lastIndex, mapped.endOffset)
+    fun `editor parameters span scripts while execution requires one complete statement`() {
+        val sql = "SELECT :first; SELECT :second;"
+        assertEquals(listOf(":first", ":second"), DorisPipes.namedParameterRanges(sql).map { sql.substring(it) })
+        assertThrows(ShapeError::class.java) { DorisPipeDialect.parameterSpans(sql) }
+        val incomplete = "SELECT :first, 'unfinished :phantom"
+        assertEquals(listOf(":first"), DorisPipes.namedParameterRanges(incomplete).map { incomplete.substring(it) })
+        assertThrows(TokenError::class.java) { DorisPipeDialect.parameterSpans(incomplete) }
     }
 
     @Test
-    fun `mapServerError returns null without a position marker`() {
-        assertEquals(null, DorisPipes.mapServerError("some other failure", "SELECT 1", "FROM t |> LIMIT 1"))
+    fun `core visible code retains native UTF16 trivia and quoting conventions`() {
+        for (sql in listOf(
+            "SELECT '\uD83D\uDE00; hidden', `simple`, `not;simple` /* hidden */ FROM t |> SELECT :p",
+            "SELECT \$\$hidden; :p |>\$\$ -- continued\\\n; still hidden\n FROM t |> SELECT :after",
+            "FROM t /* outer /* inner */ outer */ |> SELECT 'unfinished :phantom",
+        )) {
+            for (end in listOf(0, sql.length / 2, sql.length)) {
+                assertEquals(sql, DorisNativeScanner.codeBefore(sql, end), DorisPipes.codeBefore(sql, end))
+            }
+        }
     }
 
     @Test
-    fun `stagePrefixAt cuts a runnable prefix at the caret's stage`() {
+    fun `run-to-stage cuts only top-level stages of multi-stage programs`() {
+        val nested = "FROM t |> WHERE id IN (FROM u |> WHERE id > 0 |> SELECT id) |> SELECT id"
+        assertSame(
+            PipeStageCut.InsideNestedPipeline,
+            PipeStageSplitter.topLevelPrefixAt(nested, nested.indexOf("WHERE id > 0"), "doris"),
+        )
+        val outer = PipeStageSplitter.topLevelPrefixAt(nested, nested.indexOf("WHERE id IN"), "doris")
+        assertEquals("FROM t |> WHERE id IN (FROM u |> WHERE id > 0 |> SELECT id)", (outer as PipeStageCut.Prefix).sql.trim())
+        val nestedOnly = "SELECT id FROM (FROM t |> WHERE id > 0) s"
+        assertSame(PipeStageCut.Unavailable, PipeStageSplitter.topLevelPrefixAt(nestedOnly, 0, "doris"))
+    }
+
+    @Test
+    fun `topLevelPrefixAt cuts a runnable prefix at the caret's stage`() {
         // Caret inside the WHERE stage -> stages 1-2 only.
         val whereOffset = pipe.indexOf("WHERE") + 2
-        val prefix = DorisPipesEngine.stagePrefixAt(pipe, whereOffset)!!
-        assertEquals(2, prefix.stage)
-        assertEquals(5, prefix.totalStages)
-        assertTrue(prefix.text.endsWith("'2026-01-01'"))
+        val prefix = PipeStageSplitter.topLevelPrefixAt(pipe, whereOffset, "doris") as PipeStageCut.Prefix
+        assertEquals(2, prefix.stage + 1)
+        assertEquals(5, prefix.stageCount)
+        assertTrue(prefix.sql.endsWith("'2026-01-01'"))
         // A stage prefix is itself a valid pipe program.
-        assertTrue(DorisPipesEngine.transpile(prefix.text) is DorisPipesEngine.Transpile.Ok)
+        assertTrue(DorisPipeDialect.lower(prefix.sql) is PipeTranslation.Lowered)
         // Caret in the last stage -> the whole program.
-        val last = DorisPipesEngine.stagePrefixAt(pipe, pipe.indexOf("LIMIT") + 1)!!
-        assertEquals(5, last.stage)
-        assertEquals(pipe.trimEnd(), last.text.trimEnd())
+        val last = PipeStageSplitter.topLevelPrefixAt(pipe, pipe.indexOf("LIMIT") + 1, "doris") as PipeStageCut.Prefix
+        assertEquals(5, last.stage + 1)
+        assertEquals(pipe.trimEnd(), last.sql.trimEnd())
     }
 }

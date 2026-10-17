@@ -10,9 +10,17 @@
 package dev.sort.doris.sql
 
 import com.intellij.lang.PsiBuilder
-import com.intellij.sql.dialects.base.SqlGeneratedParserUtil
 import com.intellij.sql.dialects.mysql.MysqlParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
+import dev.brikk.house.sql.intellij.parser.advanceLenient
+import dev.brikk.house.sql.intellij.parser.consumeLenient
+import dev.brikk.house.sql.intellij.parser.containsAny
+import dev.brikk.house.sql.intellij.parser.parseLenientStatement
+import dev.brikk.house.sql.intellij.parser.scanStatement
+import dev.brikk.house.sql.intellij.parser.wordAt
+import dev.brikk.house.sql.intellij.parser.wordThenToken
+import dev.brikk.house.sql.intellij.pipe.PipeStatementGate
+import dev.sort.doris.pipes.DorisPipeDialect
 import dev.sort.doris.sql.replay.CstReplayer
 
 /**
@@ -32,7 +40,8 @@ import dev.sort.doris.sql.replay.CstReplayer
  * Doris-accurate error reporting remains the fe-sql-parser annotator's job; lenient statements
  * intentionally carry no inner structure beyond the parsed query tail.
  */
-class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(DorisSqlDialect.INSTANCE) {
+class DorisPsiParser : MysqlParser(DorisSqlDialect.INSTANCE) {
+    private val pipeGate = PipeStatementGate(DorisPipeDialect)
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
         // Route B (RESEARCH-when-hell-freezes-over-parser.md), ON BY DEFAULT since 0.5.0
@@ -47,10 +56,7 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
         // statement bounding box / statement-under-caret / gutter anchors all break (observed in
         // dogfood round 2). One statement node to the ';' restores all of those; inner structure
         // stays deliberately absent (engine-side validation via DorisErrorAnnotator).
-        if ((brikkHouse ||
-                dev.sort.doris.pipes.DorisPipes.isEnabled(builder.project)) && containsPipeMarker(builder)) {
-            return parseLenientStatement(builder, SQL_STATEMENT)
-        }
+        if (pipeGate.parse(builder)) return true
         if (DorisReplay.enabled && wantsReplay(builder)) {
             if (CstReplayer(builder, this).tryReplayStatement()) return true
         }
@@ -59,7 +65,7 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
             return parseLenientToQueryTail(builder, SQL_STATEMENT)
         }
         if (isDorisSpecificStatement(builder)) {
-            return parseLenientStatement(builder, SQL_STATEMENT)
+            return builder.parseLenientStatement(SQL_STATEMENT)
         }
         if (isQueryWithDorisOnlyClause(builder)) {
             return parseBoundedQuery(builder)
@@ -74,8 +80,8 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
      * QUALIFY queries) plus the Doris statement leads with a CST->PSI mapping today.
      */
     private fun wantsReplay(builder: PsiBuilder): Boolean {
-        if (wordAt(builder, 0) in REPLAY_QUERY_LEADS) return true
-        if (wordAt(builder, 0) in REPLAY_STATEMENT_LEADS) return true
+        if (builder.wordAt(0) in REPLAY_QUERY_LEADS) return true
+        if (builder.wordAt(0) in REPLAY_STATEMENT_LEADS) return true
         return isCreateView(builder) || isCreateMaterializedView(builder) || isDorisCreateTable(builder) ||
             isCreateJob(builder)
     }
@@ -83,7 +89,7 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
     // --- dispatch predicates (bounded, non-consuming; all use mark/rollback) ---
 
     private fun isCreateMaterializedView(builder: PsiBuilder): Boolean =
-        wordAt(builder, 0) == "CREATE" && wordAt(builder, 1) == "MATERIALIZED" && wordAt(builder, 2) == "VIEW"
+        builder.wordAt(0) == "CREATE" && builder.wordAt(1) == "MATERIALIZED" && builder.wordAt(2) == "VIEW"
 
     /**
      * `CREATE [OR REPLACE] [options] VIEW ... AS <query>` (but not MATERIALIZED VIEW, handled above).
@@ -94,10 +100,10 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
      * VIEW wrapper is affected.
      */
     private fun isCreateView(builder: PsiBuilder): Boolean {
-        if (wordAt(builder, 0) != "CREATE") return false
+        if (builder.wordAt(0) != "CREATE") return false
         for (offset in 1..8) {
-            when (wordAt(builder, offset)) {
-                "VIEW" -> return wordAt(builder, offset - 1) != "MATERIALIZED"
+            when (builder.wordAt(offset)) {
+                "VIEW" -> return builder.wordAt(offset - 1) != "MATERIALIZED"
                 "AS", "SELECT", "WITH", null -> return false
             }
         }
@@ -111,12 +117,12 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
      * statement, parsing the trailing query for completion.
      */
     private fun isCreateJob(builder: PsiBuilder): Boolean =
-        wordAt(builder, 0) == "CREATE" && wordAt(builder, 1) == "JOB"
+        builder.wordAt(0) == "CREATE" && builder.wordAt(1) == "JOB"
 
     private fun isDorisCreateTable(builder: PsiBuilder): Boolean =
-        wordAt(builder, 0) == "CREATE" &&
+        builder.wordAt(0) == "CREATE" &&
             createTableKeywordOffset(builder) != null &&
-            statementContainsAny(builder, *DORIS_TABLE_CLAUSES)
+            builder.containsAny(*DORIS_TABLE_CLAUSES)
 
     /**
      * SELECT/WITH queries containing `QUALIFY` — the one query clause the MySQL grammar genuinely
@@ -128,10 +134,10 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
      * and `REGEXP(...)` are handled upstream in DorisLexer, so the parser never sees them.
      */
     private fun isQueryWithDorisOnlyClause(builder: PsiBuilder): Boolean =
-        isQueryStart(builder) && statementContainsAny(builder, "QUALIFY")
+        isQueryStart(builder) && builder.containsAny("QUALIFY")
 
     private fun isDorisSpecificStatement(builder: PsiBuilder): Boolean {
-        return when (wordAt(builder, 0)) {
+        return when (builder.wordAt(0)) {
             "ADMIN", "BACKUP", "RESTORE", "RECOVER", "SYNC", "WARM", "SWITCH" -> true
             "EXPORT" -> true // EXPORT TABLE ... TO "s3://..." WITH S3/HDFS/BROKER — pure Doris
             "REFRESH" -> true // REFRESH MATERIALIZED VIEW / TABLE / DATABASE / CATALOG — all Doris
@@ -140,42 +146,42 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
             // so the run-block cannot select them — the same class of bug as CREATE INVERTED INDEX.
             "CLEAN" -> true // CLEAN LABEL <l> FROM db / CLEAN ALL PROFILE / CLEAN ALL QUERY STATS
             "UNSET" -> true // UNSET [scope] VARIABLE x / UNSET DEFAULT STORAGE VAULT
-            "LOAD" -> wordAt(builder, 1) == "LABEL" // Doris broker/spark load; LOAD DATA stays MySQL
-            "ANALYZE" -> wordAt(builder, 1) == "DATABASE" // ANALYZE TABLE ... stays MySQL (valid there)
+            "LOAD" -> builder.wordAt(1) == "LABEL" // Doris broker/spark load; LOAD DATA stays MySQL
+            "ANALYZE" -> builder.wordAt(1) == "DATABASE" // ANALYZE TABLE ... stays MySQL (valid there)
             // Doris compute/workload-group USE (`USE @etl`, `USE db@etl`): MySQL reads the '@...' as
             // a user-variable reference inside its USE statement, which then red-flags as an
             // unresolvable variable. Plain `USE db` / `USE cat.db` keeps MySQL's typed USE statement
             // (console schema switching depends on it); only the '@' forms go lenient.
-            "USE" -> statementContainsTokenPrefix(builder, '@')
+            "USE" -> builder.containsToken { it.startsWith('@') }
             "PAUSE", "RESUME" -> isDorisPauseResume(builder)
-            "STOP" -> wordAt(builder, 1) in setOf("ROUTINE", "SYNC", "JOB")
+            "STOP" -> builder.wordAt(1) in setOf("ROUTINE", "SYNC", "JOB")
             "CANCEL" -> true
             // Doris privilege spellings (SELECT_PRIV, LOAD_PRIV, USAGE_PRIV, ...) are identifiers to
             // MySQL's GRANT grammar, which then errors at the following ON. Role-only grants
             // (`GRANT 'role' TO 'user'@'%'`) are valid MySQL and keep their typed statement.
-            "GRANT", "REVOKE" -> statementContainsTokenSuffix(builder, "_PRIV")
+            "GRANT", "REVOKE" -> builder.containsToken { it.endsWith("_PRIV", ignoreCase = true) }
             // Doris `TRUNCATE TABLE t PARTITION (p, ...)` / `PARTITIONS (...)`: MySQL TRUNCATE takes
             // no partition clause. Plain TRUNCATE TABLE keeps MySQL's typed statement (mysql-core/41).
-            "TRUNCATE" -> statementContainsAny(builder, "PARTITION", "PARTITIONS")
+            "TRUNCATE" -> builder.containsAny("PARTITION", "PARTITIONS")
             // Doris `DELETE FROM t PARTITIONS (p1, p2)`: the plural keyword is Doris-only. The
             // singular parenthesised `PARTITION (p)` form is valid MySQL and stays typed.
-            "DELETE" -> statementContainsAny(builder, "PARTITIONS")
+            "DELETE" -> builder.containsAny("PARTITIONS")
             "CREATE" -> isDorisCreateStatement(builder)
-            "ALTER" -> statementContainsAny(builder, "MATERIALIZED", "ROLLUP", "CATALOG", "RESOURCE",
+            "ALTER" -> builder.containsAny("MATERIALIZED", "ROLLUP", "CATALOG", "RESOURCE",
                 "DISTRIBUTION", "DISTRIBUTED", "BUCKETS", "PROPERTIES", "PARTITION", "WORKLOAD", "STORAGE") ||
                 // Doris `ALTER TABLE t SET ("key" = "value")` property bag: MySQL has no ALTER ... SET
                 // clause with a parenthesised bag. Gate on SET immediately followed by '(' so MySQL's
                 // `ALTER ... ALTER COLUMN c SET DEFAULT x` keeps its typed statement.
-                statementContainsWordThen(builder, "SET", "(")
+                builder.wordThenToken("SET", "(")
             // INVERTED = Doris DROP INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER <name>.
             // DROP [GLOBAL|SESSION|LOCAL] FUNCTION: the scope modifier is Doris-only, so MySQL errors
             // at it with no statement wrapper (plain DROP FUNCTION is valid MySQL and stays typed).
-            "DROP" -> wordAt(builder, 1) in setOf("MATERIALIZED", "RESOURCE", "CATALOG", "REPOSITORY",
+            "DROP" -> builder.wordAt(1) in setOf("MATERIALIZED", "RESOURCE", "CATALOG", "REPOSITORY",
                 "WORKLOAD", "STORAGE", "ROUTINE", "ENCRYPTKEY", "SQL_BLOCK_RULE", "STAGE", "FILE", "INVERTED") ||
-                (wordAt(builder, 1) in setOf("GLOBAL", "SESSION", "LOCAL") && statementContainsAny(builder, "FUNCTION"))
+                (builder.wordAt(1) in setOf("GLOBAL", "SESSION", "LOCAL") && builder.containsAny("FUNCTION"))
             // INVERTED = Doris SHOW INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER.
-            "SHOW" -> wordAt(builder, 1) == "INVERTED" ||
-                statementContainsAny(builder, "MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",
+            "SHOW" -> builder.wordAt(1) == "INVERTED" ||
+                builder.containsAny("MATERIALIZED", "ROUTINE", "CATALOGS", "BACKENDS",
                     "FRONTENDS", "PROC", "TABLET", "TABLETS", "PARTITIONS", "DYNAMIC", "STREAM", "WORKLOAD",
                     "STORAGE", "STAGES", "DATA", "SYNC")
             "PARTITION", "DISTRIBUTED", "PROPERTIES", "ROLLUP", "DUPLICATE", "AGGREGATE", "UNIQUE" -> true
@@ -184,8 +190,8 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
     }
 
     private fun isDorisCreateStatement(builder: PsiBuilder): Boolean {
-        val second = wordAt(builder, 1)
-        val third = wordAt(builder, 2)
+        val second = builder.wordAt(1)
+        val third = builder.wordAt(2)
         if (second == "MATERIALIZED" && third == "VIEW") return true
         if (second == "ROUTINE" && third == "LOAD") return true
         // CREATE INVERTED INDEX ANALYZER|TOKENIZER|TOKEN_FILTER <name> [PROPERTIES(...)] — Doris
@@ -199,23 +205,23 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
         // UDF form `CREATE FUNCTION ... PROPERTIES(...)` errors mid-statement. Both go lenient. A plain
         // `CREATE FUNCTION ... RETURN|BEGIN` (no modifier, no PROPERTIES) is valid MySQL and stays typed.
         if (second in setOf("GLOBAL", "SESSION", "LOCAL", "AGGREGATE", "ALIAS", "TABLES") &&
-            statementContainsAny(builder, "FUNCTION")
+            builder.containsAny("FUNCTION")
         ) return true
-        if (second == "FUNCTION" && statementContainsAny(builder, "PROPERTIES")) return true
+        if (second == "FUNCTION" && builder.containsAny("PROPERTIES")) return true
         // CREATE DATABASE ... PROPERTIES(...) (external/managed props) — MySQL splits at PROPERTIES.
-        if (second == "DATABASE") return statementContainsAny(builder, "PROPERTIES")
+        if (second == "DATABASE") return builder.containsAny("PROPERTIES")
         if (createTableKeywordOffset(builder) != null) {
-            return statementContainsAny(builder, *DORIS_TABLE_CLAUSES)
+            return builder.containsAny(*DORIS_TABLE_CLAUSES)
         }
         return second in setOf("RESOURCE", "CATALOG", "REPOSITORY", "WORKLOAD", "STORAGE", "STAGE",
             "ENCRYPTKEY", "FILE", "SQL_BLOCK_RULE")
     }
 
     private fun isDorisPauseResume(builder: PsiBuilder): Boolean =
-        when (wordAt(builder, 1)) {
+        when (builder.wordAt(1)) {
             "ROUTINE", "SYNC", "JOB" -> true
-            "MATERIALIZED" -> wordAt(builder, 2) == "VIEW" && wordAt(builder, 3) == "JOB"
-            "ALL" -> wordAt(builder, 2) == "ROUTINE" && wordAt(builder, 3) == "LOAD"
+            "MATERIALIZED" -> builder.wordAt(2) == "VIEW" && builder.wordAt(3) == "JOB"
+            "ALL" -> builder.wordAt(2) == "ROUTINE" && builder.wordAt(3) == "LOAD"
             else -> false
         }
 
@@ -234,23 +240,16 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
             if (introducers.any { isCurrentWord(builder, it) }) {
                 builder.advanceLexer()
                 if (isQueryStart(builder)) parseQueryExpression(builder, 0)
-                consumeToSemicolon(builder)
+                builder.consumeLenient()
                 return
             }
             if (isQueryStart(builder)) {
                 parseQueryExpression(builder, 0)
-                consumeToSemicolon(builder)
+                builder.consumeLenient()
                 return
             }
-            advanceLenient(builder)
+            builder.advanceLenient()
         }
-    }
-
-    private fun parseLenientStatement(builder: PsiBuilder, done: com.intellij.psi.tree.IElementType): Boolean {
-        val marker = builder.mark()
-        consumeToSemicolon(builder)
-        marker.done(done)
-        return true
     }
 
     /**
@@ -263,129 +262,15 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
     private fun parseBoundedQuery(builder: PsiBuilder): Boolean {
         val marker = builder.mark()
         parseQueryExpression(builder, 0)
-        consumeToSemicolon(builder)
+        builder.consumeLenient()
         marker.done(SQL_STATEMENT)
         return true
     }
 
-    private fun consumeToSemicolon(builder: PsiBuilder) {
-        while (!builder.eof() && builder.tokenText != ";") advanceLenient(builder)
-    }
-
-    /** Like advanceLexer, but keeps a DataGrip user parameter visible to the console's value prompt. */
-    private fun advanceLenient(builder: PsiBuilder) {
-        if (SqlGeneratedParserUtil.isExternalParameterFirst(builder.tokenType) &&
-            SqlGeneratedParserUtil.parseUserParameter(builder, false, true)
-        ) return
-        builder.advanceLexer()
-    }
-
-    // --- bounded look-ahead helpers (adapted from the StarRocks plugin) ---
-
-    /** The uppercased Nth letter-leading token from the current position, or null. Non-consuming. */
-    private fun wordAt(builder: PsiBuilder, offset: Int): String? {
-        val marker = builder.mark()
-        var current = 0
-        var result: String? = null
-        while (!builder.eof() && builder.tokenText != ";" && current <= offset) {
-            val text = builder.tokenText
-            if (text != null && text.firstOrNull()?.isLetter() == true) {
-                if (current == offset) { result = text.uppercase(); break }
-                current++
-            }
-            builder.advanceLexer()
-        }
-        marker.rollbackTo()
-        return result
-    }
-
-    /**
-     * DORIS PIPES: true when the statement at the cursor carries the `|>` pipe operator before the
-     * next ';'. Token-based (a string literal is ONE token whose text includes its quotes), so a
-     * `'|>'` inside a literal never matches; the lexer may deliver `|>` as one token or as `|`,`>`.
-     * Non-consuming.
-     */
-    private fun containsPipeMarker(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        var previous: String? = null
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text == "|>" || (previous == "|" && text == ">")) { found = true; break }
-            previous = text
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if any of [words] (uppercase) appears before the next ';' within the look-ahead window. Non-consuming. */
-    private fun statementContainsAny(builder: PsiBuilder, vararg words: String): Boolean {
-        val expected = words.toHashSet()
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && expected.contains(text.uppercase())) { found = true; break }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if any token before the next ';' STARTS with [prefix] within the look-ahead window. Non-consuming. */
-    private fun statementContainsTokenPrefix(builder: PsiBuilder, prefix: Char): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            if (builder.tokenText?.firstOrNull() == prefix) { found = true; break }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if any token before the next ';' ENDS with [suffix] (case-insensitive) within the window. Non-consuming. */
-    private fun statementContainsTokenSuffix(builder: PsiBuilder, suffix: String): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            if (builder.tokenText?.endsWith(suffix, ignoreCase = true) == true) { found = true; break }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if token [word] appears with [next] as the IMMEDIATELY following token (whitespace skipped by the builder). Non-consuming. */
-    private fun statementContainsWordThen(builder: PsiBuilder, word: String, next: String): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        var prevWasWord = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (prevWasWord && text == next) { found = true; break }
-            prevWasWord = text.equals(word, ignoreCase = true)
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
     private fun createTableKeywordOffset(builder: PsiBuilder): Int? {
-        if (wordAt(builder, 0) != "CREATE") return null
+        if (builder.wordAt(0) != "CREATE") return null
         for (offset in 1..3) {
-            val word = wordAt(builder, offset) ?: return null
+            val word = builder.wordAt(offset) ?: return null
             if (word == "TABLE") return offset
             if (word !in CREATE_TABLE_MODIFIERS) return null
         }
@@ -395,15 +280,17 @@ class DorisPsiParser(private val brikkHouse: Boolean = false) : MysqlParser(Dori
     private fun isCurrentWord(builder: PsiBuilder, expected: String): Boolean =
         builder.tokenText.equals(expected, ignoreCase = true)
 
+    private fun PsiBuilder.containsToken(predicate: (String) -> Boolean): Boolean =
+        scanStatement { _, text -> text.takeIf(predicate) } != null
+
     private fun isQueryStart(builder: PsiBuilder): Boolean =
         isCurrentWord(builder, "SELECT") ||
             // WITH starts a CTE query — except Doris `CREATE TABLE ... LIKE src WITH ROLLUP (...)`,
             // whose WITH would otherwise be parsed as a CTE by parseUntilQueryTail and error out
             // ("AS expected"). `WITH ROLLUP` is never a valid query lead, so exclude it outright.
-            (isCurrentWord(builder, "WITH") && wordAt(builder, 1) != "ROLLUP")
+            (isCurrentWord(builder, "WITH") && builder.wordAt(1) != "ROLLUP")
 
     private companion object {
-        const val MAX_LOOKAHEAD = 512
         // Statement leads the Route B replayer attempts: a query (SELECT / WITH cte / a parenthesised
         // `(SELECT ...)`, whose first letter-word is still SELECT). wordAt skips the leading '('.
         val REPLAY_QUERY_LEADS = setOf("SELECT", "WITH")

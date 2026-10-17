@@ -13,7 +13,7 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.PsiManager
 import com.intellij.sql.script.SqlScriptModel
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 
 class DorisExecutionBoundaryTest : BasePlatformTestCase() {
     fun testShownStatementCaretHighlightWithProductionDefaults() {

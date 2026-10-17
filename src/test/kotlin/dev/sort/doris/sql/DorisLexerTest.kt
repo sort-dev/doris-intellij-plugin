@@ -1,24 +1,22 @@
 package dev.sort.doris.sql
 
+import com.intellij.psi.TokenType
 import com.intellij.sql.dialects.mysql.MysqlLexer
+import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
+import dev.brikk.house.sql.intellij.testing.lexAll
 
 /** Token-stream fidelity: DorisLexer must be byte-identical to MysqlLexer except where it masks. */
 class DorisLexerTest : BasePlatformTestCase() {
 
     private fun tokens(lexer: com.intellij.lexer.Lexer, text: String, startOffset: Int = 0): List<String> {
-        val out = ArrayList<String>()
-        lexer.start(text, startOffset, text.length)
-        while (lexer.tokenType != null) {
-            out.add("${lexer.tokenType} '${text.substring(lexer.tokenStart, lexer.tokenEnd)}'")
-            lexer.advance()
-        }
-        return out
+        return lexer.lexAll(text, startOffset).map { "${it.type} '${text.substring(it.start, it.end)}'" }
     }
 
     private fun parseTree(sql: String): String {
         val file = com.intellij.psi.PsiFileFactory.getInstance(project)
-            .createFileFromText("t.sql", com.intellij.lang.Language.findLanguageByID("DorisSQL")!!, sql, false, true)
+            .createFileFromText("t.sql", DorisSqlDialect.INSTANCE, sql, false, true)
         return com.intellij.psi.impl.DebugUtil.psiToString(file!!, true)
     }
 
@@ -143,11 +141,11 @@ class DorisLexerTest : BasePlatformTestCase() {
         assertEquals(tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
     }
 
-    fun testTemporaryPartitionMaskSurvivesIncrementalLexerRestart() {
+    fun testTemporaryPartitionMaskMatchesAtStatementBoundaryRestarts() {
         val sql = "SELECT 0;\nINSERT INTO t TEMPORARY PARTITION(p1)\nSELECT * FROM s;"
-        val start = sql.indexOf("TEMPORARY")
-        val doris = tokens(DorisLexer(), sql, start)
-        assertTrue("TEMPORARY must remain masked when the IDE restarts lexing at that token",
+        assertRestartsMatchFullLex(::DorisLexer, sql)
+        val doris = tokens(DorisLexer(), sql)
+        assertTrue("TEMPORARY must remain masked after a restart at a statement boundary",
             doris.any { it.startsWith("SQL_BLOCK_COMMENT") && it.contains("TEMPORARY") })
     }
 
@@ -165,7 +163,47 @@ class DorisLexerTest : BasePlatformTestCase() {
         val full = tokens(DorisLexer(), sql)
         assertEquals("preceding range DDL must not affect the following INSERT", standalone,
             full.dropWhile { it != standalone.first() })
-        assertEquals("restarting at TEMPORARY must ignore the comment's semicolon",
-            standalone.drop(temporary), tokens(DorisLexer(), sql, sql.indexOf("TEMPORARY PARTITION(p1)")))
+        assertRestartsMatchFullLex(::DorisLexer, sql)
+    }
+
+    fun testInsertOverwriteTemporaryPartitionTokens() {
+        val sql = "INSERT OVERWRITE TABLE t TEMPORARY PARTITION(p1) SELECT * FROM s;"
+        val actual = DorisLexer().lexAll(sql).filter { it.type != TokenType.WHITE_SPACE }
+        val mysql = MysqlLexer().lexAll(sql).filter { it.type != TokenType.WHITE_SPACE }
+        assertEquals(mysql.size, actual.size)
+        for ((before, after) in mysql.zip(actual)) {
+            assertEquals(before.start, after.start)
+            assertEquals(before.end, after.end)
+            val word = sql.substring(before.start, before.end)
+            assertSame(word, if (word in setOf("OVERWRITE", "TABLE", "TEMPORARY")) SqlTokens.SQL_BLOCK_COMMENT else before.type,
+                after.type)
+        }
+        assertRestartsMatchFullLex(::DorisLexer, sql)
+    }
+
+    fun testCastTargetsMaskQuotedAndNonWordTokens() {
+        for (function in listOf("CAST", "TRY_CAST", "CONVERT")) {
+            for (trivia in listOf(" ", " /* target */ ", " -- target\n ")) {
+                for (target in listOf("\"text\"", "`text`", "'text'", "123")) {
+                    val sql = "SELECT $function(x AS$trivia$target);"
+                    assertTrue(sql, tokens(DorisLexer(), sql).contains("SQL_BLOCK_COMMENT 'AS$trivia$target'"))
+                    assertRestartsMatchFullLex(::DorisLexer, sql)
+                }
+                val keptTarget = "SELECT $function(x AS${trivia}CHAR);"
+                assertEquals(keptTarget, tokens(MysqlLexer(), keptTarget), tokens(DorisLexer(), keptTarget))
+            }
+        }
+    }
+
+    fun testCastWithoutTargetPreservesDelimitersAndEndOfInput() {
+        for (function in listOf("CAST", "TRY_CAST", "CONVERT")) {
+            for (trivia in listOf("", " ", " /* target */ ", " -- target\n ")) {
+                for (tail in listOf("", "; SELECT 1;", "); SELECT 1;", ", y); SELECT 1;")) {
+                    val sql = "SELECT $function(x AS$trivia$tail"
+                    assertEquals(sql, tokens(MysqlLexer(), sql), tokens(DorisLexer(), sql))
+                    assertRestartsMatchFullLex(::DorisLexer, sql)
+                }
+            }
+        }
     }
 }

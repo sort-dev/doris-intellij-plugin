@@ -15,6 +15,8 @@ import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlSetAssignment
 import com.intellij.sql.psi.SqlSetOperatorExpression
 import com.intellij.sql.psi.SqlStatement
+import dev.brikk.house.sql.intellij.relation.relationDiagnostics
+import dev.brikk.house.sql.metadata.OutputSchema.Open
 import dev.sort.doris.pipes.DorisPipes
 
 /**
@@ -36,7 +38,7 @@ import dev.sort.doris.pipes.DorisPipes
  *     `"key"="value"`, and the MySQL grammar reads the double-quoted operands as column
  *     references — every documented-style call (`tasks("type"="mv")`) lit up red.
  *  2. Unresolved columns in a query whose FROM contains an OPEN-relation TVF (`s3`, `hdfs`, ...,
- *     [DorisTableFunctions.Schema.Open]): their real output columns are unknowable without
+ *     [dev.brikk.house.sql.metadata.OutputSchema.Open]): their real output columns are unknowable without
  *     reading external data (which we never do), so any column reference must be accepted
  *     silently — no fabricated columns, no red (research doc Tier B degradation).
  * TVFs with static schemas keep NORMAL column validation — their columns resolve for real via
@@ -51,12 +53,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || !file.language.isKindOf(DorisSqlDialect.INSTANCE)) return true
         val description = highlightInfo.description ?: return true
-        if (dev.sort.doris.brikk.BrikkDorisContext.isActive(file)) {
-            val ref = PsiTreeUtil.getNonStrictParentOfType(file.findElementAt(highlightInfo.startOffset), SqlReferenceExpression::class.java)
-            val call = ref?.parent as? SqlFunctionCallExpression
-            if (description.contains("Unknown database function") && call != null && BrikkRelationColumns.slot(call) != null) return false
-            if (description.contains("Unable to resolve column") && ref != null && BrikkRelationColumns.openColumnContext(ref)) return false
-        }
+        if (description.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) || description.startsWith(DORIS_SERVER_DIAGNOSTIC_PREFIX)) return true
         if (description.startsWith(DORIS_PIPE_DIAGNOSTIC_PREFIX) ||
             description.startsWith(DORIS_SERVER_DIAGNOSTIC_PREFIX)
         ) {
@@ -69,11 +66,13 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             description.contains("always") &&
             (description.contains("'true'") || description.contains("'false'"))) return false
         // DORIS PIPES: inside a pipe statement the substrate PSI is
-        // unavoidably mangled (the spike does no |> masking), so EVERY semantic complaint there is
-        // noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
-        // "Doris Pipes:", from DorisErrorAnnotator) are the authority and must stay visible.
+        // unavoidably mangled (the spike does no |> masking), so EVERY native semantic complaint there
+        // is noise — blanket-suppress within the statement. The engine's own diagnostics (prefixed
+        // "Doris PIPE:", from DorisErrorAnnotator) and the shared relation analysis, which reads the
+        // PIPE text itself, are the authority and must stay visible.
         if (DorisPipes.isEditingEnabled(file) &&
-            isInsidePipeStatement(file, highlightInfo)
+            isInsidePipeStatement(file, highlightInfo) &&
+            relationDiagnostics(file, DorisRelationScope).none { it.message == description }
         ) {
             return false
         }
@@ -113,6 +112,9 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             if (element != null && isDorisUnresolvedFalsePositive(element)) return false
         }
         if (description.contains(UNRESOLVED_COLUMN) && isTvfFalsePositive(file, highlightInfo)) return false
+        // `INSERT INTO s3(...)` / `hdfs(...)` / `local(...)` writes through a table function the substrate reads as a table name.
+        if (description.contains(UNRESOLVED_PREFIX) && isTableFunctionTarget(file, highlightInfo)) return false
+        if (description.contains(UNRESOLVED_PREFIX) && isPartitionName(file, highlightInfo)) return false
         // Dogfood 2026-07-15: Doris (MySQL-default sql_mode) reads "..." as a STRING LITERAL, but
         // the MySQL substrate lexes it as an ANSI quoted IDENTIFIER — so a double-quoted TVF
         // property value like 'query' = "select ..." became an "identifier", tripping the MySQL
@@ -124,9 +126,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         ) {
             return false
         }
-        // M9 (flag-ON only): references into enumerated-but-not-introspected catalogs are
-        // OUT-OF-SCOPE, not wrong — suppress instead of red-flooding. Nonexistent names under
-        // INTROSPECTED namespaces (incl. internal) keep their error.
+        // M9 (flag-ON only): names inside enumerated-but-not-introspected catalogs are OUT-OF-SCOPE, not wrong.
         if (dev.sort.doris.DorisCatalogs.enabled &&
             description.contains(UNRESOLVED_PREFIX) &&
             isOutOfScopeReference(file, highlightInfo)
@@ -134,6 +134,24 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             return false
         }
         return true
+    }
+
+    /**
+     * OUT-OF-SCOPE detection ([dev.sort.doris.catalog.DorisOutOfScope] holds the decision table): the
+     * failing reference is qualified and its qualifier resolves to an enumerated-but-childless namespace.
+     * Columns read from such tables are the shared suppressor's.
+     */
+    private fun isOutOfScopeReference(file: PsiFile, info: HighlightInfo): Boolean {
+        val element = file.findElementAt(info.startOffset) ?: return false
+        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false) ?: return false
+        return isQualifierOutOfScope(ref)
+    }
+
+    /** True when [ref]'s immediate qualifier resolves to an enumerated-but-childless namespace. */
+    private fun isQualifierOutOfScope(ref: SqlReferenceExpression): Boolean {
+        val qualifier = ref.qualifierExpression as? SqlReferenceExpression ?: return false
+        val das = qualifier.reference?.resolve() as? com.intellij.database.model.DasObject ?: return false
+        return dev.sort.doris.catalog.DorisOutOfScope.classify(das) == dev.sort.doris.catalog.DorisOutOfScope.Classification.OUT_OF_SCOPE
     }
 
     /** DORIS PIPES: is the highlight inside a token-aware pipe chunk? */
@@ -384,46 +402,25 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         return false
     }
 
-    /**
-     * OUT-OF-SCOPE detection (M9, the degrade half of the "Introspect this?" design;
-     * classification decision table lives in [dev.sort.doris.catalog.DorisOutOfScope]):
-     *
-     *  1. The failing reference is QUALIFIED and its qualifier resolves to a das namespace that is
-     *     enumerated-but-childless (an external catalog, or a database introspection never
-     *     visited) — the segment cannot possibly resolve until the user opts the namespace in.
-     *  2. The failing reference is a COLUMN in a query whose FROM contains a table reference that
-     *     is itself out-of-scope by rule 1 — without the table's columns, every column reference
-     *     is unresolvable; keeping them red is pure noise (mirror of the TVF open-relation rule).
-     */
-    private fun isOutOfScopeReference(file: PsiFile, info: HighlightInfo): Boolean {
-        val element = file.findElementAt(info.startOffset) ?: return false
-        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false)
-
-        // (1) qualified segment whose parent path lands on a childless external namespace
-        if (ref != null && isQualifierOutOfScope(ref)) return true
-
-        // (2) column inside a query whose FROM has an out-of-scope table reference
-        var query: SqlQueryExpression? = PsiTreeUtil.getParentOfType(element, SqlQueryExpression::class.java)
-        while (query != null) {
-            val from: PsiElement? = query.tableExpression
-            if (from != null &&
-                PsiTreeUtil.findChildrenOfType(from, SqlReferenceExpression::class.java)
-                    .any { isQualifierOutOfScope(it) }
-            ) {
-                return true
-            }
-            query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)
-        }
-        return false
+    /** A name in `PARTITION (...)` / `PARTITIONS (...)`: Doris introspection loads no partitions, whatever shape the name parses to. */
+    private fun isPartitionName(file: PsiFile, info: HighlightInfo): Boolean {
+        val text = file.text
+        var i = info.startOffset - 1
+        while (i >= 0 && (text[i].isLetterOrDigit() || text[i] in "_`, \t\r\n")) i--
+        if (i < 0 || text[i] != '(') return false
+        i--
+        while (i >= 0 && text[i].isWhitespace()) i--
+        val end = i + 1
+        while (i >= 0 && text[i].isLetter()) i--
+        return text.substring(i + 1, end).uppercase() in setOf("PARTITION", "PARTITIONS")
     }
 
-    /** True when [ref]'s immediate qualifier resolves to an enumerated-but-childless namespace. */
-    private fun isQualifierOutOfScope(ref: SqlReferenceExpression): Boolean {
-        val qualifier = ref.qualifierExpression as? SqlReferenceExpression ?: return false
-        val resolved = qualifier.reference?.resolve() ?: return false
-        val das = resolved as? com.intellij.database.model.DasObject ?: return false
-        return dev.sort.doris.catalog.DorisOutOfScope.classify(das) ==
-            dev.sort.doris.catalog.DorisOutOfScope.Classification.OUT_OF_SCOPE
+    private fun isTableFunctionTarget(file: PsiFile, info: HighlightInfo): Boolean {
+        val name = file.text.substring(info.startOffset, info.endOffset)
+        if (DorisTableFunctions.byName(name.trim('`')) == null) return false
+        var i = info.endOffset
+        while (i < file.textLength && file.text[i].isWhitespace()) i++
+        return file.text.getOrNull(i) == '('
     }
 
     /** Is the highlighted range a double-quoted token ("..." — a string literal in Doris)? */
@@ -452,7 +449,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             val from: PsiElement? = query.tableExpression
             if (from != null &&
                 PsiTreeUtil.findChildrenOfType(from, SqlFunctionCallExpression::class.java).any {
-                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is DorisTableFunctions.Schema.Open
+                    DorisTableFunctions.byName(it.nameElement?.name)?.schema is Open
                 }
             ) return true
             query = PsiTreeUtil.getParentOfType(query, SqlQueryExpression::class.java)
@@ -506,6 +503,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         private val SUPPRESSED_PREFIXES = listOf(
             "Unable to resolve object type", // Doris types unknown to the SQL92 substrate
             "Unknown database function",     // Doris built-ins absent from the introspected model
+            "Unable to resolve partition",   // Doris introspection loads no partitions, so none can resolve
         )
     }
 }

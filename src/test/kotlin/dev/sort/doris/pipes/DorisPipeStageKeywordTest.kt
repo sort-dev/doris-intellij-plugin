@@ -4,9 +4,11 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
-import dev.sort.doris.setSqlDialectMapping
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.doris.sql.DorisSqlDialect
 
 class DorisPipeStageKeywordTest : BasePlatformTestCase() {
@@ -34,8 +36,36 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
         val sql = "FROM t |> EXTEND 1 AS x |> AGGREGATE count(*) AS n |> OFFSET 1"
         val highlights = highlight(sql)
         assertTrue(isForcedKeyword(highlights, sql, "EXTEND"))
-        assertFalse(isForcedKeyword(highlights, sql, "AGGREGATE"))
-        assertFalse(isForcedKeyword(highlights, sql, "OFFSET"))
+        assertTrue(isForcedKeyword(highlights, sql, "AGGREGATE"))
+        assertTrue(isForcedKeyword(highlights, sql, "OFFSET"))
+    }
+
+    fun testSelectFirstPipelineColorsStageHeads() {
+        val sql = "SELECT id FROM t |> EXTEND id + 1 AS next_id |> AGGREGATE count(*) AS n"
+        val highlights = highlight(sql)
+        assertTrue(isForcedKeyword(highlights, sql, "EXTEND"))
+        assertTrue(isForcedKeyword(highlights, sql, "AGGREGATE"))
+    }
+
+    fun testSelectFirstPipelineCompletesAndInsertsStageKeywords() {
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
+        try {
+            myFixture.configureByText("select-first.sql", "SELECT id FROM t |> ex<caret>")
+            val item = myFixture.completeBasic().orEmpty().single { it.lookupString == "EXTEND" }
+            myFixture.lookup.currentItem = item
+            myFixture.finishLookup('\n')
+            myFixture.checkResult("SELECT id FROM t |> EXTEND<caret>")
+        } finally {
+            setSqlDialectMapping(project, null, null)
+        }
+    }
+
+    fun testIncompleteTailKeepsEarlierStageColoringWithoutAllowingExecution() {
+        val sql = "FROM t |> EXTEND 1 AS x |> SELECT 'unfinished"
+        assertTrue(isForcedKeyword(highlight(sql), sql, "EXTEND"))
+        assertNotNull(DorisPipes.chunks(sql).single().boundaryError)
+        assertTrue(DorisPipeDialect.lower(sql) is PipeTranslation.Refused)
+        assertEmpty(pipeStageItems("FROM t |> SELECT 'unfinished |> <caret>"))
     }
 
     fun testContextAndNativeOperatorGatePreventGlobalColoring() {
@@ -69,13 +99,31 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
 
     fun testStageCompletionStopsAfterACompleteHead() {
         assertTrue("EXTEND" in pipeStageItems("FROM t |> <caret>"))
-        assertTrue("FULL OUTER JOIN" in pipeStageItems("FROM t |> FULL O<caret>"))
+        assertTrue("FULL JOIN" in pipeStageItems("FROM t |> FULL <caret>"))
         assertEmpty(pipeStageItems("FROM t |> EXTEND <caret>"))
         assertEmpty(pipeStageItems("FROM t |> ORDER BY <caret>"))
         assertEmpty(pipeStageItems("SELECT <caret>1"))
         assertEmpty(pipeStageItems("FROM t ||> <caret>"))
         assertEmpty(pipeStageItems("SELECT '|> <caret>'"))
         assertEmpty(pipeStageItems("SELECT 1 /* |> <caret> */"))
+    }
+
+    fun testStageHeadOffersOnlySharedUppercaseBoldPhrases() {
+        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
+        try {
+            myFixture.configureByText("stage-style.sql", "FROM t |> <caret>")
+            val items = myFixture.completeBasic().orEmpty()
+            assertNotEmpty(items.toList())
+            assertEquals(DorisPipeDialect.stagePhrases.toSet(), items.map { it.lookupString }.toSet())
+            for (item in items) {
+                val presentation = LookupElementPresentation.renderElement(item)
+                assertEquals(item.lookupString.uppercase(), item.lookupString)
+                assertTrue(presentation.isItemTextBold)
+                assertEquals("PIPE stage", presentation.typeText)
+            }
+        } finally {
+            setSqlDialectMapping(project, null, null)
+        }
     }
 
     private fun highlight(sql: String): List<HighlightInfo> {
@@ -91,7 +139,7 @@ class DorisPipeStageKeywordTest : BasePlatformTestCase() {
             return myFixture.completeBasic().orEmpty().mapNotNull { item ->
                 val presentation = LookupElementPresentation()
                 item.renderElement(presentation)
-                item.lookupString.takeIf { presentation.typeText == "pipe stage" }
+                item.lookupString.takeIf { presentation.typeText == "PIPE stage" }
             }
         } finally {
             setSqlDialectMapping(project, null, null)

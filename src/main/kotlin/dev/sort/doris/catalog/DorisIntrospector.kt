@@ -137,6 +137,7 @@ class DorisIntrospector(
     ) {
         super.initSpecificThings(model, config)
         val scope = introspectionScope ?: return
+        DorisCatalogs.info("introspection starts under scope " + com.intellij.database.util.TreePatternUtils.serialize(scope))
         val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
         if (expanded !== scope) {
             DorisCatalogs.info(
@@ -379,6 +380,7 @@ class DorisIntrospector(
             DorisCatalogs.info(
                 "catalog '$catalog' db '$schemaName' -> ${counts.tables} tables, ${counts.views} views",
             )
+            dataSourceId?.let { DorisListedNamespaces.record(it, catalog, schemaName) }
             return affectedObjects
         } catch (pce: ProcessCanceledException) {
             throw pce
@@ -389,38 +391,18 @@ class DorisIntrospector(
     }
 
     /**
-     * M10 Part B: restart highlighting in open editors once introspection finishes.
-     *
-     * The platform's own invalidation chain (bytecode-verified): something calls
-     * `DataSourceStorage.updateDataSource(ds)` → `DataSourceStorage.Listener.dataSourceChanged`
-     * (storage topic) → `LocalDataSourceManager` (subscribed in its ctor) relays via
-     * `BasicDataSourceManager.updateDataSource` → `DataSourceManager.Listener.dataSourceChanged`
-     * (project bus) → `DbPsiFacadeImpl.clearCachesImpl` → `incModificationCount()` (the
-     * PSI-modification bump the daemon listens to) + per-DS `DbDataSourceImpl.clearCaches()` →
-     * open editors re-highlight against the fresh model. Our introspection sessions were mutating
-     * the model without that final event, so editors kept stale reds until the next PSI change
-     * (typing) — the observed dogfood symptom, including freshly-CREATEd objects staying red.
-     *
-     * `performFinalDiagnostics()` is the introspector hook `DatabaseIntrospectionSession` invokes
-     * exactly once at the end of every session (bytecode offset 117), so firing here covers all
-     * flows: connect-time auto-sync, schemas-pane changes, portions, and manual refresh. The event
-     * must go out on the EDT (`clearCachesImpl` asserts it) — hence `invokeLater`.
+     * M10 Part B: restart highlighting in open editors once introspection finishes. Sessions mutate
+     * the model without the PSI invalidation editors need, so they kept stale reds until the next
+     * edit. `performFinalDiagnostics()` runs exactly once at the end of every session (connect-time
+     * sync, schemas-pane changes, portions, manual refresh); the cache reset must run on the EDT.
      */
     override fun performFinalDiagnostics() {
         super.performFinalDiagnostics()
         val project = project ?: return
-        val dataSourceId = dataSourceId ?: return
-        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-            if (project.isDisposed) return@invokeLater
-            val storage = com.intellij.database.dataSource.DataSourceStorage.getProjectStorage(project)
-            val dataSource = storage.dataSources.firstOrNull { it.uniqueId == dataSourceId }
-                ?: return@invokeLater
-            storage.updateDataSource(dataSource)
-            DorisCatalogs.info(
-                "post-introspection refresh: dataSourceChanged fired for '${dataSource.name}' " +
-                    "(PSI caches cleared, open-editor highlighting restarts)",
-            )
-        }
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater({
+            refreshEditorsAfterIntrospection(project)
+            DorisCatalogs.info("post-introspection refresh: PSI caches cleared, open-editor highlighting restarts")
+        }, project.disposed)
     }
 
     /**
@@ -773,4 +755,16 @@ internal fun validateObjectInventory(
     require(positions.toSet().size == positions.size) {
         "information_schema.columns returned duplicate column positions"
     }
+}
+
+/**
+ * Drops the database PSI caches and restarts highlighting, so open editors see what an introspection
+ * loaded without waiting for the next edit. Deliberately not `DataSourceStorage.updateDataSource`: that
+ * announces a changed data source configuration to every listener (schedulers, trees, persistence,
+ * consoles) after every introspection, the same event a user's settings change sends.
+ */
+internal fun refreshEditorsAfterIntrospection(project: com.intellij.openapi.project.Project) {
+    if (project.isDisposed) return
+    com.intellij.database.psi.DbPsiFacade.getInstance(project).clearCaches()
+    com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart("Doris introspection finished")
 }

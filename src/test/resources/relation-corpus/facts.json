@@ -1,0 +1,605 @@
+{
+  "version": "2.2",
+  "coordinates": "UTF-16, zero-based, half-open, relative to unescaped SQL without a dialect header",
+  "columns": {
+    "src.id": {
+      "name": "id",
+      "sqlType": null,
+      "kotlinType": "kotlin.Long",
+      "nullability": "NON_NULL",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.id",
+      "identity": "src.id"
+    },
+    "src.event_kind": {
+      "name": "event_kind",
+      "sqlType": null,
+      "kotlinType": "demo.EventKind",
+      "nullability": "NULLABLE",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.event_kind",
+      "identity": "src.event_kind"
+    },
+    "src.price": {
+      "name": "price",
+      "sqlType": null,
+      "kotlinType": "kotlin.Int",
+      "nullability": "NON_NULL",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.price",
+      "identity": "src.price"
+    },
+    "src.qty": {
+      "name": "qty",
+      "sqlType": null,
+      "kotlinType": "kotlin.Int",
+      "nullability": "NON_NULL",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.qty",
+      "identity": "src.qty"
+    },
+    "rhs.id": {
+      "name": "id",
+      "sqlType": null,
+      "kotlinType": "kotlin.Long",
+      "nullability": "NON_NULL",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:rhs.id",
+      "identity": "rhs.id"
+    },
+    "rhs.code": {
+      "name": "code",
+      "sqlType": null,
+      "kotlinType": "kotlin.String",
+      "nullability": "NON_NULL",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:rhs.code",
+      "identity": "rhs.code"
+    },
+    "contract.id": {
+      "name": "id",
+      "sqlType": null,
+      "kotlinType": "kotlin.Long",
+      "nullability": "NON_NULL",
+      "origin": "RELATION_CONTRACT",
+      "navigationId": "decl:contract",
+      "identity": "contract.id"
+    },
+    "physical.id": {
+      "name": "id",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.id",
+      "identity": "physical.id"
+    },
+    "physical.label": {
+      "name": "label",
+      "sqlType": "VARCHAR",
+      "kotlinType": null,
+      "nullability": "NULLABLE",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.label",
+      "identity": "physical.label"
+    },
+    "computed.id": {
+      "name": "id",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.id"
+    },
+    "computed.copied": {
+      "name": "copied",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "UNKNOWN",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.copied"
+    },
+    "computed.price": {
+      "name": "price",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.price"
+    },
+    "computed.total": {
+      "name": "total",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.total"
+    },
+    "computed.n": {
+      "name": "n",
+      "sqlType": "BIGINT",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.n"
+    },
+    "computed.rn": {
+      "name": "rn",
+      "sqlType": "BIGINT",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.rn"
+    },
+    "computed.a": {
+      "name": "a",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NULLABLE",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.a"
+    },
+    "computed.b": {
+      "name": "b",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NULLABLE",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.b"
+    },
+    "computed.metric": {
+      "name": "metric",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.metric"
+    },
+    "computed.value": {
+      "name": "value",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.value"
+    },
+    "src.nullable-id": {
+      "identity": "src.id",
+      "name": "id",
+      "kotlinType": "kotlin.Long",
+      "nullability": "NULLABLE",
+      "sqlType": null,
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.id"
+    },
+    "rhs.nullable-id": {
+      "identity": "rhs.id",
+      "name": "id",
+      "kotlinType": "kotlin.Long",
+      "nullability": "NULLABLE",
+      "sqlType": null,
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:rhs.id"
+    },
+    "src.nullable-price": {
+      "identity": "src.price",
+      "name": "price",
+      "kotlinType": "kotlin.Int",
+      "nullability": "NULLABLE",
+      "sqlType": null,
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.price"
+    },
+    "src.nullable-qty": {
+      "identity": "src.qty",
+      "name": "qty",
+      "kotlinType": "kotlin.Int",
+      "nullability": "NULLABLE",
+      "sqlType": null,
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.qty"
+    },
+    "computed.bucket": {
+      "identity": "computed.bucket",
+      "name": "bucket",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "sqlType": null,
+      "origin": "COMPUTED",
+      "navigationId": null
+    },
+    "computed.merged-id": {
+      "identity": "computed.id",
+      "name": "id",
+      "kotlinType": "kotlin.Long",
+      "nullability": "NON_NULL",
+      "sqlType": null,
+      "origin": "COMPUTED",
+      "navigationId": null
+    },
+    "computed.metric-nullable": {
+      "identity": "computed.metric",
+      "name": "metric",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "sqlType": "VARCHAR",
+      "origin": "COMPUTED",
+      "navigationId": null
+    },
+    "computed.value-nullable": {
+      "identity": "computed.value",
+      "name": "value",
+      "kotlinType": null,
+      "nullability": "NULLABLE",
+      "sqlType": null,
+      "origin": "COMPUTED",
+      "navigationId": null
+    },
+    "tvf.result": {
+      "identity": "tvf.result",
+      "name": "result",
+      "kotlinType": "kotlin.Long",
+      "nullability": "NON_NULL",
+      "sqlType": "BIGINT",
+      "origin": "RELATION_CONTRACT",
+      "navigationId": "decl:tvf.result"
+    },
+    "src.eventKind": {
+      "name": "eventKind",
+      "sqlType": null,
+      "kotlinType": "demo.EventKind",
+      "nullability": "NULLABLE",
+      "origin": "KOTLIN_RELATION",
+      "navigationId": "decl:src.eventKind",
+      "identity": "src.eventKind"
+    },
+    "computed.literal-a": {
+      "name": "a",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.a"
+    },
+    "computed.lateral-b": {
+      "name": "b",
+      "sqlType": null,
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "COMPUTED",
+      "navigationId": null,
+      "identity": "computed.b"
+    },
+    "physical.one-id": {
+      "name": "id",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.one.t.id",
+      "identity": "physical.one.t.id"
+    },
+    "physical.two-id": {
+      "name": "id",
+      "sqlType": "INTEGER",
+      "kotlinType": null,
+      "nullability": "NON_NULL",
+      "origin": "PHYSICAL_TABLE",
+      "navigationId": "decl:physical.two.t.id",
+      "identity": "physical.two.t.id"
+    }
+  },
+  "facts": {
+    "full": {
+      "knowledge": "FULL",
+      "columns": [
+        "src.id",
+        "src.event_kind",
+        "src.price",
+        "src.qty"
+      ]
+    },
+    "partial": {
+      "knowledge": "PARTIAL",
+      "columns": [
+        "src.id",
+        "src.event_kind",
+        "src.price",
+        "src.qty"
+      ]
+    },
+    "unknown": {
+      "knowledge": "UNKNOWN",
+      "columns": []
+    },
+    "right": {
+      "knowledge": "FULL",
+      "columns": [
+        "rhs.id",
+        "rhs.code"
+      ]
+    },
+    "contract": {
+      "knowledge": "FULL",
+      "columns": [
+        "contract.id"
+      ]
+    },
+    "physical": {
+      "knowledge": "FULL",
+      "columns": [
+        "physical.id",
+        "physical.label"
+      ]
+    },
+    "nullable-source": {
+      "knowledge": "FULL",
+      "columns": [
+        "src.nullable-id"
+      ]
+    },
+    "nullable-right": {
+      "knowledge": "FULL",
+      "columns": [
+        "rhs.nullable-id"
+      ]
+    },
+    "nullable-measures": {
+      "knowledge": "FULL",
+      "columns": [
+        "src.id",
+        "src.nullable-price",
+        "src.nullable-qty"
+      ]
+    },
+    "single-id": {
+      "knowledge": "FULL",
+      "columns": [
+        "src.id"
+      ]
+    },
+    "call-output": {
+      "knowledge": "FULL",
+      "columns": [
+        "tvf.result"
+      ]
+    },
+    "camel-case": {
+      "knowledge": "FULL",
+      "columns": [
+        "src.eventKind"
+      ]
+    },
+    "single-right-id": {
+      "knowledge": "FULL",
+      "columns": [
+        "rhs.id"
+      ]
+    },
+    "physical-one": {
+      "knowledge": "FULL",
+      "columns": [
+        "physical.one-id"
+      ]
+    },
+    "physical-two": {
+      "knowledge": "FULL",
+      "columns": [
+        "physical.two-id"
+      ]
+    }
+  },
+  "representationNotes": [
+    "SQL is post bind/slot replacement, with zero-based half-open UTF-16 ranges and no dialect header. A slot is an unqualified zero-argument call matching a case-sensitive provider key; bare identifiers are tables.",
+    "Each case declares dialects for identical SQL applicability. engine maps duckdb/trino/doris to witness ids in witnesses.json, or null when there is no honest native witness. A witness probes the relevant scope/transform, not necessarily trailing row filters; one engine's SQL is not evidence for another.",
+    "Column tuples are [factKey, visibleRelation, optionalName, optionalNullability, optionalOrigin, optionalNavigationId, optionalIdentity]. Identity describes lineage and is independent of the opaque navigationId. Null overrides retain defaults. Source identity plus visible relation distinguishes self-join candidates.",
+    "References declare explicit targets [factKey, visibleRelation, optionalName, optionalNullability, optionalOrigin, optionalNavigationId, optionalIdentity]. They are checkable without carets. COLUMN ranges cover the identifier, excluding its qualifier; QUALIFIER and TABLE ranges cover the relation identifier. navigationTargets independently describe an ambiguity chooser.",
+    "Carets have positionKind COLUMN/RELATION/QUALIFIER/KEYWORD/STRING, separate knowledge FULL/PARTIAL/UNKNOWN/NONE, and order SIGNIFICANT/UNSPECIFIED. Completion is compared as a multiset, not UI rank; SIGNIFICANT scope inventory compares declared column order on a separate order axis.",
+    "Projection-changing brikk PIPE stages drop input aliases, including SELECT *. WHERE/ORDER BY/TABLESAMPLE preserve ordinary whole-rowset aliases; LIMIT/OFFSET/DISTINCT preserve only a single aliased whole-rowset input across a later-stage input boundary. AS replaces aliases. More permissive editor behavior is a disagreement, not runtime acceptance.",
+    "EXCEPT/INTERSECT retain left lineage and left nullability. UNION retains lineage only when every branch agrees on origin identity and unions nullability. Names come from the first branch. Navigation follows lineage, not output names.",
+    "GROUP BY columns precede aggregate columns. Stars follow supplied relation-column order; USING/NATURAL put the merged keys once before non-key columns. Ordered schemas are compared before any alphabetical sorting.",
+    "Native symbols may point to an inner declaration behind a CTE/subquery. Normalize the exposed relation through the syntactic/native immediate qualifier while independently comparing identity and navigation.",
+    "UNKNOWN input facts are unavailable, not a closed empty row. Unknown qualifiers/tables are relation-level diagnostics; an unknown qualified star under FULL knowledge must not fabricate later partial-contract warnings.",
+    "callContracts supply known CALL output facts independently of table slots; a CALL replaces the input row and exposes only its declared output under its own alias. Current adapters unable to consume callContracts record a disagreement rather than guessing.",
+    "An unaliased slot in ordinary SQL exposes the exact slot name as an implicit range variable, like an engine table-function call. PIPE input boundaries have the separately declared qualifier-preservation policy.",
+    "At an ordinary USING/NATURAL JOIN WHERE position both qualified input inventories remain visible plus a single merged unqualified key. Projection-star order is probed only after a CTE/subquery boundary, not by conflating WHERE scope with SELECT output.",
+    "catalogKnowledge CLOSED permits UNKNOWN_TABLE when a table is absent; UNKNOWN must not assert absence. Provider slots/physicalTables are copied facts, not proof that the whole catalog is closed.",
+    "Every witness uses failure:null for success or failure:{kind,messageContains} for rejection; verified:true means executed by its native engine harness. Authored but unexecuted Trino/Doris witnesses are verified:false. A parsed alternative is not evidence of execution.",
+    "SerializableResults messages/details are normalized corpus labels, not promises of exact UI text. Ranges and identities are independent of any host/injection objects.",
+    "SQL types are optional supplied facts, never inferred from Kotlin display types. price+qty and UNPIVOT value remain SQL-type unknown when operand facts omit SQL types, even if native engine metadata knows INTEGER.",
+    "declarationRanges probes reference-to-declaration navigation in SQL coordinates. Target ranges cover only the declared CTE name, column alias or table alias, not the whole defining expression.",
+    "coreExecution substitutes zero-argument provider slots with declared engineRelations before lowering, then executes the real core toExecutable output. Rows and columns are compared to independently executed ordinary SQL witnesses; SQL rejection and lowering refusal remain disagreements."
+  ],
+  "evidence": {
+    "aliases": "Owner Q13 option C and PipeDesugar.kt stage boundaries: changing stages lose all old range variables; AS replaces them. Unknown qualifiers are relation-level errors, not missing-column or partial-row claims.",
+    "ctes": "CTEs expose projected rows; inner WITH bindings shadow outer bindings. https://duckdb.org/docs/stable/sql/query_syntax/with",
+    "subqueries": "Derived projections and correlated range-variable lookup; local aliases hide outer aliases. https://duckdb.org/docs/stable/sql/expressions/subqueries",
+    "joins": "Outer-join nullability, USING/NATURAL key coalescing and preserved-side SEMI/ANTI visibility. Syntax applicability is per dialect; swapped/EXISTS witnesses prove relational semantics without treating unsupported spellings as valid.",
+    "diagnostics": "FULL proves absence; PARTIAL does not. The native binder rejects missing/ambiguous references. Contract guarantees and runtime schema are separate facts.",
+    "navigation": "Provider navigation, including relation-fallback targets, is supplied, never inferred from SQL types.",
+    "coordinates": "JVM UTF-16 indexing: the emoji occupies two code units. Named binds have already been replaced.",
+    "clauses": "SELECT-alias GROUP BY applicability is dialect-specific; portable witnesses repeat the expression. ORDER BY accepts projected names.",
+    "set-operations": "Controller correction: EXCEPT/INTERSECT keep left lineage and left nullability, since their rows are a subset of left rows. UNION keeps unanimous origin identity and unions nullability. First-branch names; positional arity unless BY NAME explicitly applies.",
+    "slot-identity": "Provider keys identify Kotlin parameters, not SQL case-folded function names. Argument-bearing/qualified calls are not slots; bare names are physical identifiers.",
+    "pipe-preserving": "PipeDesugar.kt WHERE/ORDER BY/LIMIT/OFFSET/DISTINCT/TABLESAMPLE mutate the current Select. Conditional input boundaries preserve only provable whole-rowset bindings.",
+    "lineage": "Single-column passthrough/rename keeps identity, Kotlin display type and navigation. Q13 drops all old qualifiers at every projection-changing boundary.",
+    "computed": "Projection-changing stages drop old qualifiers; computed expressions have no operand declaration lineage. COUNT/ROW_NUMBER are BIGINT and non-null; grouping columns precede aggregates.",
+    "knowledge": "FULL unknown qualifiers/tables are relation diagnostics. A bad x.* does not make a later unknown column a partial-contract violation. Known CALL contracts replace input inventory; unknown output contracts remain unknown.",
+    "pipe-changing": "SET replaces, DROP removes, RENAME preserves lineage, PIVOT/UNPIVOT transform schemas. Independent native oracle queries exercise their ordinary relational equivalents.",
+    "stars": "Star expansion preserves column order. USING/NATURAL merge keys once. DuckDB native derived tables rename duplicate columns with _1; Trino-style duplicate-name ambiguity is explicitly dialect-specific.",
+    "physical": "DAS table columns are relation facts too; ordinary SQL and PIPE must expose them without inventing Kotlin types.",
+    "incomplete": "Caret completion offers provable input columns before missing syntax. The current identifier ev is syntactically valid but absent from a FULL contract, so its missing-column diagnostic remains correct even while completion offers event_kind; an unfinished parenthesis is missing syntax, not a missing column.",
+    "positions": "Relation names and string literals are not column-expression completion positions.",
+    "ordering": "AGGREGATE grouping projections precede aggregates, as both the spec and PipeDesugar.kt applyAggregateGroupOrderBy lines 626-630 implement; stars and set operations preserve defined positional order.",
+    "arity": "Native binders reject positional set operations with different column counts. BY NAME is a separately tagged dialect extension, not positional arity repair.",
+    "quoting": "SQL identifier folding is a dialect rule, independent of exact Kotlin/provider keys. Quoted-case semantics are tagged, not imposed by a DuckDB witness on Trino or Doris.",
+    "pipeline-shapes": "SELECT-first, parenthesized input and nested pipelines expose their projected row independently of the surrounding query namespace.",
+    "execution": "Sequential PIPE stages must preserve row-selection and outer-join boundaries. Independently authored ordinary SQL witnesses are checked against actual toExecutable output, not parser acceptance.",
+    "declarations": "Navigation exposes UTF-16 half-open ranges of SQL declarations, independently of provider lineage/navigation ids."
+  },
+  "resultContract": {
+    "model": "Plain serializable data only; no IntelliJ, injection, Kotlin-host, PSI, Database Tools, database connection or live analysis-session objects.",
+    "positions": "Zero-based half-open UTF-16 text offsets. Editors/LSP adapters convert offsets to line/character without changing the underlying SQL coordinate space.",
+    "completion": [
+      "name",
+      "kind",
+      "insertText",
+      "range",
+      "detail"
+    ],
+    "reference": [
+      "name",
+      "kind",
+      "range",
+      "targets"
+    ],
+    "diagnostic": [
+      "kind",
+      "range",
+      "severity",
+      "message"
+    ],
+    "providerFacts": "SQL type, display type and opaque identity/navigation ids are copied optional facts from any provider, not a required Kotlin or Database Tools integration.",
+    "capabilities": "A harness lacking an observation API must record UNAVAILABLE/null with its capability reason, not invent a FULL scope, an empty successful result or navigation."
+  },
+  "inputReviews": {
+    "trino": "a61ed1a: 12 DuckDB witnesses need Trino-native forms; no SQL/offset adaptation in input.",
+    "doris": "Doris summary.md: LEFT SEMI/LEFT ANTI ordinary spellings; no wrong relational expectation proved; PIPE completeness/navigation not exposed by current APIs.",
+    "controller": "Serializable text-offset-only future core results; owner Q13 and controller set-lineage rules govern v2.",
+    "fable": "v2.1: completion auto-insert fixture defect, qualified USING scope, left-only INTERSECT/EXCEPT nullability, conditional PIPE aliases, realistic camelCase, closed-catalog diagnostics and unverified native witnesses.",
+    "controller-v22": "Anonymous unaliased PIPE boundaries, unknown CALL output, optional SQL facts, dialect-specific alias visibility/quoting, duplicate navigation, FULL USING nullability, multipart qualifiers, declaration coordinates and execution boundaries."
+  },
+  "dialects": [
+    "duckdb",
+    "trino",
+    "doris",
+    "postgres"
+  ],
+  "stageAliasPolicy": {
+    "drop": [
+      "SELECT",
+      "AGGREGATE",
+      "EXTEND",
+      "SET",
+      "DROP",
+      "RENAME",
+      "WINDOW",
+      "UNION",
+      "INTERSECT",
+      "EXCEPT",
+      "PIVOT",
+      "UNPIVOT"
+    ],
+    "preserve": [
+      "WHERE",
+      "ORDER BY",
+      "LIMIT",
+      "OFFSET",
+      "TABLESAMPLE",
+      "DISTINCT",
+      "JOIN"
+    ],
+    "replace": [
+      "AS",
+      "CALL"
+    ],
+    "evidence": "Owner Q13 option C. PipeDesugar.kt applyPipeStage wraps every drop stage in a CTE; AS replaces the range variable. Preserving stages mutate the Select. WHERE/DISTINCT/SELECT may need an additional input CTE after row selection; pipeInputCte proves when a whole-rowset alias can be preserved. Fable re-check: LIMIT/OFFSET/DISTINCT input boundaries preserve qualifiers only for a single aliased whole-rowset input. Unaliased and multi-source qualifiers are refused by core at a later stage; editor must agree.",
+    "conditionalPreserve": [
+      "LIMIT",
+      "OFFSET",
+      "DISTINCT"
+    ]
+  },
+  "dialectNotes": {
+    "duckdb": [
+      "GROUP BY may use SELECT aliases. Quoted SQL identifiers also compare case-insensitively; Kotlin slot names never do.",
+      "Native SEMI/ANTI have no LEFT prefix and RIGHT SEMI/ANTI are rejected; brikk PIPE right variants use swapped-input witnesses. Native derived tables deduplicate repeated names with _1 suffixes, unlike portable duplicate-name ambiguity.",
+      "TABLESAMPLE (100 PERCENT), SELECT * EXCLUDE/REPLACE, UNION BY NAME and native UNPIVOT have DuckDB-specific witnesses.",
+      "Projection aliases are visible in WHERE and to later expressions in the same SELECT list."
+    ],
+    "trino": [
+      "GROUP BY does not see SELECT aliases. No native SEMI/ANTI join spellings: use EXISTS/NOT EXISTS witnesses.",
+      "DROP/SET witnesses use explicit projections, TABLESAMPLE uses BERNOULLI (100), and UNPIVOT witnesses use CROSS JOIN LATERAL VALUES. PIVOT is witnessed with conditional aggregation.",
+      "Quoted SQL identifiers retain case. Native witness parsing is not evidence of connector execution or nullability."
+    ],
+    "doris": [
+      "Native semi/anti spellings use LEFT SEMI/LEFT ANTI or RIGHT SEMI/RIGHT ANTI. Bare SEMI/ANTI SQL cases are not applicable.",
+      "No DuckDB star EXCLUDE/REPLACE or derived-name dedup assumption. TABLESAMPLE, PIVOT and UNPIVOT have only explicitly supplied portable/native alternatives.",
+      "The native table-type hook and PIPE scanner are separate observation axes; a native type hook cannot supply PSI inside a flat PIPE statement.",
+      "Double quotes delimit strings, not identifiers. Double-quoted source-alias SQL is not applicable."
+    ],
+    "postgres": [
+      "PostgreSQL-family baseline: HAVING does not see projection aliases; quoted identifiers retain case, while unquoted identifiers fold to lowercase. Redshift extensions are not implied.",
+      "No PostgreSQL engine was run here. Engine witnesses are null, not DuckDB substitutes."
+    ]
+  },
+  "engineSetup": {
+    "duckdb": [
+      "CREATE TABLE events(id BIGINT NOT NULL, event_kind VARCHAR, price INTEGER NOT NULL, qty INTEGER NOT NULL)",
+      "INSERT INTO events VALUES (1,'a',2,3),(2,NULL,4,5)",
+      "CREATE TABLE events_partial(id BIGINT NOT NULL, event_kind VARCHAR, price INTEGER NOT NULL, qty INTEGER NOT NULL, extra INTEGER)",
+      "INSERT INTO events_partial VALUES(1,'a',2,3,9)",
+      "CREATE TABLE customers(id BIGINT NOT NULL, code VARCHAR NOT NULL)",
+      "INSERT INTO customers VALUES(1,'one'),(3,'three')",
+      "CREATE TABLE physical(id INTEGER NOT NULL, label VARCHAR)",
+      "INSERT INTO physical VALUES(1,'x')",
+      "CREATE TABLE nullable_events(id BIGINT)",
+      "INSERT INTO nullable_events VALUES (NULL),(1)",
+      "CREATE TABLE nullable_measures(id BIGINT NOT NULL, price INTEGER, qty INTEGER)",
+      "INSERT INTO nullable_measures VALUES (1,NULL,2)",
+      "CREATE TABLE camel_events(eventKind VARCHAR)",
+      "INSERT INTO camel_events VALUES ('a'),(NULL)",
+      "CREATE TABLE nullable_customers(id BIGINT)",
+      "INSERT INTO nullable_customers VALUES (NULL),(1),(3)",
+      "CREATE SCHEMA one",
+      "CREATE SCHEMA two",
+      "CREATE TABLE one.t(id INTEGER NOT NULL)",
+      "CREATE TABLE two.t(id INTEGER NOT NULL)",
+      "INSERT INTO one.t VALUES (1)",
+      "INSERT INTO two.t VALUES (2)"
+    ],
+    "trino": [
+      "CREATE TABLE events(id BIGINT NOT NULL, event_kind VARCHAR, price INTEGER NOT NULL, qty INTEGER NOT NULL)",
+      "INSERT INTO events VALUES (1,'a',2,3),(2,NULL,4,5)",
+      "CREATE TABLE events_partial(id BIGINT NOT NULL, event_kind VARCHAR, price INTEGER NOT NULL, qty INTEGER NOT NULL, extra INTEGER)",
+      "INSERT INTO events_partial VALUES (1,'a',2,3,9)",
+      "CREATE TABLE customers(id BIGINT NOT NULL, code VARCHAR NOT NULL)",
+      "INSERT INTO customers VALUES(1,'one'),(3,'three')",
+      "CREATE TABLE physical(id INTEGER NOT NULL, label VARCHAR)",
+      "INSERT INTO physical VALUES(1,'x')",
+      "CREATE TABLE nullable_events(id BIGINT)",
+      "INSERT INTO nullable_events VALUES (NULL),(1)",
+      "CREATE TABLE nullable_measures(id BIGINT NOT NULL, price INTEGER, qty INTEGER)",
+      "INSERT INTO nullable_measures VALUES (1,NULL,2)",
+      "CREATE TABLE camel_events(eventKind VARCHAR)",
+      "INSERT INTO camel_events VALUES ('a'),(NULL)"
+    ],
+    "doris": [
+      "CREATE TABLE events(id BIGINT NOT NULL, event_kind STRING, price INTEGER NOT NULL, qty INTEGER NOT NULL) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO events VALUES (1,'a',2,3),(2,NULL,4,5)",
+      "CREATE TABLE events_partial(id BIGINT NOT NULL, event_kind STRING, price INTEGER NOT NULL, qty INTEGER NOT NULL, extra INTEGER) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO events_partial VALUES(1,'a',2,3,9)",
+      "CREATE TABLE customers(id BIGINT NOT NULL, code STRING NOT NULL) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO customers VALUES(1,'one'),(3,'three')",
+      "CREATE TABLE physical(id INTEGER NOT NULL, label STRING) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO physical VALUES(1,'x')",
+      "CREATE TABLE nullable_events(id BIGINT) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO nullable_events VALUES (NULL),(1)",
+      "CREATE TABLE nullable_measures(id BIGINT NOT NULL, price INTEGER, qty INTEGER) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO nullable_measures VALUES (1,NULL,2)",
+      "CREATE TABLE camel_events(eventKind STRING) DUPLICATE KEY(eventKind) DISTRIBUTED BY HASH(eventKind) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")",
+      "INSERT INTO camel_events VALUES ('a'),(NULL)"
+    ]
+  }
+}

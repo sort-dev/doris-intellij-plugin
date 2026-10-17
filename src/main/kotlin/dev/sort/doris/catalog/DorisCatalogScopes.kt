@@ -173,13 +173,26 @@ object DorisCatalogScopes {
      * Returns the same instance when nothing needed expansion (cheap identity check for callers).
      */
     fun expandExplicitCatalogSelections(scope: TreePattern): TreePattern {
-        val root = scope.root ?: return scope
-        val dbGroup = root.getGroup(ObjectKind.DATABASE) ?: return scope
+        // No selection at all (a new or cleared data source): the platform introspects such a data source
+        // with the default scope, so it means the default.
+        val root = scope.root ?: return multiCatalogDefaultScope()
+        if (scope == TreePattern.EMPTY || root.groups.isNullOrEmpty() && !TreePatternUtils.isWildcard(root)) return multiCatalogDefaultScope()
+        // "All databases" at the data source root, with no catalog level below it (what the schemas pane
+        // leaves after its data was cleared): the default, `internal` deep and the other catalogs listed.
+        val dbGroup = root.getGroup(ObjectKind.DATABASE)
+            ?: return if (TreePatternUtils.isWildcard(root)) TreePatternUtils.union(multiCatalogDefaultScope(), scope) else scope
         var changed = false
-        val newNodes = dbGroup.children.orEmpty().map { node ->
+        val defaultNodes = multiCatalogDefaultScope().root!!.getGroup(ObjectKind.DATABASE)!!.children.orEmpty().filterNotNull()
+        val newNodes = dbGroup.children.orEmpty().flatMap { node ->
+            if (node != null && node.getGroup(ObjectKind.SCHEMA) == null && isBareWildcard(node.naming)) {
+                // The pane's "All databases" tick: every catalog, `internal` deep, the others listed (as 1.5.8's default).
+                changed = true
+                defaultNodes
+            } else listOf(node)
+        }.map { node ->
             if (node != null &&
                 node.getGroup(ObjectKind.SCHEMA) == null &&
-                isExplicitSelection(node.naming)
+                isExplicitSelection(node.naming) && !isBareWildcard(node.naming)
             ) {
                 changed = true
                 val allSchemas = TreePatternNode(TreePatternNode.NegativeNaming.WILDCARD, TreePatternNode.NO_GROUPS)
@@ -206,6 +219,9 @@ object DorisCatalogScopes {
      * (`NegativeNaming` with an **empty** exception list). The M2 default's enumerate-only node is
      * `NegativeNaming` **with** exception names and is deliberately excluded.
      */
+    private fun isBareWildcard(naming: TreePatternNode.BaseNaming): Boolean =
+        naming is TreePatternNode.NegativeNaming && naming.names.isNullOrEmpty()
+
     private fun isExplicitSelection(naming: TreePatternNode.BaseNaming): Boolean {
         if (naming is TreePatternNode.NegativeNaming) {
             val names = naming.names

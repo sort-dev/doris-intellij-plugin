@@ -19,11 +19,11 @@
                 including schema-by-argument (<code>tasks("type"="mv")</code>)</li>
             <li><b>Reliable query cancel.</b> The Stop button kills the running Doris query even
                 behind a load balancer, where the driver's own cancel silently misses</li>
-            <li><b>Doris Pipes (optional).</b> Write GoogleSQL-style pipe syntax
+            <li><b>Doris PIPE (optional).</b> Write queries supported by Doris PIPE syntax
                 (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) directly in Doris consoles —
                 it transpiles to standard Doris SQL on run, with per-stage completion, run-to-stage,
                 generated-SQL preview, and errors mapped back to the pipe line you wrote.
-                Enable it per project under <b>Settings &rarr; Tools &rarr; Apache Doris PIPE</b>.
+                Enable it per project under <b>Settings &rarr; Tools &rarr; Database &rarr; Apache Doris PIPE</b>.
                 Disabled by default; no SQL Transpiler plugin installation is required</li>
             <li><b>Automatic targeted introspection.</b> Reference a table in a catalog or schema
                 that hasn't been introspected yet and the plugin introspects just that schema in the
@@ -55,6 +55,20 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.1</b> - shared SQL editor support and on-demand catalog introspection.
+        <ul>
+            <li>Completion, highlighting, relation diagnostics, catalog references and PIPE execution
+                use the shared Brikk SQL IntelliJ support, with fewer false errors in derived tables,
+                CTEs and statements over external catalogs.</li>
+            <li>Completing or querying a catalog, database or table the model has not loaded introspects
+                just that namespace, also after Clear Introspection Data; a cleared data source gets the
+                default scope (<code>internal</code> loaded, other catalogs listed) without a manual tick.</li>
+            <li>Quick Documentation links Doris statements and clauses to the Doris documentation.</li>
+            <li>The <b>Doris PIPE</b> editor menu appears only where PIPE applies; its settings page is now
+                <b>Settings &rarr; Tools &rarr; Database &rarr; Apache Doris PIPE</b>.</li>
+            <li>Uses released Brikk SQL core/metadata/verifiers 0.20.0, Brikk SQL IntelliJ support 0.2.0
+                and Brikk Kotlin IntelliJ support 0.3.0.</li>
+        </ul>
         <b>1.5.8</b> - Brikk relation column completion presentation.
         <ul>
             <li>Shows Kotlin type names and nullability alongside <code>brikk column (src)</code>
@@ -297,14 +311,14 @@
         <b>0.7.1</b> — internal-API cleanup flagged by Marketplace verification (one platform
         accessor replaced with its public equivalent). No functional changes.
         <br/>
-        <b>0.7.0</b> — Doris Pipes (pipe-syntax SQL, optional) and automatic targeted introspection.
+        <b>0.7.0</b> — Doris PIPE (pipe-syntax SQL, optional) and automatic targeted introspection.
         <ul>
-            <li><b>Doris Pipes:</b> author queries in GoogleSQL-style pipe syntax
+            <li><b>Doris PIPE:</b> author queries supported by Doris PIPE syntax
                 (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) in Doris consoles and run
                 them against any Doris — the plugin transpiles them to standard Doris SQL at
                 execution time (the generated SQL is what the server sees). Includes pipe-aware
                 statement boundaries and syntax checking, per-stage column completion (aliases and
-                join relations included), a right-click <i>Doris Pipes</i> menu with
+                join relations included), a right-click <i>Doris PIPE</i> menu with
                 <i>Preview Generated SQL</i> (syntax-highlighted) and <i>Run Stages up to Caret</i>,
                 and server errors mapped back to the exact line and column of the pipe SQL you
                 wrote. Requires the free <b>SQL Transpiler</b> plugin
@@ -401,6 +415,10 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
     <depends optional="true" config-file="doris-kotlin.xml">org.jetbrains.kotlin</depends>
+    <extensionPoints>
+        <extensionPoint name="hostInspectionRule" interface="dev.sort.doris.brikk.DorisHostInspectionRule" dynamic="true"/>
+        <extensionPoint name="relationFacts" interface="dev.brikk.house.sql.intellij.relation.ExternalRelationFacts" dynamic="true"/>
+    </extensionPoints>
     <xi:include href="/META-INF/doris-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
     <!-- Kotlin checks this marker before loading the optional descriptor. -->
@@ -427,7 +445,15 @@
              splits the string into '…' || '…'. Same opt-out JetBrains' MySQL dialect uses. -->
         <lang.quoteHandler language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisQuoteHandler"/>
         <highlightErrorFilter implementation="dev.sort.doris.sql.DorisHighlightErrorFilter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.sql.DorisDatetimeZoneErrorFilter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.sql.DorisNativeErrorPsiFilter"/>
+        <highlightErrorFilter implementation="dev.sort.doris.brikk.DorisHostPlaceholderErrorFilter"/>
         <daemon.highlightInfoFilter implementation="dev.sort.doris.sql.DorisHighlightInfoFilter"/>
+        <daemon.highlightInfoFilter implementation="dev.sort.doris.catalog.DorisOutOfScopeReferenceFilter"/>
+        <intentionAction>
+            <language>DorisSQL</language>
+            <className>dev.sort.doris.catalog.DorisIntrospectNamespaceIntention</className>
+        </intentionAction>
         <externalAnnotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
         <!-- Re-colors DorisLexer-masked spans (CAST targets, EXCEPT lists, ...) that the SQL
              highlighter would otherwise paint as comments — the highlighting lexer IS the parser
@@ -436,25 +462,21 @@
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisPipeStageKeywordAnnotator"/>
         <!-- Lexical SQL coloring inside query(..., 'query' = '<sql>') payload strings. -->
         <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisEmbeddedQuerySqlAnnotator"/>
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.BrikkColumnCompletion"/>
-        <completion.contributor language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisPipeStageCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisRelationCompletion"/>
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.sql.DorisRelationAnnotator"/>
+        <annotator language="DorisSQL" implementationClass="dev.sort.doris.catalog.DorisReferenceIntrospectAnnotator"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMetadataCompletionContributor"/>
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.catalog.DorisQualifiedPathIntrospectContributor"/>
         <!-- Runs first so it can filter the platform's MySQL-only builtin functions out of the results. -->
-        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisMysqlFunctionFilter"/>
-        <!-- Exposes SELECT-list aliases as resolution/completion targets in HAVING / GROUP BY /
-             ORDER BY. The platform gates this behind a hardcoded MySQL-family Dbms allowlist that a
-             plugin dialect cannot join; this re-issues the platform's own selectClause scope call
-             for DORIS. See DorisSelectAliasResolveExtension. The EP has no dbms filter, so the
-             implementation self-gates to DORIS. -->
-        <sql.resolveExtension implementation="dev.sort.doris.sql.DorisSelectAliasResolveExtension"/>
-        <gotoDeclarationHandler implementation="dev.sort.doris.sql.BrikkRelationNavigation"/>
-        <!-- Answers "do not skip autopopup" inside a registered TVF call's quoted property args,
-             pre-empting the platform's SkipAutopopupInStrings (order="last", language="any"). -->
+        <completion.contributor language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisBuiltinPrototypeFilter"/>
+        <sql.resolveExtension implementation="dev.sort.doris.sql.DorisAliasResolveExtension"/>
+        <sql.resolveExtension implementation="dev.sort.doris.sql.DorisRelationResolve"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.doris.sql.DorisRelationInspectionSuppressor"/>
+        <gotoDeclarationHandler implementation="dev.sort.doris.sql.DorisRelationNavigation"/>
         <completion.confidence language="DorisSQL" order="first"
-                               implementationClass="dev.sort.doris.sql.DorisTvfAutoPopupConfidence"/>
-        <!-- Skips the function autopopup after a digit-led prefix (`GROUP BY 1`); the contributor's
-             own allowlist gate handles the rest per-contributor so platform autopopup is untouched. -->
-        <completion.confidence language="DorisSQL" order="first"
-                               implementationClass="dev.sort.doris.sql.DorisFunctionAutoPopupConfidence"/>
+                               implementationClass="dev.sort.doris.sql.DorisCompletionConfidence"/>
 
         <!-- Clean Doris cancel, connect-time half (gated by the `doris.cancel.experimental`
              system property, default ON; see dev.sort.doris.cancel.DorisCancel). Guarded to
@@ -463,17 +485,27 @@
              connection: mints a per-connection trace id, binds it via SET session_context,
              mirrors it into the driver statement comment via setClientInfo("DorisTraceId"). -->
         <database.connectionInterceptor implementation="dev.sort.doris.cancel.DorisTraceIdConnectionInterceptor"/>
-        <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisBuiltinFunctionInterceptor"/>
+        <database.connectionInterceptor implementation="dev.sort.doris.sql.DorisFunctionHarvestInterceptor"/>
+        <applicationService serviceImplementation="dev.sort.doris.sql.DorisLiveCatalogService"/>
 
-        <!-- DORIS PIPES: "table not introspected" banner for pipe statements. -->
-        <editorNotificationProvider implementation="dev.sort.doris.pipes.DorisPipesNotificationProvider"/>
+        <projectService serviceImplementation="dev.sort.doris.catalog.DorisAutoIntrospectService"/>
+        <projectService serviceImplementation="dev.sort.doris.catalog.DorisNamespaceListing"/>
+        <lang.documentationProvider language="DorisSQL" order="first" implementationClass="dev.brikk.house.sql.intellij.docs.SqlEngineDocumentationProvider"/>
+        <projectService serviceImplementation="dev.sort.doris.catalog.DorisExecutionObserver"/>
+        <projectService serviceImplementation="dev.sort.doris.plan.DorisTextExplainService"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.plan.DorisTextExplainConfiguration"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.doris.cancel.DorisCancelConfiguration"/>
+        <postStartupActivity implementation="dev.sort.doris.catalog.DorisExecutionObserverStartup"/>
+        <editorNotificationProvider implementation="dev.sort.doris.catalog.DorisIntrospectBannerProvider"/>
 
         <!-- DORIS PIPES: balloon channel for pipe-transpile errors at execute time. -->
-        <notificationGroup id="Doris Pipes" displayType="BALLOON"/>
+        <notificationGroup id="Doris Pipes" displayType="BALLOON" bundle="messages.DorisBundle" key="notification.group.doris.pipe"/>
+        <notificationGroup id="Doris Functions" displayType="BALLOON"/>
 
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
+        <runConsoleAvailable implementation="dev.sort.doris.brikk.DorisHostSqlRunConsoleVeto"/>
         <dbms id="DORIS" instance="dev.sort.doris.DorisDbms.DORIS"/>
         <modelFacade dbms="DORIS" implementationClass="dev.sort.doris.DorisModelFacade"/>
         <definitionProvider dbms="DORIS" implementationClass="dev.sort.doris.DorisDefinitionProvider"/>
@@ -514,37 +546,24 @@
          when the flag is OFF too (otherwise the flat loader hits them and logs
          "family not in parent" errors / drops nodes). -->
     <applicationListeners>
+        <listener class="dev.sort.doris.sql.DorisLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
         <listener class="dev.sort.doris.catalog.DorisModelMigrationListener"
                   topic="com.intellij.database.dataSource.DataSourceModelStorage$Listener"/>
     </applicationListeners>
+    <projectListeners>
+        <listener class="dev.sort.doris.sql.DorisLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </projectListeners>
 
-    <!-- Clean Doris cancel, cancel-time half: replaces the stock stop-button action
-         (database-plugin.xml registers Console.Jdbc.Cancel; there is no dialect-level cancel
-         seam — the JDBC chain ends in the MySQL driver's broken second-connection
-         KILL QUERY <conn-id>, see RESEARCH-query-cancel.md). The replacement subclasses the
-         stock action and delegates to it verbatim for non-Doris sessions and when
-         -Ddoris.cancel.experimental=false; for Doris sessions the stock (client-side) cancel
-         still runs first and a server-side KILL QUERY "<trace-id>" follows on a pooled thread.
-         Text/description/icon replicate the stock registration (the platform reads them from
-         the declaring plugin, i.e. us, after the override). -->
     <actions>
-        <action id="Console.Jdbc.Cancel"
-                class="dev.sort.doris.cancel.DorisCancelRunningStatementsAction"
-                overrides="true"
-                text="Cancel Running Statements"
-                description="Cancel running and queued statements"
-                use-shortcut-of="Stop"
-                icon="AllIcons.Actions.Suspend"/>
+        <action id="Doris.RefreshFunctions"
+                class="dev.sort.doris.sql.DorisRefreshFunctionsAction"
+                text="Refresh Doris Functions"
+                description="Reload function names from the Doris server">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
 
-        <!-- Explain Plan: for Doris, run EXPLAIN <query> as a query so the plan shows as text rows in
-             the grid (the graphical diagram is a poor fit for Doris's text plan). Non-Doris dbms fall
-             through to the stock graphical behaviour. See DorisExplainPlanAction. -->
-        <action id="Console.Jdbc.ExplainPlan"
-                class="dev.sort.doris.plan.DorisExplainPlanAction"
-                overrides="true"
-                text="Explain Plan"
-                description="Show the plan for the current statement"
-                icon="DatabaseIcons.ConsoleShowPlan"/>
 
     </actions>
 </idea-plugin>

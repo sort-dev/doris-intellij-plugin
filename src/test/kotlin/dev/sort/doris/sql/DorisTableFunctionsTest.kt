@@ -7,7 +7,9 @@ import com.intellij.sql.psi.SqlFunctionCallExpression
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.sql.psi.SqlTableType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
+import dev.brikk.house.sql.metadata.ColumnDef
+import dev.brikk.house.sql.metadata.OutputSchema
 
 /**
  * Doris table-valued functions (RESEARCH-tvf-completion.md, Tier A/B):
@@ -65,7 +67,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertFalse("Label must NOT resolve for type=mv", resolveColumn(sql, "Label"))
         assertEquals(
             DorisTableFunctions.byName("tasks")!!.let {
-                (it.schema as DorisTableFunctions.Schema.ByPropertyLiteral).variants["mv"]!!.map(DorisTableFunctions.Column::name)
+                (it.schema as OutputSchema.ByProperty).variants["mv"]!!.map(ColumnDef::name)
             },
             tableTypeColumns(sql)
         )
@@ -101,19 +103,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue(resolveColumn(sql, "State"))
     }
 
-    fun testIcebergMetaVariantByQueryTypeLiteral() {
-        val sql = "SELECT snapshot_id, operation FROM iceberg_meta(\"table\"=\"acme_ctl.db.tbl\", \"query_type\"=\"snapshots\")"
-        assertTrue(resolveColumn(sql, "snapshot_id"))
-        assertTrue(resolveColumn(sql, "operation"))
-        assertFalse(
-            "files-only column must not resolve for snapshots",
-            resolveColumn(
-                "SELECT file_path FROM iceberg_meta(\"table\"=\"acme_ctl.db.tbl\", \"query_type\"=\"snapshots\")",
-                "file_path"
-            )
-        )
-    }
-
     fun testS3OpenRelationHasNoFabricatedColumns() {
         val sql = "SELECT c1 FROM s3(\"uri\"=\"s3://acme-bucket/x.csv\", \"format\"=\"csv\")"
         assertEquals("open relation must expose no fabricated columns", emptyList<String>(), tableTypeColumns(sql))
@@ -124,42 +113,30 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     // ---------------------------------------------------------------------------------------
 
     fun testNonQueryableFunctionsAreNotRegistered() {
-        for (name in DorisTableFunctions.EXCLUDED_NOT_QUERYABLE) {
+        for (name in setOf("group_commit", "http_stream", "cdc_stream", "table\$binlog", "binlog")) {
             assertNull("$name must not be registered as a relation function", DorisTableFunctions.byName(name))
         }
     }
 
     fun testVariantSelectionIsCaseInsensitiveAndUnknownFallsBackToUnion() {
-        val schema = DorisTableFunctions.byName("jobs")!!.schema as DorisTableFunctions.Schema.ByPropertyLiteral
-        assertEquals(schema.variants["mv"], schema.variant("MV"))
-        assertEquals(schema.variants["insert"], schema.variant("insert"))
-        assertEquals(schema.union, schema.variant(null))
-        assertEquals(schema.union, schema.variant("bogus"))
+        assertEquals(tableTypeColumns("SELECT * FROM jobs('type'='mv')"),
+            tableTypeColumns("SELECT * FROM jobs('type'='MV')"))
+        assertTrue(resolveColumn("SELECT ExecuteSql FROM jobs('type'='insert')", "ExecuteSql"))
+        assertEquals(tableTypeColumns("SELECT * FROM jobs()"), tableTypeColumns("SELECT * FROM jobs('type'='bogus')"))
     }
 
-    fun testAllRegisteredTvfsHaveBuiltinsAndSaneSchemas() {
+    fun testAllRegisteredTvfsHavePlatformBuiltins() {
         for (name in DorisTableFunctions.allNames) {
-            val tvf = DorisTableFunctions.byName(name)!!
             assertTrue("builtin registered for $name", DorisTableFunctions.builtins.containsKey(name.lowercase()))
-            when (val s = tvf.schema) {
-                is DorisTableFunctions.Schema.Fixed -> assertTrue("$name has columns", s.columns.isNotEmpty())
-                is DorisTableFunctions.Schema.ByPropertyLiteral -> {
-                    assertTrue("$name has variants", s.variants.isNotEmpty())
-                    assertTrue(
-                        "$name discriminator '${s.key}' is a declared property key",
-                        tvf.key(s.key) != null
-                    )
-                }
-                is DorisTableFunctions.Schema.Open -> assertTrue("$name has property keys", tvf.keys.isNotEmpty())
-            }
         }
     }
 
     fun testResearchDocTierAInventoryIsRegistered() {
         val expected = listOf(
             "backends", "frontends", "frontends_disks", "catalogs", "mv_infos", "partitions",
-            "numbers", "jobs", "tasks", "hudi_meta", "iceberg_meta",
+            "numbers", "jobs", "tasks", "hudi_meta",
             "s3", "hdfs", "local", "http", "query", "partition_values", "vector_search",
+            "file", "parquet_meta", "parquet_file_metadata", "parquet_kv_metadata", "parquet_bloom_probe",
         )
         assertEquals(expected.sorted(), DorisTableFunctions.allNames.sorted())
     }
@@ -213,8 +190,9 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertEquals(listOf("Label"), unresolvedColumnErrors("SELECT Label FROM tasks(\"type\"=\"mv\");"))
     }
 
-    fun testUnknownFunctionColumnsStayRed() {
-        assertEquals(listOf("c1"), unresolvedColumnErrors("SELECT c1 FROM some_unknown_tvf('a'='b');"))
+    fun testUnknownFunctionColumnsAreOpen() {
+        // Nothing is known about an unknown function's output, so no column of it can be called missing.
+        assertEquals(emptyList<String>(), unresolvedColumnErrors("SELECT c1 FROM some_unknown_tvf('a'='b');"))
     }
 
     // ---------------------------------------------------------------------------------------
@@ -225,6 +203,12 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", sql)
         return myFixture.completeBasic()?.map { it.lookupString } ?: emptyList()
+    }
+
+    fun testFixedTableFunctionColumnsReachTheSharedAnalysis() {
+        // Call facts from metadata: the shared analysis knows numbers()'s one column through a derived table.
+        val lookups = completionsAt("SELECT <caret> FROM (SELECT * FROM numbers(\"number\" = \"10\")) AS n;")
+        assertTrue(lookups.toString(), "number" in lookups)
     }
 
     /** The other half of the required pin: mv-variant columns are OFFERED in SELECT position. */
@@ -238,11 +222,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
     fun testCompletionOffersPropertyKeys() {
         val lookups = completionsAt("SELECT * FROM tasks(<caret>);")
         assertTrue("property key 'type' offered, got: $lookups", lookups.contains("type"))
-    }
-
-    fun testCompletionOffersPropertyKeysInsideQuotes() {
-        val lookups = completionsAt("SELECT * FROM iceberg_meta(\"query<caret>\");")
-        assertTrue("query_type offered, got: $lookups", lookups.contains("query_type"))
     }
 
     fun testCompletionOffersEnumValues() {
@@ -260,11 +239,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue("property key 'format' offered", lookups.contains("format"))
     }
 
-    fun testCompletionOffersPartialKeyInsideSingleQuotes() {
-        val lookups = completionsAt("SELECT * FROM iceberg_meta('query<caret>');")
-        assertTrue("query_type offered, got: $lookups", lookups.contains("query_type"))
-    }
-
     fun testCompletionOffersNextKeyAfterCommaInSingleQuotes() {
         // The exact dogfood shape: a later 'key' position after an existing 'uri' = '...' pair.
         val lookups = completionsAt("SELECT * FROM S3('uri' = 's3://acme-bucket/x.parquet', '<caret>');")
@@ -276,10 +250,6 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertTrue("enum values offered, got: ${lookups.take(20)}", lookups.containsAll(listOf("insert", "mv")))
     }
 
-    // --- Auto-popup confidence: the reason single-quoted keys "didn't offer" in practice was the
-    //     platform's SkipAutopopupInStrings suppressing auto-popup inside any string literal;
-    //     DorisTvfAutoPopupConfidence (order="first") answers NO inside a TVF's argument parens. ---
-
     private fun confidenceAt(sql: String): com.intellij.util.ThreeState {
         setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("a.sql", sql)
@@ -287,7 +257,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         val element = myFixture.file.findElementAt(offset)
             ?: myFixture.file.findElementAt(offset - 1)
             ?: error("no element at caret")
-        return DorisTvfAutoPopupConfidence().shouldSkipAutopopup(element, myFixture.file, offset)
+        return DorisCompletionConfidence().shouldSkipAutopopup(element, myFixture.file, offset)
     }
 
     fun testAutopopupNotSkippedInsideTvfPropertyString() {
@@ -297,23 +267,21 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
+    fun testAutopopupNotSkippedInsideDoubleQuotedTvfProperty() {
+        assertEquals(
+            com.intellij.util.ThreeState.NO,
+            confidenceAt("SELECT * FROM tasks(\"ty<caret>\");"),
+        )
+    }
+
     fun testAutopopupConfidenceEditorEntryPointDelegates() {
-        // The production auto-popup path calls the 4-arg (Editor) overload; its platform default
-        // must delegate to the 3-arg one we override. Pins that delegation on this platform build.
         setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
         myFixture.configureByText("a.sql", "SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');")
         val offset = myFixture.caretOffset
         val element = myFixture.file.findElementAt(offset) ?: myFixture.file.findElementAt(offset - 1)!!
         assertEquals(
             com.intellij.util.ThreeState.NO,
-            DorisTvfAutoPopupConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset),
-        )
-    }
-
-    fun testAutopopupNotSkippedInsideDoubleQuotedTvfProperty() {
-        assertEquals(
-            com.intellij.util.ThreeState.NO,
-            confidenceAt("SELECT * FROM tasks(\"ty<caret>\");"),
+            DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset),
         )
     }
 
@@ -332,21 +300,4 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCompletionOffersTvfNames() {
-        setSqlDialectMapping(project, null, DorisSqlDialect.INSTANCE)
-        myFixture.configureByText("c.sql", "SELECT * FROM iceberg<caret>;")
-        val items = myFixture.completeBasic()
-        if (items == null) {
-            // The single matching item was auto-inserted.
-            assertTrue(
-                "iceberg_meta auto-completed, got: ${myFixture.editor.document.text}",
-                myFixture.editor.document.text.contains("iceberg_meta")
-            )
-        } else {
-            assertTrue(
-                "iceberg_meta offered, got: ${items.map { it.lookupString }.take(20)}",
-                items.any { it.lookupString == "iceberg_meta" }
-            )
-        }
-    }
 }

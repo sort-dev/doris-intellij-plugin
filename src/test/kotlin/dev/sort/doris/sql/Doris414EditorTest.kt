@@ -5,7 +5,7 @@ import com.intellij.database.settings.DatabaseSettings
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.doris.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import org.apache.doris.sqlparser.DorisSqlParser
 
 /** Exercise the shipped grammar and the platform's caret execution chooser together. */
@@ -32,7 +32,7 @@ class Doris414EditorTest : BasePlatformTestCase() {
                 DorisSqlParser().parseStatement(sql)
                 val prefix = "SELECT 0;\n"
                 val text = "$prefix$sql;\nSELECT 99;"
-                val errors = DorisErrorAnnotator().doAnnotate(DorisErrorAnnotator.Input(text, false)).errors
+                val errors = DorisNativeValidation.errors(text, DorisNativeErrorProfile.verifyScript(text, pipes = false, brikk = false))
                 if (errors.isNotEmpty()) failures.add("Diagnostics for $sql: $errors")
                 val original = myFixture.configureByText("doris414.sql", text)
                 setSqlDialectMapping(project, original.virtualFile, DorisSqlDialect.INSTANCE)
