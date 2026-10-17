@@ -316,7 +316,7 @@ class SqlDialectPlugin : Plugin<Project> {
             embeddedComponents.set(embedded)
         }
         tasks.named("publishPlugin") { dependsOn(verifyDistribution, verifyRelease) }
-        buildPlugin.configure { dependsOn(release.map { if (it) listOf(verifyRelease) else emptyList() }) }
+        if (release.get()) buildPlugin.configure { dependsOn(verifyRelease) }
 
         val ideaVersion = extensions.getByType<IntelliJPlatformExtension>().pluginConfiguration.ideaVersion
         tasks.register<DogfoodZip>("dogfoodZip") {
