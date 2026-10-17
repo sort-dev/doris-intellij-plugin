@@ -50,7 +50,7 @@ jobs:
           path: build/reports/tests/
 
   # Plugin Verifier against the IDE builds pinned in build.gradle.kts (pluginVerification.ides), on demand.
-  # Releases run it locally before publishing; release-* pushes only build the ZIP (release.yml).
+  # release/<version> pushes run the strict API verifier in release.yml before publishing.
   #
   # Treat an unresolved-class failure here skeptically: local/CI verifyPlugin once reported
   # unresolved-class problems (grid classes, build 262) that JetBrains' own Marketplace verifier

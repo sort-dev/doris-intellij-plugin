@@ -267,9 +267,12 @@ A release build uses the version in `build.gradle.kts` unchanged and refuses sna
 # → build/distributions/doris-intellij-plugin-<version>.zip
 ```
 
-After a local release build is verified, pushing a `release-*` branch runs the shared release workflow
-(`.github/workflows/release.yml`): it builds with `-Prelease=true`, validates the ZIP and attaches that
-exact ZIP to the GitHub release `v<version>`. Publishing to JetBrains Marketplace is done by the owner.
+Commit release preparation to `main`, then create `release/<version>` from that commit. The shared
+workflow rejects a commit absent from main, builds with `-Prelease=true`, and runs API verification on
+IntelliJ 262 and 263. Only exact owner-confirmed internal usages in `api-usage-approvals.txt` are accepted;
+new call sites block the GitHub release. Complete experimental/internal reports are retained. Compatible
+alone is not Marketplace approval. The owner handles Marketplace uploads. Version 1.6.1 was withdrawn;
+its local ZIPs and tag are audit evidence, not release-ready artifacts.
 
 The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
 first build. Kotlin 2.4.10, JVM target 21.

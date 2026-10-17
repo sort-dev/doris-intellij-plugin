@@ -169,11 +169,18 @@ class SqlDialectPlugin : Plugin<Project> {
                         FailureLevel.OVERRIDE_ONLY_API_USAGES,
                         FailureLevel.NON_EXTENDABLE_API_USAGES,
                         FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
-                    ),
+                    ) + if (providers.gradleProperty("strictApiVerification").map(String::toBooleanStrict).getOrElse(false)) {
+                        listOf(FailureLevel.INTERNAL_API_USAGES, FailureLevel.EXPERIMENTAL_API_USAGES)
+                    } else emptyList(),
                 )
                 ides {
-                    create(provider { version("intellij-verifier-ides").split(' ') })
-                    create(extension.additionalVerifierIdes)
+                    val requestedIdes = providers.gradleProperty("verificationIdes")
+                    if (requestedIdes.isPresent) {
+                        create(requestedIdes.map { it.split(Regex("\\s+")).filter(String::isNotBlank) })
+                    } else {
+                        create(provider { version("intellij-verifier-ides").split(' ') })
+                        create(extension.additionalVerifierIdes)
+                    }
                 }
             }
             publishing {

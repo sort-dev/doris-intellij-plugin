@@ -1,0 +1,14 @@
+# Owner supplied Marketplace ignored-usage list on 2026-10-17: 11 Doris internal API usages.
+# Exact caller-specific mapping from the verifier report. No approval transfers to another plugin or class.
+# These entries permit known findings in the release gate; the full verifier reports remain unchanged.
+Internal interface com.intellij.database.introspection.DBIntrospector.Factory is referenced in dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.createIntrospector(com.intellij.database.introspection.DBIntrospectionContext arg0, com.intellij.database.Dbms arg1, com.intellij.database.model.ModelFactory arg2) : com.intellij.database.introspection.DBIntrospector is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.getVersion(com.intellij.database.model.ObjectKind arg0) : int is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isIncremental() : boolean is invoked in dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.isIncremental() : boolean.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isIncremental() : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isNative() : boolean is invoked in dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.isNative() : boolean.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isNative() : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isOutdatedCheckSupported(com.intellij.database.model.basic.BasicElement arg0) : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.isSupported(com.intellij.database.util.Version version) : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.supportsFragmentIntrospection() : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
+Internal method com.intellij.database.introspection.DBIntrospector.Factory.supportsMultilevelIntrospection() : boolean is overridden in class dev.sort.doris.catalog.DorisIntrospector.DorisIntrospectorFactory.
