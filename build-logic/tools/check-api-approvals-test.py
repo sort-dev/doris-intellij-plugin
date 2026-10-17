@@ -48,6 +48,16 @@ class ApprovalTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit.internal_usages(path)
 
+    def test_own_experimental_markers_block_even_when_internals_are_approved(self):
+        (self.report / 'experimental-api-usages.txt').write_text(
+            'Experimental API interface dev.brikk.house.sql.intellij.pipe.PipeDialect is referenced in plugin.Dialect. This interface may change.\n')
+        self.assertEqual(1, self.check([KNOWN], [KNOWN]))
+
+    def test_platform_experimental_findings_remain_a_separate_review_item(self):
+        (self.report / 'experimental-api-usages.txt').write_text(
+            'Experimental API interface com.intellij.database.dataSource.DatabaseConnectionInterceptor is referenced in plugin.Interceptor. This interface may change.\n')
+        self.assertEqual(0, self.check([KNOWN], [KNOWN]))
+
 
 if __name__ == '__main__':
     unittest.main()

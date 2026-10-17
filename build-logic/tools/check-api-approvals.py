@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 from pathlib import Path
+import re
 
 
 def internal_usages(path):
@@ -40,14 +41,19 @@ def audit(root, plugin_id, version, targets, approved):
         unapproved = uses - approved
         known = uses & approved
         experimental = report / 'experimental-api-usages.txt'
-        experimental_count = sum(bool(line.strip()) for line in experimental.read_text().splitlines()) if experimental.exists() else 0
+        experimental_rows = [line.strip() for line in experimental.read_text().splitlines() if line.strip()] if experimental.exists() else []
+        own_experimental = [line for line in experimental_rows if re.match(
+            r'Experimental API \S+ (?:dev\.brikk\.|dev\.sort\.)', line)]
         print(f'{target}: {sum(uses.values())} internal, {sum(known.values())} approved, '
-              f'{sum(unapproved.values())} unapproved; {experimental_count} experimental')
+              f'{sum(unapproved.values())} unapproved; {len(experimental_rows)} experimental '
+              f'({len(own_experimental)} on our APIs)')
         for finding, count in sorted(uses.items()):
             print(f'  {count}x {finding}')
         for finding, count in sorted(unapproved.items()):
             print(f'  UNAPPROVED {count}x {finding}')
-        failures += sum(unapproved.values())
+        for finding in own_experimental:
+            print(f'  OWN EXPERIMENTAL API: {finding}')
+        failures += sum(unapproved.values()) + len(own_experimental)
     return failures
 
 
@@ -64,4 +70,4 @@ if __name__ == '__main__':
     except ValueError as error:
         parser.exit(1, f'{error}\n')
     if failures:
-        parser.exit(1, f'{failures} unapproved internal API findings block release. Full reports are unchanged.\n')
+        parser.exit(1, f'{failures} unapproved internal or own-experimental API findings block release. Full reports are unchanged.\n')
