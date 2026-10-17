@@ -267,8 +267,9 @@ A release build uses the version in `build.gradle.kts` unchanged and refuses sna
 # → build/distributions/doris-intellij-plugin-<version>.zip
 ```
 
-Pushing a `release-*` branch runs the same release build in CI and publishes that exact ZIP as the
-GitHub release `v<version>`.
+After a local release build is verified, pushing a `release-*` branch runs the shared release workflow
+(`.github/workflows/release.yml`): it builds with `-Prelease=true`, validates the ZIP and attaches that
+exact ZIP to the GitHub release `v<version>`. Publishing to JetBrains Marketplace is done by the owner.
 
 The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
 first build. Kotlin 2.4.10, JVM target 21.

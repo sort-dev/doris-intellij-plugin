@@ -1,0 +1,14 @@
+name: Release
+
+on:
+  push:
+    branches: [ 'release-*' ]
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: sort-dev/intellij-sql-plugin-gradle-conventions/.github/workflows/release-plugin-zip.yml@6e77690f0bea7aee30faf3808de3e27b4f7e44fa
+    with:
+      plugin-id: dev.sort.doris-intellij-plugin
+      title: SQL Dialect for Apache Doris

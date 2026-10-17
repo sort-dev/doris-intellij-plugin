@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, froze-over, 'release-*' ]
+    branches: [ main, froze-over ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -32,9 +32,8 @@ jobs:
       - name: Test Brikk on newer Kotlin runtimes
         run: ./gradlew test262 test263 -Ptest.kotlin=present
 
-      # A release-* push builds in release mode: the version in build.gradle.kts unchanged, no snapshot libraries.
       - name: Build plugin
-        run: ./gradlew buildPlugin -Prelease=${{ github.event_name == 'push' && startsWith(github.ref_name, 'release-') }}
+        run: ./gradlew buildPlugin
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4
@@ -50,19 +49,16 @@ jobs:
           name: test-results
           path: build/reports/tests/
 
-  # Plugin Verifier against the IDE builds pinned in build.gradle.kts (pluginVerification.ides).
-  # Runs on every release-* push (and on demand) so a release can never again ship un-verified —
-  # the 0.5.0 cancel feature shipped with its verifier findings unseen because nobody re-ran this.
+  # Plugin Verifier against the IDE builds pinned in build.gradle.kts (pluginVerification.ides), on demand.
+  # Releases run it locally before publishing; release-* pushes only build the ZIP (release.yml).
   #
-  # Deliberately NOT a `needs:` gate for the release job: local/CI verifyPlugin once reported
+  # Treat an unresolved-class failure here skeptically: local/CI verifyPlugin once reported
   # unresolved-class problems (grid classes, build 262) that JetBrains' own Marketplace verifier
-  # and a real IDE run both contradicted — likely an EAP-vs-RC target-build difference. Treat an
-  # unresolved-class failure here skeptically: cross-check the Marketplace verification rows (and
-  # bump the pinned IU build to the current RC) before believing it. The red X on the release
-  # branch is the signal to do that BEFORE publishing to the Marketplace.
+  # and a real IDE run both contradicted — likely an EAP-vs-RC target-build difference. Cross-check
+  # the Marketplace verification rows (and bump the pinned IU build to the current RC) before believing it.
   verify:
     name: Plugin Verifier
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref_name, 'release-'))
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -86,51 +82,3 @@ jobs:
           name: plugin-verifier-reports
           path: build/reports/pluginVerifier/
           if-no-files-found: warn
-
-  release:
-    name: GitHub Release
-    needs: build
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'release-')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download plugin zip
-        uses: actions/download-artifact@v4
-        with:
-          name: plugin-zip
-          path: dist
-
-      - name: Read version from build.gradle.kts
-        id: ver
-        run: |
-          V=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts | head -1)
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "version: $V"
-
-      - name: Check the release ZIP
-        id: zip
-        env:
-          V: ${{ steps.ver.outputs.version }}
-        run: |
-          ZIP=$(python3 build-logic/tools/verify-release-zip.py dist dev.sort.doris-intellij-plugin "$V")
-          echo "path=$ZIP" >> "$GITHUB_OUTPUT"
-
-      - name: Create or update GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          V: ${{ steps.ver.outputs.version }}
-          ZIP: ${{ steps.zip.outputs.path }}
-        run: |
-          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v$V" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "v$V" "$ZIP" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "SQL Dialect for Apache Doris $V" \
-              --notes "Plugin zip for manual installation (Settings → Plugins → ⚙ → Install Plugin from Disk).
-          Built from \`$GITHUB_REF_NAME\` @ $GITHUB_SHA. See plugin.xml change-notes for details."
-          fi
