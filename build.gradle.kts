@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.6.0"
+version = "1.6.1"
 
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"
@@ -57,7 +57,7 @@ tasks.withType<Test>().configureEach {
     for (live in listOf("doris.live.url", "doris.live.driverJar", "realSql.dir", "realSql.coreDialects", "realSql.sharedOnly")) {
         providers.gradleProperty(live).orNull?.let { systemProperty(live, it) }
     }
-    systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-0.20.0-SNAPSHOT" else "jvm-0.6.0")
+    systemProperty("test.sqlTranspiler.coreArtifact", if (providers.gradleProperty("test.sqlTranspilerPluginZip").isPresent) "jvmMain-${libs.versions.brikk.sql.core.get()}" else "jvm-0.6.0")
 }
 
 intellijPlatformTesting.testIde.register("testBrikkGenerated") {

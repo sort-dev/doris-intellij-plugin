@@ -32,8 +32,9 @@ jobs:
       - name: Test Brikk on newer Kotlin runtimes
         run: ./gradlew test262 test263 -Ptest.kotlin=present
 
+      # A release-* push builds in release mode: the version in build.gradle.kts unchanged, no snapshot libraries.
       - name: Build plugin
-        run: ./gradlew buildPlugin
+        run: ./gradlew buildPlugin -Prelease=${{ github.event_name == 'push' && startsWith(github.ref_name, 'release-') }}
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4
@@ -109,18 +110,27 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "version: $V"
 
+      - name: Check the release ZIP
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          ZIP="dist/doris-intellij-plugin-${V}.zip"
+          ls dist
+          [ "$(ls dist/*.zip)" = "$ZIP" ] || { echo "expected exactly $ZIP (a release-mode build)"; exit 1; }
+          JAR="doris-intellij-plugin/lib/doris-intellij-plugin-${V}.jar"
+          unzip -p "$ZIP" "$JAR" > plugin.jar || { echo "no $JAR in $ZIP"; exit 1; }
+          unzip -p plugin.jar META-INF/plugin.xml | grep -q "<version>${V}</version>" || { echo "descriptor version is not $V"; exit 1; }
+
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.version }}
         run: |
-          ZIP=$(ls dist/*.zip | head -1)
-          RENAMED="dist/doris-intellij-plugin-${V}.zip"
-          mv "$ZIP" "$RENAMED"
+          ZIP="dist/doris-intellij-plugin-${V}.zip"
           if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v$V" "$RENAMED" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "v$V" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "v$V" "$RENAMED" \
+            gh release create "v$V" "$ZIP" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "SQL Dialect for Apache Doris $V" \

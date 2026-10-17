@@ -39,8 +39,8 @@ There is no live-connection requirement for recognizing binds.
 
 ## Shared helper
 
-Version 1.5.8 uses
-`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.2.0` from Maven Central.
+Version 1.6.1 uses
+`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.3.0` from Maven Central.
 The build does not use Maven Local.
 
 `BrikkDorisTemplate` delegates recognition and classification to
@@ -61,7 +61,7 @@ alongside `brikk column (src)` or the source alias. Generated navigation fallbac
 say `relation contract (src)`. This is display metadata, not a native SQL type.
 Native SQL suggestions keep the platform's insertion, qualification and navigation.
 Both SQL and PIPE use the shared `SqlColumnCompletion` formatter from
-`dev.brikk.house:brikk-sql-intellij-support:0.1.1`.
+`dev.brikk.house:brikk-sql-intellij-support:0.2.0`.
 
 PIPE completion reads the input shape of the completed prefix, so an incomplete
 current expression does not hide its inputs. Core lineage preserves labels through

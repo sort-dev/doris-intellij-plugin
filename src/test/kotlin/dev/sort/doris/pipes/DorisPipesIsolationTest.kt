@@ -28,7 +28,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.2.0.jar"))
         }
         for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
             "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver",
@@ -37,14 +37,14 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             "catalog.OutOfScopeReferenceFilter", "catalog.IntrospectNamespaceIntention", "catalog.CatalogImports")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0-SNAPSHOT.jar"))
+            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.2.0.jar"))
         }
         val verifier = dorisLoader.loadClass("dev.brikk.house.sql.verify.DorisVerifier")
         assertSame(dorisLoader, verifier.classLoader)
-        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-0.20.0-SNAPSHOT.jar"))
+        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-0.20.0.jar"))
         val verifyResult = dorisLoader.loadClass("dev.brikk.house.sql.verify.VerifyResult")
         assertSame(dorisLoader, verifyResult.classLoader)
-        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-0.20.0-SNAPSHOT.jar"))
+        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-0.20.0.jar"))
         val factory = verifier.getField("Companion").get(null)
         val native = factory.javaClass.getMethod("create", java.nio.file.Path::class.java).invoke(factory, null)
         val checkCanceled: () -> Unit = com.intellij.openapi.progress.ProgressManager::checkCanceled
@@ -54,7 +54,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         // Copied helper contracts may load in DataGrip; Kotlin-aware helper entry points must not.
         val families = dorisLoader.loadClass("dev.brikk.house.intellij.BrikkTypeFamilies")
         assertSame(dorisLoader, families.classLoader)
-        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.3.0-SNAPSHOT.jar"))
+        assertTrue(families.getResource("BrikkTypeFamilies.class").toString().contains("brikk-engine-kotlin-intellij-support-0.3.0.jar"))
         val family = families.getMethod("forClassId", String::class.java).invoke(families.getField("INSTANCE").get(null), "kotlin.String")
         assertEquals("TEXT", family.toString())
         val settingsType = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipesSettings")
@@ -73,7 +73,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.20.0-SNAPSHOT")
+            checkEngine(dorisLoader, "jvmMain-0.20.0")
             val profile = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipeDialect").getField("INSTANCE").get(null)
             val profileType = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeDialect")
             assertSame(dorisLoader, profileType.classLoader)

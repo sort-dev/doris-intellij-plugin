@@ -55,6 +55,20 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.1</b> - shared SQL editor support and on-demand catalog introspection.
+        <ul>
+            <li>Completion, highlighting, relation diagnostics, catalog references and PIPE execution
+                use the shared Brikk SQL IntelliJ support, with fewer false errors in derived tables,
+                CTEs and statements over external catalogs.</li>
+            <li>Completing or querying a catalog, database or table the model has not loaded introspects
+                just that namespace, also after Clear Introspection Data; a cleared data source gets the
+                default scope (<code>internal</code> loaded, other catalogs listed) without a manual tick.</li>
+            <li>Quick Documentation links Doris statements and clauses to the Doris documentation.</li>
+            <li>The <b>Doris PIPE</b> editor menu appears only where PIPE applies; its settings page is now
+                <b>Settings &rarr; Tools &rarr; Database &rarr; Apache Doris PIPE</b>.</li>
+            <li>Uses released Brikk SQL core/metadata/verifiers 0.20.0, Brikk SQL IntelliJ support 0.2.0
+                and Brikk Kotlin IntelliJ support 0.3.0.</li>
+        </ul>
         <b>1.5.8</b> - Brikk relation column completion presentation.
         <ul>
             <li>Shows Kotlin type names and nullability alongside <code>brikk column (src)</code>

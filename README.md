@@ -213,9 +213,9 @@ At execution time the plugin transpiles the pipe program to standard Doris SQL (
 the project's workspace settings. Apply refreshes existing Doris editors without
 changing their text or requiring an IDE restart.
 
-The plugin bundles Maven Local **brikk-sql engine and metadata 0.20.0-SNAPSHOT** and the
+The plugin bundles **brikk-sql engine and metadata 0.20.0** and the
 native **Doris 4.1.4 grammar**. Execute actions and script preparation use
-**brikk-sql-intellij-support 0.2.0-SNAPSHOT**. See the
+**brikk-sql-intellij-support 0.2.0**. See the
 [shared-support backport report](REVIEW-intellij-shared-extraction.md) and the
 [earlier grammar upgrade report](REVIEW-brikk-sql-0.16.0.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler
@@ -257,8 +257,18 @@ rather than copying independent global Execute overrides.
 
 ```bash
 ./gradlew buildPlugin
+# → build/distributions/doris-intellij-plugin-<version>-dev.<commit time>+<commit>.zip
+```
+
+A release build uses the version in `build.gradle.kts` unchanged and refuses snapshot libraries:
+
+```bash
+./gradlew -Prelease=true buildPlugin
 # → build/distributions/doris-intellij-plugin-<version>.zip
 ```
+
+Pushing a `release-*` branch runs the same release build in CI and publishes that exact ZIP as the
+GitHub release `v<version>`.
 
 The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
 first build. Kotlin 2.4.10, JVM target 21.
