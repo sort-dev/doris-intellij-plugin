@@ -260,9 +260,8 @@ rather than copying independent global Execute overrides.
 # → build/distributions/doris-intellij-plugin-<version>-dev.<commit time>+<commit>.zip
 ```
 
-The API-cleanup build targets support/test-kit 0.2.1, currently validated as local candidates.
-Default builds require those coordinates to be published on Central; local validation uses an explicit
-candidate repository override. Doris does not bundle the optional generic JDBC adapter.
+The API-cleanup build uses published support/test-kit 0.2.1 from Maven Central.
+No local candidate repository override is needed. Doris does not bundle the optional generic JDBC adapter.
 
 A release build uses the version in `build.gradle.kts` unchanged and refuses snapshot libraries:
 
@@ -275,8 +274,11 @@ Commit release preparation to `main`, then create `release/<version>` from that 
 workflow rejects a commit absent from main, builds with `-Prelease=true`, and runs API verification on
 IntelliJ 262 and 263. Only exact owner-confirmed internal usages in `api-usage-approvals.txt` are accepted;
 new call sites block the GitHub release. Complete experimental/internal reports are retained. Compatible
-alone is not Marketplace approval. The owner handles Marketplace uploads. Version 1.6.1 was withdrawn;
+alone is not Marketplace approval. The owner handles Marketplace uploads. GitHub release 1.6.1 was withdrawn;
 its local ZIPs and tag are audit evidence, not release-ready artifacts.
+
+The caller also accepts manual dispatch on `release/<version>` with the same checks. Use
+`gh workflow run release.yml --ref release/<version>` if a `[skip ci]` preparation commit skipped the push trigger.
 
 The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
 first build. Kotlin 2.4.10, JVM target 21.

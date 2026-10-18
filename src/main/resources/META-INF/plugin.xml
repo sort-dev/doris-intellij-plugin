@@ -55,6 +55,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.2</b> - API cleanup and SQL IntelliJ support 0.2.1.
+        <ul>
+            <li>Use the public datasource manager for introspection completion callbacks.</li>
+            <li>Remove the unused generic JDBC gate from the bundled common support library.</li>
+            <li>Preserve native Doris introspection, PIPE behavior and existing settings.</li>
+        </ul>
         <b>1.6.1</b> - shared SQL editor support and on-demand catalog introspection.
         <ul>
             <li>Completion, highlighting, relation diagnostics, catalog references and PIPE execution
