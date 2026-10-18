@@ -337,6 +337,48 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         assertHasInfo(infos, "Unknown column 'item'")
     }
 
+    // --- Unknown functions: Doris built-ins quiet, misspelled names flagged before running ---
+
+    fun testDorisBuiltinFunctionsQuiet() {
+        val infos = highlight(
+            "SELECT date_trunc(FROM_SECOND(1700000000), 'day') AS d, BITMAP_COUNT(BITMAP_EMPTY()) AS b, count(*) AS cnt;",
+        )
+        assertNoInfo(infos, UNKNOWN_FUNCTION)
+    }
+
+    fun testUnknownFunctionReported() {
+        val infos = highlight(
+            "SELECT date_trunc_ffo(FROM_SECOND(1700000000), 'day') AS d, count(*) AS cnt;",
+        )
+        assertHasInfo(infos, "$UNKNOWN_FUNCTION 'date_trunc_ffo'")
+        assertNoInfo(infos, "$UNKNOWN_FUNCTION 'FROM_SECOND'")
+    }
+
+    fun testUnknownFunctionReportedUnderReplay() {
+        val infos = highlight("SELECT acme_no_such_fn(1) AS x;", replay = true)
+        assertHasInfo(infos, "$UNKNOWN_FUNCTION 'acme_no_such_fn'")
+    }
+
+    fun testQualifiedUdfCallQuiet() {
+        val infos = highlight("SELECT acme_db.acme_udf(1) AS x;")
+        assertNoInfo(infos, UNKNOWN_FUNCTION)
+    }
+
+    fun testServerOnlyFunctionQuietAfterHarvest() {
+        val catalog = DorisFunctionCatalogFixture(testRootDisposable)
+        val psi = myFixture.configureByText("live.sql", "SELECT acme_server_fn(1) AS x, acme_missing_fn(1) AS y;")
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.RecordingConsole(project, psi.virtualFile, "doris").use { recording ->
+            catalog.harvest(recording.console.dataSource, listOf("ABS", "ACME_SERVER_FN"))
+            val infos = myFixture.doHighlighting()
+                .filter { it.severity >= HighlightSeverity.WEAK_WARNING && it.description != null }
+            assertNoInfo(infos, "$UNKNOWN_FUNCTION 'acme_server_fn'")
+            assertHasInfo(infos, "$UNKNOWN_FUNCTION 'acme_missing_fn'")
+        }
+        catalog.errors.awaitScopes()
+        catalog.errors.assertNone()
+    }
+
     // --- guard: ordinary wrong column names keep their error (no over-suppression) ---
 
     fun testGenuineUnresolvedColumnStaysRed() {
@@ -405,5 +447,6 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         const val COUNT_MISMATCH = "value(s) expected, got"
         const val UNION_COUNT_MISMATCH = "operands should have the same number of columns"
         const val AMBIGUOUS_COLUMN = "Ambiguous column reference"
+        const val UNKNOWN_FUNCTION = "Unknown database function"
     }
 }

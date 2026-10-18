@@ -23,14 +23,15 @@ import dev.sort.doris.pipes.DorisPipes
  * Suppresses DataGrip's semantic false-positives on Doris built-ins in Doris files:
  *  - "Unable to resolve object type 'X'" — Doris types (JSON, VARIANT, BITMAP, HLL, LARGEINT,
  *    AGG_STATE, ARRAY/MAP/STRUCT, ...) that the SQL92 substrate parses as unknown object types.
- *  - "Unknown database function 'X'" — Doris built-in functions. SqlResolveInspection resolves
- *    function calls against the introspected data-source model (ObjectKind.ROUTINE via
- *    processNameIndex), NOT the dialect's getSupportedFunctions() registry, so Doris built-ins are
- *    never found there and can't be registered into it.
+ *  - "Unknown database function 'X'" — only when X is a Doris built-in (bundled metadata or the
+ *    connected server's list) or a qualified UDF call. SqlResolveInspection resolves function
+ *    calls against MySQL's function map and the introspected model (ObjectKind.ROUTINE), neither of
+ *    which holds Doris built-ins. Any other name stays flagged, so a misspelled function shows up
+ *    before the query runs.
  *
- * Both are safe to drop: nothing authoritatively validates these anyway (fe-sql-parser is
- * syntax-only; the DB model doesn't expose Doris built-ins). Unresolved *tables/columns* still
- * highlight normally, and fe-sql-parser ([DorisErrorAnnotator]) still catches real syntax errors.
+ * The type rule is safe to drop: fe-sql-parser is syntax-only and the DB model doesn't expose
+ * Doris types. Unresolved *tables/columns* still highlight normally, and fe-sql-parser
+ * ([DorisErrorAnnotator]) still catches real syntax errors.
  *
  * ## Table-valued functions (narrowly scoped "Unable to resolve column" suppression)
  * Two TVF-only contexts additionally drop unresolved-COLUMN errors ([isTvfFalsePositive]):
@@ -77,6 +78,7 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             return false
         }
         if (SUPPRESSED_PREFIXES.any { description.contains(it) }) return false
+        if (description.contains(UNKNOWN_FUNCTION) && isKnownDorisFunction(file, highlightInfo)) return false
         // P0 (dogfood 2026-07-08): "N value(s) expected, got M" (SqlInsertValuesInspection) is
         // structurally wrong whenever the feeding query contains `* EXCEPT(...)`: the EXCEPT list is
         // lexer-masked (DorisLexer), so the platform expands `*` to ALL source columns and the counts
@@ -152,6 +154,24 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         val qualifier = ref.qualifierExpression as? SqlReferenceExpression ?: return false
         val das = qualifier.reference?.resolve() as? com.intellij.database.model.DasObject ?: return false
         return dev.sort.doris.catalog.DorisOutOfScope.classify(das) == dev.sort.doris.catalog.DorisOutOfScope.Classification.OUT_OF_SCOPE
+    }
+
+    /**
+     * The platform only knows functions from MySQL's map and the introspected model, so a Doris
+     * built-in (bundled metadata or the connected server's `SHOW BUILTIN FUNCTIONS`) is a false
+     * positive. Qualified calls (`db.fn()`) are UDFs, which nothing here can enumerate.
+     */
+    private fun isKnownDorisFunction(file: PsiFile, info: HighlightInfo): Boolean {
+        val element = file.findElementAt(info.startOffset) ?: return true
+        val ref = PsiTreeUtil.getParentOfType(element, SqlReferenceExpression::class.java, false)
+        if (ref?.qualifierExpression != null || ref?.parent is SqlReferenceExpression) return true
+        val name = (QUOTED_NAME.find(info.description)?.groupValues?.get(1)
+            ?: file.text.substring(info.startOffset, info.endOffset)).trim().trim('`')
+        if (name.isEmpty()) return true
+        return name.uppercase() in BASELINE_FUNCTIONS ||
+            DorisCompletionProfile.functions(file).any { it.name.equals(name, ignoreCase = true) } ||
+            DorisCompletionProfile.serverOnlyFunctions(file).any { it.name.equals(name, ignoreCase = true) } ||
+            DorisTableFunctions.byName(name) != null
     }
 
     /** DORIS PIPES: is the highlight inside a token-aware pipe chunk? */
@@ -502,8 +522,12 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
         // Match on the stable leading phrase of each message (the '{0}' quoted name varies).
         private val SUPPRESSED_PREFIXES = listOf(
             "Unable to resolve object type", // Doris types unknown to the SQL92 substrate
-            "Unknown database function",     // Doris built-ins absent from the introspected model
             "Unable to resolve partition",   // Doris introspection loads no partitions, so none can resolve
         )
+
+        // SqlResolveInspection: "Unknown database function '{0}'"; see isKnownDorisFunction.
+        private const val UNKNOWN_FUNCTION = "Unknown database function"
+        private val QUOTED_NAME = Regex("""'([^']+)'""")
+        private val BASELINE_FUNCTIONS by lazy { DorisCompletionProfile.baseline.mapTo(HashSet()) { it.name.uppercase() } }
     }
 }
