@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.sort.doris"
-version = "1.6.2"
+version = "1.6.3"
 
 require(!providers.gradleProperty("b1.provider").isPresent) {
     "Use -Ptest.sqlTranspiler=installed|absent; SQL Transpiler is no longer a library provider"

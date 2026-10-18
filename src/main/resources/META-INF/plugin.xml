@@ -55,6 +55,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.3</b> - user-facing docs, unknown functions and SQL Transpiler scratches.
+        <ul>
+            <li>Unknown function calls are flagged in the editor instead of hidden; Doris built-ins, the connected server's functions and table functions stay quiet, as do qualified (UDF) calls.</li>
+            <li>Engine errors for this dialect's blocks in SQL Transpiler <code>.bsql</code> scratches, and its completion and catalog features resolve against the block's own <code>using=</code> connection (SQL IntelliJ support 0.2.2).</li>
+            <li>A user-facing README and plugin description.</li>
+        </ul>
         <b>1.6.2</b> - API cleanup and SQL IntelliJ support 0.2.1.
         <ul>
             <li>Use the public datasource manager for introspection completion callbacks.</li>
