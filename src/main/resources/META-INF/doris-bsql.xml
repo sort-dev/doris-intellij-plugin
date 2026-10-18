@@ -1,0 +1,7 @@
+<idea-plugin>
+    <!-- SQL Transpiler's .bsql blocks inject this dialect; external annotators never run on
+         injected fragments, so the engine errors of those blocks are annotated from the host. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <externalAnnotator language="BrikkSQL" implementationClass="dev.sort.doris.sql.DorisErrorAnnotator"/>
+    </extensions>
+</idea-plugin>

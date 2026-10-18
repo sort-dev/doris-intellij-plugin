@@ -1,5 +1,6 @@
 package dev.sort.doris.sql
 
+import com.intellij.lang.Language
 import com.intellij.openapi.components.service
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiFile
@@ -29,6 +30,8 @@ object DorisNativeErrorProfile : NativeErrorProfile {
     override val dialect = "doris"
     override val label = "Doris"
     override val unit = VerificationUnit.File
+    // Blocks of SQL Transpiler's polyglot .bsql files.
+    override val injectionHosts get() = setOfNotNull(Language.findLanguageByID("BrikkSQL"))
     override val hostSql get() = DorisHostSqlChannel
     private data class Context(val brikk: Boolean, val pipes: Boolean)
     private val contextKey = Key.create<Context>("doris.native.errors.context")
