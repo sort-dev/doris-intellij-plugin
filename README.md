@@ -127,12 +127,12 @@ supported. Preview still shows you the SQL and the reason.
 
 - [ClickHouse SQL](https://github.com/sort-dev/clickhouse-intellij-plugin) dialect for JetBrains
   IDEs.
-- [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
-  dialects in JetBrains IDEs. You don't need it for Doris PIPE.
 - [DuckDB SQL](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
-  dialect for JetBrains IDEs.
+  dialect for JetBrains IDEs, for embedded DuckDB and Quack servers.
 - [Trino SQL](https://plugins.jetbrains.com/plugin/33124-sql-dialect-for-trino) dialect for
   JetBrains IDEs.
+- [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
+  dialects in JetBrains IDEs. You don't need it for Doris PIPE.
 - [Trino Doris connector](https://github.com/brikk/trino-doris-connector) lets Trino query Doris.
 - [Trino DuckLake catalog](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
   with read and write support.
