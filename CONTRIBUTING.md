@@ -45,8 +45,17 @@ MySQL gets wrong.
 3. **Shadow replay.** Statements are parsed with Doris's own ANTLR grammar and replayed onto the
    IDE's parse tree. Anything it can't type cleanly falls back to the lenient path.
 
-Multi-catalog introspection, table function completion, query cancel and PIPE sit on top. Each
-has a VM option to switch it off (see the README).
+Multi-catalog introspection, table function completion, query cancel and PIPE sit on top. These
+VM options switch features off:
+
+| VM option | Effect |
+|---|---|
+| `-Ddoris.catalogs.experimental=false` | Flat MySQL-style tree instead of the catalog tree |
+| `-Ddoris.cancel.experimental=false` | The IDE's stock Stop button behavior |
+| `-Ddoris.replay.poc=false` | No shadow replay; lenient parsing only |
+| `-Ddoris.pipes=false` | PIPE off everywhere, whatever the project setting says |
+
+Toggling the catalog flag clears each Doris data source's cached model once on the next IDE start.
 
 ### Libraries
 

@@ -12,10 +12,9 @@ multi-catalog database tree, and a Stop button that actually stops your query.
 
 ## Why
 
-Doris speaks the MySQL protocol, so you can point DataGrip's MySQL support at it. But the MySQL
-parser misreads a lot of real Doris SQL. The worst symptom is broken statement boundaries, so
-"run statement at caret" runs the wrong thing. This plugin fixes that and adds the Doris-specific
-pieces MySQL support doesn't have.
+The IDE's built-in MySQL support can connect to Doris, but it knows nothing about Doris SQL, which
+differs a lot from MySQL. This plugin adds a full Doris dialect and brings Doris catalogs and
+function information into the IDE.
 
 ## Features
 
@@ -122,27 +121,12 @@ supported. Preview still shows you the SQL and the reason.
 - **DDL generation from the database tree is off** while the catalog tree is on. The IDE's model
   can't represent Doris table properties, so generated scripts would be wrong. Use
   `SHOW CREATE TABLE` instead.
-- `SELECT * EXCEPT(…)` no longer shows false errors, but the editor still treats the excluded
-  columns as visible to later references.
 - File table functions (`s3()`, `hdfs()`, …) don't offer output columns.
-
-## Turning features off
-
-The catalog tree, query cancel and detailed DDL parsing are on by default. If one causes trouble,
-add a VM option (**Help → Edit Custom VM Options…**) and restart:
-
-| VM option | Effect |
-|---|---|
-| `-Ddoris.catalogs.experimental=false` | Flat, single-level tree like MySQL instead of the catalog tree |
-| `-Ddoris.cancel.experimental=false` | Uses the IDE's normal Stop button behavior |
-| `-Ddoris.replay.poc=false` | Turns off the detailed parsing inside DDL bodies |
-| `-Ddoris.pipes=false` | Disables PIPE everywhere, whatever the project setting says |
-
-Switching the catalog tree on or off clears each Doris data source's cached tree once. It reloads
-on the next connect or refresh. Your connection settings and schema choices stay as they were.
 
 ## Related plugins and tools
 
+- [ClickHouse SQL](https://github.com/sort-dev/clickhouse-intellij-plugin) dialect for JetBrains
+  IDEs.
 - [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
   dialects in JetBrains IDEs. You don't need it for Doris PIPE.
 - [DuckDB SQL](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
