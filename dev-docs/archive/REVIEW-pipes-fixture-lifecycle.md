@@ -86,7 +86,7 @@ launcher was `/home/jayson/.local/share/mise/installs/java/21.0.2/bin/java`.
 The isolated-worker commands follow the
 [upgrade reproduction procedure](REVIEW-brikk-sql-0.14.0.md#local-reproduction).
 The 262 checks follow the
-[runtime procedure](PIPE-EXECUTION-CONTRACT.md#verification-commands), retaining
+[runtime procedure](../PIPE-EXECUTION-CONTRACT.md#verification-commands), retaining
 the six compile/instrument exclusions and using the already compiled 261 classes.
 The 111 targeted tests cover action wiring, settings, engine upgrades, boundaries,
 and execution safety. The 25-test execution worker includes the warm-cache

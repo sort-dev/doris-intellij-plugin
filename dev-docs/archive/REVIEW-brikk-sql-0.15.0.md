@@ -116,7 +116,7 @@ mise exec -- ./gradlew cleanTest test --no-build-cache --console=plain
 Companion aggregate checks add `-Ptest.sqlTranspiler=absent` or `installed`.
 The isolated-worker and explicit Java 21 checks retain the init scripts described
 in the [0.14.0 review](REVIEW-brikk-sql-0.14.0.md#local-reproduction).
-The [execution contract](PIPE-EXECUTION-CONTRACT.md#verification-commands)
+The [execution contract](../PIPE-EXECUTION-CONTRACT.md#verification-commands)
 documents the 262 runtime and classloader commands. Packaging used:
 
 ```bash

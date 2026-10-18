@@ -1,58 +1,89 @@
 # Contributing
 
-Thanks for your interest. This is an independent, third-party JetBrains plugin for Apache Doris
-(see the [README](README.md) for the non-affiliation notice). Bug reports with **genericized** SQL
-are especially welcome — real, hostile SQL is how this plugin got good.
+Thanks for helping out. Bug reports with real-world SQL are the most useful thing you can send.
+Please anonymize table and schema names first.
 
-## Build & test
+## Setup
+
+- JDK 21 (`mise install` picks up the version from `mise.toml`).
+- Nothing else. Gradle downloads the IntelliJ IDEA 2026.1 SDK on the first build.
+- You don't need a Doris server for the normal test suite.
+
+## Everyday commands
 
 ```bash
-./gradlew buildPlugin   # → build/distributions/doris-intellij-plugin-<version>.zip
-./gradlew test          # without the optional Kotlin host (light platform fixture, no IDE install needed)
+./gradlew buildPlugin          # zip in build/distributions/
+./gradlew test                 # headless test suite
+./gradlew test --rerun-tasks   # force a rerun when Gradle says "up-to-date"
+./gradlew verifyPlugin         # binary compatibility check against 2026.1 to 2026.3
+./gradlew runIde               # sandbox IDE with the plugin installed
 ```
 
-The plugin's Doris function catalog comes from `dev.brikk.house:brikk-sql-metadata-jvm`. Snapshot
-versions resolve only from Maven Local; matching snapshots must be published there before building.
-Released artifacts resolve from Maven Central.
-- **JVM 21**, **Kotlin 2.4.10**, JetBrains IntelliJ Platform Gradle plugin. The IntelliJ IDEA 2026.1 SDK
-  is downloaded automatically on first build.
-- The suite runs against a headless platform fixture; it does **not** need a running Doris server.
-- One artifact targets the **261** (2026.1), **262** (2026.2) and **263** (2026.3) platform lines. Before
-  changing anything near the database metadata model, run `./gradlew verifyPlugin` — it checks the
-  plugin against all three generations and must report **zero compatibility problems**.
+Run `verifyPlugin` before touching anything near the database metadata model. It must report zero
+compatibility problems. One plugin zip serves IDE builds 261, 262 and 263. `test262` and
+`test263` run the suite on the newer IDE builds.
 
-> Note: the Gradle `test` task can report *up-to-date* and skip re-running after some changes. When
-> in doubt, `./gradlew test --rerun-tasks` and read the counts from `build/test-results/`.
+Other useful options:
 
-## How it's built (the short version)
+- `-Pgolden.record=true` re-records the golden parse trees. Review the diff before committing.
+- `-Ptest.kotlin=present` also runs the Kotlin-host tests for
+  [Brikk-house editing](dev-docs/BRIKK-HOUSE.md).
+- `scripts/doris-live.sh` starts a throwaway Doris container in Docker and runs the live
+  introspection tests against it.
+- `runIdeNoCatalogs`, `runIdeNoReplay` and friends start the sandbox IDE with a feature flag off.
 
-Doris speaks the MySQL wire protocol, so the dialect is built on the platform's MySQL foundation and
-corrects what MySQL gets wrong for Doris. Three ideas do most of the work:
+## How the plugin works
 
-1. **Lexer masking** — Doris-only tokens the MySQL grammar would choke on (`* EXCEPT(…)`,
-   `INSERT OVERWRITE`, cast targets like `LARGEINT`) are masked at the lexer so statement/run-block
-   boundaries stay correct.
-2. **The golden corpus** — `src/test/resources/corpus/**` holds real SQL constructs; for each we
-   record the platform's own PSI tree as the specification (`src/test/resources/golden/**`).
-   Re-record after an intentional change with `-Pgolden.record=true` and review the diff. This is
-   how we keep parity with the platform and prove we never break ordinary SQL.
-3. **Shadow-replay (native typed parsing)** — statements are parsed with Doris's own vendored ANTLR
-   grammar and replayed onto the platform's PSI, with expression spans delegated back to the MySQL
-   parser. It rolls back to the lenient path on anything it can't cleanly type, so it is never worse
-   than the fallback. (Background: `RESEARCH-when-hell-freezes-over-parser.md`, `POSTERITY.md`.)
+Doris speaks the MySQL protocol, so the dialect builds on the IDE's MySQL support and fixes what
+MySQL gets wrong.
 
-Multi-catalog introspection, table-valued-function completion, and reliable query cancel are layered
-on top; each is behind a flag that defaults on (see the README's flag table for the escape hatches).
+1. **Lexer masking.** Doris-only tokens that would confuse the MySQL grammar (`* EXCEPT(…)`,
+   `INSERT OVERWRITE`, `LARGEINT`, …) are masked in the lexer so statement boundaries stay right.
+2. **Golden corpus.** `src/test/resources/corpus/` holds real SQL constructs. For each one we
+   record the IDE's own parse tree in `src/test/resources/golden/` as the expected result. This
+   proves ordinary SQL keeps parsing the way the IDE parses it.
+3. **Shadow replay.** Statements are parsed with Doris's own ANTLR grammar and replayed onto the
+   IDE's parse tree. Anything it can't type cleanly falls back to the lenient path.
+
+Multi-catalog introspection, table function completion, query cancel and PIPE sit on top. Each
+has a VM option to switch it off (see the README).
+
+### Libraries
+
+- Doris PIPE translation and the Doris function catalog come from the `dev.brikk.house:brikk-sql-*`
+  libraries on Maven Central. Versions live in `build-logic/gradle/libs.versions.toml`.
+- Doris's SQL parser isn't published upstream, so we vendor a pinned build in `vendor/lib/`.
+  [vendor/README.md](vendor/README.md) has the commit and rebuild steps.
+- The shared build setup in `build-logic/` is vendored from the conventions repo. See
+  `build-logic/VENDORED-FROM`.
 
 ## Conventions
 
-- **Genericize identifiers** in tests, corpus files, and issues — use `acme_*`, never real
-  company/schema names.
-- New parser behavior comes with a corpus file (both dialect goldens recorded) and, where it affects
-  boundaries or resolution, a regression test.
-- Keep flag-off behavior equivalent to the shipped fallback; new features go behind their flag.
+- Use made-up identifiers (`acme_*`) in tests, corpus files and issues, never real company or
+  schema names.
+- New parser behavior needs a corpus file with its golden recorded. If it affects statement
+  boundaries or resolution, add a regression test too.
+- New features go behind a flag. With the flag off, behavior must match what already shipped.
 
-## The bundled Doris parser
+## Releasing
 
-The plugin vendors a point-in-time build of Doris's `fe-sql-parser` (unpublished upstream); see
-[`vendor/README.md`](vendor/README.md) for the pinned commit and rebuild steps.
+Maintainers only.
+
+1. Set the version in `build.gradle.kts` and commit to `main`.
+2. Create a `release/<version>` branch from that commit and push it. If the commit has `[skip ci]`,
+   start the workflow by hand with `gh workflow run release.yml --ref release/<version>`.
+3. The workflow builds with `-Prelease=true`, which keeps the version as-is and refuses snapshot
+   libraries. It also runs API verification on IDE builds 262 and 263.
+4. New internal or experimental IDE API usages fail the release unless they're listed in
+   `api-usage-approvals.txt` with owner approval.
+5. The owner uploads to the JetBrains Marketplace. Passing verification doesn't mean Marketplace
+   will accept the plugin.
+
+GitHub release 1.6.1 was withdrawn. Its local zips and tag are kept as audit evidence only.
+
+## Developer docs
+
+- [`dev-docs/`](dev-docs/) has design research, the
+  [PIPE execution contract](dev-docs/PIPE-EXECUTION-CONTRACT.md) for other plugin authors, and
+  IDE compatibility notes.
+- [`dev-docs/archive/`](dev-docs/archive/) keeps old reviews, upgrade reports and dogfood notes.

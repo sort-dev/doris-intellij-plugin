@@ -6,10 +6,10 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 ## Embedded library and enablement
 
-[B22](REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
+[B22](archive/REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
 `dev.brikk.house:brikk-sql-jvm:0.20.0` and `brikk-sql-metadata-jvm:0.20.0`, both
-from Maven Central. The [0.16 upgrade report](REVIEW-brikk-sql-0.16.0.md)
+from Maven Central. The [0.16 upgrade report](archive/REVIEW-brikk-sql-0.16.0.md)
 records earlier Doris 4.1.4 coverage and intentional unsafe-boundary refusals.
 Plugin 1.6.1 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.2.0` from
 Central. `CooperativeExecuteConfiguration`, `CooperativeExecuteAction` and
@@ -54,7 +54,7 @@ In 0.15.0, invalid pipe pagination uses these existing typed errors. Unexpanded
 Doris PIPE RENAME also refuses instead of returning invalid SQL. The engine's
 schema-aware rename API is tested separately; the plugin does not yet supply a
 catalog to its execution path. The plugin-side B3/B10 safeguards are described in
-[the execution safety report](REVIEW-pipes-B3-B10.md).
+[the execution safety report](archive/REVIEW-pipes-B3-B10.md).
 
 The per-project checkbox under Settings > Tools > Database > Apache Doris PIPE defaults off.
 It is stored in workspace.xml, not inferred from installed plugins. The legacy
@@ -68,7 +68,7 @@ brikk AST, metadata, or transpilation-result objects between plugins. B1's share
 boundary uses platform action types, not brikk-specific types. Share the published
 library code, not copies of SQL Transpiler's implementation.
 
-[B23](REVIEW-pipes-2026-09-05.md#b23-project-dependency-driven-pipe-auto-enablement)
+[B23](archive/REVIEW-pipes-2026-09-05.md#b23-project-dependency-driven-pipe-auto-enablement)
 records later project-dependency-driven auto-enablement. Its dependency signal,
 scope, and interaction with explicit user choices are TBD. It is not part of B22.
 

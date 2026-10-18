@@ -104,7 +104,7 @@ mise exec -- ./gradlew buildPlugin verifyEmbeddedPipes verifyPlugin
 
 `cleanTest` plus `--no-build-cache` ensured the selected tests actually ran.
 
-The 262 commands followed the [runtime procedure](PIPE-EXECUTION-CONTRACT.md#verification-commands)
+The 262 commands followed the [runtime procedure](../PIPE-EXECUTION-CONTRACT.md#verification-commands)
 with `-Pdoris.localIde=/home/jayson/.local/share/JetBrains/Toolbox/apps/datagrip`.
 Test filters named concrete test classes. An initial `pipes.*` wildcard also
 collected the non-test nested `DorisPipesActionTest$PeerAction` helper, and mixing

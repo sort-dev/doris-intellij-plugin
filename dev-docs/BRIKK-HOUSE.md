@@ -70,7 +70,7 @@ with explicit unknown-type/nullability text instead of borrowing an input proper
 Kotlin type. Metadata caches contain copied display facts and invalidate on trait edits.
 
 The earlier snapshot migration is recorded in
-[consumer validation results](BRIKK-SHARED-HELPER-VALIDATION.md). This plugin does
+[consumer validation results](archive/BRIKK-SHARED-HELPER-VALIDATION.md). This plugin does
 not publish the shared library or execute relation templates.
 
 ## Limits

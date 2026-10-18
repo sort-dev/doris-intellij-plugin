@@ -1,186 +1,92 @@
 # Apache Doris support for DataGrip & IntelliJ IDEA
 
-A JetBrains IDE plugin that adds first-class [Apache Doris](https://doris.apache.org/) support to
-DataGrip and IntelliJ IDEA Ultimate: a Doris SQL dialect, a ready-to-use data-source/driver
-template, and Doris-accurate editing that the built-in MySQL support gets wrong.
+A plugin that adds a real [Apache Doris](https://doris.apache.org/) SQL dialect to DataGrip and
+IntelliJ IDEA Ultimate. It gives you correct statement boundaries, Doris-aware completion, a
+multi-catalog database tree, and a Stop button that actually stops your query.
 
 > [!IMPORTANT]
-> **Not affiliated with Apache Doris.** This is an independent, third-party plugin developed by
-> Sortdev SRL. It is **not** developed, endorsed, sponsored by, or officially part of the Apache
-> Doris project or the Apache Software Foundation (ASF). "Apache Doris", the Doris name, and the
-> Doris logo are trademarks of the ASF; they are used here only to identify the database this plugin
-> integrates with (nominative use). For the official project, see
-> [doris.apache.org](https://doris.apache.org/).
+> **Not affiliated with Apache Doris.** This is an independent plugin by Sortdev SRL. It is not
+> developed, endorsed or sponsored by the Apache Doris project or the Apache Software Foundation.
+> "Apache Doris" and the Doris logo are ASF trademarks, used here only to name the database this
+> plugin works with.
 
 ## Why
 
-Doris speaks the MySQL wire protocol, so you *can* point DataGrip's MySQL support at it — but the
-MySQL parser mis-handles a lot of real Doris SQL, most visibly by **breaking statement/run-block
-boundaries** so "run statement at caret" grabs the wrong thing. This plugin adds a dedicated
-`DorisSQL` dialect (built on the MySQL foundation) that keeps those boundaries correct and layers on
-Doris-specific completion and validation.
-
-Part of our SQL-tooling family alongside:
-
-* [**Trino - Doris connector** allowing Trino to access your Doris data](https://github.com/brikk/trino-doris-connector)
-* [**SQL Dialect Transpiler** for various datalake dialects and DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
-* [**DuckDB SQL** (embedded+Quack) for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
-* [**Trino SQL Dialect** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33124-sql-dialect-for-trino)
-* [**Trino native DuckLake Catalog** with full Read/Write support](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
-* [**Trino Duckbridge** - remote access to DuckDB via Quack](https://github.com/brikk/duckbridge)
-* [**brikk-house** - Data engineering platform](https://github.com/brikk/brikk-house) (coming soon)
+Doris speaks the MySQL protocol, so you can point DataGrip's MySQL support at it. But the MySQL
+parser misreads a lot of real Doris SQL. The worst symptom is broken statement boundaries, so
+"run statement at caret" runs the wrong thing. This plugin fixes that and adds the Doris-specific
+pieces MySQL support doesn't have.
 
 ## Features
 
-Explain Plan now accepts only builtin-safe queries, not DDL/DML, pending live Doris evidence that broader planning is read-only.
-
-- **Correct statement & run-block boundaries** for Doris constructs the MySQL grammar mis-parses:
-  `CREATE [OR REPLACE] VIEW` bodies with modern SQL, multi-line window functions (`… OVER (…)`),
-  `SELECT * EXCEPT(…)`, `QUALIFY`, `INSERT OVERWRITE`, `DISTRIBUTED BY` / `PROPERTIES` DDL,
-  materialized views, `CREATE JOB`, and more.
-- **Multi-catalog database tree** (default on): Doris external catalogs (Hive, Iceberg, JDBC, …)
-  appear as a real `catalog → database → table` hierarchy with three-part reference resolution and
-  a stepped console switcher. See [External catalogs](#external-catalogs-multi-catalog-tree--on-by-default-since-030).
-- **Table-valued-function completion**: `tasks()`, `jobs()`, `mv_infos()`, `partitions()`,
-  `backends()`, … complete their property keys and enum values, and their output columns resolve —
-  including schema-by-argument (`tasks("type"="mv")`). File TVFs (`s3()`, `hdfs()`, …) stay quiet
-  without fabricating columns.
-- **Reliable query cancel** (default on): the Stop button actually kills the running Doris query,
-  even behind a load balancer — and with several console windows on the same data source, each
-  Stop kills exactly its own console's query (0.6.0).
-  See [Reliable query cancel](#reliable-query-cancel--on-by-default-since-050).
-- **Doris PIPE** (0.7.0, optional): write queries supported by Doris PIPE syntax in Doris consoles and run them
-  against any Doris — transpiled to standard SQL at execution time, with per-stage completion,
-  run-to-stage, generated-SQL preview, and errors mapped back to the pipe line you wrote. Execute
-  variants keep their configured statement/script scope, new-tab behavior, parameter prompting,
-  and console ownership when ordinary SQL and pipe statements are mixed.
-  Enable it per project in **Settings → Tools → Database → Apache Doris PIPE**; it defaults off.
-  See [Doris PIPE](#doris-pipe--pipe-syntax-sql-optional-since-070).
-- **Brikk-house Kotlin editing**: recognized `Sql.doris` calls inside `@BrikkSql` automatically
-  enable pipe parsing and treat scalar Kotlin interpolations as SQL binds, preserving Kotlin
-  references. Kotlin support is optional. See [Brikk-house editing](BRIKK-HOUSE.md) for scope and limits.
-- **Automatic targeted introspection** (0.7.0): reference a table in a catalog or schema that
-  hasn't been introspected yet and the plugin widens the introspection scope to just that schema
-  and refreshes it in the background — columns appear moments later, with an editor banner while a
-  table has no column data yet. No more hunting through Settings for the right refresh checkbox.
-- **Completion** for Doris built-in functions and Doris data types (`VARIANT`, `BITMAP`, `HLL`,
-  `AGG_STATE`, `ARRAY`/`MAP`/`STRUCT`, …), plus ~570 Doris keywords. Function auto-popup fires only
-  in expression positions, so it never interrupts typing keywords or literals (explicit
-  <kbd>Ctrl</kbd>+<kbd>Space</kbd> always offers the full list).
-- **Doris-accurate error validation** via an embedded build of Doris's own SQL parser (see below),
-  with the platform's false MySQL-syntax errors suppressed. Note that suppression makes the editor
-  stop *reporting* false errors — e.g. `SELECT * EXCEPT(…)` no longer red-flags — but does not fully
-  model every semantic (an `EXCEPT`-ed column is still visible to downstream references; the query
-  behaves per the server at run time).
-- **Native typed parsing** (default on since 0.5.0): Doris DDL/statements parse into real typed PSI
-  via a shadow-replay of Doris's own grammar, giving navigation and structure inside
-  `CREATE VIEW`/`TABLE`/`MATERIALIZED VIEW`/`JOB` bodies. It falls back to the lenient path on
-  anything it can't cleanly type, so it is never *worse* than before.
-- **Ready-to-use data source**: an "Apache Doris" driver template (MySQL Connector/J, default port
-  9030, native-password auth) so you can connect without hand-configuring a MySQL driver. Validation
-  accepts Connector/J single-host, multi-host, load-balance, replication, IPv6 and host-property URLs.
+- **Correct statement boundaries** for Doris syntax MySQL gets wrong: `SELECT * EXCEPT(…)`,
+  `QUALIFY`, `INSERT OVERWRITE`, multi-line window functions, `CREATE [OR REPLACE] VIEW`,
+  `DISTRIBUTED BY` / `PROPERTIES` DDL, materialized views, `CREATE JOB` and more.
+- **Doris-accurate errors.** The editor checks your SQL with Doris's own parser and hides the false
+  MySQL syntax errors.
+- **Completion** for Doris functions, data types (`VARIANT`, `BITMAP`, `HLL`, `ARRAY`/`MAP`/`STRUCT`,
+  …) and keywords. Function suggestions pop up only where an expression fits, so they don't get in
+  the way while you type keywords. <kbd>Ctrl</kbd>+<kbd>Space</kbd> always shows the full list.
+- **Multi-catalog database tree.** External catalogs (Hive, Iceberg, JDBC, …) show up as
+  `catalog → database → table`, and `catalog.db.table` references complete and resolve.
+- **Table-valued function completion.** `tasks()`, `jobs()`, `mv_infos()`, `partitions()`,
+  `backends()` and others complete their arguments, and their output columns resolve.
+- **Query cancel that works.** Stop kills the running query, even behind a load balancer and even
+  with several consoles open on the same data source. Each Stop only kills its own console's query.
+- **Automatic introspection.** Reference a table in a schema that hasn't been loaded yet and the
+  plugin loads just that schema in the background. Columns appear a moment later.
+- **Doris PIPE (optional).** Write pipe-syntax queries (`FROM t |> WHERE … |> AGGREGATE …`) and run
+  them on any Doris version. See [Doris PIPE](#doris-pipe).
+- **Ready-made data source.** An "Apache Doris" driver template with port 9030 already set up.
 
 ## Requirements
 
-- **DataGrip** or **IntelliJ IDEA Ultimate**, **2026.1 through 2026.3** (JetBrains platform builds
-  **261–263**, with 263 checked against the 2026.3 EAP). A single artifact serves these generations; it will not load on 2025.2 or
-  earlier.
-- An Apache Doris server reachable over the MySQL protocol (FE query port, default `9030`).
+- DataGrip or IntelliJ IDEA Ultimate, **2026.1 to 2026.3**. Older IDE versions are not supported.
+- A Doris server reachable on its MySQL query port (default `9030`).
 
-## Installation
+## Install
 
-**From the JetBrains Marketplace** (recommended): search for *"SQL Dialect for Apache Doris"* in
-**Settings → Plugins → Marketplace**, install, and restart.
+**From the JetBrains Marketplace (recommended).** Open **Settings → Plugins → Marketplace**, search
+for *SQL Dialect for Apache Doris*, install it and restart the IDE.
 
-**From disk** (specific version / offline):
+**From a file.** Download the zip from the
+[Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page, then use
+**Settings → Plugins → ⚙ → Install Plugin from Disk…** and restart.
 
-1. Download `doris-intellij-plugin-<version>.zip` from the
-   [Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page, or build it yourself
-   (below).
-2. In your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the zip, and restart.
+## Getting started
 
-Then add a data source from the **Apache Doris** template and connect.
+1. Add a new data source and pick **Apache Doris**.
+2. Enter your host, user and password, then connect.
+3. Open a console and write Doris SQL.
 
-## External catalogs (multi-catalog tree) — on by default since 0.3.0
+## External catalogs
 
-Doris multi-catalog support (external catalogs — Hive, Iceberg, JDBC, ... — as a real level in the
-database tree) is **enabled by default** as of 0.3.0. The escape hatch back to the old flat
-single-level behavior:
+Every catalog from `SHOW CATALOGS` appears in the database tree.
 
-```
--Ddoris.catalogs.experimental=false     # VM option; default (unset) = catalogs ON
--Ddoris.replay.poc=false                # VM option; default (unset) = native typed parsing ON (0.5.0)
-```
+- The `internal` catalog loads in full. External catalogs are listed but not loaded until you tick
+  them in the data source's **Schemas** tab, so you don't scan a huge metastore by accident.
+- In the console's namespace picker, hover a catalog and click `›` to see its databases. Picking a
+  database runs `` USE `catalog`.`db` ``. Picking a catalog runs `` SWITCH `catalog` ``.
+- A two-part `db.table` resolves against the console's current catalog. Use `catalog.db.table` if
+  you want references that keep working after you switch catalogs.
+- If a refresh fails, the tree keeps what it had from the last successful load.
 
-**Upgrading / toggling:** the two model shapes don't cross-load, so on the first IDE start after
-an upgrade or a flag change the plugin silently clears each Doris data source's cached model
-(one `DorisCatalogs:` log line per data source); the tree starts empty and repopulates on the
-first connect/refresh — the normal new-data-source experience. Your data source settings and
-schema selections are untouched.
+## Query cancel
 
-With catalogs enabled:
+The IDE's normal Stop button opens a second connection to send `KILL QUERY`. Behind a load
+balancer, that connection can land on a different Doris frontend. There the kill either does
+nothing or hits a different session of the same user.
 
-- The tree gains a **catalogs** level: every catalog from `SHOW CATALOGS` appears; the `internal`
-  catalog is deep-introspected by default, while **external catalogs are enumerated but lazy** —
-  opt each one into introspection in the schemas pane before its contents (and editor
-  completion/resolution for it) light up. This default protects you from accidentally scanning a
-  huge external metastore on first connect.
-- **Fully-qualified references work in the editor**: `catalog.database.table` completes and
-  resolves at every segment (once the catalog is introspected).
-- The **console namespace picker is a two-step drill-down**: hover a catalog and use the `›`
-  chevron to expand its databases. Selecting a database issues `` USE `catalog`.`db` ``; selecting
-  just the catalog issues `` SWITCH `catalog` ``. This is deliberate — every switch names its
-  catalog explicitly, which prevents the classic wrong-catalog `use` mistake.
-- Introspection is **stateless** (catalog-qualified queries; no session `SWITCH` under the hood),
-  so shared connections are never left pointing at an unexpected catalog.
+The plugin tags each connection and kills your query by its query ID on whichever frontend is
+running it. The console unblocks when the kill lands, usually within a fraction of a second.
 
-Note on relative references: a 2-part `db.table` reference resolves against the console's
-**current catalog** — switch catalogs and previously written relative lines will (correctly) stop
-resolving until you switch back or qualify them fully. Fully-qualified `catalog.db.table` is
-immune to context switches. Minor known behaviors: catalog entries in flat completion lists are
-intentional, and the current-namespace label may briefly show a placeholder segment.
+**Tip:** use Doris's `query_timeout` variable instead of the data source's JDBC "query timeout"
+option. The JDBC timeout uses the same unreliable second-connection kill.
 
-## Reliable query cancel — on by default since 0.5.0
+## Doris PIPE
 
-The IDE's stock Stop button relies on the MySQL driver, which opens a *second* connection to the
-JDBC URL and issues `KILL QUERY <connection-id>`. Behind a load balancer (e.g. a Kubernetes
-Service in front of several FEs) that second connection can land on a different frontend, where
-that connection id either doesn't exist (the cancel silently does nothing and your query keeps
-burning cluster resources) or — because Doris frontends number connections independently —
-belongs to a *different session of the same user*, silently killing the wrong query.
-
-The plugin replaces this: at connect time each Doris connection is tagged with a unique trace
-marker (`SET session_context = 'trace_id:dg-...'`, also visible as `DorisTraceId=dg-...` in
-`SHOW PROCESSLIST` `Info`). Pressing Stop resolves which connection *the console you pressed it
-in* is using at that moment, locates that connection's running statement in the all-frontends
-processlist by its trace marker, and kills it by query id from a short-lived helper connection —
-killing exactly your statement, on whichever frontend owns it (the session stays alive).
-
-**Enhanced in 0.6.0 — cancelling across console windows:** with several consoles running queries
-against the same data source (say, a big `INSERT INTO ... SELECT` in one window and a bad ad-hoc
-query in another), each Stop kills only its own console's query; the others keep running.
-Previously the plugin refused to guess between concurrent queries and fell back to the IDE's
-stock cancel.
-
-The server erroring the statement is what unblocks the console (the red "cancel query by user"
-bar). The IDE's stock cancel runs **only** if the plugin path genuinely can't act — so you no
-longer see the spurious "Cancelling Failed. Deactivate the Data Source?" dialog when the cancel
-actually succeeded. The trade-off: the console unblocks when the kill lands (a fraction of a
-second) rather than instantly. Everything is logged under the `DorisCancel:` prefix in `idea.log`.
-
-The escape hatch back to the stock (driver-only) cancel:
-
-```
--Ddoris.cancel.experimental=false       # VM option; default (unset) = plugin cancel ON
-```
-
-Tip: prefer Doris' own `query_timeout` session/global variable over the data source's JDBC
-"query timeout" option — the JDBC timeout uses the same broken second-connection kill.
-
-## Doris PIPE — pipe-syntax SQL (optional, since 0.7.0)
-
-Write queries supported by Doris PIPE syntax, based on [GoogleSQL pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide),
-directly in a Doris console and run them against **any** Apache Doris — no server support needed:
+Write queries in [pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide) and run
+them on any Doris server. No server support is needed.
 
 ```sql
 FROM sales.orders
@@ -190,126 +96,71 @@ FROM sales.orders
 |> LIMIT 10;
 ```
 
-At execution time the plugin transpiles the pipe program to standard Doris SQL (via the
-[brikk-sql](https://sort.dev) engine) and sends *that* to the server — pipes desugar to a plain
-`SELECT`, so what runs is ordinary read-only SQL. What you get in the editor:
+When you run it, the plugin converts the pipe query to a plain Doris `SELECT` and sends that to
+the server.
 
-- **Pipe-aware editing**: correct statement boundaries around `|>` programs, engine syntax
-  checking with squiggles on the exact pipe line, and the platform's false MySQL errors silenced
-  inside pipe statements.
-- **Per-stage completion**: after `|>`, stage keywords; inside a stage, the columns actually
-  flowing *into* that stage — aliases from earlier stages, join relations, and qualified
-  `alias.column` references included, fed by your introspected data source.
-- **Run to any stage**: right-click → **Doris PIPE → Run Stages up to Caret** executes just the
-  pipeline prefix at your caret, including the initial `FROM` or `SELECT` stage. **Preview
-  Generated SQL** shows the transpiled statement, syntax-highlighted, before you commit to running
-  anything.
-- **Errors where you wrote them**: server errors carry positions in the *generated* SQL; the
-  plugin maps them back through the transpiler's source map to the exact line and column of your
-  pipe program (balloon + editor squiggle).
+**Turn it on** in **Settings → Tools → Database → Apache Doris PIPE** with **Enable PIPE syntax in
+this project**. It's off by default and is set per project. No restart is needed. If you used PIPE
+before an upgrade, tick this box again.
 
-**Enabling it**: open **Settings → Tools → Database → Apache Doris PIPE** and select
-**Enable PIPE syntax in this project**. The setting defaults off and is stored in
-the project's workspace settings. Apply refreshes existing Doris editors without
-changing their text or requiring an IDE restart.
+What you get:
 
-The plugin bundles **brikk-sql engine and metadata 0.20.0** and the
-native **Doris 4.1.4 grammar**. Execute actions and script preparation use
-**brikk-sql-intellij-support 0.2.1**. See the
-[shared-support backport report](REVIEW-intellij-shared-extraction.md) and the
-[earlier grammar upgrade report](REVIEW-brikk-sql-0.16.0.md) for coverage,
-intentional translation refusals, and remaining limitations. SQL Transpiler
-is not required and installing it does not enable PIPE. It remains an independent
-product for cross-dialect conversion, previews, and `.bsql` workspaces.
+- Completion after `|>` for stage keywords, and for the columns flowing into each stage.
+- Syntax errors underlined on the exact pipe line.
+- Right-click → **Doris PIPE → Run Stages up to Caret** runs the pipeline only up to the stage at
+  your cursor.
+- Right-click → **Doris PIPE → Preview Generated SQL** shows the SQL that will run, without running
+  it.
+- Server errors point back to the line and column in your pipe query.
 
-Execute and Run Stages up to Caret reject translations with unsupported or lossy
-diagnostics and reject generated SQL that the bundled Doris parser does not accept.
-Preview still shows blocked generated SQL with its diagnostic. Mixed scripts follow
-the configured Execute scope and are preflighted before the first request. Failed
-claimed requests do not retry the original SQL. See the
-[execution safety verification](REVIEW-pipes-B14.md) for coverage and limits.
+The plugin refuses to run a pipe query when the conversion would change its meaning or isn't
+supported. Preview still shows you the SQL and the reason.
 
-Existing PIPE users must enable the project checkbox after upgrading. The legacy VM
-option remains an emergency veto; setting it to `true` does not enable an unchecked
-project setting:
+## Known limitations
 
-```
--Ddoris.pipes=false                     # disables PIPE regardless of the project checkbox
-```
+- **Explain Plan** only works on read queries for now, not on DDL or DML.
+- **DDL generation from the database tree is off** while the catalog tree is on. The IDE's model
+  can't represent Doris table properties, so generated scripts would be wrong. Use
+  `SHOW CREATE TABLE` instead.
+- `SELECT * EXCEPT(…)` no longer shows false errors, but the editor still treats the excluded
+  columns as visible to later references.
+- File table functions (`s3()`, `hdfs()`, …) don't offer output columns.
 
-Catalog-mode database-tree DDL actions are disabled. The IntelliJ `Ms*` model used
-to represent Doris catalogs omits key Doris table/column properties and maps its
-database node to a Doris catalog; generating SQL Server scripts from that model was
-unsafe. Use reviewed SQL or the server's `SHOW CREATE` output for DDL. The flat-model
-escape hatch retains the prior MySQL generator behavior.
+## Turning features off
 
-Catalog refresh failures preserve the last successfully introspected catalog tree.
-Only a validated successful inventory is reconciled; a genuine successful empty
-`SHOW CATALOGS` result still removes catalogs that no longer exist.
+The catalog tree, query cancel and detailed DDL parsing are on by default. If one causes trouble,
+add a VM option (**Help → Edit Custom VM Options…**) and restart:
 
-Pipe integration uses cooperative Execute delegation so other dialect plugins can
-handle their own queries. Removing the plugin restores the previous Execute actions
-unless another plugin has wrapped them since; then the IDE may ask for a restart.
-Changing the PIPE setting never needs a restart. Plugin authors should follow the [execution contract](PIPE-EXECUTION-CONTRACT.md)
-rather than copying independent global Execute overrides.
+| VM option | Effect |
+|---|---|
+| `-Ddoris.catalogs.experimental=false` | Flat, single-level tree like MySQL instead of the catalog tree |
+| `-Ddoris.cancel.experimental=false` | Uses the IDE's normal Stop button behavior |
+| `-Ddoris.replay.poc=false` | Turns off the detailed parsing inside DDL bodies |
+| `-Ddoris.pipes=false` | Disables PIPE everywhere, whatever the project setting says |
 
-## Building from source
+Switching the catalog tree on or off clears each Doris data source's cached tree once. It reloads
+on the next connect or refresh. Your connection settings and schema choices stay as they were.
 
-```bash
-./gradlew buildPlugin
-# → build/distributions/doris-intellij-plugin-<version>-dev.<commit time>+<commit>.zip
-```
+## Related plugins and tools
 
-The API-cleanup build uses published support/test-kit 0.2.1 from Maven Central.
-No local candidate repository override is needed. Doris does not bundle the optional generic JDBC adapter.
+- [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
+  dialects in JetBrains IDEs. You don't need it for Doris PIPE.
+- [DuckDB SQL](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
+  dialect for JetBrains IDEs.
+- [Trino SQL](https://plugins.jetbrains.com/plugin/33124-sql-dialect-for-trino) dialect for
+  JetBrains IDEs.
+- [Trino Doris connector](https://github.com/brikk/trino-doris-connector) lets Trino query Doris.
+- [Trino DuckLake catalog](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
+  with read and write support.
+- [Trino Duckbridge](https://github.com/brikk/duckbridge) gives Trino remote access to DuckDB.
 
-A release build uses the version in `build.gradle.kts` unchanged and refuses snapshot libraries:
+## Feedback
 
-```bash
-./gradlew -Prelease=true buildPlugin
-# → build/distributions/doris-intellij-plugin-<version>.zip
-```
-
-Commit release preparation to `main`, then create `release/<version>` from that commit. The shared
-workflow rejects a commit absent from main, builds with `-Prelease=true`, and runs API verification on
-IntelliJ 262 and 263. Only exact owner-confirmed internal usages in `api-usage-approvals.txt` are accepted;
-new call sites block the GitHub release. Complete experimental/internal reports are retained. Compatible
-alone is not Marketplace approval. The owner handles Marketplace uploads. GitHub release 1.6.1 was withdrawn;
-its local ZIPs and tag are audit evidence, not release-ready artifacts.
-
-The caller also accepts manual dispatch on `release/<version>` with the same checks. Use
-`gh workflow run release.yml --ref release/<version>` if a `[skip ci]` preparation commit skipped the push trigger.
-
-The build targets the IntelliJ IDEA 2026.1 SDK (`intellijIdea("2026.1.3")`), downloaded automatically on the
-first build. Kotlin 2.4.10, JVM target 21.
-
-## The bundled Doris parser
-
-For Doris-accurate parsing/validation the plugin embeds **`fe-sql-parser`** — the standalone ANTLR
-SQL parser that is being **factored out of the Apache Doris codebase into its own module**
-(`fe/fe-sql-parser`, introduced upstream in commit `7fc8e27`). That module is **pre-release and is
-not published to any public Maven repository**, so we vendor a point-in-time build of it (pinned to
-a specific Doris commit) under [`vendor/lib/`](vendor/) and reference it directly. See
-[`vendor/README.md`](vendor/README.md) for the exact commit SHA and rebuild steps.
-
-It is unreleased upstream, but functional and good to go for this plugin's purposes. If/when Doris
-publishes `fe-sql-parser` as a real artifact, the vendored jar will be swapped for that coordinate.
-
-## Status
-
-**Published on the JetBrains Marketplace and in active development.** Shipped and dogfooded against
-real Doris workloads.
-
-- Available on the **JetBrains Marketplace** and as installable zips on the
-  [Releases](https://github.com/sort-dev/doris-intellij-plugin/releases) page.
-- Compatible with the 2026.1–2026.3 IDE lines from a single artifact; see [compatibility verification](COMPAT-263.md).
-- Known gaps and in-progress work are tracked in the issues. The semantic corners noted above
-  (e.g. full `EXCEPT` modeling, some file-TVF output schemas) depend on platform capabilities that
-  are not yet exposed to third-party dialects.
+Found a bug or SQL the plugin gets wrong?
+[Open an issue](https://github.com/sort-dev/doris-intellij-plugin/issues). A small, anonymized SQL
+sample helps a lot. Want to build or change the plugin? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Apache License 2.0 — see [`LICENSE`](LICENSE). Copyright 2026 Sortdev SRL.
-
-Third-party components (the bundled Doris `fe-sql-parser`, adapted parser approach, and the Doris
-logo used for icons) are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Apache License 2.0, see [LICENSE](LICENSE). Copyright 2026 Sortdev SRL. Bundled third-party parts
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -137,7 +137,7 @@ Implementation and verification:
 - `verifyEmbeddedPipes` passed. `verifyPlugin` reported compatibility with
   DB-261.24374.56 and IU-262.8665.81. Existing internal/experimental/deprecated API
   notices remain; there were no binary compatibility problems.
-- Current reproduction commands are in [PIPE-EXECUTION-CONTRACT.md](PIPE-EXECUTION-CONTRACT.md).
+- Current reproduction commands are in [PIPE-EXECUTION-CONTRACT.md](../PIPE-EXECUTION-CONTRACT.md).
   Use `test.sqlTranspiler`, not the former `b1.provider` switch. The latter now
   fails with a migration message instead of silently selecting the wrong test mode.
 - No live JDBC query execution or dependency-driven automatic enablement was added
@@ -188,9 +188,9 @@ complete implementation of the missing operations.
 
 Status: FIXED, 2026-09-05. Original severity: P1.
 
-Review-baseline evidence: [doris-pipes.xml:26](src/main/resources/META-INF/doris-pipes.xml#L26)
+Review-baseline evidence: [doris-pipes.xml:26](../../src/main/resources/META-INF/doris-pipes.xml#L26)
 replaces four global Execute actions. Unclaimed queries call the stock superclass
-at [DorisPipesRunQueryAction.kt:39](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L39),
+at [DorisPipesRunQueryAction.kt:39](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L39),
 not the previously registered handler. Independent Trino or DuckDB replacements
 would bypass one another according to registration order. Setting `doris.pipes=false`
 does not unregister the replacements.
@@ -219,7 +219,7 @@ Implementation and verification:
 - The non-dynamic customizer makes installing/removing optional pipe integration
   restart-bound. This is intentional; arbitrary hot removal from immutable action
   chains is not supported.
-- [PIPE-EXECUTION-CONTRACT.md](PIPE-EXECUTION-CONTRACT.md) documents the rules for
+- [PIPE-EXECUTION-CONTRACT.md](../PIPE-EXECUTION-CONTRACT.md) documents the rules for
   Trino/DuckDB and reproduction commands. Every peer must cooperate; a later plugin
   that still calls stock superclasses can break its own delegation chain. No sibling
   repository changes or new shared plugin dependency were required.
@@ -252,9 +252,9 @@ Implementation and verification:
 
 Status: FIXED, 2026-09-05. Original severity: P1.
 
-Review-baseline evidence: [DorisPipes.kt:94](src/main/kotlin/dev/sort/doris/pipes/DorisPipes.kt#L94)
+Review-baseline evidence: [DorisPipes.kt:94](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipes.kt#L94)
 splits every semicolon. Execution uses those chunks at
-[DorisPipesRunQueryAction.kt:108](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L108).
+[DorisPipesRunQueryAction.kt:108](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L108).
 With the caret on the first line, this selects only the prefix ending inside the comment:
 
 ```sql
@@ -308,7 +308,7 @@ Implementation and verification:
 
 Status: FIXED. Original severity: P1.
 
-Original evidence: [DorisPipesEngine.kt:44-50](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L44)
+Original evidence: [DorisPipesEngine.kt:44-50](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L44)
 returns success without checking `unsupportedMessages`. The bundled engine turns
 `FROM t |> SELECT LAST_DAY(d, YEAR)` into an expression using `LAST_DAY(d)` and
 reports `Date parts are not supported in LAST_DAY.` Execution and preview discard
@@ -327,7 +327,7 @@ notifications escape diagnostic text. See [B3/B10 verification](REVIEW-pipes-B3-
 
 Status: FIXED BY CONTAINMENT. Original severity: P1.
 
-Evidence: [DorisEditorHelpers.kt:59-62](src/main/kotlin/dev/sort/doris/catalog/DorisEditorHelpers.kt#L59)
+Evidence: [DorisEditorHelpers.kt:59-62](../../src/main/kotlin/dev/sort/doris/catalog/DorisEditorHelpers.kt#L59)
 delegates to `MsScriptGenerator` for the `Ms*` catalog model. Platform inspection
 confirms SQL Server column-renaming logic using `sp_rename` and a `DROP DATABASE`
 path for catalog nodes represented as `MsDatabase`. Java model compatibility does
@@ -355,7 +355,7 @@ and syntax review; do not infer support from this finding's fixed status.
 
 Status: FIXED. Original severity: P1.
 
-Evidence: [DorisIntrospector.kt:153-159](src/main/kotlin/dev/sort/doris/catalog/DorisIntrospector.kt#L153)
+Evidence: [DorisIntrospector.kt:153-159](../../src/main/kotlin/dev/sort/doris/catalog/DorisIntrospector.kt#L153)
 returns an empty inventory on a failed `SHOW CATALOGS`. Platform database-list
 reconciliation removes existing children not renewed by that inventory. A transient
 failure therefore removes local cached catalogs and their descendants. It does not
@@ -376,7 +376,7 @@ catalogs and removes absent ones. See [B5 verification](REVIEW-pipes-B5.md).
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisHighlightInfoFilter.kt:123-126](src/main/kotlin/dev/sort/doris/sql/DorisHighlightInfoFilter.kt#L123)
+Evidence: [DorisHighlightInfoFilter.kt:123-126](../../src/main/kotlin/dev/sort/doris/sql/DorisHighlightInfoFilter.kt#L123)
 uses raw statement text while the parser uses token-aware detection. A fixture probe
 confirmed that the following ordinary query loses its unresolved-column diagnostic:
 
@@ -396,7 +396,7 @@ identifiers do not claim the statement. See [B6-B9 verification](REVIEW-pipes-B6
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisErrorAnnotator.kt:38-41](src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L38)
+Evidence: [DorisErrorAnnotator.kt:38-41](../../src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L38)
 suppresses native errors by line instead of statement offsets. A fixture probe
 confirmed that `SELECT FROM; FROM t |> LIMIT 1;` loses the first statement's error.
 
@@ -413,7 +413,7 @@ chunk. Same-line neighbors no longer share suppression. See
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesEngine.kt:163](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L163)
+Evidence: [DorisPipesEngine.kt:163](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L163)
 returns an empty list from the whole diagnostic pass when any chunk throws. A fixture
 probe confirmed that an unterminated string in a second pipeline removes the error
 already collected for `FROM t |> WHERE;` in the first pipeline.
@@ -431,9 +431,9 @@ by an unterminated pipeline. Both diagnostics survive. See
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisErrorAnnotator.kt:50](src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L50)
+Evidence: [DorisErrorAnnotator.kt:50](../../src/main/kotlin/dev/sort/doris/sql/DorisErrorAnnotator.kt#L50)
 emits `Doris (server):` annotations, but
-[DorisHighlightInfoFilter.kt:57-61](src/main/kotlin/dev/sort/doris/sql/DorisHighlightInfoFilter.kt#L57)
+[DorisHighlightInfoFilter.kt:57-61](../../src/main/kotlin/dev/sort/doris/sql/DorisHighlightInfoFilter.kt#L57)
 only exempts `Doris Pipes:` messages from pipe suppression. A fixture probe using
 real Doris PSI confirmed that the server annotation is rejected.
 
@@ -450,7 +450,7 @@ while mapped server annotations remain visible. See
 
 Status: FIXED. Original severity: P2.
 
-Original evidence: [DorisPipesRunQueryAction.kt:88-92](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L88)
+Original evidence: [DorisPipesRunQueryAction.kt:88-92](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L88)
 maps any thrown failure to "not handled." An unterminated string raises `TokenError`;
 a selection containing two pipe statements raises `ShapeError`. Both escape the
 engine wrapper's `ParseError` catch and reach stock execution with raw pipe input.
@@ -472,7 +472,7 @@ producer then throws.
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesRunQueryAction.kt:101-129](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L101)
+Evidence: [DorisPipesRunQueryAction.kt:101-129](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L101)
 uses selection-or-caret text without honoring the requested script scope. A whole-script
 run with the caret in a pipe statement can skip preceding `SET` statements and
 following queries. All four Execute variants feed the same interceptor.
@@ -492,8 +492,8 @@ script and new-tab behavior. See [B11-B13 verification](REVIEW-pipes-B11-B13.md)
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesRunQueryAction.kt:142-148](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L142)
-and [submission at line 186](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L186)
+Evidence: [DorisPipesRunQueryAction.kt:142-148](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L142)
+and [submission at line 186](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L186)
 submit generated SQL directly. Platform inspection shows stock execution prompts
 for parameters and produces substituted console SQL before submission. Doris does
 neither. The engine preserves `:x` in `FROM t |> WHERE x = :x`.
@@ -511,9 +511,9 @@ transpiled. Execute and run-to-stage tests inspect the submitted SQL. See
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesRunQueryAction.kt:195](src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L195)
+Evidence: [DorisPipesRunQueryAction.kt:195](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesRunQueryAction.kt#L195)
 selects the session's first client rather than the initiating console.
-[DorisPipesIntentions.kt:44-48](src/main/kotlin/dev/sort/doris/pipes/DorisPipesIntentions.kt#L44)
+[DorisPipesIntentions.kt:44-48](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesIntentions.kt#L44)
 also matches any file belonging to any client in a console's shared session.
 Platform routing is owner-filtered, so this can assign a request to the wrong client.
 The exact visible tab behavior was not exercised in a live IDE.
@@ -531,7 +531,7 @@ in a shared session. See [B11-B13 verification](REVIEW-pipes-B11-B13.md).
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesEngine.kt:49-50](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L49)
+Evidence: [DorisPipesEngine.kt:49-50](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L49)
 accepts the output of `FROM t |> RENAME x AS y`. The bundled engine generates
 `SELECT * RENAME (x AS y)` with no unsupported warning. The plugin's vendored Doris
 grammar rejects that SQL. This was not tested against a live Doris server.
@@ -551,10 +551,10 @@ first request. See [B14 verification](REVIEW-pipes-B14.md).
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisDefinitionProvider.kt:75-85](src/main/kotlin/dev/sort/doris/DorisDefinitionProvider.kt#L75)
+Evidence: [DorisDefinitionProvider.kt:75-85](../../src/main/kotlin/dev/sort/doris/DorisDefinitionProvider.kt#L75)
 builds only `schema.table` names. A definition request for `hive.sales.orders` can
 read `internal.sales.orders` under the connection's current catalog.
-[Line 55](src/main/kotlin/dev/sort/doris/DorisDefinitionProvider.kt#L55) also treats
+[Line 55](../../src/main/kotlin/dev/sort/doris/DorisDefinitionProvider.kt#L55) also treats
 catalog-level `DATABASE` nodes as Doris databases for `SHOW CREATE DATABASE`.
 
 Completion criteria: definition requests preserve full catalog/database/object
@@ -571,7 +571,7 @@ flat MySQL model forms remain schema-qualified. See [B15 verification](REVIEW-pi
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesIntentions.kt:85-90](src/main/kotlin/dev/sort/doris/pipes/DorisPipesIntentions.kt#L85)
+Evidence: [DorisPipesIntentions.kt:85-90](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesIntentions.kt#L85)
 passes the first-stage prefix to a wrapper requiring a top-level `PipeQuery`.
 `FROM t` becomes `NotPipe`, even though the engine can generate its SELECT equivalent.
 
@@ -589,7 +589,7 @@ Normal Execute still returns `NotPipe` for bare `FROM`. See
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisPipesEngine.kt:127-139](src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L127)
+Evidence: [DorisPipesEngine.kt:127-139](../../src/main/kotlin/dev/sort/doris/pipes/DorisPipesEngine.kt#L127)
 uses a combined integer hash without comparing the inputs. These pipelines collide:
 
 ```sql
@@ -612,7 +612,7 @@ are explicit. See [B16-B18 verification](REVIEW-pipes-B16-B18.md).
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisCompletionContributor.kt:184-206](src/main/kotlin/dev/sort/doris/sql/DorisCompletionContributor.kt#L184)
+Evidence: [DorisCompletionContributor.kt:184-206](../../src/main/kotlin/dev/sort/doris/sql/DorisCompletionContributor.kt#L184)
 searches the entire pipeline for `|> AS` and JOIN aliases. Completion for `future.`
 in an earlier WHERE stage can use an alias declared only in a later `|> AS future`.
 
@@ -629,7 +629,7 @@ construction. See [B16-B18 verification](REVIEW-pipes-B16-B18.md).
 
 Status: FIXED. Original severity: P2.
 
-Evidence: [DorisConfigValidator.kt:48-70](src/main/kotlin/dev/sort/doris/DorisConfigValidator.kt#L48)
+Evidence: [DorisConfigValidator.kt:48-70](../../src/main/kotlin/dev/sort/doris/DorisConfigValidator.kt#L48)
 uses `java.net.URI.host`, which is null for valid Connector/J forms such as
 `jdbc:mysql://fe1:9030,fe2:9030/db`. Load-balancing and `address=(host=...)` forms
 are affected too.
@@ -648,7 +648,7 @@ existing 3306/missing-port warnings across endpoints. See [B19 verification](REV
 
 Status: FIXED. Original severity: P3.
 
-Evidence: [DorisKeywordHighlighter.kt:35-36](src/main/kotlin/dev/sort/doris/sql/DorisKeywordHighlighter.kt#L35)
+Evidence: [DorisKeywordHighlighter.kt:35-36](../../src/main/kotlin/dev/sort/doris/sql/DorisKeywordHighlighter.kt#L35)
 uses the native Doris keyword lists. A fixture probe emitted `EXTEND` as `SQL_IDENT`
 with no keyword attributes, while `AGGREGATE` received keyword coloring.
 
@@ -667,10 +667,10 @@ uses the same catalog and stops after a complete stage head. See
 
 Status: OPEN, conditional. Severity: P2.
 
-Evidence: [plugin.xml:388-404](src/main/resources/META-INF/plugin.xml#L388)
+Evidence: [plugin.xml:388-404](../../src/main/resources/META-INF/plugin.xml#L388)
 replaces global Cancel and Explain Plan actions.
-[DorisCancelRunningStatementsAction.kt:128-131](src/main/kotlin/dev/sort/doris/cancel/DorisCancelRunningStatementsAction.kt#L128)
-and [DorisExplainPlanAction.kt:47-51](src/main/kotlin/dev/sort/doris/plan/DorisExplainPlanAction.kt#L47)
+[DorisCancelRunningStatementsAction.kt:128-131](../../src/main/kotlin/dev/sort/doris/cancel/DorisCancelRunningStatementsAction.kt#L128)
+and [DorisExplainPlanAction.kt:47-51](../../src/main/kotlin/dev/sort/doris/plan/DorisExplainPlanAction.kt#L47)
 delegate non-Doris handling to stock superclasses. Siblings copying these overrides
 would repeat B1's competing-handler pattern. No current sibling conflict was established.
 
@@ -710,7 +710,7 @@ on a version-number assumption.
   tests were performed. UI-specific ownership/routing behavior still needs testing.
 - The test configuration excludes the transpiler from its plugin-ID allowlist and
   uses replay-off as its baseline. Helper tests do not prove optional action loading
-  or all shipping-default behavior. See [build.gradle.kts:106-123](build.gradle.kts#L106).
+  or all shipping-default behavior. See [build.gradle.kts:106-123](../../build.gradle.kts#L106).
 
 At completion of the original code review, the worktree was clean. V3 records that
 review's checks. Subsequent implementation and verification are recorded under B1, B2, and B22.

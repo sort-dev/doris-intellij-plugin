@@ -18,8 +18,8 @@ brikk-house commit `1d6161621b6f8ad7fdb1c6344a55f64474387b41` byte for byte.
   PIPE adapter. Qualified UDF calls retain unknown types and nullability.
 - The plugin's separately bundled native parser now uses the exact 4.1.4 grammar,
   matching brikk-house's native oracle. The release grammar and standalone facade
-  have separate source pins; [vendor/README.md](vendor/README.md) and
-  [vendor/build-parser.sh](vendor/build-parser.sh) document the build.
+  have separate source pins; [vendor/README.md](../../vendor/README.md) and
+  [vendor/build-parser.sh](../../vendor/build-parser.sh) document the build.
 
 The function catalog retains its earlier master snapshot plus the source-pinned
 4.1.4 supplement. It is not relabeled as an exact release-only inventory.
