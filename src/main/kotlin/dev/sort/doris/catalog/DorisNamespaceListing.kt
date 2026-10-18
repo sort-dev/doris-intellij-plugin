@@ -3,6 +3,7 @@ package dev.sort.doris.catalog
 import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dataSource.DatabaseConnectionManager
 import com.intellij.database.dataSource.LocalDataSource
+import com.intellij.database.dataSource.LocalDataSourceManager
 import com.intellij.database.dialects.mssql.model.MsDatabase
 import com.intellij.database.dialects.mssql.model.MsRoot
 import com.intellij.database.model.basic.BasicModModel
@@ -254,7 +255,8 @@ object DorisListedNamespaces {
     fun record(dataSourceId: String, catalog: String, database: String) {
         for (project in com.intellij.openapi.project.ProjectManager.getInstance().openProjects) {
             if (project.isDisposed) continue
-            val local = DbPsiFacade.getInstance(project).findDataSource(dataSourceId)?.delegate as? LocalDataSource ?: continue
+            val local = LocalDataSourceManager.getInstance(project).dataSources
+                .firstOrNull { it.uniqueId == dataSourceId } ?: continue
             project.getService(DorisAutoIntrospectService::class.java)?.markLoaded(local, listOf(catalog, database))
         }
     }

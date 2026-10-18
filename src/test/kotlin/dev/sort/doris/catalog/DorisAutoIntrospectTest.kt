@@ -4,6 +4,7 @@ import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.codeInsight.daemon.impl.HighlightInfoType
 import com.intellij.database.dataSource.DatabaseDriverManager
+import com.intellij.database.dataSource.DataSourceStorage
 import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.dataSource.LocalDataSourceManager
 import com.intellij.database.datagrid.DataRequest
@@ -232,6 +233,58 @@ class DorisAutoIntrospectTest : BasePlatformTestCase() {
         myFixture.lookup?.hideLookup(false)
         myFixture.completeBasic()
         assertContainsElements(myFixture.lookupElementStrings.orEmpty(), "id")
+    }
+
+    fun testListedNamespaceRecordUsesSourceIdRatherThanDisplayName() {
+        val manager = LocalDataSourceManager.getInstance(project)
+        val other = LocalDataSource().apply {
+            name = source.name
+            databaseDriver = source.databaseDriver
+            url = "jdbc:offline:other-doris"
+            isAutoSynchronize = false
+            isKeepAlive = false
+        }
+        manager.addDataSource(other)
+        try {
+            val path = listOf("warehouse", "analytics")
+            DorisListedNamespaces.record(source.uniqueId, path[0], path[1])
+            assertEquals(AutoIntrospectEngine.State.Done, requests.engine.state(AutoIntrospectEngine.Key(source.uniqueId, path)))
+            assertNull(requests.engine.state(AutoIntrospectEngine.Key(other.uniqueId, path)))
+            introspections.assertNone()
+        } finally {
+            manager.removeDataSource(other)
+        }
+    }
+
+    fun testListedNamespaceRecordIncludesGlobalSources() {
+        val global = LocalDataSource().apply {
+            name = "Global Doris lookup"
+            databaseDriver = source.databaseDriver
+            url = "jdbc:offline:global-doris"
+            isAutoSynchronize = false
+            isKeepAlive = false
+        }
+        val storage = DataSourceStorage.getStorage()
+        storage.addDataSource(global)
+        try {
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+            val path = listOf("warehouse", "analytics")
+            DorisListedNamespaces.record(global.uniqueId, path[0], path[1])
+            assertEquals(AutoIntrospectEngine.State.Done, requests.engine.state(AutoIntrospectEngine.Key(global.uniqueId, path)))
+            introspections.assertNone()
+        } finally {
+            storage.removeDataSource(global)
+        }
+    }
+
+    fun testListedNamespaceRecordIgnoresRemovedAndUnknownSources() {
+        LocalDataSourceManager.getInstance(project).removeDataSource(source)
+        val path = listOf("warehouse", "analytics")
+        DorisListedNamespaces.record(source.uniqueId, path[0], path[1])
+        DorisListedNamespaces.record("missing-doris-source", path[0], path[1])
+        assertNull(requests.engine.state(AutoIntrospectEngine.Key(source.uniqueId, path)))
+        assertNull(requests.engine.state(AutoIntrospectEngine.Key("missing-doris-source", path)))
+        introspections.assertNone()
     }
 
     fun testPipePathCompletionFollowsCurrentNamespace() {

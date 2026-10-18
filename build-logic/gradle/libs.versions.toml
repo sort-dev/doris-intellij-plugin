@@ -10,7 +10,7 @@ intellij-verifier-ides = "DB-2026.1.3 IU-262.10968.63 DB-2026.2.5 IU-263.4732.28
 sql-transpiler-plugin = "0.3.0"
 brikk-sql-core = "0.20.0"
 brikk-sql-verify = "0.20.0"
-brikk-sql-intellij-support = "0.2.0"
+brikk-sql-intellij-support = "0.2.1"
 brikk-engine-kotlin-intellij-support = "0.3.0"
 antlr = "4.13.2"
 trino = "483"
@@ -23,6 +23,7 @@ brikk-sql-jvm = { module = "dev.brikk.house:brikk-sql-jvm", version.ref = "brikk
 brikk-sql-metadata-jvm = { module = "dev.brikk.house:brikk-sql-metadata-jvm", version.ref = "brikk-sql-core" }
 brikk-sql-verify = { module = "dev.brikk.house:brikk-sql-verify", version.ref = "brikk-sql-verify" }
 brikk-sql-intellij-support = { module = "dev.brikk.house:brikk-sql-intellij-support", version.ref = "brikk-sql-intellij-support" }
+brikk-sql-intellij-jdbc-support = { module = "dev.brikk.house:brikk-sql-intellij-jdbc-support", version.ref = "brikk-sql-intellij-support" }
 brikk-sql-intellij-test-support = { module = "dev.brikk.house:brikk-sql-intellij-test-support", version.ref = "brikk-sql-intellij-support" }
 brikk-engine-kotlin-intellij-support = { module = "dev.brikk.house:brikk-engine-kotlin-intellij-support", version.ref = "brikk-engine-kotlin-intellij-support" }
 antlr4-runtime = { module = "org.antlr:antlr4-runtime", version.ref = "antlr" }

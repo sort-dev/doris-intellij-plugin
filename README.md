@@ -215,7 +215,7 @@ changing their text or requiring an IDE restart.
 
 The plugin bundles **brikk-sql engine and metadata 0.20.0** and the
 native **Doris 4.1.4 grammar**. Execute actions and script preparation use
-**brikk-sql-intellij-support 0.2.0**. See the
+**brikk-sql-intellij-support 0.2.1**. See the
 [shared-support backport report](REVIEW-intellij-shared-extraction.md) and the
 [earlier grammar upgrade report](REVIEW-brikk-sql-0.16.0.md) for coverage,
 intentional translation refusals, and remaining limitations. SQL Transpiler
@@ -259,6 +259,10 @@ rather than copying independent global Execute overrides.
 ./gradlew buildPlugin
 # → build/distributions/doris-intellij-plugin-<version>-dev.<commit time>+<commit>.zip
 ```
+
+The API-cleanup build targets support/test-kit 0.2.1, currently validated as local candidates.
+Default builds require those coordinates to be published on Central; local validation uses an explicit
+candidate repository override. Doris does not bundle the optional generic JDBC adapter.
 
 A release build uses the version in `build.gradle.kts` unchanged and refuses snapshot libraries:
 
