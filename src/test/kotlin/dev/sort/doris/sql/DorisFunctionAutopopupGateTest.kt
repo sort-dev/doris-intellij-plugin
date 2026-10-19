@@ -46,7 +46,7 @@ class DorisFunctionAutopopupGateTest : BasePlatformTestCase() {
 
     private fun skipAutopopup(sql: String): ThreeState {
         val offset = configure(sql)
-        return DorisCompletionConfidence().shouldSkipAutopopup(contextAt(offset), myFixture.file, offset)
+        return DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, contextAt(offset), myFixture.file, offset)
     }
 
     private fun explicitCompletions(sql: String): List<String> {

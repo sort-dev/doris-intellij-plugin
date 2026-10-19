@@ -257,7 +257,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         val element = myFixture.file.findElementAt(offset)
             ?: myFixture.file.findElementAt(offset - 1)
             ?: error("no element at caret")
-        return DorisCompletionConfidence().shouldSkipAutopopup(element, myFixture.file, offset)
+        return DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset)
     }
 
     fun testAutopopupNotSkippedInsideTvfPropertyString() {

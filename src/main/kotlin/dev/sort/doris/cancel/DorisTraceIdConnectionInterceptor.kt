@@ -30,6 +30,8 @@ import com.intellij.database.remote.jdbc.helpers.JdbcNativeUtil
  * Both server calls are best-effort: a failure is logged with the `DorisCancel:` prefix and the
  * connection proceeds untouched (worst case the plugin cancel degrades to the stock behavior).
  */
+// No compatibility bridges for the interface's unused defaults (intercept is scheduled for removal).
+@JvmDefaultWithoutCompatibility
 class DorisTraceIdConnectionInterceptor : DatabaseConnectionInterceptor {
 
     override suspend fun interceptConnection(

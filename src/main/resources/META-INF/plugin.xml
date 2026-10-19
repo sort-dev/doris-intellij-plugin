@@ -55,6 +55,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.4</b> - platform API cleanup.
+        <ul>
+            <li>The trace-id connection interceptor no longer carries a bridge to the connection API scheduled for removal.</li>
+            <li>SQL IntelliJ support 0.2.3: no deprecated, scheduled-for-removal or experimental platform calls that have stable equivalents; no behavior changes.</li>
+        </ul>
         <b>1.6.3</b> - user-facing docs, unknown functions and SQL Transpiler scratches.
         <ul>
             <li>Unknown function calls are flagged in the editor instead of hidden; Doris built-ins, the connected server's functions and table functions stay quiet, as do qualified (UDF) calls.</li>
