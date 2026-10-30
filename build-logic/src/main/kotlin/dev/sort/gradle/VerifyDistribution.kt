@@ -3,6 +3,8 @@ package dev.sort.gradle
 import java.io.DataInputStream
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
+import javax.xml.XMLConstants
+import javax.xml.parsers.DocumentBuilderFactory
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -17,6 +19,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import org.w3c.dom.Element
 
 private const val JAVA_21 = 65
 private const val PLUGIN_XML = "META-INF/plugin.xml"
@@ -117,15 +120,41 @@ abstract class VerifyDistribution : DefaultTask() {
             check(descriptorVersion == expectedVersion.get()) {
                 "plugin.xml version $descriptorVersion differs from archive version ${expectedVersion.get()}"
             }
-            for (sibling in siblingPluginIds.get()) {
-                check(!Regex("""<depends\b[^>]*>\s*${Regex.escape(sibling)}\s*</depends>""").containsMatchIn(descriptor)) {
-                    "plugin.xml depends on $sibling"
-                }
+            val requiredSiblings = requiredSiblingDependencies(descriptor, siblingPluginIds.get())
+            check(requiredSiblings.isEmpty()) {
+                "plugin.xml requires sibling plugins: ${requiredSiblings.sorted().joinToString()}"
             }
         }
         logger.lifecycle("Verified ${distribution.get().asFile.name}")
     }
 }
+
+private fun requiredSiblingDependencies(descriptor: String, siblings: Set<String>): Set<String> {
+    val factory = DocumentBuilderFactory.newInstance().apply {
+        setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        setFeature("http://xml.org/sax/features/external-general-entities", false)
+        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        isExpandEntityReferences = false
+    }
+    val root = factory.newDocumentBuilder().parse(descriptor.byteInputStream()).documentElement
+    check(root.tagName == "idea-plugin") { "META-INF/plugin.xml must have an idea-plugin root" }
+    return buildSet {
+        for (dependency in root.childElements()) {
+            when (dependency.tagName) {
+                "depends" -> if (dependency.getAttribute("optional") != "true") {
+                    dependency.textContent.trim().takeIf { it in siblings }?.let(::add)
+                }
+                "dependencies" -> dependency.childElements().filter { it.tagName == "plugin" }.forEach {
+                    it.getAttribute("id").trim().takeIf { id -> id in siblings }?.let(::add)
+                }
+            }
+        }
+    }
+}
+
+private fun Element.childElements(): List<Element> =
+    (0 until childNodes.length).mapNotNull { childNodes.item(it) as? Element }
 
 private fun libraryName(jar: String) = jar.removeSuffix(".jar").split('-').takeWhile { it.firstOrNull()?.isDigit() != true }.joinToString("-")
 
