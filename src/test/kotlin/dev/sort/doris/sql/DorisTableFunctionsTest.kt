@@ -17,7 +17,7 @@ import dev.brikk.house.sql.metadata.OutputSchema
  *    overlay in [DorisSqlDialect.createTokensHelper]);
  *  - arg-conditional TVFs pick the schema variant from the property literal in the SQL text;
  *  - open-relation TVFs (s3, ...) degrade silently — no columns fabricated, no red;
- *  - property keys/enum values complete inside the parens.
+ *  - property-key/value completion stays paused, as in the shared support library.
  */
 class DorisTableFunctionsTest : BasePlatformTestCase() {
 
@@ -131,12 +131,13 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         }
     }
 
-    fun testResearchDocTierAInventoryIsRegistered() {
+    fun testPublishedMetadataInventoryIsRegistered() {
         val expected = listOf(
             "backends", "frontends", "frontends_disks", "catalogs", "mv_infos", "partitions",
             "numbers", "jobs", "tasks", "hudi_meta",
             "s3", "hdfs", "local", "http", "query", "partition_values", "vector_search",
             "file", "parquet_meta", "parquet_file_metadata", "parquet_kv_metadata", "parquet_bloom_probe",
+            "full_text_search", "lance_index_entries",
         )
         assertEquals(expected.sorted(), DorisTableFunctions.allNames.sorted())
     }
@@ -175,15 +176,15 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         )
     }
 
-    fun testVectorSearchOpenRelationAndPropertyCompletion() {
+    fun testVectorSearchOpenRelationWithoutPropertyCompletion() {
         val sql = "SELECT item_id, _distance FROM VECTOR_SEARCH(" +
             "'table'='lance.db.t', 'column'='embedding', 'query_vector'='[0,0]');"
         assertEquals(emptyList<String>(), tableTypeColumns(sql))
         assertEquals(emptyList<String>(), unresolvedColumnErrors(sql))
         val keys = completionsAt("SELECT * FROM VECTOR_SEARCH('<caret>');")
-        assertTrue(keys.toString(), keys.containsAll(listOf("table", "column", "query_vector", "top_k")))
+        for (key in listOf("table", "column", "query_vector", "top_k")) assertFalse(keys.toString(), key in keys)
         val metrics = completionsAt("SELECT * FROM VECTOR_SEARCH('metric'='<caret>');")
-        assertTrue(metrics.toString(), metrics.containsAll(listOf("l2", "cosine", "dot", "hamming")))
+        for (metric in listOf("l2", "cosine", "dot", "hamming")) assertFalse(metrics.toString(), metric in metrics)
     }
 
     fun testWrongColumnOnConditionalVariantStaysRed() {
@@ -219,35 +220,37 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         assertFalse("insert-only column not offered for mv", lookups.contains("Label"))
     }
 
-    fun testCompletionOffersPropertyKeys() {
+    // Property completion is intentionally disabled by the shared support library.
+    // Pin that existing behavior without disabling function or output-column completion.
+    fun testCompletionDoesNotOfferPausedPropertyKeys() {
         val lookups = completionsAt("SELECT * FROM tasks(<caret>);")
-        assertTrue("property key 'type' offered, got: $lookups", lookups.contains("type"))
+        assertFalse("property key 'type' stays paused, got: $lookups", lookups.contains("type"))
     }
 
-    fun testCompletionOffersEnumValues() {
+    fun testCompletionDoesNotOfferPausedEnumValues() {
         val lookups = completionsAt("SELECT * FROM tasks(\"type\"=\"<caret>\");")
-        assertTrue("enum values offered, got: $lookups", lookups.containsAll(listOf("insert", "mv")))
+        for (value in listOf("insert", "mv")) assertFalse("enum values stay paused, got: $lookups", value in lookups)
     }
 
     // --- Single-quote property style (dogfood 2026-07-08 P3: keys "didn't offer" in real files;
     //     Doris docs and real usage write 'key' = 'value', which MySQL lexes as STRING literals,
     //     a different PSI shape than the double-quoted identifiers the tests above cover) ---
 
-    fun testCompletionOffersPropertyKeysInsideSingleQuotes() {
+    fun testCompletionDoesNotOfferPausedPropertyKeysInsideSingleQuotes() {
         val lookups = completionsAt("SELECT * FROM s3('<caret>');")
-        assertTrue("property key 'uri' offered, got: ${lookups.take(20)}", lookups.contains("uri"))
-        assertTrue("property key 'format' offered", lookups.contains("format"))
+        assertFalse("property key 'uri' stays paused, got: ${lookups.take(20)}", lookups.contains("uri"))
+        assertFalse("property key 'format' stays paused", lookups.contains("format"))
     }
 
-    fun testCompletionOffersNextKeyAfterCommaInSingleQuotes() {
+    fun testCompletionDoesNotOfferPausedNextKeyAfterCommaInSingleQuotes() {
         // The exact dogfood shape: a later 'key' position after an existing 'uri' = '...' pair.
         val lookups = completionsAt("SELECT * FROM S3('uri' = 's3://acme-bucket/x.parquet', '<caret>');")
-        assertTrue("property key 'format' offered, got: ${lookups.take(20)}", lookups.contains("format"))
+        assertFalse("property key 'format' stays paused, got: ${lookups.take(20)}", lookups.contains("format"))
     }
 
-    fun testCompletionOffersEnumValuesInSingleQuotes() {
+    fun testCompletionDoesNotOfferPausedEnumValuesInSingleQuotes() {
         val lookups = completionsAt("SELECT * FROM tasks('type'='<caret>');")
-        assertTrue("enum values offered, got: ${lookups.take(20)}", lookups.containsAll(listOf("insert", "mv")))
+        for (value in listOf("insert", "mv")) assertFalse("enum values stay paused, got: ${lookups.take(20)}", value in lookups)
     }
 
     private fun confidenceAt(sql: String): com.intellij.util.ThreeState {
@@ -260,16 +263,16 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         return DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset)
     }
 
-    fun testAutopopupNotSkippedInsideTvfPropertyString() {
+    fun testAutopopupDefersToPlatformInsideTvfPropertyString() {
         assertEquals(
-            com.intellij.util.ThreeState.NO,
+            com.intellij.util.ThreeState.UNSURE,
             confidenceAt("SELECT * FROM s3('uri' = 's3://acme-bucket/x.parquet', 'for<caret>');"),
         )
     }
 
-    fun testAutopopupNotSkippedInsideDoubleQuotedTvfProperty() {
+    fun testAutopopupDefersToPlatformInsideDoubleQuotedTvfProperty() {
         assertEquals(
-            com.intellij.util.ThreeState.NO,
+            com.intellij.util.ThreeState.UNSURE,
             confidenceAt("SELECT * FROM tasks(\"ty<caret>\");"),
         )
     }
@@ -280,7 +283,7 @@ class DorisTableFunctionsTest : BasePlatformTestCase() {
         val offset = myFixture.caretOffset
         val element = myFixture.file.findElementAt(offset) ?: myFixture.file.findElementAt(offset - 1)!!
         assertEquals(
-            com.intellij.util.ThreeState.NO,
+            com.intellij.util.ThreeState.UNSURE,
             DorisCompletionConfidence().shouldSkipAutopopup(myFixture.editor, element, myFixture.file, offset),
         )
     }

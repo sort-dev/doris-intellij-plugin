@@ -16,6 +16,7 @@ sqlDialectPlugin {
         setOf(
             "brikk-sql-jvmMain-${brikk.sql.core.get()}.jar", "brikk-sql-metadata-jvmMain-${brikk.sql.core.get()}.jar",
             "brikk-sql-intellij-support-${brikk.sql.intellij.support.get()}.jar",
+            "brikk-sql-intellij-jdbc-support-${brikk.sql.intellij.support.get()}.jar",
             "brikk-engine-kotlin-intellij-support-${brikk.engine.kotlin.intellij.support.get()}.jar",
             "brikk-sql-verify-doris-${brikk.sql.core.get()}.jar", "brikk-sql-verify-api-${brikk.sql.core.get()}.jar",
             "antlr4-runtime-${antlr.get()}.jar", "doris-fe-sql-parser-4.1.4-gad35a140c7fd.jar",
@@ -27,6 +28,7 @@ sqlDialectPlugin {
             "Toby Mao", "ANTLR", "Permission is hereby granted", "ClickHouse", "StarRocks",
             "brikk-engine-kotlin-intellij-support:${brikk.engine.kotlin.intellij.support.get()}",
             "brikk-sql-intellij-support:${brikk.sql.intellij.support.get()}",
+            "brikk-sql-intellij-jdbc-support:${brikk.sql.intellij.support.get()}",
         )
     }
 }
@@ -34,6 +36,7 @@ sqlDialectPlugin {
 dependencies {
     testImplementation(libs.brikk.sql.intellij.test.support)
     implementation(libs.brikk.sql.intellij.support)
+    implementation(libs.brikk.sql.intellij.jdbc.support)
     implementation(libs.brikk.engine.kotlin.intellij.support)
     implementation(libs.brikk.sql.jvm)
     implementation(libs.brikk.sql.metadata.jvm)

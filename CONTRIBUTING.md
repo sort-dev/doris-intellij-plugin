@@ -60,7 +60,8 @@ Toggling the catalog flag clears each Doris data source's cached model once on t
 ### Libraries
 
 - Doris PIPE translation and the Doris function catalog come from the `dev.brikk.house:brikk-sql-*`
-  libraries on Maven Central. Versions live in `build-logic/gradle/libs.versions.toml`.
+  libraries on Maven Central. Baseline versions live in `build-logic/gradle/libs.versions.toml`;
+  plugin-specific version overrides live in `settings.gradle.kts` so the vendored build stays pristine.
 - Doris's SQL parser isn't published upstream, so we vendor a pinned build in `vendor/lib/`.
   [vendor/README.md](vendor/README.md) has the commit and rebuild steps.
 - The shared build setup in `build-logic/` is vendored from the conventions repo. See
