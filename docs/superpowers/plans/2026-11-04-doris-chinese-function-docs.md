@@ -36,10 +36,10 @@
 - [x] Run documentation, highlighting and DDL tests; review entire change with a fresh reviewer.
 
 ### Task 3: Package and validate
-- [ ] Bump custom plugin version and commit intended code changes.
-- [ ] Build package, install local update and restart DataGrip.
-- [ ] Validate representative Chinese documentation in the actual console without executing SQL.
-- [ ] Record exact coverage, remaining source gaps and verification evidence; commit report and deliver package.
+- [x] Bump custom plugin version and commit intended code changes.
+- [x] Build package, install local update and restart DataGrip.
+- [x] Validate representative Chinese documentation in the actual console without executing SQL.
+- [x] Record exact coverage, remaining source gaps and verification evidence; commit report and deliver package.
 
 ## Execution Ledger
 - Ruling: official-source pages form the authoritative documentation set; metadata-only functions retain an explicit Chinese fallback, never invented examples.
@@ -50,3 +50,14 @@
 
 - Final automated verification: 70 DataGrip262 tests passed, 9 importer tests passed. Corpus invariant verifies all 670 reachable pages and catalog coverage641. All 672 generated pages are retained (XOR/HAMMING_DISTANCE each have duplicate source pages), 789 indexed names after rejecting the false PROPERTIES alias.
 - Review findings fixed and re-reviewed: source-file-relative URLs and nested example headings in alias extraction. Stale current-version conversion links are normalized to official4.x pages. Both regressions were observed failing before fixes; reviewer confirmed resolution.
+
+## Live verification and delivery
+
+- Code commit: 7d5d910a385f. Custom version1.6.4.4-dev.202611040536+7d5d910a385f.
+- buildPlugin passed. 70 runtime tests plus 9 generator tests passed; regeneration deterministic.
+- Native disk installation UI was interrupted by changing app state; exited DataGrip normally via its native menu, verified process closure, backed up the installed1.6.4.3 directory to Downloads, copied the verified ZIP content into the plugin directory and relaunched with the native app tool.
+- Verified installed JAR version and672 packaged Chinese HTML pages.
+- Actual Chinese UI: Ctrl+J inside SUM and IF calls displayed full Chinese syntax, parameters, return behavior, examples and official links. No SQL executed, no source SQL modified.
+- Mouse-move-only automatic hover popup was not independently exercised; shared IDE targets are tested, and the existing hover setting remains enabled from the previous task.
+- Delivery: doris-plugin-1.6.4.4-zh-docs.zip plus Chinese coverage report in Downloads/doris-ddl-fix-20261104. Previous ZIPs and exact installed-directory backup retained.
+- Limitation:70 metadata definitions lack a matching official4.x Chinese standalone page; these have truthful Chinese fallback content. Do not claim100% semantic documentation for those names.
