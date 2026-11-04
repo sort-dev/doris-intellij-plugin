@@ -78,7 +78,9 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             return false
         }
         if (SUPPRESSED_PREFIXES.any { description.contains(it) }) return false
-        if (description.contains(UNKNOWN_FUNCTION) && isKnownDorisFunction(file, highlightInfo)) return false
+        if (UNKNOWN_FUNCTION_PREFIXES.any { description.startsWith(it) } &&
+            isKnownDorisFunction(file, highlightInfo)
+        ) return false
         // P0 (dogfood 2026-07-08): "N value(s) expected, got M" (SqlInsertValuesInspection) is
         // structurally wrong whenever the feeding query contains `* EXCEPT(...)`: the EXCEPT list is
         // lexer-masked (DorisLexer), so the platform expands `*` to ALL source columns and the counts
@@ -525,8 +527,9 @@ class DorisHighlightInfoFilter : HighlightInfoFilter {
             "Unable to resolve partition",   // Doris introspection loads no partitions, so none can resolve
         )
 
-        // SqlResolveInspection: "Unknown database function '{0}'"; see isKnownDorisFunction.
-        private const val UNKNOWN_FUNCTION = "Unknown database function"
+        // SqlResolveInspection's unknown.function message is localized by the IDE. Keep the
+        // English and Chinese forms so the same Doris allowlist applies in either UI.
+        private val UNKNOWN_FUNCTION_PREFIXES = listOf("Unknown database function", "未知数据库函数")
         private val QUOTED_NAME = Regex("""'([^']+)'""")
         private val BASELINE_FUNCTIONS by lazy { DorisCompletionProfile.baseline.mapTo(HashSet()) { it.name.uppercase() } }
     }

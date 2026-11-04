@@ -346,6 +346,41 @@ class DorisHighlightingSuppressionTest : BasePlatformTestCase() {
         assertNoInfo(infos, UNKNOWN_FUNCTION)
     }
 
+    fun testChineseUnknownFunctionSuppressesOnlyKnownDorisFunctions() {
+        val psi = myFixture.configureByText(
+            "localized-functions.sql",
+            "SELECT DATE_TRUNC('2026-01-15', 'month'), date_trunc_ffo(1);",
+        )
+        setSqlDialectMapping(project, psi.virtualFile, DorisSqlDialect.INSTANCE)
+        val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
+        val filter = DorisHighlightInfoFilter()
+        fun diagnostic(name: String, description: String): HighlightInfo {
+            val start = file.text.indexOf(name)
+            return HighlightInfo.newHighlightInfo(com.intellij.codeInsight.daemon.impl.HighlightInfoType.ERROR)
+                .range(start, start + name.length)
+                .descriptionAndTooltip(description)
+                .create()!!
+        }
+        assertFalse(
+            "Chinese unknown-function false positive on a Doris built-in must be suppressed",
+            filter.accept(diagnostic("DATE_TRUNC", "未知数据库函数 'DATE_TRUNC'"), file),
+        )
+        assertTrue(
+            "Misspelled functions must retain their Chinese diagnostic",
+            filter.accept(diagnostic("date_trunc_ffo", "未知数据库函数 'date_trunc_ffo'"), file),
+        )
+        assertTrue(
+            "Other diagnostics on a known function must remain visible",
+            filter.accept(diagnostic("DATE_TRUNC", "函数参数数量不正确 'DATE_TRUNC'"), file),
+        )
+        setSqlDialectMapping(project, psi.virtualFile, com.intellij.sql.dialects.mysql.MysqlDialect.INSTANCE)
+        val mysqlFile = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
+        assertTrue(
+            "The Chinese suppression must not apply to MySQL files",
+            filter.accept(diagnostic("DATE_TRUNC", "未知数据库函数 'DATE_TRUNC'"), mysqlFile),
+        )
+    }
+
     fun testUnknownFunctionReported() {
         val infos = highlight(
             "SELECT date_trunc_ffo(FROM_SECOND(1700000000), 'day') AS d, count(*) AS cnt;",
