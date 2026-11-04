@@ -24,5 +24,15 @@ platform/optional dependency classes. Do not describe this as a completely clean
 Only the installed 262 runtime was checked. Tests use test-framework 262.10968.63 because
 JetBrains does not publish test-framework 262.11879.103 at the configured repositories.
 
-Review: independent source review found no actionable defects. No live UI success has yet
-been claimed; install the packaged plugin and validate the physical table DDL in DataGrip.
+Review: independent source review found no actionable defects.
+
+Live UI validation (2026-11-04): installed custom plugin
+1.6.4.1-dev.202611040432+7aa6c3a8e7df through Install Plugin from Disk and restarted
+DataGrip. Verified the installed JAR version. Changed the target Doris data source's
+Options > Introspection > Default level from Auto select to Level 3: Everything.
+The source stage then logged a successful original definition read for dim_store.
+After the queued introspections finished, reopened dim_store with Go to Declaration
+from the existing console. The DDL editor displayed the complete CREATE TABLE,
+including ENGINE=OLAP, UNIQUE KEY, DISTRIBUTED BY HASH, and PROPERTIES. The low-level
+introspection warning was absent. This validation covers the table DDL editor;
+function hover documentation was outside this install/validation request.
