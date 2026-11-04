@@ -127,6 +127,97 @@ class DorisDescendantFailurePreservationTest : BasePlatformTestCase() {
         assertEquals(tx.runnersCreated, tx.runnersClosed)
     }
 
+    fun testLoadedTableHasStructureDetailsAndOriginalDefinition() {
+        val ddl = "CREATE TABLE acme_orders (id BIGINT) ENGINE=OLAP DUPLICATE KEY(id) " +
+            "DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES (\"replication_num\"=\"1\")"
+        val tx = RecordingTransaction(mapOf(
+            tablesQuery() to { listOf(tableRow("acme_orders")) },
+            columnsQuery() to { listOf(columnRow("acme_orders", "id", 1)) },
+            "SHOW CREATE TABLE `internal`.`cached_db`.`acme_orders`" to {
+                arrayOf<Any>("acme_orders", ddl)
+            },
+        ))
+        val retriever = introspector.javaClass.getDeclaredMethod(
+            "createSchemaRetriever", DBTransaction::class.java, MsSchema::class.java,
+        ).apply { isAccessible = true }.invoke(introspector, tx, database)
+        retriever.javaClass.getMethod("setWithSources", Boolean::class.javaPrimitiveType)
+            .invoke(retriever, true)
+        retriever.javaClass.getMethod("process").invoke(retriever)
+        val table = checkNotNull(database.tables.get("acme_orders"))
+        assertEquals("source-loaded tables must stop requesting elevation", Level.L3, table.detailsLevel)
+        val task = com.intellij.database.script.generator.ScriptingSingleModelTaskBuilder(
+            model, com.intellij.database.script.generator.ScriptCategory.CREATE_DEFINITION,
+        ).apply { addElements(listOf(table)) }.build()
+        val rendered = com.intellij.database.script.generator.ScriptGenerators.byModel(model)
+            .makeScript(project, task).getScriptText()
+        assertEquals("the server definition must retain Doris properties", ddl, rendered.trim().trimEnd(';'))
+        val generate = com.intellij.database.util.DatabaseDefinitionHelper::class.java.methods.single {
+            it.name == "generateDefinitionUsingScriptingService" && it.parameterCount in 3..4
+        }
+        val arguments = arrayOfNulls<Any>(generate.parameterCount).apply { this[0] = project; this[1] = table }
+        assertTrue("the actual DataGrip documentation/DDL helper must show the server text",
+            generate.invoke(null, *arguments).toString().contains(ddl))
+
+        val cache = project.getService(DorisOriginalDefinitions::class.java)
+        val saved = com.intellij.util.xmlb.XmlSerializer.serialize(cache.state)
+        cache.loadState(DorisOriginalDefinitions.Sources())
+        assertNull(cache.get(table))
+        cache.loadState(com.intellij.util.xmlb.XmlSerializer.deserialize(saved, DorisOriginalDefinitions.Sources::class.java))
+        assertEquals("the IDE cache must survive an XML round trip", ddl, cache.get(table))
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+
+        // Reopened data sources use a new model. The DDL must survive that model replacement.
+        val reopenedFactory = ModelFactory(NoopStorage())
+        val reopened = reopenedFactory.createModel(DorisDbms.DORIS)
+        DorisIntrospector(context(), DorisDbms.DORIS, reopenedFactory).init(reopened, config(), TreePattern.EMPTY)
+        val reopenedTable = (reopened.root as MsRoot).databases.createOrGet("internal")
+            .schemas.createOrGet("cached_db").tables.createOrGet("acme_orders")
+        val reopenedTask = com.intellij.database.script.generator.ScriptingSingleModelTaskBuilder(
+            reopened, com.intellij.database.script.generator.ScriptCategory.CREATE_DEFINITION,
+        ).apply { addElements(listOf(reopenedTable)) }.build()
+        assertEquals(ddl, com.intellij.database.script.generator.ScriptGenerators.byModel(reopened)
+            .makeScript(project, reopenedTask).getScriptText().trim().trimEnd(';'))
+    }
+
+    fun testSourceFailureLeavesStructureUsableAndRemovesStaleDefinition() {
+        val table = database.tables.createOrGet("acme_orders")
+        val cache = project.getService(DorisOriginalDefinitions::class.java)
+        cache.put(table, "CREATE TABLE stale_definition(id INT)")
+        table.detailsLevel = Level.L3
+        val tx = sourceTransaction { throw java.sql.SQLException("SHOW CREATE denied") }
+        retrieveObjects(tx, true)
+        assertEquals(Level.L2, table.detailsLevel)
+        assertEquals(listOf("id"), table.columns.map { it.name })
+        assertNull("a failed refresh must not present the old DDL as current", cache.get(table))
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    fun testSourceCancellationPropagatesAndClosesTheRunner() {
+        val cancellation = com.intellij.openapi.progress.ProcessCanceledException()
+        val tx = sourceTransaction { throw cancellation }
+        try {
+            retrieveObjects(tx, true)
+            fail("expected cancellation")
+        } catch (wrapped: java.lang.reflect.InvocationTargetException) {
+            assertSame(cancellation, wrapped.targetException)
+        }
+        assertEquals(Level.L2, database.tables.get("acme_orders")!!.detailsLevel)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    fun testStructureRefreshDoesNotFetchDefinitions() {
+        val tx = sourceTransaction { error("a level 2 refresh must not fetch sources") }
+        retrieveObjects(tx)
+        assertEquals(Level.L2, database.tables.get("acme_orders")!!.detailsLevel)
+        assertEquals(tx.runnersCreated, tx.runnersClosed)
+    }
+
+    private fun sourceTransaction(source: () -> Any?) = RecordingTransaction(mapOf(
+        tablesQuery() to { listOf(tableRow("acme_orders")) },
+        columnsQuery() to { listOf(columnRow("acme_orders", "id", 1)) },
+        "SHOW CREATE TABLE `internal`.`cached_db`.`acme_orders`" to source,
+    ))
+
     private fun retrieveDatabases(transaction: DBTransaction) {
         val retriever = introspector.javaClass.getDeclaredMethod(
             "createDatabaseRetriever",
@@ -136,12 +227,14 @@ class DorisDescendantFailurePreservationTest : BasePlatformTestCase() {
         retriever.javaClass.getMethod("retrieveSchemas").invoke(retriever)
     }
 
-    private fun retrieveObjects(transaction: DBTransaction) {
+    private fun retrieveObjects(transaction: DBTransaction, withSources: Boolean = false) {
         val retriever = introspector.javaClass.getDeclaredMethod(
             "createSchemaRetriever",
             DBTransaction::class.java,
             MsSchema::class.java,
         ).apply { isAccessible = true }.invoke(introspector, transaction, database)
+        retriever.javaClass.getMethod("setWithSources", Boolean::class.javaPrimitiveType)
+            .invoke(retriever, withSources)
         retriever.javaClass.getMethod("process").invoke(retriever)
     }
 

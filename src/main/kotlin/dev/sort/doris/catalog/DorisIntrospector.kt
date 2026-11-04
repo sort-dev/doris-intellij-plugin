@@ -15,12 +15,15 @@ import com.intellij.database.introspection.DBIntrospector
 import com.intellij.database.layoutedQueries.DBTransaction
 import com.intellij.database.model.ModelFactory
 import com.intellij.database.model.ObjectKind
+import com.intellij.database.model.basic.BasicElement
+import com.intellij.database.model.properties.Level
 import com.intellij.database.model.basic.BasicModMultiLevelObject
 import com.intellij.database.model.families.ModNamingFamily
 import com.intellij.database.util.TreePattern
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import dev.sort.doris.DorisCatalogs
+import com.intellij.openapi.components.service
 
 /**
  * Experimental multi-catalog introspector for Apache Doris (Gate 1 / Milestone 1, path (a) of
@@ -136,6 +139,7 @@ class DorisIntrospector(
         config: com.intellij.database.dataSource.DataSourceBriefConfig,
     ) {
         super.initSpecificThings(model, config)
+        project.service<DorisOriginalDefinitions>().bind(model, config.uniqueId)
         val scope = introspectionScope ?: return
         DorisCatalogs.info("introspection starts under scope " + com.intellij.database.util.TreePatternUtils.serialize(scope))
         val expanded = DorisCatalogScopes.expandExplicitCatalogSelections(scope)
@@ -269,7 +273,8 @@ class DorisIntrospector(
             ): Boolean = false
 
             override fun process() {
-                retrieveSchemaObjects(transaction, schema)
+                val objects = retrieveSchemaObjects(transaction, schema) ?: return
+                if (withSources) retrieveOriginalDefinitions(transaction, objects)
             }
         }
     }
@@ -307,12 +312,17 @@ class DorisIntrospector(
 
             override fun process() {
                 affectedObjects.clear()
+                affectedSchemas.clear()
                 DorisCatalogs.info(
                     "portion introspection: ${portion.schemas.size} schema(s) of catalog " +
                         "'${portion.database.name}' (mode ${portion.mode})",
                 )
                 for (schema in schemas) {
-                    affectedObjects.addAll(retrieveSchemaObjects(transaction, schema))
+                    val objects = retrieveSchemaObjects(transaction, schema) ?: continue
+                    affectedObjects.addAll(objects)
+                    // The platform schedules level 2/3 only for schemas reported here.
+                    // An empty but successful inventory must also advance to those phases.
+                    affectedSchemas.add(schema)
                 }
             }
         }
@@ -324,8 +334,8 @@ class DorisIntrospector(
      * schema retriever and the portion retriever. A failure is logged with the `DorisCatalogs:`
      * prefix and skips only this schema.
      */
-    private fun retrieveSchemaObjects(transaction: DBTransaction, schema: MsSchema): Set<BasicModMultiLevelObject> {
-        val catalog = schema.database?.name ?: return emptySet()
+    private fun retrieveSchemaObjects(transaction: DBTransaction, schema: MsSchema): Set<BasicModMultiLevelObject>? {
+        val catalog = schema.database?.name ?: return null
         val schemaName = schema.name
         try {
             val tables = runCatalogScopedOrFallback(
@@ -371,6 +381,8 @@ class DorisIntrospector(
             var counts = TableViewCounts(0, 0)
             var affectedObjects: Set<BasicModMultiLevelObject> = emptySet()
             DorisModelWrite.write(model) {
+                schema.tables.forEach { project.service<DorisOriginalDefinitions>().forget(it) }
+                schema.views.forEach { project.service<DorisOriginalDefinitions>().forget(it) }
                 counts = attachTablesAndViews(schema, tables, columnsByTable)
                 affectedObjects = buildSet {
                     addAll(schema.tables)
@@ -386,7 +398,35 @@ class DorisIntrospector(
             throw pce
         } catch (t: Throwable) {
             DorisCatalogs.warn("catalog '$catalog' db '$schemaName' object listing failed; skipping", t)
-            return emptySet()
+            return null
+        }
+    }
+
+    private fun retrieveOriginalDefinitions(
+        transaction: DBTransaction,
+        objects: Iterable<BasicModMultiLevelObject>,
+    ) {
+        for (obj in objects) {
+            ProgressManager.checkCanceled()
+            val element = obj as BasicElement
+            try {
+                val ddl = DorisOriginalDefinitions.read(transaction, element)
+                project.service<DorisOriginalDefinitions>().put(element, ddl)
+                DorisModelWrite.write(model) { obj.detailsLevel = Level.L3 }
+                DorisCatalogs.info("original definition loaded: ${element.identity()}")
+            } catch (failure: Exception) {
+                if (failure is com.intellij.openapi.diagnostic.ControlFlowException ||
+                    failure is java.util.concurrent.CancellationException) throw failure
+                DorisCatalogs.warn("original definition failed: ${element.identity()}", failure)
+            }
+        }
+    }
+
+    override fun markSchemaIntrospected(schema: MsSchema, processedLevel: Level) {
+        DorisModelWrite.write(model) {
+            val objects = schema.tables.toList() + schema.views.toList()
+            schema.lastIntrospectionLevel = objects.mapNotNull { it.detailsLevel }
+                .minOrNull()?.let { minOf(it, processedLevel) } ?: processedLevel
         }
     }
 
@@ -683,10 +723,14 @@ internal fun attachTablesAndViews(
         val name = t.TABLE_NAME!!
         val columns = columnsByTable[name.lowercase()].orEmpty()
         if (DorisCatalogQueries.isViewType(t.TABLE_TYPE)) {
-            attachColumns(schema.views.createOrGet(name).columns, columns)
+            val view = schema.views.createOrGet(name)
+            attachColumns(view.columns, columns)
+            view.detailsLevel = Level.L2
             viewCount++
         } else {
-            attachColumns(schema.tables.createOrGet(name).columns, columns)
+            val table = schema.tables.createOrGet(name)
+            attachColumns(table.columns, columns)
+            table.detailsLevel = Level.L2
             tableCount++
         }
     }

@@ -137,6 +137,8 @@ class DorisCatalogFailurePreservationTest : BasePlatformTestCase() {
         assertEmpty(affectedObjects(retriever))
         processPortion(retriever)
         assertEquals(setOf(cached.database.tables.get("fresh_table"), cached.database.views.get("fresh_view")), affectedObjects(retriever))
+        assertEquals("the platform must continue to the source-loading phase for successful schemas",
+            setOf(cached.database), retriever.javaClass.getMethod("affectedSchemas").invoke(retriever))
         assertNull(cached.database.tables.get("cached_table"))
         assertSame(stale, failed.tables.get("stale_table"))
         assertSame(untouched, cached.catalog.schemas.get("untouched_db")!!.tables.get("untouched_table"))
