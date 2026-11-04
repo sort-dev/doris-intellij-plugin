@@ -1,0 +1,44 @@
+<div class="definition"><pre>ARRAY_FLATTEN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将多维数组展平成一维。</p>
+<h2>语法</h2>
+<pre><code>array_flatten(&lt;a&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>需要被展平的数组</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>被展平的结果。</p>
+<h2>举例</h2>
+<pre><code>mysql&gt; select array_flatten([[1,2,3],[4,5]]);
++--------------------------------+
+| array_flatten([[1,2,3],[4,5]]) |
++--------------------------------+
+| [1, 2, 3, 4, 5]                |
++--------------------------------+
+1 row in set (0.01 sec)
+
+mysql&gt; select array_flatten([[[[[[1,2,3,4,5],[6,7],[8,9],[10,11],[12]],[[13]]],[[[14]]]]]]);
++-------------------------------------------------------------------------------+
+| array_flatten([[[[[[1,2,3,4,5],[6,7],[8,9],[10,11],[12]],[[13]]],[[[14]]]]]]) |
++-------------------------------------------------------------------------------+
+| [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]                               |
++-------------------------------------------------------------------------------+
+1 row in set (0.02 sec)
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-flatten/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,136 @@
+<div class="definition"><pre>STRLEFT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>STRLEFT 函数（别名 LEFT）用于从字符串的左侧截取指定长度的字符。</p>
+<h2>别名</h2>
+<p>LEFT</p>
+<h2>语法</h2>
+<pre><code>STRLEFT(&lt;str&gt;, &lt;len&gt;)
+LEFT(&lt;str&gt;, &lt;len&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要截取的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>要返回的字符数量。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示从字符串左侧截取的部分。</p>
+<p>截取规则：</p>
+<ul>
+<li>从字符串左侧开始计算指定长度的字符</li>
+<li>如果长度超过字符串长度，返回整个字符串</li>
+<li>长度为负数或零时，返回空字符串</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果 len 小于等于 0，返回空字符串</li>
+<li>如果 len 大于字符串长度，返回整个字符串</li>
+<li>如果字符串为空，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本左侧截取</li>
+</ol>
+<pre><code>SELECT STRLEFT('Hello doris', 5), LEFT('Hello doris', 5);
+</code></pre>
+<pre><code>+---------------------------+----------------------+
+| STRLEFT('Hello doris', 5) | LEFT('Hello doris', 5) |
++---------------------------+----------------------+
+| Hello                     | Hello                |
++---------------------------+----------------------+
+</code></pre>
+<ol>
+<li>不同长度的截取</li>
+</ol>
+<pre><code>SELECT STRLEFT('Hello World', 3), STRLEFT('Hello World', 8);
+</code></pre>
+<pre><code>+----------------------------+----------------------------+
+| STRLEFT('Hello World', 3)  | STRLEFT('Hello World', 8)  |
++----------------------------+----------------------------+
+| Hel                        | Hello Wo                   |
++----------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT STRLEFT(NULL, 5), STRLEFT('Hello doris', NULL);
+</code></pre>
+<pre><code>+------------------+------------------------------+
+| STRLEFT(NULL, 5) | STRLEFT('Hello doris', NULL) |
++------------------+------------------------------+
+| NULL             | NULL                         |
++------------------+------------------------------+
+</code></pre>
+<ol>
+<li>空字符串和零长度</li>
+</ol>
+<pre><code>SELECT STRLEFT('', 5), STRLEFT('Hello World', 0);
+</code></pre>
+<pre><code>+------------------+----------------------------+
+| STRLEFT('', 5)   | STRLEFT('Hello World', 0)  |
++------------------+----------------------------+
+|                  |                            |
++------------------+----------------------------+
+</code></pre>
+<ol>
+<li>负数长度处理</li>
+</ol>
+<pre><code>SELECT STRLEFT('Hello doris', -5), STRLEFT('Hello doris', -1);
+</code></pre>
+<pre><code>+-----------------------------+----------------------------+
+| STRLEFT('Hello doris', -5)  | STRLEFT('Hello doris', -1) |
++-----------------------------+----------------------------+
+|                             |                            |
++-----------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>超出字符串长度</li>
+</ol>
+<pre><code>SELECT STRLEFT('ABC', 10), STRLEFT('short', 20);
+</code></pre>
+<pre><code>+--------------------+----------------------+
+| STRLEFT('ABC', 10) | STRLEFT('short', 20) |
++--------------------+----------------------+
+| ABC                | short                |
++--------------------+----------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT STRLEFT('ṭṛì ḍḍumai hello', 3), STRLEFT('ṭṛì ḍḍumai hello', 7);
+</code></pre>
+<pre><code>+---------------------------------+----------------------------------+
+| STRLEFT('ṭṛì ḍḍumai hello', 3)  | STRLEFT('ṭṛì ḍḍumai hello', 7)  |
++---------------------------------+----------------------------------+
+| ṭṛì                             | ṭṛì ḍḍu                          |
++---------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>数字和编号前缀</li>
+</ol>
+<pre><code>SELECT STRLEFT('ID123456789', 5), STRLEFT('USER_987654321', 5);
+</code></pre>
+<pre><code>+----------------------------+------------------------------+
+| STRLEFT('ID123456789', 5)  | STRLEFT('USER_987654321', 5) |
++----------------------------+------------------------------+
+| ID123                      | USER_                        |
++----------------------------+------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/strleft/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

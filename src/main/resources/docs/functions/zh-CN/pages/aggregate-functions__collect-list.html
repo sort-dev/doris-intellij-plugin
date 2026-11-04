@@ -1,0 +1,64 @@
+<div class="definition"><pre>COLLECT_LIST</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将表达式的所有非 NULL 值聚集成一个数组。</p>
+<h2>别名</h2>
+<ul>
+<li>GROUP_ARRAY</li>
+</ul>
+<h2>语法</h2>
+<pre><code>COLLECT_LIST(&lt;expr&gt; [,&lt;max_size&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>确定要放入数组的值的表达式，支持类型为 Bool，TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal，Date，Datetime，Timestamptz，IPV4，IPV6，String，Array，Map，Struct。</td>
+</tr>
+<tr>
+<td><code>&lt;max_size&gt;</code></td>
+<td>可选参数，通过设置该参数能够将结果数组的大小限制为 max_size 个元素，支持类型为 Integer。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回类型是 ARRAY，该数组包含所有非 NULL 值。
+如果组内没有合法数据，则返回空数组。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE collect_list_test (
+	k1 INT,
+	k2 INT,
+	k3 STRING
+) DISTRIBUTED BY HASH(k1) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO collect_list_test VALUES (1, 10, 'a'), (1, 20, 'b'), (1, 30, 'c'), (2, 100, 'x'), (2, 200, 'y'), (3, NULL, NULL);
+</code></pre>
+<pre><code>select collect_list(k1),collect_list(k1,3) from collect_list_test;
+</code></pre>
+<pre><code>+--------------------+--------------------+
+| collect_list(k1)   | collect_list(k1,3) |
++--------------------+--------------------+
+| [1, 1, 1, 2, 2, 3] | [1, 1, 1]          |
++--------------------+--------------------+
+</code></pre>
+<pre><code>select k1,collect_list(k2),collect_list(k3,1) from collect_list_test group by k1 order by k1;
+</code></pre>
+<pre><code>+------+------------------+--------------------+
+| k1   | collect_list(k2) | collect_list(k3,1) |
++------+------------------+--------------------+
+|    1 | [10, 20, 30]     | ["a"]              |
+|    2 | [100, 200]       | ["x"]              |
+|    3 | []               | []                 |
++------+------------------+--------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/collect-list/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

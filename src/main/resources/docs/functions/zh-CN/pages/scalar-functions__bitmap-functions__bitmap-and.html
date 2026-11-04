@@ -1,0 +1,55 @@
+<div class="definition"><pre>BITMAP_AND</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个及以上输入的 BITMAP 的交集，返回新的 BITMAP.</p>
+<h2>语法</h2>
+<pre><code>BITMAP_AND(&lt;bitmap&gt;, &lt;bitmap&gt;,[, &lt;bitmap&gt;...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>被求交集的原 BITMAP 之一</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BITMAP</p>
+<ul>
+<li>当参数存在NULL时，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select bitmap_to_string(bitmap_and(bitmap_from_string('1,2,3'), bitmap_from_string('1,2'), bitmap_from_string('1,2,3,4,5'))) as res;
+</code></pre>
+<pre><code>+------+
+| res  |
++------+
+| 1,2  |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_and(bitmap_from_string('1,2,3'), bitmap_from_string('1,2'), bitmap_from_string('1,2,3,4,5'),bitmap_empty())) as res;
+</code></pre>
+<pre><code>+------+
+| res  |
++------+
+|      |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_and(bitmap_from_string('1,2,3'), bitmap_from_string('1,2'), bitmap_from_string('1,2,3,4,5'),NULL)) as res;
+</code></pre>
+<pre><code>+------+
+| res  |
++------+
+| NULL |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-and/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

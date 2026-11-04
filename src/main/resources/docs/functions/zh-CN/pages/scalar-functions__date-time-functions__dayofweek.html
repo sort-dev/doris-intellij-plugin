@@ -1,0 +1,67 @@
+<div class="definition"><pre>DAYOFWEEK</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>DAYOFWEEK 函数用于返回日期或时间表达式对应的星期索引值，遵循星期日为 1，星期一为 2，……，星期六为 7 的规则。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_dayofweek">dayofweek 函数</a> 行为一致</p>
+<h2>别名</h2>
+<ul>
+<li>DOW()</li>
+</ul>
+<h2>语法</h2>
+<pre><code>DAYOFWEEK(&lt;date_or_time_expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>参数是合法的日期表达式，支持输入 date/datetime 类型,具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整数，表示日期对应的星期索引值（1-7，其中 1 代表星期日，7 代表星期六）。</p>
+<p>特殊情况：</p>
+<p>若 <code>&lt;date_or_time_expr&gt;</code> 为 NULL，返回 NULL；</p>
+<h2>举例</h2>
+<pre><code>---计算 date 类型的星期索引值
+select dayofweek('2019-06-25');
++----------------------------------+
+| dayofweek('2019-06-25 00:00:00') |
++----------------------------------+
+|                                3 |
++----------------------------------+
+
+---计算 datetime 类型的星期索引值
+select dayofweek('2019-06-25 15:30:45');
++----------------------------------+
+| dayofweek('2019-06-25 15:30:45') |
++----------------------------------+
+|                                3 |
++----------------------------------+
+
+---星期日的索引
+select dayofweek('2024-02-18');
++-------------------------+
+| dayofweek('2024-02-18') |
++-------------------------+
+|                       1 |
++-------------------------+
+
+---输入日期时间为 NULL，返回 NULL
+select dayofweek(NULL);
++-----------------+
+| dayofweek(NULL) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/dayofweek/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

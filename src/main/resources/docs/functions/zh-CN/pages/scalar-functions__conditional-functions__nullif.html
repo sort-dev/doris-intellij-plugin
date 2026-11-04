@@ -1,0 +1,54 @@
+<div class="definition"><pre>NULLIF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>如果两个输入值相等，则返回 <code>NULL</code>；否则返回第一个输入值。该函数等价于以下 <code>CASE WHEN</code> 表达式：</p>
+<pre><code>CASE
+    WHEN &lt;expr1&gt; = &lt;expr2&gt; THEN NULL
+    ELSE &lt;expr1&gt;
+END
+</code></pre>
+<h2>语法</h2>
+<pre><code>NULLIF(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;expr1&gt;</code> 需要进行比较的第一个输入值，参数类型说明见下面的使用说明。</li>
+<li><code>&lt;expr2&gt;</code> 需要与第一个输入值进行比较的第二个值，参数类型说明见下面的使用说明。</li>
+</ul>
+<h2>使用说明</h2>
+<p>参数支持以下类型：</p>
+<ol>
+<li>布尔（Boolean）</li>
+<li>数字类型（TinyInt、SmallInt、Int、BigInt、LargeInt、Float、Double、Decimal）</li>
+<li>日期类型（Date、DateTime、Time）</li>
+<li>字符类型（String、VARCHAR、CHAR）</li>
+</ol>
+<h2>返回值</h2>
+<ul>
+<li>如果 <code>&lt;expr1&gt;</code> 等于 <code>&lt;expr2&gt;</code>，则返回 <code>NULL</code>。</li>
+<li>否则，返回 <code>&lt;expr1&gt;</code> 的值。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>SELECT NULLIF(1, 1);
+</code></pre>
+<pre><code>+--------------+
+| NULLIF(1, 1) |
++--------------+
+|         NULL |
++--------------+
+</code></pre>
+</li>
+<li>示例 2<pre><code>SELECT NULLIF(1, 0);
+</code></pre>
+<pre><code>+--------------+
+| NULLIF(1, 0) |
++--------------+
+|            1 |
++--------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/conditional-functions/nullif/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

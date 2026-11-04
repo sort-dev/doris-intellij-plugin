@@ -1,0 +1,36 @@
+<div class="definition"><pre>CURRENT_USER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>获取当前的用户名及其 IP 白名单规则。</p>
+<h2>语法</h2>
+<pre><code>CURRENT_USER()
+</code></pre>
+<h2>返回值</h2>
+<p>返回当前的用户名及其 IP 白名单。</p>
+<p>格式：<code>&lt;user_name&gt;@&lt;ip_white_list&gt;</code></p>
+<h2>举例</h2>
+<ul>
+<li>root 用户，无 IP 限制</li>
+</ul>
+<pre><code>select current_user();
+</code></pre>
+<pre><code>+----------------+
+| current_user() |
++----------------+
+| 'root'@'%'     |
++----------------+
+</code></pre>
+<ul>
+<li>doris 用户，IP 白名单为 192.168.*</li>
+</ul>
+<pre><code>select current_user();
+</code></pre>
+<pre><code>+---------------------+
+| current_user()      |
++---------------------+
+| 'doris'@'192.168.%' |
++---------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/system-functions/current-user/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

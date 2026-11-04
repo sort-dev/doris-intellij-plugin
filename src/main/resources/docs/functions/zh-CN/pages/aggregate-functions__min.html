@@ -1,0 +1,99 @@
+<div class="definition"><pre>MIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MIN 函数返回表达式的最小非 NULL 值。</p>
+<p>版本差异：Doris 4.1 系列自 4.1.5 起，以及 Doris 4.2 及后续版本中，数组内的 <code>NULL</code> 元素大于非 <code>NULL</code> 元素；Doris 4.0 和 4.1.5 之前的 4.1 版本中数组内的 <code>NULL</code> 元素小于非 <code>NULL</code> 元素。整个数组值为 <code>NULL</code> 的输入在这些版本中均被忽略。</p>
+<h2>语法</h2>
+<pre><code>MIN(&lt;expr&gt;)
+</code></pre>
+<h2>参数 {#参数说明}</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>用于计算的表达式。支持的类型包括 String、Time、Date、DateTime、Timestamptz、IPv4、IPv6、TinyInt、SmallInt、Integer、BigInt、LargeInt、Float、Double、Decimal、Array。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回与输入表达式相同的数据类型。
+如果组内所有记录均为 NULL，则函数返回 NULL。</p>
+<p>Doris 4.1 系列自 4.1.5 起，比较数组等复杂类型时，相同位置的 NULL 元素大于非 NULL 元素。例如，<code>[10, 20, NULL]</code> 大于 <code>[10, 20, 40]</code>。这与整个表达式为 NULL 的情况不同：整个表达式为 NULL 的行仍会被忽略。4.1.5 之前，聚合比较将复杂类型内部的 NULL 元素视为较小值。</p>
+<h2>示例 {#举例}</h2>
+<pre><code>-- setup
+create table t1(
+        k1 int,
+        k_string varchar(100),
+        k_decimal decimal(10, 2),
+        k_array array&lt;int&gt;
+) distributed by hash (k1) buckets 1
+properties ("replication_num"="1");
+insert into t1 values 
+    (1, 'apple', 10.01, [10, 20, 30]),
+    (1, 'banana', 20.02, [10, 20]),
+    (2, 'orange', 30.03, [10, 20, 40]),
+    (2, null, null, [10, 20, null]),
+    (3, null, null, null);
+</code></pre>
+<pre><code>建表成功，数据已插入。
+</code></pre>
+<pre><code>select k1, min(k_string) from t1 group by k1 order by k1;
+</code></pre>
+<p>String 类型：对于每个分组，返回最小的字符串值。</p>
+<pre><code>+------+---------------+
+| k1   | min(k_string) |
++------+---------------+
+|    1 | apple         |
+|    2 | orange        |
+|    3 | NULL          |
++------+---------------+
+</code></pre>
+<pre><code>select k1, min(k_decimal) from t1 group by k1 order by k1;
+</code></pre>
+<p>Decimal 类型：返回最小的高精度小数值。</p>
+<pre><code>+------+----------------+
+| k1   | min(k_decimal) |
++------+----------------+
+|    1 |          10.01 |
+|    2 |          30.03 |
+|    3 |           NULL |
++------+----------------+
+</code></pre>
+<pre><code>select k1, min(k_array) from t1 group by k1 order by k1;
+</code></pre>
+<p>Array 类型：逐元素比较，返回最小的数组值；相同位置的 NULL 元素大于非 NULL 元素。</p>
+<pre><code>+------+----------------+
+| k1   | min(k_array)   |
++------+----------------+
+|    1 | [10, 20]       |
+|    2 | [10, 20, 40]   |
+|    3 | NULL           |
++------+----------------+
+</code></pre>
+<pre><code>select min(k_string) from t1 where k1 = 3;
+</code></pre>
+<p>当组内所有值都为 NULL 时，返回 NULL。</p>
+<pre><code>+---------------+
+| min(k_string) |
++---------------+
+| NULL          |
++---------------+
+</code></pre>
+<pre><code>select min(k_string) from t1;
+</code></pre>
+<p>返回所有数据的最小值。</p>
+<pre><code>+---------------+
+| min(k_string) |
++---------------+
+| apple         |
++---------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/min/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

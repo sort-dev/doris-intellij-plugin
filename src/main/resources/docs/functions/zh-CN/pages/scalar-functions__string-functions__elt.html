@@ -1,0 +1,127 @@
+<div class="definition"><pre>ELT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>ELT 函数根据指定的索引位置返回对应的字符串。索引从1开始计数。</p>
+<h2>语法</h2>
+<pre><code>ELT(&lt;pos&gt;, &lt;str&gt;[, &lt;str&gt; ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;pos&gt;</code></td>
+<td>索引位置（从1开始）。类型：INT</td>
+</tr>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>字符串列表。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为指定索引位置的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 <code>&lt;pos&gt;</code> 小于1或大于字符串数量，返回 NULL</li>
+<li>如果 <code>&lt;pos&gt;</code> 为 NULL，返回 NULL</li>
+<li>索引从1开始，第一个字符串的索引为1</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：获取第1个字符串</li>
+</ol>
+<pre><code>SELECT ELT(1, 'aaa', 'bbb', 'ccc');
+</code></pre>
+<pre><code>+-----------------------------+
+| elt(1, 'aaa', 'bbb', 'ccc') |
++-----------------------------+
+| aaa                         |
++-----------------------------+
+</code></pre>
+<ol>
+<li>获取第2个字符串</li>
+</ol>
+<pre><code>SELECT ELT(2, 'aaa', 'bbb', 'ccc');
+</code></pre>
+<pre><code>+-----------------------------+
+| elt(2, 'aaa', 'bbb', 'ccc') |
++-----------------------------+
+| bbb                         |
++-----------------------------+
+</code></pre>
+<ol>
+<li>索引越界返回 NULL</li>
+</ol>
+<pre><code>SELECT ELT(0, 'aaa', 'bbb'), ELT(5, 'aaa', 'bbb');
+</code></pre>
+<pre><code>+----------------------+----------------------+
+| elt(0, 'aaa', 'bbb') | elt(5, 'aaa', 'bbb') |
++----------------------+----------------------+
+| NULL                 | NULL                 |
++----------------------+----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT ELT(NULL, 'aaa', 'bbb');
+</code></pre>
+<pre><code>+-------------------------+
+| elt(NULL, 'aaa', 'bbb') |
++-------------------------+
+| NULL                    |
++-------------------------+
+</code></pre>
+<ol>
+<li>索引超出范围返回 NULL</li>
+</ol>
+<pre><code>SELECT ELT(5, 'aaa', 'bbb', 'ccc');
+</code></pre>
+<pre><code>+-----------------------------+
+| elt(5, 'aaa', 'bbb', 'ccc') |
++-----------------------------+
+| NULL                        |
++-----------------------------+
+</code></pre>
+<ol>
+<li>负数索引返回 NULL</li>
+</ol>
+<pre><code>SELECT ELT(-1, 'first', 'second');
+</code></pre>
+<pre><code>+----------------------------+
+| elt(-1, 'first', 'second') |
++----------------------------+
+| NULL                       |
++----------------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符串</li>
+</ol>
+<pre><code>SELECT 
+    ELT(2, 'Hello', 'ṭṛ', 'Hola');
+</code></pre>
+<pre><code>+-----------------------------------+
+| ELT(2, 'Hello', 'ṭṛ', 'Hola')     |
++-----------------------------------+
+| ṭṛ                                |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>处理空字符串</li>
+</ol>
+<pre><code>SELECT ELT(2, 'first', '', 'third');
+</code></pre>
+<pre><code>+------------------------------+
+| elt(2, 'first', '', 'third') |
++------------------------------+
+|                              |
++------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/elt/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

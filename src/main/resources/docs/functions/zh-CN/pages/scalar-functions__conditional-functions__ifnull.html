@@ -1,0 +1,60 @@
+<div class="definition"><pre>IFNULL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>如果 <code>&lt;expr1&gt;</code> 的值不为 <code>NULL</code>，则返回 <code>&lt;expr1&gt;</code>；否则返回 <code>&lt;expr2&gt;</code>。</p>
+<h2>别名</h2>
+<ul>
+<li>NVL</li>
+</ul>
+<h2>语法</h2>
+<pre><code>IFNULL(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;expr1&gt;</code> 需要判断是否为 <code>NULL</code> 的表达式。</li>
+<li><code>&lt;expr2&gt;</code> <code>&lt;expr1&gt;</code> 为 <code>NULL</code> 时返回的值。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>如果 <code>&lt;expr1&gt;</code> 不为 <code>NULL</code>，则返回 <code>&lt;expr1&gt;</code>。</li>
+<li>否则，返回 <code>&lt;expr2&gt;</code>。</li>
+</ul>
+<h2>举例</h2>
+<ol>
+<li>
+<p>示例 1</p>
+<pre><code>SELECT IFNULL(1, 0);
+</code></pre>
+<pre><code>+--------------+
+| IFNULL(1, 0) |
++--------------+
+|            1 |
++--------------+
+</code></pre>
+</li>
+<li>
+<p>示例 2</p>
+<pre><code>SELECT IFNULL(NULL, 10);
+</code></pre>
+<pre><code>+------------------+
+| IFNULL(NULL, 10) |
++------------------+
+|               10 |
++------------------+
+</code></pre>
+</li>
+<li>
+<p>参数都为 NULL</p>
+<pre><code>SELECT IFNULL(NULL, NULL);
+</code></pre>
+<pre><code>+--------------------+
+| IFNULL(NULL, NULL) |
++--------------------+
+|               NULL |
++--------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/conditional-functions/ifnull/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

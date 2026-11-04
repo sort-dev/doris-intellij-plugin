@@ -1,0 +1,101 @@
+<div class="definition"><pre>GROUP_CONCAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>GROUP_CONCAT 函数将结果集中的多行结果连接成一个字符串。</p>
+<h2>语法</h2>
+<pre><code>GROUP_CONCAT([DISTINCT] &lt;str&gt;[, &lt;sep&gt;] [ORDER BY { &lt;col_name&gt; | &lt;expr&gt;} [ASC | DESC]])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>必选，需要连接值的表达式，支持类型为 String 。</td>
+</tr>
+<tr>
+<td><code>&lt;sep&gt;</code></td>
+<td>可选，字符串之间的连接符号。</td>
+</tr>
+<tr>
+<td><code>&lt;col_name&gt;</code></td>
+<td>可选，用于指定排序的列。</td>
+</tr>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>可选，用于指定排序的表达式。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 String 类型的数值。
+如果输入的数据包含 NULL ，返回 NULL 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+create table test(
+    value varchar(10)
+) distributed by hash(value) buckets 1
+properties ("replication_num"="1");
+
+insert into test values
+    ("a"),
+    ("b"),
+    ("c"),
+    ("c");
+</code></pre>
+<pre><code>select GROUP_CONCAT(value) from test;
+</code></pre>
+<pre><code>+-----------------------+
+| GROUP_CONCAT(`value`) |
++-----------------------+
+| a, b, c, c            |
++-----------------------+
+</code></pre>
+<pre><code>select GROUP_CONCAT(DISTINCT value) from test;
+</code></pre>
+<pre><code>+-----------------------+
+| GROUP_CONCAT(`value`) |
++-----------------------+
+| a, b, c               |
++-----------------------+
+</code></pre>
+<pre><code>select GROUP_CONCAT(value ORDER BY value DESC) from test;
+</code></pre>
+<pre><code>+-----------------------+
+| GROUP_CONCAT(`value`) |
++-----------------------+
+| c, c, b, a            |
++-----------------------+
+</code></pre>
+<pre><code>select GROUP_CONCAT(DISTINCT value ORDER BY value DESC) from test;
+</code></pre>
+<pre><code>+-----------------------+
+| GROUP_CONCAT(`value`) |
++-----------------------+
+| c, b, a               |
++-----------------------+
+</code></pre>
+<pre><code>select GROUP_CONCAT(value, " ") from test;
+</code></pre>
+<pre><code>+----------------------------+
+| GROUP_CONCAT(`value`, ' ') |
++----------------------------+
+| a b c c                    |
++----------------------------+
+</code></pre>
+<pre><code>select GROUP_CONCAT(value, NULL) from test;
+</code></pre>
+<pre><code>+----------------------------+
+| GROUP_CONCAT(`value`, NULL)|
++----------------------------+
+| NULL                       |
++----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/group-concat/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

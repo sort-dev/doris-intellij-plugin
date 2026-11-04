@@ -1,0 +1,118 @@
+<div class="definition"><pre>LCASE/LOWER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>LCASE 函数（别名 LOWER）用于将字符串中的所有大写字母转换为小写字母。</p>
+<h2>语法</h2>
+<pre><code>LCASE(&lt;str&gt;)
+LOWER(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要转换为小写的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示转换为小写字母后的字符串。</p>
+<p>转换规则：</p>
+<ul>
+<li>将字符串中所有大写字母转换为对应的小写字母</li>
+<li>非字母字符（数字、符号、空格等）保持不变</li>
+<li>已经是小写的字母保持不变</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果字符串为空，返回空字符串</li>
+<li>如果字符串中没有大写字母，返回原字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本英文字母转换</li>
+</ol>
+<pre><code>SELECT LOWER('AbC123'), LCASE('AbC123');
+</code></pre>
+<pre><code>+-----------------+-----------------+
+| LOWER('AbC123') | LCASE('AbC123') |
++-----------------+-----------------+
+| abc123          | abc123          |
++-----------------+-----------------+
+</code></pre>
+<ol>
+<li>混合字符处理</li>
+</ol>
+<pre><code>SELECT LOWER('Hello World!'), LCASE('TEST@123');
+</code></pre>
+<pre><code>+----------------------+------------------+
+| LOWER('Hello World!') | LCASE('TEST@123') |
++----------------------+------------------+
+| hello world!         | test@123         |
++----------------------+------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT LOWER(NULL), LCASE(NULL);
+</code></pre>
+<pre><code>+-------------+-------------+
+| LOWER(NULL) | LCASE(NULL) |
++-------------+-------------+
+| NULL        | NULL        |
++-------------+-------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT LOWER(''), LCASE('');
+</code></pre>
+<pre><code>+-----------+-----------+
+| LOWER('') | LCASE('') |
++-----------+-----------+
+|           |           |
++-----------+-----------+
+</code></pre>
+<ol>
+<li>已经是小写的字符串</li>
+</ol>
+<pre><code>SELECT LOWER('already lowercase'), LCASE('abc123');
+</code></pre>
+<pre><code>+---------------------------+----------------+
+| LOWER('already lowercase') | LCASE('abc123') |
++---------------------------+----------------+
+| already lowercase         | abc123         |
++---------------------------+----------------+
+</code></pre>
+<ol>
+<li>数字和符号</li>
+</ol>
+<pre><code>SELECT LOWER('123!@#$%'), LCASE('PRICE: $99.99');
+</code></pre>
+<pre><code>+-------------------+----------------------+
+| LOWER('123!@#$%') | LCASE('PRICE: $99.99') |
++-------------------+----------------------+
+| 123!@#$%          | price: $99.99        |
++-------------------+----------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT LOWER('ṬṚÌ TEST'), LCASE('ḌḌUMAI HELLO');
+</code></pre>
+<pre><code>+--------------------+-----------------------+
+| LOWER('ṬṚÌ TEST')  | LCASE('ḌḌUMAI HELLO') |
++--------------------+-----------------------+
+| ṭṛì test           | ḍḍumai hello          |
++--------------------+-----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/lcase/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

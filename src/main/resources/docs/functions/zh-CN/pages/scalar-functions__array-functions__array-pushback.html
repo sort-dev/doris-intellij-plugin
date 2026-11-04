@@ -1,0 +1,127 @@
+<div class="definition"><pre>ARRAY_PUSHBACK</pre></div>
+<div class="content">
+<h2>array_pushback</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>在数组末尾添加一个元素。函数会返回一个新数组，包含原数组的所有元素以及新添加的元素。</p>
+<h2>别名</h2>
+<ul>
+<li>array_append</li>
+</ul>
+<h2>语法</h2>
+<pre><code>array_pushback(ARRAY&lt;T&gt; arr, T element)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要添加元素的数组</li>
+<li><code>element</code>：T 类型，要添加到数组末尾的元素</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;T&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个新数组，包含原数组的所有元素以及新添加的元素</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会在数组末尾添加指定的元素</li>
+<li>空数组可以正常添加元素，新元素的类型需要与数组元素类型兼容</li>
+<li>对数组元素中的 null 值：null 元素会被正常处理</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>在字符串数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback(['apple', 'banana', 'cherry'], 'date');
++----------------------------------------------------+
+| array_pushback(['apple', 'banana', 'cherry'], 'date') |
++----------------------------------------------------+
+| ["apple", "banana", "cherry", "date"]              |
++----------------------------------------------------+
+</code></pre>
+<p>在包含 null 的数组末尾添加null元素：</p>
+<pre><code>SELECT array_pushback([1, null, 3], null);
++------------------------------------+
+| array_pushback([1, null, 3], null) |
++------------------------------------+
+| [1, null, 3, null]                 |
++------------------------------------+
+</code></pre>
+<p>在空数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback([], 42);
++--------------------------+
+| array_pushback([], 42)   |
++--------------------------+
+| [42]                     |
++--------------------------+
+</code></pre>
+<p>在浮点数数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback([1.1, 2.2, 3.3], 4.4);
++------------------------------------------+
+| array_pushback([1.1, 2.2, 3.3], 4.4)    |
++------------------------------------------+
+| [1.1, 2.2, 3.3, 4.4]                    |
++------------------------------------------+
+</code></pre>
+<p>NULL 数组返回 NULL：</p>
+<pre><code>SELECT array_pushback(NULL, 1);
++--------------------------+
+| array_pushback(NULL, 1)  |
++--------------------------+
+| NULL                     |
++--------------------------+
+</code></pre>
+<p>在 IP 地址数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback(CAST(['192.168.1.1', '192.168.1.2'] AS ARRAY&lt;IPV4&gt;), CAST('192.168.1.3' AS IPV4));
++----------------------------------------------------------------------------------+
+| array_pushback(CAST(['192.168.1.1', '192.168.1.2'] AS ARRAY&lt;IPV4&gt;), CAST('192.168.1.3' AS IPV4)) |
++----------------------------------------------------------------------------------+
+| ["192.168.1.1", "192.168.1.2", "192.168.1.3"]                                   |
++----------------------------------------------------------------------------------+
+</code></pre>
+<p>在嵌套数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback([[1,2], [3,4]], [5,6]);
++------------------------------------------+
+| array_pushback([[1,2], [3,4]], [5,6])   |
++------------------------------------------+
+| [[1, 2], [3, 4], [5, 6]]                |
++------------------------------------------+
+</code></pre>
+<p>在 MAP 数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback([{'a':1}, {'b':2}], {'c':3});
++----------------------------------------------+
+| array_pushback([{'a':1}, {'b':2}], {'c':3}) |
++----------------------------------------------+
+| [{"a":1}, {"b":2}, {"c":3}]                 |
++----------------------------------------------+
+</code></pre>
+<p>在 STRUCT 数组末尾添加元素：</p>
+<pre><code>SELECT array_pushback(array(named_struct('name','Alice','age',20), named_struct('name','Bob','age',30)), named_struct('name','Charlie','age',40));
++-------------------------------------------------------------------------------------------------------------------------------------------+
+| array_pushback(array(named_struct('name','Alice','age',20), named_struct('name','Bob','age',30)), named_struct('name','Charlie','age',40)) |
++-------------------------------------------------------------------------------------------------------------------------------------------+
+| [{"name":"Alice", "age":20}, {"name":"Bob", "age":30}, {"name":"Charlie", "age":40}]                                                    |
++-------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_pushback([1,2,3]);
+ERROR 1105 (HY000): errCode = 2, detailMessage: Can not found function 'array_pushback' which has 1 arity. Candidate functions are: [array_pushback(Expression, Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_pushback('not_an_array', 1);
+ERROR 1105 (HY000): errCode = 2, detailMessage: Can not find the compatibility function signature: array_pushback(VARCHAR(12), TINYINT)
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, PUSHBACK, ARRAY_PUSHBACK</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-pushback/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

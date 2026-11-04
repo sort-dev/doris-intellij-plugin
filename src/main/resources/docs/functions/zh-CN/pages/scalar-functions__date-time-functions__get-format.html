@@ -1,0 +1,141 @@
+<div class="definition"><pre>GET_FORMAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回特定的格式字符串</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_get-format">GET_FORMAT 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>GET_FORMAT({DATE|DATETIME|TIME}, {'EUR'|'USA'|'JIS'|'ISO'|'INTERNAL'})
+</code></pre>
+<h2>返回值</h2>
+<p>返回一个格式字符串，不同参数最终的结果值如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th>函数调用</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET_FORMAT(DATE,'USA')</td>
+<td>'%m.%d.%Y'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATE,'JIS')</td>
+<td>'%Y-%m-%d'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATE,'ISO')</td>
+<td>'%Y-%m-%d'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATE,'EUR')</td>
+<td>'%d.%m.%Y'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATE,'INTERNAL')</td>
+<td>'%Y%m%d'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATETIME,'USA')</td>
+<td>'%Y-%m-%d %H.%i.%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATETIME,'JIS')</td>
+<td>'%Y-%m-%d %H:%i:%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATETIME,'ISO')</td>
+<td>'%Y-%m-%d %H:%i:%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATETIME,'EUR')</td>
+<td>'%Y-%m-%d %H.%i.%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(DATETIME,'INTERNAL')</td>
+<td>'%Y%m%d%H%i%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(TIME,'USA')</td>
+<td>'%h:%i:%s %p'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(TIME,'JIS')</td>
+<td>'%H:%i:%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(TIME,'ISO')</td>
+<td>'%H:%i:%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(TIME,'EUR')</td>
+<td>'%H.%i.%s'</td>
+</tr>
+<tr>
+<td>GET_FORMAT(TIME,'INTERNAL')</td>
+<td>'%H%i%s'</td>
+</tr>
+</tbody>
+</table>
+<p>当第二个参数不为 <code>'USA', 'JIS', 'ISO', 'EUR', 'INTERNAL'</code> 之一或者为 NULL 时返回 NULL</p>
+<h2>举例</h2>
+<pre><code>SELECT * FROM get_format_test
+</code></pre>
+<pre><code>+------+----------+
+| id   | lc       |
++------+----------+
+|    1 | USA      |
+|    2 | JIS      |
+|    3 | ISO      |
+|    4 | EUR      |
+|    5 | INTERNAL |
+|    6 | Doris    |
++------+----------+
+</code></pre>
+<pre><code>SELECT lc, GET_FORMAT(DATE, lc) FROM get_format_test;
+</code></pre>
+<pre><code>+----------+----------------------+
+| lc       | GET_FORMAT(DATE, lc) |
++----------+----------------------+
+| USA      | %m.%d.%Y             |
+| JIS      | %Y-%m-%d             |
+| ISO      | %Y-%m-%d             |
+| EUR      | %d.%m.%Y             |
+| INTERNAL | %Y%m%d               |
+| Doris    | NULL                 |
++----------+----------------------+
+</code></pre>
+<pre><code>SELECT lc, GET_FORMAT(DATETIME, lc) FROM get_format_test;
+</code></pre>
+<pre><code>+----------+--------------------------+
+| lc       | GET_FORMAT(DATETIME, lc) |
++----------+--------------------------+
+| USA      | %Y-%m-%d %H.%i.%s        |
+| JIS      | %Y-%m-%d %H:%i:%s        |
+| ISO      | %Y-%m-%d %H:%i:%s        |
+| EUR      | %Y-%m-%d %H.%i.%s        |
+| INTERNAL | %Y%m%d%H%i%s             |
+| Doris    | NULL                     |
++----------+--------------------------+
+</code></pre>
+<pre><code>SELECT lc, GET_FORMAT(TIME, lc) FROM get_format_test;
+</code></pre>
+<pre><code>+----------+----------------------+
+| lc       | GET_FORMAT(TIME, lc) |
++----------+----------------------+
+| USA      | %h:%i:%s %p          |
+| JIS      | %H:%i:%s             |
+| ISO      | %H:%i:%s             |
+| EUR      | %H.%i.%s             |
+| INTERNAL | %H%i%s               |
+| Doris    | NULL                 |
++----------+----------------------+
+</code></pre>
+<pre><code>mysql&gt; SELECT GET_FROMAT(ILLEGAL, 'USA');
+ERROR 1105 (HY000): errCode = 2, detailMessage = 
+rule primaryExpression failed predicate: { $functionName.text.equalsIgnoreCase("get_format") }?(line 1, pos 17)
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/get-format/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

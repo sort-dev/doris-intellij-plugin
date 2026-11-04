@@ -1,0 +1,89 @@
+<div class="definition"><pre>DIGITAL_MASKING</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>DIGITAL_MASKING 函数用于对数字字符串进行脱敏处理。按照固定格式将数字的中间部分替换为 <code>****</code>，保留前3位和后4位。等价于 <code>CONCAT(LEFT(id, 3), '****', RIGHT(id, 4))</code>。</p>
+<h2>语法</h2>
+<pre><code>DIGITAL_MASKING(&lt;digital_number&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;digital_number&gt;</code></td>
+<td>需要脱敏的数字字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为脱敏后的数字字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>脱敏格式为：前3位 + <code>****</code> + 后4位</li>
+<li>字符串长度不足7位时，结果可能重叠</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：11位手机号脱敏</li>
+</ol>
+<pre><code>SELECT digital_masking('13812345678');
+</code></pre>
+<pre><code>+--------------------------------+
+| digital_masking('13812345678') |
++--------------------------------+
+| 138****5678                    |
++--------------------------------+
+</code></pre>
+<ol>
+<li>不同长度的数字</li>
+</ol>
+<pre><code>SELECT digital_masking('1234567890');
+</code></pre>
+<pre><code>+-------------------------------+
+| digital_masking('1234567890') |
++-------------------------------+
+| 123****7890                   |
++-------------------------------+
+</code></pre>
+<ol>
+<li>短数字（少于7位）</li>
+</ol>
+<pre><code>SELECT digital_masking('123');
+</code></pre>
+<pre><code>+------------------------+
+| digital_masking('123') |
++------------------------+
+| 123****123             |
++------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT digital_masking(NULL);
+</code></pre>
+<pre><code>+-----------------------+
+| digital_masking(NULL) |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<ol>
+<li>带有 utf-8 的字符串</li>
+</ol>
+<pre><code>SELECT digital_masking('13812ṭṛ34678');
+</code></pre>
+<pre><code>+-------------------------------------+
+| digital_masking('13812ṭṛ34678')     |
++-------------------------------------+
+| 138****4678                         |
++-------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/digital-masking/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

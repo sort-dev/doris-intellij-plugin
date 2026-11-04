@@ -1,0 +1,155 @@
+<div class="definition"><pre>FROM_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FROM_BASE64 函数用于将 Base64 编码的字符串解码回原始字符串。这是 TO_BASE64 函数的逆操作，遵循 RFC 4648 标准。Base64 编码常用于在文本协议中传输二进制数据，该函数可以将编码的数据还原。支持标准 Base64 字符集（A-Z, a-z, 0-9, +, /）和填充字符（=）。</p>
+<h2>语法</h2>
+<pre><code>FROM_BASE64(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要解码的 Base64 编码字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示 Base64 解码后的原始字符串。</p>
+<p>解码规则：</p>
+<ul>
+<li>接受标准 Base64 字符集：A-Z, a-z, 0-9, +, /</li>
+<li>支持填充字符 =</li>
+<li>遵循 RFC 4648 标准</li>
+<li>输入长度必须是 4 的整数倍（空字符串除外）</li>
+<li>解码结果可能包含不可打印字符</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>如果输入包含非法的 Base64 字符（包括空格、换行等空白字符），返回 NULL</li>
+<li>如果输入为空字符串，返回空字符串</li>
+<li>如果输入长度不是 4 的整数倍，返回 NULL</li>
+<li>填充错误或格式不正确，返回 NULL</li>
+</ul>
+<p>4.0.8 修正了 <code>FROM_BASE64</code> 的解码缓冲区大小计算，并明确了非法输入的处理：输入长度不是 4 的整数倍时直接返回 NULL。此前的缓冲区按输入长度的一半计算，长度偏小，非法输入可能触发越界写入。<code>TO_BASE64</code> 的编码缓冲区大小计算也在同一版本中修正。</p>
+<h2>示例</h2>
+<ol>
+<li>基本解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('MQ=='), FROM_BASE64('QQ==');
+</code></pre>
+<pre><code>+---------------------+---------------------+
+| FROM_BASE64('MQ==') | FROM_BASE64('QQ==') |
++---------------------+---------------------+
+| 1                   | A                   |
++---------------------+---------------------+
+</code></pre>
+<ol>
+<li>多字符解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('MjM0'), FROM_BASE64('SGVsbG8=');
+</code></pre>
+<pre><code>+---------------------+-------------------------+
+| FROM_BASE64('MjM0') | FROM_BASE64('SGVsbG8=') |
++---------------------+-------------------------+
+| 234                 | Hello                   |
++---------------------+-------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT FROM_BASE64(NULL);
+</code></pre>
+<pre><code>+-------------------+
+| FROM_BASE64(NULL) |
++-------------------+
+| NULL              |
++-------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('');
+</code></pre>
+<pre><code>+-----------------+
+| FROM_BASE64('') |
++-----------------+
+|                 |
++-----------------+
+</code></pre>
+<ol>
+<li>非法字符处理</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('!!!'), FROM_BASE64('ABC@DEF');
+</code></pre>
+<pre><code>+--------------------+------------------------+
+| FROM_BASE64('!!!') | FROM_BASE64('ABC@DEF') |
++--------------------+------------------------+
+| NULL               | NULL                   |
++--------------------+------------------------+
+</code></pre>
+<ol>
+<li>长字符串解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('SGVsbG8gV29ybGQ='), FROM_BASE64('VGhlIHF1aWNrIGJyb3duIGZveA==');
+</code></pre>
+<pre><code>+---------------------------------+-----------------------------------------+
+| FROM_BASE64('SGVsbG8gV29ybGQ=') | FROM_BASE64('VGhlIHF1aWNrIGJyb3duIGZveA==') |
++---------------------------------+-----------------------------------------+
+| Hello World                     | The quick brown fox                     |
++---------------------------------+-----------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('4bmt4bmbw6w='), FROM_BASE64('4biN4biNdW1haSBoZWxsbw==');
+</code></pre>
+<pre><code>+-----------------------------+-----------------------------------------+
+| FROM_BASE64('4bmt4bmbw6w=') | FROM_BASE64('4biN4biNdW1haSBoZWxsbw==') |
++-----------------------------+-----------------------------------------+
+| ṭṛì                         | ḍḍumai hello                            |
++-----------------------------+-----------------------------------------+
+</code></pre>
+<ol>
+<li>电子邮件地址解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('dXNlckBleGFtcGxlLmNvbQ=='), FROM_BASE64('YWRtaW4udGVzdEBjb21wYW55Lm9yZw==');
+</code></pre>
+<pre><code>+----------------------------------------+----------------------------------------------+
+| FROM_BASE64('dXNlckBleGFtcGxlLmNvbQ==') | FROM_BASE64('YWRtaW4udGVzdEBjb21wYW55Lm9yZw==') |
++----------------------------------------+----------------------------------------------+
+| user@example.com                       | admin.test@company.org                       |
++----------------------------------------+----------------------------------------------+
+</code></pre>
+<ol>
+<li>JSON 数据解码</li>
+</ol>
+<pre><code>SELECT FROM_BASE64('eyJuYW1lIjoiSm9obiIsImFnZSI6MzB9'), FROM_BASE64('WzEsMiwzLDQsNV0=');
+</code></pre>
+<pre><code>+-----------------------------------------------+---------------------------+
+| FROM_BASE64('eyJuYW1lIjoiSm9obiIsImFnZSI6MzB9') | FROM_BASE64('WzEsMiwzLDQsNV0=') |
++-----------------------------------------------+---------------------------+
+| {"name":"John","age":30}                      | [1,2,3,4,5]              |
++-----------------------------------------------+---------------------------+
+</code></pre>
+<ol>
+<li>编码解码循环验证</li>
+</ol>
+<pre><code>SELECT FROM_BASE64(TO_BASE64('Hello')), FROM_BASE64(TO_BASE64('测试'));
+</code></pre>
+<pre><code>+----------------------------------+--------------------------------+
+| FROM_BASE64(TO_BASE64('Hello')) | FROM_BASE64(TO_BASE64('测试'))  |
++----------------------------------+--------------------------------+
+| Hello                            | 测试                            |
++----------------------------------+--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/from-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,71 @@
+<div class="definition"><pre>LEAST</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>比较多个表达式的大小，返回其中的最小值。如果任意参数为 <code>NULL</code>，则返回 <code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>LEAST(&lt;expr&gt; [, ...])
+</code></pre>
+<h2>参数</h2>
+<h3>必需参数</h3>
+<ul>
+<li><code>&lt;expr&gt;</code> 支持 <code>TINYINT</code>、<code>SMALLINT</code>、<code>INT</code>、<code>BIGINT</code>、<code>LARGEINT</code>、<code>FLOAT</code>、<code>DOUBLE</code>、<code>STRING</code>、<code>DATETIME</code> 和 <code>DECIMAL</code> 类型。</li>
+</ul>
+<h3>可选参数</h3>
+<ul>
+<li>支持多个参数</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回给定表达式中的最小值。</li>
+<li>如果任意参数为 <code>NULL</code>，则返回 <code>NULL</code>。</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>尽量传入同一类型的参数，如果参数类型不同会尝试转换为相同类型，转换规则参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/overview/">类型转换</a></li>
+<li>如果有任意一个参数的值为 NULL，得到的结果也是 NULL。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>SELECT LEAST(-1, 0, 5, 8);
+</code></pre>
+<pre><code>+--------------------+
+| LEAST(-1, 0, 5, 8) |
++--------------------+
+|                 -1 |
++--------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>SELECT LEAST(-1, 0, 5, NULL);
+</code></pre>
+<pre><code>+-----------------------+
+| LEAST(-1, 0, 5, NULL) |
++-----------------------+
+|                  NULL |
++-----------------------+
+</code></pre>
+</li>
+<li>类型转换<pre><code>SELECT LEAST(6, 9.29, 7);
+</code></pre>
+<pre><code>+-------------------+
+| LEAST(6, 9.29, 7) |
++-------------------+
+|              6.00 |
++-------------------+
+</code></pre>
+<blockquote>
+<p>第一个参数 "6" 被转换成 Decimal 类型</p>
+</blockquote>
+</li>
+<li>日期类型<pre><code>SELECT LEAST('2022-02-26 20:02:11', '2020-01-23 20:02:11', '2020-06-22 20:02:11');
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------+
+| LEAST('2022-02-26 20:02:11', '2020-01-23 20:02:11', '2020-06-22 20:02:11') |
++----------------------------------------------------------------------------+
+| 2020-01-23 20:02:11                                                        |
++----------------------------------------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/conditional-functions/least/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

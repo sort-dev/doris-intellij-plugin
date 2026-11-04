@@ -1,0 +1,181 @@
+<div class="definition"><pre>SUBSTRING</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SUBSTRING 函数用于从字符串中提取子字符串。可以指定起始位置和长度，支持正向和反向提取。字符串中第一个字符的位置为 1。</p>
+<h2>别名</h2>
+<p>SUBSTR</p>
+<p>MID</p>
+<h2>语法</h2>
+<pre><code>SUBSTRING(&lt;str&gt;, &lt;pos&gt; [, &lt;len&gt;])
+
+SUBSTRING(&lt;str&gt; FROM &lt;pos&gt; [FOR &lt;len&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;pos&gt;</code></td>
+<td>起始位置，可以为负数，起始为 1。类型：INT</td>
+</tr>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>可选参数，要提取的长度。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示提取的子字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 pos 为 0，返回空字符串</li>
+<li>如果 pos 为负数，从字符串末尾开始向前计数</li>
+<li>如果 pos 超出字符串长度，返回空字符串</li>
+<li>如果不指定 len，则返回从 pos 到字符串末尾的所有字符</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法（指定起始位置）</li>
+</ol>
+<pre><code>SELECT substring('abc1', 2);
+</code></pre>
+<pre><code>+-----------------------------+
+| substring('abc1', 2)        |
++-----------------------------+
+| bc1                         |
++-----------------------------+
+</code></pre>
+<ol>
+<li>使用负数位置</li>
+</ol>
+<pre><code>SELECT substring('abc1', -2);
+</code></pre>
+<pre><code>+-----------------------------+
+| substring('abc1', -2)       |
++-----------------------------+
+| c1                          |
++-----------------------------+
+</code></pre>
+<ol>
+<li>位置为 0 的情况</li>
+</ol>
+<pre><code>SELECT substring('abc1', 0);
+</code></pre>
+<pre><code>+----------------------+
+| substring('abc1', 0) |
++----------------------+
+|                      |
++----------------------+
+</code></pre>
+<ol>
+<li>位置超出字符串长度</li>
+</ol>
+<pre><code>SELECT substring('abc1', 5);
+</code></pre>
+<pre><code>+-----------------------------+
+| substring('abc1', 5)        |
++-----------------------------+
+|                             |
++-----------------------------+
+</code></pre>
+<ol>
+<li>指定长度参数</li>
+</ol>
+<pre><code>SELECT substring('abc1def', 2, 2);
+</code></pre>
+<pre><code>+-----------------------------+
+| substring('abc1def', 2, 2)  |
++-----------------------------+
+| bc                          |
++-----------------------------+
+</code></pre>
+<ol>
+<li>使用 from 和 for</li>
+</ol>
+<pre><code>SELECT substring('foobarbar' FROM 4 FOR 3);
+</code></pre>
+<pre><code>+-------------------------------------+
+| substring('foobarbar' FROM 4 FOR 3) |
++-------------------------------------+
+| bar                                 |
++-------------------------------------+
+</code></pre>
+<ol>
+<li>使用 from</li>
+</ol>
+<pre><code>SELECT substring('foobarbar' FROM 4);
+</code></pre>
+<pre><code>+-------------------------------+
+| substring('foobarbar' FROM 4) |
++-------------------------------+
+| barbar                        |
++-------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT substring('ṭṛì ḍḍumai test', 5, 7);
+</code></pre>
+<pre><code>+----------------------------------------+
+| substring('ṭṛì ḍḍumai test', 5, 7)    |
++----------------------------------------+
+| ḍḍumai                                 |
++----------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT substring(NULL, 1, 3);
+</code></pre>
+<pre><code>+------------------------+
+| substring(NULL, 1, 3)  |
++------------------------+
+| NULL                   |
++------------------------+
+</code></pre>
+<ol>
+<li>空字符串</li>
+</ol>
+<pre><code>SELECT substring('', 1, 3);
+</code></pre>
+<pre><code>+---------------------+
+| substring('', 1, 3) |
++---------------------+
+|                     |
++---------------------+
+</code></pre>
+<ol>
+<li>使用别名MID, 且返回结果为 NULL</li>
+</ol>
+<pre><code>SELECT MID(NULL, 2);
+</code></pre>
+<pre><code>+--------------+
+| MID(NULL, 2) |
++--------------+
+| NULL         |
++--------------+
+</code></pre>
+<ol>
+<li>使用别名 SUBSTR</li>
+</ol>
+<pre><code>SELECT SUBSTR('Hello World', 7, 5);
+</code></pre>
+<pre><code>+-----------------------------+
+| SUBSTR('Hello World', 7, 5) |
++-----------------------------+
+| World                       |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/substring/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

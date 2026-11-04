@@ -1,0 +1,66 @@
+<div class="definition"><pre>IS_IPV4_COMPAT</pre></div>
+<div class="content">
+<h2>is_ipv4_compat</h2>
+<h2>描述</h2>
+<p>检查 IPv6 地址是否为 IPv4 兼容地址。IPv4 兼容地址是一种特殊的 IPv6 地址格式，用于在 IPv6 网络中表示 IPv4 地址。</p>
+<h2>语法</h2>
+<pre><code>IS_IPV4_COMPAT(&lt;ipv6_address&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv6_address&gt;</code>：IPv6 地址的二进制表示（VARCHAR 类型，16 字节）</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BOOLEAN</p>
+<p>返回值含义：1 表示是 IPv4 兼容地址，0 表示不是 IPv4 兼容地址</p>
+<h3>使用说明</h3>
+<ul>
+<li>IPv4 兼容地址的格式为 <code>::IPv4</code>，即前 12 个字节为 0，后 4 个字节包含 IPv4 地址</li>
+<li>输入必须是 16 字节的 IPv6 二进制数据</li>
+<li>这种格式在 RFC 4291 中定义，用于 IPv6 过渡期</li>
+<li>最后4个字节不能为0，所以 <code>::0.0.0.0</code> 不是有效的 IPv4 兼容地址，0.0.0.0 不是 IPv4 unicast address，不满足 RFC 4291 IPv4-Mapped IPv6 Address 的 定义</li>
+<li>输入参数为 NULL 时返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<p>检查 IPv4 兼容地址。</p>
+<pre><code>SELECT is_ipv4_compat(INET6_ATON('::192.168.1.1')) as is_compat;
++-----------+
+| is_compat |
++-----------+
+| 1         |
++-----------+
+</code></pre>
+<p>检查非 IPv4 兼容地址。</p>
+<pre><code>SELECT 
+  is_ipv4_compat(INET6_ATON('2001:db8::1')) as standard_ipv6,
+  is_ipv4_compat(INET6_ATON('::ffff:192.168.1.1')) as ipv4_mapped,
+  is_ipv4_compat(INET6_ATON('::0.0.0.0')) as zero_ip;
++--------------+------------+---------+
+| standard_ipv6| ipv4_mapped| zero_ip |
++--------------+------------+---------+
+| 0            | 0          | 0       |
++--------------+------------+---------+
+</code></pre>
+<p>检查边界值。</p>
+<pre><code>SELECT 
+  is_ipv4_compat(INET6_ATON('::0.0.0.0')) as min_ip,
+  is_ipv4_compat(INET6_ATON('::255.255.255.255')) as max_ip;
++--------+--------+
+| min_ip | max_ip |
++--------+--------+
+| 0      | 1      |
++--------+--------+
+</code></pre>
+<p>输入参数为 NULL 返回 NULL。</p>
+<pre><code>SELECT is_ipv4_compat(NULL) as null_result;
++-------------+
+| null_result |
++-------------+
+| NULL        |
++-------------+
+</code></pre>
+<h3>关键词</h3>
+<p>IS_IPV4_COMPAT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/is-ipv4-compat/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,36 @@
+<div class="definition"><pre>SM3SUM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算 多个字符串 SM3 256-bit</p>
+<h2>语法</h2>
+<pre><code>SM3SUM( &lt;str&gt; [ , &lt;str&gt; ... ] )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被计算 sm3 的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回输入多个字符串的 sm3 值</p>
+<h2>示例</h2>
+<pre><code>select sm3sum("ab","cd");
+</code></pre>
+<pre><code>+------------------------------------------------------------------+
+| sm3sum('ab', 'cd')                                               |
++------------------------------------------------------------------+
+| 82ec580fe6d36ae4f81cae3c73f4a5b3b5a09c943172dc9053c69fd8e18dca1e |
++------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/sm3sum/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

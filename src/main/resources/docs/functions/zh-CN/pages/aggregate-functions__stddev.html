@@ -1,0 +1,61 @@
+<div class="definition"><pre>STD,STDDEV,STDDEV_POP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 expr 表达式的标准差</p>
+<h2>别名</h2>
+<ul>
+<li>STDDEV_POP</li>
+<li>STD</li>
+</ul>
+<h2>语法</h2>
+<pre><code>STDDEV(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要被计算标准差的值，支持类型为 Double。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 Double 类型的参数 expr 的总体标准差。
+当组内没有合法数据时，返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>-- 创建示例表
+CREATE TABLE score_table (
+    student_id INT,
+    score DOUBLE
+) DISTRIBUTED BY HASH(student_id)
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+-- 插入测试数据
+INSERT INTO score_table VALUES
+(1, 85),
+(2, 90),
+(3, 82),
+(4, 88),
+(5, 95);
+
+-- 计算所有学生分数的标准差
+SELECT STDDEV(score) as score_stddev
+FROM score_table;
+</code></pre>
+<pre><code>+-------------------+
+| score_stddev      |
++-------------------+
+| 4.427188724235729 |
++-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/stddev/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

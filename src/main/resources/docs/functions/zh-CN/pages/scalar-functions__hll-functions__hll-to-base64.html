@@ -1,0 +1,70 @@
+<div class="definition"><pre>HLL_TO_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 HLL 类型转换为一个 base64 编码的字符串。</p>
+<h2>语法</h2>
+<pre><code>HLL_TO_BASE64(&lt;hll_input&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;hll_input&gt;</code></td>
+<td>HLL 类型数据。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>HLL 基于 Base64 编码后的字符串。<br>
+若 HLL 为 <code>NULL</code> 时，返回值为 <code>NULL</code>。</p>
+<p>由于不能保证 HLL 中元素的顺序，因此不能保证相同内容的 HLL 生成的 base64 结果始终相同，但可以保证 hll_from_base64 解码后的 HLL 相同。</p>
+<h2>示例</h2>
+<pre><code>select hll_to_base64(NULL);
+</code></pre>
+<pre><code>+---------------------+
+| hll_to_base64(NULL) |
++---------------------+
+| NULL                |
++---------------------+
+</code></pre>
+<pre><code>select hll_to_base64(hll_empty());
+</code></pre>
+<pre><code>+----------------------------+
+| hll_to_base64(hll_empty()) |
++----------------------------+
+| AA==                       |
++----------------------------+
+</code></pre>
+<pre><code>select hll_to_base64(hll_hash('abc'));
+</code></pre>
+<pre><code>+--------------------------------+
+| hll_to_base64(hll_hash('abc')) |
++--------------------------------+
+| AQEC5XSzrpDsdw==               |
++--------------------------------+
+</code></pre>
+<pre><code>select hll_union_agg(hll_from_base64(hll_to_base64(pv))), hll_union_agg(pv) from test_hll;
+</code></pre>
+<pre><code>+---------------------------------------------------+-------------------+
+| hll_union_agg(hll_from_base64(hll_to_base64(pv))) | hll_union_agg(pv) |
++---------------------------------------------------+-------------------+
+|                                                 3 |                 3 |
++---------------------------------------------------+-------------------+
+</code></pre>
+<pre><code>select hll_cardinality(hll_from_base64(hll_to_base64(hll_hash('abc'))));
+</code></pre>
+<pre><code>+------------------------------------------------------------------+
+| hll_cardinality(hll_from_base64(hll_to_base64(hll_hash('abc')))) |
++------------------------------------------------------------------+
+|                                                                1 |
++------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/hll-functions/hll-to-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

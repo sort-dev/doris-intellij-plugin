@@ -1,0 +1,58 @@
+<div class="definition"><pre>XXHASH_32</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算输入字符串或二进制的 32 位 xxhash 值</p>
+<p>-注：在计算 hash 值时，更推荐使用<code>xxhash_32</code>，而不是<code>murmur_hash3_32</code>。</p>
+<h2>语法</h2>
+<pre><code>XXHASH_32( &lt;input&gt; [ , &lt;input&gt; ... ] )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;input&gt;</code></td>
+<td>需要被计算 32 位 xxhash 的值, 接受字符串和二进制类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回输入字符串的 32 位 xxhash 值。</p>
+<h2>举例</h2>
+<pre><code>select xxhash_32(NULL), xxhash_32("hello"), xxhash_32("hello", "world");
+</code></pre>
+<pre><code>+-----------------+--------------------+-----------------------------+
+| xxhash_32(NULL) | xxhash_32('hello') | xxhash_32('hello', 'world') |
++-----------------+--------------------+-----------------------------+
+|            NULL |          -83855367 |                  -920844969 |
++-----------------+--------------------+-----------------------------+
+</code></pre>
+<pre><code>-- vb (VarBinary) 和 vc (VarChar) 插入时使用了相同的字符串.
+SELECT * FROM mysql_catalog.binary_test.binary_test;
+</code></pre>
+<pre><code>+------+------------+------+
+| id   | vb         | vc   |
++------+------------+------+
+|    1 | 0x616263   | abc  |
+|    2 | 0x78797A   | xyz  |
+|    3 | NULL       | NULL |
++------+------------+------+
+</code></pre>
+<pre><code>SELECT XXHASH_32(vb), XXHASH_32(vc) FROM mysql_catalog.binary_test.binary_test;
+</code></pre>
+<pre><code>+---------------+---------------+
+| XXHASH_32(vb) | XXHASH_32(vc) |
++---------------+---------------+
+|     852579327 |     852579327 |
+|    -242012205 |    -242012205 |
+|          NULL |          NULL |
++---------------+---------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/xxhash-32/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

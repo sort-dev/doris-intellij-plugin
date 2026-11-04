@@ -1,0 +1,119 @@
+<div class="definition"><pre>TRIM_IN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TRIM_IN 函数用于删除字符串两端的指定字符集合中的任意字符。如果不指定字符集合，默认删除空格。</p>
+<h2>语法</h2>
+<pre><code>TRIM_IN(&lt;str&gt;[, &lt;rhs&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要处理的原字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;rhs&gt;</code></td>
+<td>可选参数，要删除的字符集合。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为删除两端指定字符后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果不指定 <code>&lt;rhs&gt;</code>，默认删除两端的空格</li>
+<li>如果指定 <code>&lt;rhs&gt;</code>，删除两端出现在 <code>&lt;rhs&gt;</code> 中的所有字符（不考虑顺序）</li>
+<li>从两端向中间逐字符检查，直到遇到不在 <code>&lt;rhs&gt;</code> 中的字符</li>
+<li>如果任意参数为 NULL，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：删除空格</li>
+</ol>
+<pre><code>SELECT trim_in('   ab d   ');
+</code></pre>
+<pre><code>+------------------------+
+| trim_in('   ab d   ')  |
++------------------------+
+| ab d                   |
++------------------------+
+</code></pre>
+<ol>
+<li>删除字符集合</li>
+</ol>
+<pre><code>SELECT trim_in('ababccaab', 'ab');
+</code></pre>
+<pre><code>+----------------------------+
+| trim_in('ababccaab', 'ab') |
++----------------------------+
+| cc                         |
++----------------------------+
+</code></pre>
+<ol>
+<li>与 TRIM 函数对比 —— <code>trim_in</code> 把第二个参数当作<em>字符集合</em>，从两端剥离集合中出现的任意字符；<code>trim</code> 把它当作字面<em>子串</em>，从两端剥离精确匹配。两者都会反复剥离直到两端没有可以再剥的内容。</li>
+</ol>
+<pre><code>SELECT trim_in('ababccaab', 'ab'), trim('ababccaab', 'ab');
+</code></pre>
+<pre><code>+----------------------------+-------------------------+
+| trim_in('ababccaab', 'ab') | trim('ababccaab', 'ab') |
++----------------------------+-------------------------+
+| cc                         | cca                     |
++----------------------------+-------------------------+
+</code></pre>
+<ol>
+<li>字符集合顺序无关</li>
+</ol>
+<pre><code>SELECT trim_in('abcHelloabc', 'cba');
+</code></pre>
+<pre><code>+--------------------------------+
+| trim_in('abcHelloabc', 'cba')  |
++--------------------------------+
+| Hello                          |
++--------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT trim_in('+++ṭṛì ḍḍumai+++', '+');
+</code></pre>
+<pre><code>+--------------------------------------+
+| trim_in('+++ṭṛì ḍḍumai+++', '+')    |
++--------------------------------------+
+| ṭṛì ḍḍumai                           |
++--------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT trim_in(NULL, 'abc');
+</code></pre>
+<pre><code>+-----------------------+
+| trim_in(NULL, 'abc')  |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<ol>
+<li>空字符处理</li>
+</ol>
+<pre><code>SELECT trim_in('', 'abc'),trim_in('abc', '');
+</code></pre>
+<pre><code>+--------------------+--------------------+
+| trim_in('', 'abc') | trim_in('abc', '') |
++--------------------+--------------------+
+|                    | abc                |
++--------------------+--------------------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>TRIM_IN,TRIM
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/trim-in/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

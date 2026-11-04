@@ -1,0 +1,156 @@
+<div class="definition"><pre>RTRIM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>RTRIM 函数用于去除字符串右侧（结尾部分）连续出现的空格或指定字符集合中的字符。该函数从字符串的右端开始扫描，移除所有连续出现的目标字符，直到遇到不在目标字符集合中的字符为止。</p>
+<h2>语法</h2>
+<pre><code>RTRIM(&lt;str&gt; [, &lt;trim_chars&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要进行右侧修剪的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;trim_chars&gt;</code></td>
+<td>可选参数，指定要移除的字符集合。如果未提供此参数，默认去除空格字符。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示右侧去除指定字符后的字符串。</p>
+<p>修剪规则：</p>
+<ul>
+<li>只从字符串右侧（结尾）开始移除字符</li>
+<li>移除所有连续出现在 trim_chars 中的字符</li>
+<li>一旦遇到不在 trim_chars 中的字符就停止移除</li>
+<li>如果未指定 trim_chars，默认移除空格字符,不包括制表符、换行符等空白字符</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 str 为空字符串，返回空字符串</li>
+<li>如果 trim_chars 为空字符串，返回原字符串</li>
+<li>如果整个字符串都由 trim_chars 中的字符组成，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>去除右侧空格</li>
+</ol>
+<pre><code>SELECT RTRIM('ab d   ');
+</code></pre>
+<pre><code>+-------------------+
+| RTRIM('ab d   ')  |
++-------------------+
+| ab d              |
++-------------------+
+</code></pre>
+<ol>
+<li>去除指定字符</li>
+</ol>
+<pre><code>SELECT RTRIM('ababccaab', 'ab');
+</code></pre>
+<pre><code>+----------------------------+
+| RTRIM('ababccaab', 'ab')   |
++----------------------------+
+| ababcca                    |
++----------------------------+
+</code></pre>
+<ol>
+<li>多种空白字符处理 —— <code>RTRIM</code> 仅剥除尾部 ASCII 空格，不剥除制表符 (<code>\t</code>) 或换行符 (<code>\n</code>)。可通过比较原串和 RTRIM 后字符串的长度来验证：原串末尾的空格被剥掉，但 <code>\t\n</code> 保留在结果里。</li>
+</ol>
+<pre><code>SELECT LENGTH('hello world  \t\n '), LENGTH(RTRIM('hello world  \t\n '));
+</code></pre>
+<pre><code>+------------------------------+-------------------------------------+
+| LENGTH('hello world  \t\n ') | LENGTH(RTRIM('hello world  \t\n ')) |
++------------------------------+-------------------------------------+
+|                           16 |                                  15 |
++------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT RTRIM(NULL), RTRIM('test', NULL);
+</code></pre>
+<pre><code>+-------------+---------------------+
+| RTRIM(NULL) | RTRIM('test', NULL) |
++-------------+---------------------+
+| NULL        | NULL                |
++-------------+---------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT RTRIM(''), RTRIM('test', '');
+</code></pre>
+<pre><code>+------------+-----------------------+
+| RTRIM('')  | RTRIM('test', '')     |
++------------+-----------------------+
+|            | test                  |
++------------+-----------------------+
+</code></pre>
+<ol>
+<li>多字符修剪集合</li>
+</ol>
+<pre><code>SELECT RTRIM('abcdefg', 'efg'), RTRIM('123456', '56');
+</code></pre>
+<pre><code>+-------------------------+------------------------+
+| RTRIM('abcdefg', 'efg') | RTRIM('123456', '56')  |
++-------------------------+------------------------+
+| abcd                    | 1234                   |
++-------------------------+------------------------+
+</code></pre>
+<ol>
+<li>整个字符串都需修剪</li>
+</ol>
+<pre><code>SELECT RTRIM('aaaaa', 'a'), RTRIM('   ', ' ');
+</code></pre>
+<pre><code>+---------------------+-------------------+
+| RTRIM('aaaaa', 'a') | RTRIM('   ', ' ') |
++---------------------+-------------------+
+|                     |                   |
++---------------------+-------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符处理</li>
+</ol>
+<pre><code>SELECT RTRIM('test ṭṛìṭṛì', 'ṭṛì'), RTRIM('hello ḍḍuḍḍ', 'ḍ');
+</code></pre>
+<pre><code>+--------------------------------------------+-------------------------------------+
+| RTRIM('test ṭṛìṭṛì', 'ṭṛì')                | RTRIM('hello ḍḍuḍḍ', 'ḍ')           |
++--------------------------------------------+-------------------------------------+
+| test                                       | hello ḍḍu                           |
++--------------------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>数字字符修剪</li>
+</ol>
+<pre><code>SELECT RTRIM('123000', '0'), RTRIM('123abc123', '123');
+</code></pre>
+<pre><code>+-----------------------+-----------------------------+
+| RTRIM('123000', '0')  | RTRIM('123abc123', '123')   |
++-----------------------+-----------------------------+
+| 123                   | 123abc                      |
++-----------------------+-----------------------------+
+</code></pre>
+<ol>
+<li>特殊符号修剪</li>
+</ol>
+<pre><code>SELECT RTRIM('---text---', '-'), RTRIM('@@hello@@', '@');
+</code></pre>
+<pre><code>+---------------------------+----------------------------+
+| RTRIM('---text---', '-')  | RTRIM('@@hello@@', '@')    |
++---------------------------+----------------------------+
+| ---text                   | @@hello                    |
++---------------------------+----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/rtrim/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

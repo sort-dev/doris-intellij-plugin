@@ -1,0 +1,53 @@
+<div class="definition"><pre>ARRAY_REMOVE</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p>从数组中移除与给定值相等的所有元素，保留其余元素的相对顺序。</p>
+<h2>语法</h2>
+<ul>
+<li><code>ARRAY_REMOVE(arr, target)</code></li>
+</ul>
+<h2>参数</h2>
+<ul>
+<li><code>arr</code>：<code>ARRAY&lt;T&gt;</code>，支持数值、布尔、字符串、日期时间、IP 等。</li>
+<li><code>target</code>：与数组元素类型一致的值，用于匹配需要移除的元素。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回与输入同类型的 <code>ARRAY&lt;T&gt;</code>。</li>
+<li>如果 <code>arr</code> 输入 <code>NULL</code>, 返回 <code>NULL</code>.</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>匹配规则：移除与 <code>target</code> 值相等的元素；<code>NULL</code> 元素与 <code>NULL</code> 值相等。</li>
+</ul>
+<h2>示例</h2>
+<ul>
+<li>
+<p>基本: 移除后的数组，保留了之前的相对顺序。</p>
+<ul>
+<li><code>ARRAY_REMOVE([1,2,3], 1)</code> -&gt; <code>[2,3]</code></li>
+<li><code>ARRAY_REMOVE([1,2,3,null], 1)</code> -&gt; <code>[2,3,null]</code></li>
+</ul>
+</li>
+<li>
+<p><code>target</code> 为 <code>NULL</code>，移除 <code>arr</code> 中 <code>NULL</code></p>
+<ul>
+<li><code>ARRAY_REMOVE(['a','b','c',NULL], NULL)</code> -&gt; <code>['a', 'b', 'c']</code></li>
+</ul>
+</li>
+<li>
+<p><code>arr</code> 为 <code>NULL</code>， 返回  <code>NULL</code></p>
+<ul>
+<li><code>ARRAY_REMOVE(NULL, 2)</code> -&gt; <code>NULL</code></li>
+</ul>
+</li>
+<li>
+<p>无匹配情况</p>
+<ul>
+<li><code>ARRAY_REMOVE([1,2,3], 258)</code> -&gt; <code>[1,2,3]</code></li>
+</ul>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-remove/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

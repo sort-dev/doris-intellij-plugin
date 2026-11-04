@@ -1,0 +1,150 @@
+<div class="definition"><pre>JSON_OBJECT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>生成一个包含指定 Key-Value 对的 json object, 当 Key 值为 NULL 或者传入参数为奇数个时，返回异常错误。</p>
+<h2>语法</h2>
+<pre><code>JSON_OBJECT (&lt;key&gt;, &lt;value&gt;[, &lt;key&gt;, &lt;value&gt;, ...])
+</code></pre>
+<pre><code>JSON_OBJECT(*)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li>
+<p><code>&lt;key&gt;</code> String 类型</p>
+</li>
+<li>
+<p><code>&lt;value&gt;</code> 多种类型，Doris 会自动将非 Json 类型的参数通过 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 函数将其转换为 Json 类型。
+：<code>*</code> 当使用星号（通配符）调用时，会使用指定数据中的引用名成作为键（key），对应的值作为值（value），从而构造出一个 JSON 类型的值。</p>
+<p>当向该函数传入通配符时，可以用表的名称或别名对通配符进行限定。例如，若要传入名为 mytable 的表中的所有列，请按如下方式指定：</p>
+<pre><code>(mytable.*)
+</code></pre>
+</li>
+</ul>
+<h2>注意事项</h2>
+<ul>
+<li>参数数量必须为偶数个，可以是 0 个参数（返回一个空的 Json 对象）。</li>
+<li>按照惯例，参数列表由交替的键和值组成。</li>
+<li>Key 按照JSON 定义强制转换为文本。</li>
+<li>如果传入的 Key 为 NULL，返回异常错误。</li>
+<li>Value 参数按照可以转换为 json 的方式进行转换，必须是 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 支持的类型。</li>
+<li>如果传入的 Value 为 NULL，返回的 json object 中该 Key-Value 对的 Value 值为 Json 的 null 值。</li>
+<li>如果支持其他类型的作为 value，可以使用 CAST 将其转换为 Json/String.</li>
+<li>Doris 目前没有对 Json 对象去重，也就是允许重复的 key。但是重复 key 可能会引起意外的结果:
+<ol>
+<li>其他系统中可能会丢掉重复的 key 对应的值，或者报错。</li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-extract/"><code>JSON_EXTRACT</code></a> 返回的结果不确定。</li>
+</ol>
+</li>
+</ul>
+<h2>返回值</h2>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/JSON/"><code>JSON</code></a>： 返回由参数列表组成的 JSON 对象。</p>
+<h2>示例</h2>
+<ol>
+<li>
+<p>没有参数的情况</p>
+<pre><code>select json_object();
+</code></pre>
+<pre><code>+---------------+
+| json_object() |
++---------------+
+| {}            |
++---------------+
+</code></pre>
+</li>
+<li>
+<p>不支持的 value 类型</p>
+<pre><code>select json_object('time',curtime());
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: to_json(TIMEV2(0))
+</code></pre>
+<p>可以通过 cast 将其转换为 String</p>
+<pre><code>select json_object('time', cast(curtime() as string));
+</code></pre>
+<pre><code>+------------------------------------------------+
+| json_object('time', cast(curtime() as string)) |
++------------------------------------------------+
+| {"time":"17:09:42"}                            |
++------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>非 String 类型的 key 会被转换为 String</p>
+<pre><code>SELECT json_object(123, 456);
+</code></pre>
+<pre><code>+-----------------------+
+| json_object(123, 456) |
++-----------------------+
+| {"123":456}           |
++-----------------------+
+</code></pre>
+</li>
+<li>
+<p>Null 不能作为 key</p>
+<pre><code>select json_object(null, 456);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = json_object key can't be NULL: json_object(NULL, 456)
+</code></pre>
+<p>Null 可以做为 value</p>
+<pre><code>select json_object('key', null);
+</code></pre>
+<pre><code>+--------------------------+
+| json_object('key', null) |
++--------------------------+
+| {"key":null}             |
++--------------------------+
+</code></pre>
+</li>
+<li>
+<p>Json 字符串可以通过 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-parse/"><code>JSON_PARSE</code></a> 解析为 Json 对象后传入到 <code>JSON_OBJECT</code></p>
+<pre><code>select json_object(123, json_parse('{"key": "value"}'));
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| json_object(123, json_parse('{"key": "value"}')) |
++--------------------------------------------------+
+| {"123":{"key":"value"}}                          |
++--------------------------------------------------+
+</code></pre>
+<p>否则将作为字符串处理</p>
+<pre><code>select json_object(123,'{"key": "value"}');
+</code></pre>
+<pre><code>+-------------------------------------+
+| json_object(123,'{"key": "value"}') |
++-------------------------------------+
+| {"123":"{\"key\": \"value\"}"}      |
++-------------------------------------+
+</code></pre>
+</li>
+<li>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 不支持的类型</p>
+<pre><code>select json_object('key', map('abc', 'efg'));
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: to_json(MAP&lt;VARCHAR(3),VARCHAR(3)&gt;)
+</code></pre>
+<p>可以通过 CAST 语句将其转换为 Json 再传入：</p>
+<pre><code>select json_object('key', cast(map('abc', 'efg') as json));
+</code></pre>
+<pre><code>+-----------------------------------------------------+
+| json_object('key', cast(map('abc', 'efg') as json)) |
++-----------------------------------------------------+
+| {"key":{"abc":"efg"}}                               |
++-----------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>重复 key 的情况</p>
+<pre><code>select
+    json_object('key', 123, 'key', 4556) v1
+    , jsonb_extract(json_object('key', 123, 'key', 4556), '$.key') v2
+    , jsonb_extract(json_object('key', 123, 'key', 4556), '$.*') v3;
+</code></pre>
+<pre><code>+------------------------+------+------------+
+| v1                     | v2   | v3         |
++------------------------+------+------------+
+| {"key":123,"key":4556} | 123  | [123,4556] |
++------------------------+------+------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-object/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

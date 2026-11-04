@@ -1,0 +1,124 @@
+<div class="definition"><pre>ARRAY_FIRST</pre></div>
+<div class="content">
+<h2>array_first</h2>
+&lt;version since="2.0.0"&gt;
+
+<h3>描述</h3>
+<p>返回数组中第一个满足 lambda 表达式条件的元素。函数会对数组中的元素应用 lambda 表达式，找到第一个满足条件的元素并返回。</p>
+<h3>语法</h3>
+<pre><code>array_first(lambda, array1, ...)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>lambda</code>：lambda 表达式，用于对数组元素进行判断，返回 true/false 或可以转换为布尔值的表达式</li>
+<li><code>array1, ...</code>：一个或多个 ARRAY&lt;T&gt; 类型参数</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂数据类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：T</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回数组中第一个满足 lambda 表达式条件的元素</li>
+<li>NULL：或数组为空或没有元素满足条件</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>lambda 表达式中参数个数需与数组参数个数一致</li>
+<li>所有输入数组的长度必须一致</li>
+<li>支持对多数组、复杂类型数组进行查找</li>
+<li>空数组返回 NULL</li>
+<li>不支持输入参数为NULL</li>
+<li>lambda 可以用任意标量表达式，不能用聚合函数</li>
+<li>lambda 表达式可以调用其他高阶函数，但需要返回类型兼容</li>
+<li>对数组元素中的 null 值：null 元素会传递给 lambda 表达式处理，lambda 可以判断 null 值</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>查找浮点数数组中第一个大于等于 3 的元素：</p>
+<pre><code>SELECT array_first(x -&gt; x &gt;= 3, [1.1, 2.2, 3.3, 4.4, 5.5]);
++-----------------------------------------------------+
+| array_first(x -&gt; x &gt;= 3, [1.1, 2.2, 3.3, 4.4, 5.5]) |
++-----------------------------------------------------+
+|                                                 3.3 |
++-----------------------------------------------------+
+</code></pre>
+<p>查找字符串数组中第一个长度大于 2 的元素：</p>
+<pre><code>SELECT array_first(x -&gt; length(x) &gt; 2, ['a', 'bb', 'ccc', 'dddd', 'eeeee']);
++----------------------------------------------------------------------+
+| array_first(x -&gt; length(x) &gt; 2, ['a', 'bb', 'ccc', 'dddd', 'eeeee']) |
++----------------------------------------------------------------------+
+| ccc                                                                  |
++----------------------------------------------------------------------+
+</code></pre>
+<p>空数组返回 NULL：</p>
+<pre><code>SELECT array_first(x -&gt; x &gt; 0, []);
++-------------------------------------+
+| array_first(x -&gt; x &gt; 0, [])        |
++-------------------------------------+
+| NULL                                |
++-------------------------------------+
+</code></pre>
+<p>输入参数为NULL 会报错：</p>
+<pre><code>SELECT array_first(x -&gt; x &gt; 2, NULL);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda argument must be array but is NULL
+
+SELECT array_first(NULL);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not build function: 'array_first', expression: array_first(NULL), The 1st arg of array_filter must be lambda but is NULL
+</code></pre>
+<p>包含 null 的数组，lambda 可判断 null：</p>
+<pre><code>SELECT array_first(x -&gt; x is not null, [null, 1, null, 3, null, 5]);
++--------------------------------------------------------------+
+| array_first(x -&gt; x is not null, [null, 1, null, 3, null, 5]) |
++--------------------------------------------------------------+
+|                                                            1 |
++--------------------------------------------------------------+
+</code></pre>
+<p>多数组查找，查找第一个数组大于第二个数组的第一个元素：</p>
+<pre><code>SELECT array_first((x, y) -&gt; x &gt; y, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5]);
++--------------------------------------------------------------------------+
+| array_first((x, y) -&gt; x &gt; y, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5]) |
++--------------------------------------------------------------------------+
+|                                                                     NULL |
++--------------------------------------------------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组查找，查找第一个长度大于 2 的子数组：</p>
+<pre><code>SELECT array_first(x -&gt; size(x) &gt; 2, [[1,2],[3,4,5],[6],[7,8,9,10]]);
++---------------------------------------------------------------+
+| array_first(x -&gt; size(x) &gt; 2, [[1,2],[3,4,5],[6],[7,8,9,10]]) |
++---------------------------------------------------------------+
+| [3, 4, 5]                                                     |
++---------------------------------------------------------------+
+</code></pre>
+<p>map 类型查找，查找第一个 key 为 'a' 的 value 大于 10 的元素：</p>
+<pre><code>SELECT array_first(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]);
++---------------------------------------------------------------+
+| array_first(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]) |
++---------------------------------------------------------------+
+| {"a":15}                                                      |
++---------------------------------------------------------------+
+</code></pre>
+<p>lambda 表达式中参数个数和数组参数个数不一致报错：</p>
+<pre><code>SELECT array_first(x -&gt; x &gt; 0, [1,2,3], [4,5,6], [7,8,9]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda x -&gt; (x &gt; 0) arguments' size is not equal parameters' size
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_first((x, y) -&gt; x &gt; y, [1,2,3], [4,5]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.6)[INVALID_ARGUMENT]in array map function, the input column size are not equal completely, nested column data rows 1st size is 3, 2th size is 2.
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_first(x -&gt; x &gt; 0, 'not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda argument must be array but is 'not_an_array'
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, FIRST, ARRAY_FIRST</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-first/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

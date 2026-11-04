@@ -1,0 +1,77 @@
+<div class="definition"><pre>BITMAP_SUBSET_IN_RANGE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 Bitmap 指定范围内的子集 (不包括范围结束)。</p>
+<h2>语法</h2>
+<pre><code>bitmap_subset_in_range(&lt;bitmap&gt;, &lt;range_start_include&gt;, &lt;range_end_exclude&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 值</td>
+</tr>
+<tr>
+<td><code>&lt;range_start_include&gt;</code></td>
+<td>范围开始（包含）</td>
+</tr>
+<tr>
+<td><code>&lt;range_end_exclude&gt;</code></td>
+<td>范围结束（不包含）</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>指定范围的子集 Bitmap。</p>
+<ul>
+<li>当参数存在NULL时或者指定范围为非法范围时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<p>获取 Bitmap 中位于范围 0 到 9 内的子集：</p>
+<pre><code>select bitmap_to_string(bitmap_subset_in_range(bitmap_from_string('1,2,3,4,5'), 0, 9)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-----------+
+| value     |
++-----------+
+| 1,2,3,4,5 |
++-----------+
+</code></pre>
+<p>获取 Bitmap 中位于范围 2 到 3 内的子集：</p>
+<pre><code>select bitmap_to_string(bitmap_subset_in_range(bitmap_from_string('1,2,3,4,5'), 2, 3)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| 2     |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_subset_in_range(bitmap_from_string('1,2,3,4,5'), 2, NULL)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| NULL  |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_subset_in_range(bitmap_from_string('1,2,3,4,5'), 2, -10000)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| NULL  |
++-------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-subset-in-range/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,108 @@
+<div class="definition"><pre>REPLACE_EMPTY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>REPLACE_EMPTY 函数用于将字符串中的一部分字符替换为其他字符。与 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/replace/">REPLACE</a> 函数不同的是，当 <code>old</code> 为空字符串时，会将 <code>new</code> 字符串插入到 <code>str</code> 字符串的每个字符前，以及 <code>str</code> 字符串的最后。</p>
+<p>该函数主要用于兼容 Presto、Trino，其行为与 Presto、Trino 中的 <code>REPLACE()</code> 函数完全一致。自 2.1.5 版本支持。</p>
+<h2>语法</h2>
+<pre><code>REPLACE_EMPTY(&lt;str&gt;, &lt;old&gt;, &lt;new&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被替换的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;old&gt;</code></td>
+<td>需要被替换掉的子字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;new&gt;</code></td>
+<td>用于替换 <code>&lt;old&gt;</code> 的新子字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为替换后的新字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 <code>&lt;old&gt;</code> 为空字符串，将 <code>&lt;new&gt;</code> 插入到 <code>&lt;str&gt;</code> 的每个字符前以及最后</li>
+<li>如果 <code>&lt;old&gt;</code> 不在 <code>&lt;str&gt;</code> 中，返回原始 <code>&lt;str&gt;</code></li>
+</ul>
+<h2>示例</h2>
+<p>作为参照，<code>REPLACE</code> 会将 <code>&lt;old&gt;</code> 的每次出现替换为 <code>&lt;new&gt;</code>，字符串的其余部分保持不变：</p>
+<pre><code>SELECT replace('hello world', 'world', 'universe');
+</code></pre>
+<pre><code>+---------------------------------------------+
+| replace('hello world', 'world', 'universe') |
++---------------------------------------------+
+| hello universe                              |
++---------------------------------------------+
+</code></pre>
+<p><code>REPLACE_EMPTY</code> 在常规情况下行为与 <code>REPLACE</code> 相同（见下面的例 2），但当 <code>&lt;old&gt;</code> 为空字符串时不同——此时会把 <code>&lt;new&gt;</code> 插入到 <code>&lt;str&gt;</code> 的每个字符前以及末尾（见例 1）。其余例子覆盖各种边界情况。</p>
+<ol>
+<li>基本用法：old 为空字符串时插入</li>
+</ol>
+<pre><code>SELECT replace_empty('abc', '', 'x');
+</code></pre>
+<pre><code>+-------------------------------+
+| replace_empty('abc', '', 'x') |
++-------------------------------+
+| xaxbxcx                       |
++-------------------------------+
+</code></pre>
+<ol>
+<li>正常字符串替换（与 REPLACE 相同）</li>
+</ol>
+<pre><code>SELECT replace_empty('hello', 'l', 'L');
+</code></pre>
+<pre><code>+----------------------------------+
+| replace_empty('hello', 'l', 'L') |
++----------------------------------+
+| heLLo                            |
++----------------------------------+
+</code></pre>
+<ol>
+<li>空字符串的处理</li>
+</ol>
+<pre><code>SELECT replace_empty('', '', 'x');
+</code></pre>
+<pre><code>+----------------------------+
+| replace_empty('', '', 'x') |
++----------------------------+
+| x                          |
++----------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT replace_empty(NULL, 'old', 'new');
+</code></pre>
+<pre><code>+------------------------------------+
+| replace_empty(NULL, 'old', 'new')  |
++------------------------------------+
+| NULL                               |
++------------------------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符</li>
+</ol>
+<pre><code>SELECT replace_empty('hello', 'l', 'ṭṛìṭ');
+</code></pre>
+<pre><code>+--------------------------------------------+
+| replace_empty('hello', 'l', 'ṭṛìṭ')        |
++--------------------------------------------+
+| heṭṛìṭṭṛìṭo                                |
++--------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/replace-empty/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

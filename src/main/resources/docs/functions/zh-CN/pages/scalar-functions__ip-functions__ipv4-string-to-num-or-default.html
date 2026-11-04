@@ -1,0 +1,71 @@
+<div class="definition"><pre>IPV4_STRING_TO_NUM_OR_DEFAULT</pre></div>
+<div class="content">
+<h2>ipv4_string_to_num_or_default</h2>
+<h2>描述</h2>
+<p>获取包含 IPv4 地址的字符串，格式为 A.B.C.D（点分隔的十进制数字）。返回一个 BIGINT 数字，表示相应的网络字节序 IPv4 地址。</p>
+<h2>语法</h2>
+<pre><code>IPV4_STRING_TO_NUM_OR_DEFAULT(&lt;ipv4_string&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv4_string&gt;</code>：IPv4 的字符串地址（形如 A.B.C.D）</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BIGINT</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回对应 IPv4 地址的网络字节序整数表示</li>
+<li>非法 IPv4 字符串或 <code>NULL</code> 输入返回 <code>0</code></li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>该函数不会抛出异常，非法输入统一返回 0（对应 <code>0.0.0.0</code>）</li>
+<li>输入字符串前后空白不被允许</li>
+<li>常用于容错转换场景，如清洗脏数据</li>
+</ul>
+<h2>举例</h2>
+<p>将 IPv4 文本 <code>192.168.0.1</code> 转为对应的网络字节序整数。</p>
+<pre><code>select ipv4_string_to_num_or_default('192.168.0.1');
++----------------------------------------------+
+| ipv4_string_to_num_or_default('192.168.0.1') |
++----------------------------------------------+
+|                                   3232235521 |
++----------------------------------------------+
+</code></pre>
+<p>IPv4 边界值（最小与最大）。</p>
+<pre><code>select
+  ipv4_string_to_num_or_default('0.0.0.0')         as min_v4,
+  ipv4_string_to_num_or_default('255.255.255.255') as max_v4;
++--------+-----------+
+| min_v4| max_v4    |
++--------+-----------+
+| 0      | 4294967295|
++--------+-----------+
+</code></pre>
+<p>非法输入时返回 0（不抛异常）。</p>
+<pre><code>select ipv4_string_to_num_or_default('256.0.0.1');
++--------------------------------------------+
+| ipv4_string_to_num_or_default('256.0.0.1') |
++--------------------------------------------+
+|                                          0 |
++--------------------------------------------+
+
+select ipv4_string_to_num_or_default(' 1.1.1.1 ');
++--------------------------------------------+
+| ipv4_string_to_num_or_default(' 1.1.1.1 ') |
++--------------------------------------------+
+|                                          0 |
++--------------------------------------------+
+
+select ipv4_string_to_num_or_default(NULL);
++-------------------------------------+
+| ipv4_string_to_num_or_default(NULL) |
++-------------------------------------+
+|                                   0 |
++-------------------------------------+
+</code></pre>
+<h3>关键词</h3>
+<p>IPV4_STRING_TO_NUM_OR_DEFAULT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv4-string-to-num-or-default/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

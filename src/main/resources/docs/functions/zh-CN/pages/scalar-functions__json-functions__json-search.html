@@ -1,0 +1,145 @@
+<div class="definition"><pre>JSON_SEARCH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_SEARCH</code> 函数用于在 JSON 文档中查找指定的值。如果找到该值，则返回值的路径。如果没有找到该值，则返回 NULL。该函数可以在 JSON 数据结构中递归查找。</p>
+<h2>语法</h2>
+<pre><code>JSON_SEARCH( &lt;json_object&gt;, &lt;one_or_all&gt;, &lt;search_value&gt; )
+</code></pre>
+<h2>必选参数</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code>: JSON 类型，需要搜索的 JSON 文档。</li>
+<li><code>&lt;one_or_all&gt;</code>: String 类型，指定是否查找所有匹配的值。可以取值 'one' 或 'all'。</li>
+<li><code>&lt;search_value&gt;</code>: String 类型，需要查找的值，搜索目标。支持 '%'（匹配任意个数的任意字符）和 '_'(匹配任意单个字符) 作为通配符。</li>
+</ul>
+<h2>返回值</h2>
+<p><code>Nullable(JSON)</code>： 根据参数 <code>&lt;one_or_all&gt;</code> 不同有两种情况：</p>
+<pre><code>1. 'one' 如果找到匹配的值，返回一个 JSON 路径，指向匹配的值。 如果没有找到匹配的值，返回 NULL。
+2. 'all' 返回所有匹配值的路径，如果有多个值，以 JSON 数组的形式返回，如果没有匹配返回 NULL。
+</code></pre>
+<h2>注意事项</h2>
+<ul>
+<li><code>one_or_all</code> 参数决定了是否查找所有匹配的值。'one' 会返回第一个匹配的路径，'all' 会返回所有匹配的路径。 如果是其他值，会得到报错。</li>
+<li>如果没有找到匹配值，函数会返回 NULL。</li>
+<li><code>&lt;json_object&gt;</code>, <code>&lt;one_or_all&gt;</code>, <code>&lt;search_value&gt;</code> 任意一个为 NULL 时返回 NULL.</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>
+<p>查找一个值（one）</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30}', 'one', 'John');
+</code></pre>
+<pre><code>+-----------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30}', 'one', 'John') |
++-----------------------------------------------------------+
+| "$.name"                                                  |
++-----------------------------------------------------------+
+
+</code></pre>
+</li>
+<li>
+<p>查找一个值（one），即使有多个匹配也只返回一个路径</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'one', 'John');
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'one', 'John') |
++----------------------------------------------------------------------------+
+| "$.name"                                                                   |
++----------------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>查找所有匹配的值（all）</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'all', 'John');
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'all', 'John') |
++----------------------------------------------------------------------------+
+| ["$.alias","$.name"]                                                       |
++----------------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>'%' 作为通配符</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'all', '%');
+</code></pre>
+<pre><code>+-------------------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30, "alias": "John"}', 'all', '%') |
++-------------------------------------------------------------------------+
+| ["$.alias","$.name"]                                                    |
++-------------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>'_' 作为通配符</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30, "alias": "Jihn"}', 'all', 'J_hn');
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30, "alias": "Jihn"}', 'all', 'J_hn') |
++----------------------------------------------------------------------------+
+| ["$.alias","$.name"]                                                       |
++----------------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>通配符转义</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30, "alias": "J_hn"}', 'all', 'J\_hn');
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30, "alias": "J_hn"}', 'all', 'J\_hn') |
++-----------------------------------------------------------------------------+
+| "$.alias"                                                                   |
++-----------------------------------------------------------------------------+
+</code></pre>
+<blockquote>
+<p>'J_hn' 只匹配了 "J_hn" 而没有匹配 "John"。</p>
+</blockquote>
+</li>
+<li>
+<p>没有找到匹配值</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30}', 'one', 'Alice');
+</code></pre>
+<pre><code>+------------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30}', 'one', 'Alice') |
++------------------------------------------------------------+
+| NULL                                                       |
++------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30}', NULL, 'Alice');
+</code></pre>
+<pre><code>+-----------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30}', NULL, 'Alice') |
++-----------------------------------------------------------+
+| NULL                                                      |
++-----------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30}', 'one', NULL);
+</code></pre>
+<pre><code>+---------------------------------------------------------+
+| JSON_SEARCH('{"name": "John", "age": 30}', 'one', NULL) |
++---------------------------------------------------------+
+| NULL                                                    |
++---------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_SEARCH(NULL, 'one', 'Alice');
+</code></pre>
+<pre><code>+-----------------------------------+
+| JSON_SEARCH(NULL, 'one', 'Alice') |
++-----------------------------------+
+| NULL                              |
++-----------------------------------+
+</code></pre>
+</li>
+<li>
+<p>非法的 <code>&lt;one_or_all&gt;</code> 参数</p>
+<pre><code>SELECT JSON_SEARCH('{"name": "John", "age": 30}', 'three', 'Alice');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = [INVALID_ARGUMENT]the one_or_all argument three is not 'one' not 'all'
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-search/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

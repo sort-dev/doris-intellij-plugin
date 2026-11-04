@@ -1,0 +1,91 @@
+<div class="definition"><pre>AVG_MAP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>AVG_MAP 函数按键聚合 MAP 值，返回一个 MAP，其中每个键对应的值为该键下所有非 NULL 值的平均值。</p>
+<h2>使用说明</h2>
+<p>返回 MAP 中条目的顺序不保证稳定。如果需要稳定的输出顺序，请使用 <code>map_keys</code>、<code>map_values</code>、<code>array_sort</code> 和 <code>array_sortby</code> 对结果进行排序。NULL key 会作为普通 key 参与聚合；所有 NULL key 会归并到同一个结果条目中。</p>
+<h2>语法</h2>
+<pre><code>AVG_MAP(&lt;map_expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;map_expr&gt;</code></td>
+<td>MAP 表达式。MAP 的 value 类型必须为数值类型。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 MAP，key 类型与 <code>&lt;map_expr&gt;</code> 相同。对于 Decimal 以外的数值 value 类型，返回的 value 类型为 DOUBLE；对于 Decimal value 类型，返回的 value 类型为最大支持精度并按 AVG 规则调整 scale 后的 Decimal。</p>
+<p>如果组内没有有效输入行，返回空 MAP。如果某个 key 存在但该 key 下所有 value 均为 NULL，则该 key 对应的返回值为 NULL。</p>
+<h2>示例</h2>
+<pre><code>-- setup
+CREATE TABLE map_agg_example (
+    id INT,
+    m MAP&lt;INT, INT&gt;,
+    md MAP&lt;STRING, DECIMAL(10, 2)&gt;
+) DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO map_agg_example VALUES
+    (1, MAP(1, 10, 2, 20), MAP('a', 1.20, 'b', 2.30)),
+    (1, MAP(2, 5, 3, 30), MAP('b', 3.70, 'c', 4.00)),
+    (2, MAP(1, 7, 4, NULL), MAP('a', NULL, 'c', 5.50)),
+    (2, CAST(MAP() AS MAP&lt;INT, INT&gt;), CAST(MAP() AS MAP&lt;STRING, DECIMAL(10, 2)&gt;));
+</code></pre>
+<pre><code>Query OK
+</code></pre>
+<pre><code>SELECT id,
+       array_sort(map_keys(result)) AS keys,
+       array_sortby(map_values(result), map_keys(result)) AS values
+FROM (
+    SELECT id, AVG_MAP(m) AS result
+    FROM map_agg_example
+    GROUP BY id
+) t
+ORDER BY id;
+</code></pre>
+<pre><code>+------+-----------+----------------+
+| id   | keys      | values         |
++------+-----------+----------------+
+|    1 | [1, 2, 3] | [10, 12.5, 30] |
+|    2 | [1, 4]    | [7, null]      |
++------+-----------+----------------+
+</code></pre>
+<pre><code>SELECT array_sort(map_keys(result)) AS keys,
+       array_sortby(map_values(result), map_keys(result)) AS values
+FROM (
+    SELECT AVG_MAP(md) AS result
+    FROM map_agg_example
+) t;
+</code></pre>
+<pre><code>+-----------------+------------------------+
+| keys            | values                 |
++-----------------+------------------------+
+| ["a", "b", "c"] | [1.2000, 3.0000, 4.7500] |
++-----------------+------------------------+
+</code></pre>
+<pre><code>SELECT array_sort(map_keys(result)) AS keys,
+       array_sortby(map_values(result), map_keys(result)) AS values
+FROM (
+    SELECT AVG_MAP(m) AS result
+    FROM map_agg_example
+    WHERE id = 100
+) t;
+</code></pre>
+<pre><code>+------+--------+
+| keys | values |
++------+--------+
+| []   | []     |
++------+--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/avg-map/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

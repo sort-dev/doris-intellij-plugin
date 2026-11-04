@@ -1,0 +1,63 @@
+<div class="definition"><pre>BITMAP_FROM_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 base64 字符串（可以由 <code>bitmap_to_base64</code> 函数转换来）转化为一个 BITMAP。当输入字符串不合法时，返回 NULL。</p>
+<h2>语法</h2>
+<pre><code> BITMAP_FROM_BASE64(&lt;base64_str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;base64_str&gt;</code></td>
+<td>base64 字符串 (可以由<code>bitmap_to_base64</code>函数转换来)</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BITMAP</p>
+<ul>
+<li>当输入字段不合法时，结果返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select bitmap_to_string(bitmap_from_base64("invalid")) bts;
+</code></pre>
+<pre><code>+------+
+| bts  |
++------+
+| NULL |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_base64("AA==")) bts;
+</code></pre>
+<pre><code>+------+
+| bts  |
++------+
+|      |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_base64("AQEAAAA=")) bts;
+</code></pre>
+<pre><code>+------+
+| bts  |
++------+
+| 1    |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_base64("AjowAAACAAAAAAAAAJgAAAAYAAAAGgAAAAEAf5Y=")) bts;
+</code></pre>
+<pre><code>+-----------+
+| bts       |
++-----------+
+| 1,9999999 |
++-----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-from-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

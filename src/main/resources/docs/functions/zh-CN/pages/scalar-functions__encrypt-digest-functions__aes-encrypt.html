@@ -1,0 +1,75 @@
+<div class="definition"><pre>AES_ENCRYPT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>AES 加密函数。该函数与 MySQL 中的 <code>AES_ENCRYPT</code> 函数行为一致。默认采用 <code>AES_128_ECB</code> 算法，padding 模式为 <code>PKCS7</code>。</p>
+<p>AES_ENCRYPT 函数对于传入的密钥，并不是直接使用，而是会进一步做处理，具体步骤如下：</p>
+<ol>
+<li>根据使用的加密算法，确定密钥的字节数，比如使用 AES_128_ECB 算法，则密钥字节数为 <code>128 / 8 = 16</code>（如果使用 AES_256_ECB 算法，则密钥字节数为 <code>256 / 8 = 32</code>）；</li>
+<li>然后针对用户输入的密钥，第 <code>i</code> 位和第 <code>16*k+i</code> 位进行异或，如果用户输入的密钥不足 16 位，则后面补 0；</li>
+<li>最后，再使用新生成的密钥进行加密；</li>
+</ol>
+<h2>语法</h2>
+<pre><code>AES_ENCRYPT( &lt;str&gt;, &lt;key_str&gt;[, &lt;init_vector&gt;][, &lt;encryption_mode&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>为待加密文本</td>
+</tr>
+<tr>
+<td><code>&lt;key_str&gt;</code></td>
+<td>为密钥。注意此密钥并非 16 进制编码，而是编码后的字符串表示。例如对于 128 位密钥加密，<code>key_str</code> 长度应为 16。如果密钥长度不足，使用<strong>零填充</strong>补齐。如果长度超出，使用循环异或的方式求出最终密钥。例如算法使用的 128 位密钥为 <code>key</code>，则 <code>key[i] = key_str[i] ^ key_str[i+128] ^ key_str[i+256] ^ ...</code></td>
+</tr>
+<tr>
+<td><code>&lt;init_vector&gt;</code></td>
+<td>为算法中使用到的初始向量，仅在特定算法下生效，如不指定，则 Doris 使用内置向量</td>
+</tr>
+<tr>
+<td><code>&lt;encryption_mode&gt;</code></td>
+<td>为加密算法，可选值见于变量</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回二进制的加密后的数据</p>
+<h2>示例</h2>
+<p>使用 AES_128_ECB 算法</p>
+<pre><code>set block_encryption_mode='';
+select to_base64(aes_encrypt('text','F3229A0B371ED2D9441B830D21A390C3'));
+</code></pre>
+<pre><code>+----------------------------------------------------------+
+| to_base64(aes_encrypt('text', '***', '', 'AES_128_ECB')) |
++----------------------------------------------------------+
+| wr2JEDVXzL9+2XtRhgIloA==                                 |
++----------------------------------------------------------+
+</code></pre>
+<p>使用 AES_256_CBC 算法</p>
+<pre><code>set block_encryption_mode="AES_256_CBC";
+select to_base64(aes_encrypt('text','F3229A0B371ED2D9441B830D21A390C3'));
+</code></pre>
+<pre><code>+----------------------------------------------------------+
+| to_base64(aes_encrypt('text', '***', '', 'AES_256_CBC')) |
++----------------------------------------------------------+
+| 3dym0E7/+1zbrLIaBVNHSw==                                 |
++----------------------------------------------------------+
+</code></pre>
+<p>使用 AES_256_CBC 算法并设置初始向量</p>
+<pre><code>select to_base64(aes_encrypt('text','F3229A0B371ED2D9441B830D21A390C3', '0123456789'));
+</code></pre>
+<pre><code>+--------------------------------------------------------------------+
+| to_base64(aes_encrypt('text', '***', '0123456789', 'AES_256_CBC')) |
++--------------------------------------------------------------------+
+| tsmK1HzbpnEdR2//WhO+MA==                                           |
++--------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/aes-encrypt/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

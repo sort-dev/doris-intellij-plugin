@@ -1,0 +1,75 @@
+<div class="definition"><pre>TRY_PARSE_TO_VARIANT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>TRY_PARSE_TO_VARIANT</code> 尝试把一个完整 JSON 值解析为 <code>VARIANT</code>。函数名中的 <code>TRY_</code> 表示：发生解析或校验错误时返回 SQL <code>NULL</code>，而不是使查询失败。该函数自 Doris 4.1.4 起支持。</p>
+<h2>语法</h2>
+<pre><code>TRY_PARSE_TO_VARIANT(&lt;json_value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;json_value&gt;</code></td>
+<td>包含一个完整 JSON 值的 <code>CHAR</code>、<code>VARCHAR</code> 或 <code>STRING</code> 表达式，也可以是 <code>JSON</code>/<code>JSONB</code> 表达式。JSON/JSONB 输入会先转换为 JSON 文本，再解析为 VARIANT。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回可为 NULL 的 <code>VARIANT</code> 值。</p>
+<ul>
+<li>合法输入返回解析后的 VARIANT 值。</li>
+<li>非法 JSON 或其他解析、校验错误返回 SQL <code>NULL</code>。</li>
+<li>输入为 SQL <code>NULL</code> 时返回 SQL <code>NULL</code>。</li>
+<li>合法的 JSON 字面量 <code>null</code> 返回 Variant/JSON <code>null</code>，不是 SQL <code>NULL</code>。</li>
+</ul>
+<h2>示例</h2>
+<p>保留合法值，并把非法 JSON 转换为 SQL <code>NULL</code>：</p>
+<pre><code>SELECT CAST(
+           TRY_PARSE_TO_VARIANT('{"id": 1}')
+           AS STRING
+       ) AS valid_value,
+       TRY_PARSE_TO_VARIANT('{"id":') IS NULL AS invalid_is_null,
+       TRY_PARSE_TO_VARIANT(NULL) IS NULL AS input_is_null;
+</code></pre>
+<pre><code>+-------------+-----------------+---------------+
+| valid_value | invalid_is_null | input_is_null |
++-------------+-----------------+---------------+
+| {"id":1}    |               1 |             1 |
++-------------+-----------------+---------------+
+</code></pre>
+<p>解析 JSON/JSONB 输入：</p>
+<pre><code>SELECT CAST(
+           TRY_PARSE_TO_VARIANT(CAST('[10, 20, 30]' AS JSON))
+           AS STRING
+       ) AS value;
+</code></pre>
+<pre><code>+------------+
+| value      |
++------------+
+| [10,20,30] |
++------------+
+</code></pre>
+<p>JSON <code>null</code> 与 SQL <code>NULL</code> 仍然不同：</p>
+<pre><code>SELECT TRY_PARSE_TO_VARIANT('null') IS NULL AS json_null_is_sql_null,
+       TRY_PARSE_TO_VARIANT('{') IS NULL AS error_is_sql_null;
+</code></pre>
+<pre><code>+-----------------------+-------------------+
+| json_null_is_sql_null | error_is_sql_null |
++-----------------------+-------------------+
+|                     0 |                 1 |
++-----------------------+-------------------+
+</code></pre>
+<h2>使用说明</h2>
+<ul>
+<li>如果非法输入应该使查询失败并暴露数据质量问题，请使用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/parse-to-variant">PARSE_TO_VARIANT</a>。</li>
+<li>本函数只会把解析和校验错误转换为 SQL <code>NULL</code>，不会改变合法 JSON <code>null</code> 的含义。</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/try-parse-to-variant/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

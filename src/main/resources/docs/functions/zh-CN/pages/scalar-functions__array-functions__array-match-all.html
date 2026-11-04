@@ -1,0 +1,57 @@
+<div class="definition"><pre>ARRAY_MATCH_ALL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>检查数组中的所有元素是否都满足给定条件。如果数组包含 NULL 元素且所有非 NULL 元素都满足条件，则返回 NULL。</p>
+<h2>语法</h2>
+<pre><code>array_match_all(lambda, &lt;arr&gt; [, &lt;arr&gt; ...])
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>lambda</code>: 定义检查条件的 lambda 表达式</li>
+<li><code>&lt;arr&gt;</code>: 一个或多个要检查的数组。lambda 函数将应用于这些数组的每个元素</li>
+</ul>
+<h2>返回值</h2>
+<p>返回一个可空的布尔值：</p>
+<ul>
+<li>如果数组中所有元素都满足条件，则返回 <code>true</code></li>
+<li>如果数组中任何元素不满足条件，则返回 <code>false</code></li>
+<li>如果数组包含 NULL 元素且所有非 NULL 元素都满足条件，则返回 <code>NULL</code></li>
+</ul>
+<h2>示例</h2>
+<pre><code>-- 检查数组中的所有数字是否都大于 5
+mysql&gt; SELECT array_match_all(x -&gt; x &gt; 5, [1, 2, 3, 4, 7]);
++----------------------------------------------+
+| array_match_all(x -&gt; x &gt; 5, [1, 2, 3, 4, 7]) |
++----------------------------------------------+
+|                                            0 |
++----------------------------------------------+
+
+-- 检查数组中的所有数字x是否都大于数字i
+mysql&gt; SELECT array_match_all((x, i) -&gt; x &gt; i, [1, 2, 3, 4, 5], [1, 2, 3, 4, 7]);
++--------------------------------------------------------------------+
+| array_match_all((x, i) -&gt; x &gt; i, [1, 2, 3, 4, 5], [1, 2, 3, 4, 7]) |
++--------------------------------------------------------------------+
+|                                                                  0 |
++--------------------------------------------------------------------+
+
+</code></pre>
+<h2>注意事项</h2>
+<ol>
+<li>
+<p>函数处理 NULL 值的方式：</p>
+<ul>
+<li>如果存在 NULL 元素且所有非 NULL 元素都满足条件，则返回 NULL</li>
+<li>如果任何非 NULL 元素不满足条件，则无论是否存在 NULL 元素都返回 false</li>
+</ul>
+</li>
+<li>
+<p>该函数适用于：</p>
+<ul>
+<li>验证数组中的所有元素是否满足特定条件</li>
+<li>与其他数组函数组合进行复杂的数组操作</li>
+</ul>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-match-all/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

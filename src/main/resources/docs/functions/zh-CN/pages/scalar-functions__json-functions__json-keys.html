@@ -1,0 +1,111 @@
+<div class="definition"><pre>JSON_KEYS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>以数组形式返回 JSON 对象的所有键（key）。 默认情况返回 root 对象的键，也可以通过参数控制返回具体某个路径对应的对象的键。</p>
+<h2>语法</h2>
+<pre><code>JSON_KEYS(&lt;json_object&gt;[, &lt;path&gt;])
+</code></pre>
+<h2>参数</h2>
+<h3>必选参数</h3>
+<ul>
+<li><code>&lt;json_object&gt;</code> JSON 类型，需要提取键的 JSON 对象。</li>
+</ul>
+<h3>可选参数</h3>
+<ul>
+<li><code>&lt;path&gt;</code> String 类型，可选的 JSON 路径，指定检查的 JSON 子文档。如果不提供，默认为根文档。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li><code>Array&lt;String&gt;</code> 返回一个字符串的数组，数组成员就是 JSON 对象的所有键。</li>
+</ul>
+<h2>注意事项</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code> 或者 <code>&lt;path&gt;</code> 为 NULL 时返回 NULL。</li>
+<li>如果不是 JSON 对象（比如是 JSON 数组），返回 NULL。</li>
+<li>如果 <code>&lt;path&gt;</code> 指向的对象不存在，返回 NULL。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>
+<p>示例 1</p>
+<pre><code>SELECT JSON_KEYS('{"a": 1, "b": {"c": 30}}');
+</code></pre>
+<pre><code>+---------------------------------------+
+| JSON_KEYS('{"a": 1, "b": {"c": 30}}') |
++---------------------------------------+
+| ["a", "b"]                            |
++---------------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_KEYS('{}');
+</code></pre>
+<pre><code>+-----------------+
+| JSON_KEYS('{}') |
++-----------------+
+| []              |
++-----------------+
+</code></pre>
+</li>
+<li>
+<p>指定 path</p>
+<pre><code>SELECT JSON_KEYS('{"a": 1, "b": {"c": 30}}', '$.b');
+</code></pre>
+<pre><code>+----------------------------------------------+
+| JSON_KEYS('{"a": 1, "b": {"c": 30}}', '$.b') |
++----------------------------------------------+
+| ["c"]                                        |
++----------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>SELECT JSON_KEYS('{"a": 1, "b": {"c": 30}}', NULL);
+</code></pre>
+<pre><code>+---------------------------------------------+
+| JSON_KEYS('{"a": 1, "b": {"c": 30}}', NULL) |
++---------------------------------------------+
+| NULL                                        |
++---------------------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_KEYS(NULL);
+</code></pre>
+<pre><code>+-----------------+
+| JSON_KEYS(NULL) |
++-----------------+
+| NULL            |
++-----------------+
+</code></pre>
+</li>
+<li>
+<p>不是 JSON 对象</p>
+<pre><code>SELECT JSON_KEYS('[1,2]');
+</code></pre>
+<pre><code>+--------------------+
+| JSON_KEYS('[1,2]') |
++--------------------+
+| NULL               |
++--------------------+
+</code></pre>
+<pre><code>SELECT JSON_KEYS('{"k": [1, 2, 3]}', '$.k');
+</code></pre>
+<pre><code>+--------------------------------------+
+| JSON_KEYS('{"k": [1, 2, 3]}', '$.k') |
++--------------------------------------+
+| NULL                                 |
++--------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>path 指定的对象不存在</p>
+<pre><code>SELECT JSON_KEYS('{"a": 1, "b": {"c": 30}}', '$.c');
+</code></pre>
+<pre><code>+----------------------------------------------+
+| JSON_KEYS('{"a": 1, "b": {"c": 30}}', '$.c') |
++----------------------------------------------+
+| NULL                                         |
++----------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-keys/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

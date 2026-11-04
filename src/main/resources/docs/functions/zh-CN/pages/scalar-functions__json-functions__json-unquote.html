@@ -1,0 +1,91 @@
+<div class="definition"><pre>JSON_UNQUOTE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>这个函数将去掉 JSON 值中的引号，并将结果作为字符串返回。如果参数为 NULL，则返回 NULL。</p>
+<p>特殊字符包括：</p>
+<ul>
+<li>引号 (<code>"</code>)</li>
+<li>反斜杠 (<code>\</code>)</li>
+<li>Backspace	(<code>\b</code>)</li>
+<li>换行 (<code>\n</code>)</li>
+<li>回车 (<code>\r</code>)</li>
+<li>水平制表符 (<code>\t</code>)</li>
+</ul>
+<p>控制字符包括：</p>
+<ul>
+<li><code>CHAR(0)</code> 被转义为 <code>\u0000</code></li>
+</ul>
+<h2>语法</h2>
+<pre><code>JSON_UNQUOTE (&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;str&gt;</code> 要去除引号的字符串。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回一个字符串。特殊情况如下：</p>
+<ul>
+<li>如果传入的参数为 NULL，返回 NULL。</li>
+<li>如果传入的参数不是一个带有双引号的值，则会返回值本身。</li>
+<li>如果传入的参数不是一个字符串，则会被自动转换为字符串后，返回值本身。</li>
+</ul>
+<h2>举例</h2>
+<ol>
+<li>字符串中的转义字符会被去掉<pre><code>select json_unquote('"I am a \\"string\\" that contains double quotes."');
+</code></pre>
+<pre><code>+--------------------------------------------------------------------+
+| json_unquote('"I am a \\"string\\" that contains double quotes."') |
++--------------------------------------------------------------------+
+| I am a "string" that contains double quotes.                       |
++--------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>特殊字符的转义<pre><code>select json_unquote('"\\\\ \\b \\n \\r \\t"');
+</code></pre>
+<pre><code>+----------------------------------------+
+| json_unquote('"\\\\ \\b \\n \\r \\t"') |
++----------------------------------------+
+| \ 
+                                    |
++----------------------------------------+
+</code></pre>
+<blockquote>
+<p>因为转义字符被去掉，所以会打印一些空白的字符（换行、退格、制表符等）</p>
+</blockquote>
+</li>
+<li>控制字符字符转义<pre><code>select json_unquote('"\\u0000"');
+</code></pre>
+<pre><code>+---------------------------+
+| json_unquote('"\\u0000"') |
++---------------------------+
+|                           |
++---------------------------+
+</code></pre>
+</li>
+<li>非法的 json 字符串<pre><code>select json_unquote('"I am a "string" that contains double quotes."');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = [RUNTIME_ERROR]Invalid JSON text in argument 1 to function json_unquote: "I am a "string" that contains double quotes."
+</code></pre>
+</li>
+<li>以引号开始但没有以引号结尾的情况<pre><code>select json_unquote('"I am a "string" that contains double quotes.');
+</code></pre>
+<pre><code>+---------------------------------------------------------------+
+| json_unquote('"I am a "string" that contains double quotes.') |
++---------------------------------------------------------------+
+| "I am a "string" that contains double quotes.                 |
++---------------------------------------------------------------+
+</code></pre>
+</li>
+<li>以引号结尾的情况<pre><code>select json_unquote('I am a "string" that contains double quotes."');
+</code></pre>
+<pre><code>+---------------------------------------------------------------+
+| json_unquote('I am a "string" that contains double quotes."') |
++---------------------------------------------------------------+
+| I am a "string" that contains double quotes."                 |
++---------------------------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-unquote/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

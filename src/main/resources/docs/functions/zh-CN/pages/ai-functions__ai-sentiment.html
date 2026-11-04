@@ -1,0 +1,57 @@
+<div class="definition"><pre>AI_SENTIMENT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于分析文本的情感倾向</p>
+<h2>语法</h2>
+<pre><code>AI_SENTIMENT([&lt;resource_name&gt;], &lt;text&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;resource_name&gt;</code></td>
+<td>指定的资源名称</td>
+</tr>
+<tr>
+<td><code>&lt;text&gt;</code></td>
+<td>需要分析情感的文本</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回情感分析结果，可能的值包括：</p>
+<ul>
+<li>positive（积极）</li>
+<li>negative（消极）</li>
+<li>neutral（中性）</li>
+<li>mixed（混合）</li>
+</ul>
+<p>当输入有值为 NULL 时返回 NULL</p>
+<p>结果为大模型生成，所以返回内容并不固定</p>
+<h2>示例</h2>
+<pre><code>SET default_ai_resource = 'resource_name';
+SELECT AI_SENTIMENT('Apache Doirs is a great DB system.') AS Result;
+</code></pre>
+<pre><code>+----------+
+| Result   |
++----------+
+| positive |
++----------+
+</code></pre>
+<pre><code>SELECT AI_SENTIMENT('resrouce_name', 'I hate sunny days.') AS Result;
+</code></pre>
+<pre><code>+----------+
+| Result   |
++----------+
+| negative |
++----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/ai-sentiment/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

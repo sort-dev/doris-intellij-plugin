@@ -1,0 +1,86 @@
+<div class="definition"><pre>FORMAT_NUMBER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FORMAT_NUMBER 函数用于将数值格式化为带单位符号的字符串。支持的单位有：K（千）、M（百万）、B（十亿）、T（万亿）、Q（千万亿）。</p>
+<h2>语法</h2>
+<pre><code>FORMAT_NUMBER(&lt;val&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;val&gt;</code></td>
+<td>需要被格式化的数值。类型：DOUBLE</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为带单位符号的格式化字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>小于1000的数字不添加单位，直接返回数字</li>
+<li>单位转换规则：
+<ul>
+<li>K：千（1,000）</li>
+<li>M：百万（1,000,000）</li>
+<li>B：十亿（1,000,000,000）</li>
+<li>T：万亿（1,000,000,000,000）</li>
+<li>Q：千万亿（1,000,000,000,000,000）</li>
+</ul>
+</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：千位数（K）</li>
+</ol>
+<pre><code>SELECT format_number(1500);
+</code></pre>
+<pre><code>+---------------------+
+| format_number(1500) |
++---------------------+
+| 1.50K               |
++---------------------+
+</code></pre>
+<ol>
+<li>百万（M）</li>
+</ol>
+<pre><code>SELECT format_number(5000000);
+</code></pre>
+<pre><code>+------------------------+
+| format_number(5000000) |
++------------------------+
+| 5.00M                  |
++------------------------+
+</code></pre>
+<ol>
+<li>小于千的数字</li>
+</ol>
+<pre><code>SELECT format_number(999);
+</code></pre>
+<pre><code>+----------------------------------+
+| format_number(cast(999 as DOUBLE))|
++----------------------------------+
+| 999                              |
++----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT format_number(NULL);
+</code></pre>
+<pre><code>+---------------------+
+| format_number(NULL) |
++---------------------+
+| NULL                |
++---------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/format-number/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

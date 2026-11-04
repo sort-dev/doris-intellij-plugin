@@ -1,0 +1,103 @@
+<div class="definition"><pre>OVERLAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>OVERLAY 函数用于替换字符串中指定位置和长度的子串。从指定位置开始，用新字符串替换指定长度的字符。此函数支持多字节字符。</p>
+<p>此函数行为与 MySQL 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/string-functions.html#function_insert">INSERT 函数</a>行为一致。</p>
+<h2>别名</h2>
+<ul>
+<li>INSERT</li>
+</ul>
+<h2>语法</h2>
+<pre><code>OVERLAY(&lt;str&gt;, &lt;pos&gt;, &lt;len&gt;, &lt;newstr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被替换的原字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;pos&gt;</code></td>
+<td>替换起始位置（从1开始）。类型：INT</td>
+</tr>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>需要替换的字符长度。类型：INT</td>
+</tr>
+<tr>
+<td><code>&lt;newstr&gt;</code></td>
+<td>用于替换的新字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为替换后的新字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 <code>&lt;pos&gt;</code> 小于1或超出字符串长度，不进行替换，返回原字符串</li>
+<li>如果 <code>&lt;len&gt;</code> 小于0或超出剩余长度，从 <code>&lt;pos&gt;</code> 开始替换到字符串末尾</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：替换中间部分</li>
+</ol>
+<pre><code>SELECT overlay('Quadratic', 3, 4, 'What');
+</code></pre>
+<pre><code>+------------------------------------+
+| overlay('Quadratic', 3, 4, 'What') |
++------------------------------------+
+| QuWhattic                          |
++------------------------------------+
+</code></pre>
+<ol>
+<li>负数长度：替换到末尾</li>
+</ol>
+<pre><code>SELECT overlay('Quadratic', 2, -1, 'Hi');
+</code></pre>
+<pre><code>+-----------------------------------+
+| overlay('Quadratic', 2, -1, 'Hi') |
++-----------------------------------+
+| QHi                               |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>位置越界：不替换</li>
+</ol>
+<pre><code>SELECT overlay('Hello', 10, 2, 'X');
+</code></pre>
+<pre><code>+-------------------------------+
+| overlay('Hello', 10, 2, 'X')  |
++-------------------------------+
+| Hello                         |
++-------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT overlay('Hello', NULL, 2, 'X');
+</code></pre>
+<pre><code>+--------------------------------+
+| overlay('Hello', NULL, 2, 'X') |
++--------------------------------+
+| NULL                           |
++--------------------------------+
+</code></pre>
+<pre><code>SELECT INSERT('🎉🎊🎈', 2, 1, '🎁');
+</code></pre>
+<pre><code>+--------------------------------------+
+| INSERT('🎉🎊🎈', 2, 1, '🎁')                 |
++--------------------------------------+
+| 🎉🎁🎈                                     |
++--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/overlay/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

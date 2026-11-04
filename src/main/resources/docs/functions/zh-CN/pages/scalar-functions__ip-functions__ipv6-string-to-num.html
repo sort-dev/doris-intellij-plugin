@@ -1,0 +1,57 @@
+<div class="definition"><pre>IPV6_STRING_TO_NUM</pre></div>
+<div class="content">
+<h2>ipv6_string_to_num</h2>
+<h2>描述</h2>
+<p>IPv6NumToString 的反向函数，它接受一个 IP 地址字符串并返回二进制格式的 IPv6 地址。</p>
+<h2>语法</h2>
+<pre><code>IPV6_STRING_TO_NUM(&lt;ipv6_string&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv6_string&gt;</code>：字符串类型的 IPv6 地址</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：VARCHAR（长度 16 的二进制）</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 IPv6 的 16 字节二进制编码</li>
+<li>输入 NULL 会抛出异常</li>
+<li>非法 IP 地址或 <code>NULL</code> 输入会抛出异常</li>
+<li>若输入为有效 IPv4 文本，返回等效的 IPv6 地址（<code>::ffff:&lt;ipv4&gt;</code>）</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>支持标准 IPv6 文本（含缩写与 <code>::</code> 省略形式）</li>
+<li>如果输入为有效 IPv4 文本，则转换并返回 IPv6 的 IPv4-Mapped 表示</li>
+<li>不支持 CIDR、端口、方括号等扩展形式</li>
+</ul>
+<h2>举例</h2>
+<p>将 IPv6 文本 <code>1111::ffff</code> 转为 16 字节二进制（用 hex 展示）。</p>
+<pre><code>select hex(ipv6_string_to_num('1111::ffff')) as v6;
++----------------------------------+
+| v6                               |
++----------------------------------+
+| 1111000000000000000000000000FFFF |
++----------------------------------+
+</code></pre>
+<p>IPv4 文本会自动映射为 IPv6（<code>::ffff:&lt;ipv4&gt;</code>），再以 16 字节二进制返回。</p>
+<pre><code>select hex(ipv6_string_to_num('192.168.0.1')) as mapped;
++----------------------------------+
+| mapped                           |
++----------------------------------+
+| 00000000000000000000FFFFC0A80001 |
++----------------------------------+
+</code></pre>
+<p>输入 NULL 会抛出异常</p>
+<pre><code>select hex(ipv6_string_to_num(NULL));
+ERROR 1105 (HY000): errCode = 2, detailMessage = (...)[INVALID_ARGUMENT]Null Input, you may consider convert it to a valid default IPv6 value like '::' first
+</code></pre>
+<p>非法输入会抛出异常。</p>
+<pre><code>select hex(ipv6_string_to_num('notaaddress'));
+ERROR 1105 (HY000): errCode = 2, detailMessage = (...)[INVALID_ARGUMENT]Invalid IPv6 value
+</code></pre>
+<h3>关键词</h3>
+<p>IPV6_STRING_TO_NUM</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv6-string-to-num/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

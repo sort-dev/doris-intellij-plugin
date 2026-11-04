@@ -1,0 +1,99 @@
+<div class="definition"><pre>QUOTE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>QUOTE 函数用于将字符串用单引号包裹，并对内部的特殊字符进行转义，使其能够安全地用于 SQL 语句中。</p>
+<h2>语法</h2>
+<pre><code>QUOTE(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被引用的输入字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为用单引号包裹并转义特殊字符后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入为 NULL，返回字符串 'NULL'（不带引号）</li>
+<li>单引号 <code>''</code> 会被转义为 <code>'</code></li>
+<li>反斜杠 <code>\</code> 会被转义为 ``</li>
+<li><code>\\</code> 被转义为 <code>\</code></li>
+<li>空字符串返回 <code>''</code></li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符串引用</li>
+</ol>
+<pre><code>SELECT quote('hello');
+</code></pre>
+<pre><code>+----------------+
+| quote('hello') |
++----------------+
+| 'hello'        |
++----------------+
+</code></pre>
+<ol>
+<li>包含单引号的字符串（会被转义）</li>
+</ol>
+<pre><code>SELECT quote("It's a test");
+</code></pre>
+<pre><code>+----------------------+
+| quote("It's a test") |
++----------------------+
+| 'It's a test'        |
++----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT quote(NULL);
+</code></pre>
+<pre><code>+-------------+
+| quote(NULL) |
++-------------+
+| NULL        |
++-------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT quote('');
+</code></pre>
+<pre><code>+-----------+
+| quote('') |
++-----------+
+| ''        |
++-----------+
+</code></pre>
+<ol>
+<li>反斜杠字符</li>
+</ol>
+<pre><code>SELECT quote('aaa\\');
+</code></pre>
+<pre><code>+----------------+
+| quote('aaa\\') |
++----------------+
+| 'aaa\'         |
++----------------+
+</code></pre>
+<pre><code>SELECT quote('aaa\cccb');
+</code></pre>
+<pre><code>+-------------------+
+| quote('aaa\cccb') |
++-------------------+
+| 'aaacccb'         |
++-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/quote/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

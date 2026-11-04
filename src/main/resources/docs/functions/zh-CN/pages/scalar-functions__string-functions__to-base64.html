@@ -1,0 +1,141 @@
+<div class="definition"><pre>TO_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TO_BASE64 函数用于将输入的字符串转换为 Base64 编码格式。Base64 是一种基于 64 个可打印字符的编码方式，常用于在不支持二进制数据的协议中传输数据，如电子邮件、URL 参数、JSON 等。该函数遵循 RFC 4648 标准，使用标准的 Base64 字符集（A-Z, a-z, 0-9, +, /）和填充字符（=）。</p>
+<h2>语法</h2>
+<pre><code>TO_BASE64(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要进行 Base64 编码的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示 Base64 编码后的字符串。</p>
+<p>编码规则：</p>
+<ul>
+<li>使用标准 Base64 字符集：A-Z, a-z, 0-9, +, /</li>
+<li>使用 = 作为填充字符，确保输出长度是 4 的倍数</li>
+<li>支持 UTF-8 多字节字符的正确编码</li>
+<li>输出字符串只包含 ASCII 可打印字符</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>如果输入为空字符串，返回空字符串</li>
+<li>自动处理 UTF-8 字符编码</li>
+<li>输出长度总是输入字节数的 4/3 倍（向上取整到 4 的倍数）</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符编码</li>
+</ol>
+<pre><code>SELECT TO_BASE64('1'), TO_BASE64('A');
+</code></pre>
+<pre><code>+----------------+----------------+
+| TO_BASE64('1') | TO_BASE64('A') |
++----------------+----------------+
+| MQ==           | QQ==           |
++----------------+----------------+
+</code></pre>
+<ol>
+<li>多字符字符串编码</li>
+</ol>
+<pre><code>SELECT TO_BASE64('234'), TO_BASE64('Hello');
+</code></pre>
+<pre><code>+------------------+--------------------+
+| TO_BASE64('234') | TO_BASE64('Hello') |
++------------------+--------------------+
+| MjM0             | SGVsbG8=           |
++------------------+--------------------+
+</code></pre>
+<ol>
+<li>NULL 和空字符串处理</li>
+</ol>
+<pre><code>SELECT TO_BASE64(NULL), TO_BASE64('');
+</code></pre>
+<pre><code>+-----------------+---------------+
+| TO_BASE64(NULL) | TO_BASE64('') |
++-----------------+---------------+
+| NULL            |               |
++-----------------+---------------+
+</code></pre>
+<ol>
+<li>长字符串编码</li>
+</ol>
+<pre><code>SELECT TO_BASE64('Hello World'), TO_BASE64('The quick brown fox');
+</code></pre>
+<pre><code>+-------------------------+-------------------------------+
+| TO_BASE64('Hello World') | TO_BASE64('The quick brown fox') |
++-------------------------+-------------------------------+
+| SGVsbG8gV29ybGQ=        | VGhlIHF1aWNrIGJyb3duIGZveA==  |
++-------------------------+-------------------------------+
+</code></pre>
+<ol>
+<li>数字和特殊字符</li>
+</ol>
+<pre><code>SELECT TO_BASE64('123456'), TO_BASE64('!@#$%^&amp;*()');
+</code></pre>
+<pre><code>+---------------------+------------------------+
+| TO_BASE64('123456') | TO_BASE64('!@#$%^&amp;*()') |
++---------------------+------------------------+
+| MTIzNDU2            | IUAjJCVeJiooKQ==       |
++---------------------+------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT TO_BASE64('ṭṛì'), TO_BASE64('ḍḍumai hello');
+</code></pre>
+<pre><code>+-------------------+---------------------------+
+| TO_BASE64('ṭṛì')  | TO_BASE64('ḍḍumai hello') |
++-------------------+---------------------------+
+| 4bmt4bmbw6w=      | 4bmN4bmNdW1haSBoZWxsbw==  |
++-------------------+---------------------------+
+</code></pre>
+<ol>
+<li>电子邮件地址编码</li>
+</ol>
+<pre><code>SELECT TO_BASE64('user@example.com'), TO_BASE64('admin.test@company.org');
+</code></pre>
+<pre><code>+------------------------------+-----------------------------------+
+| TO_BASE64('user@example.com') | TO_BASE64('admin.test@company.org') |
++------------------------------+-----------------------------------+
+| dXNlckBleGFtcGxlLmNvbQ==     | YWRtaW4udGVzdEBjb21wYW55Lm9yZw== |
++------------------------------+-----------------------------------+
+</code></pre>
+<ol>
+<li>JSON 数据编码</li>
+</ol>
+<pre><code>SELECT TO_BASE64('{"name":"John","age":30}'), TO_BASE64('[1,2,3,4,5]');
+</code></pre>
+<pre><code>+--------------------------------------+----------------------+
+| TO_BASE64('{"name":"John","age":30}') | TO_BASE64('[1,2,3,4,5]') |
++--------------------------------------+----------------------+
+| eyJuYW1lIjoiSm9obiIsImFnZSI6MzB9     | WzEsMiwzLDQsNV0=     |
++--------------------------------------+----------------------+
+</code></pre>
+<ol>
+<li>不同长度字符串的填充</li>
+</ol>
+<pre><code>SELECT TO_BASE64('a'), TO_BASE64('ab'), TO_BASE64('abc');
+</code></pre>
+<pre><code>+----------------+-----------------+------------------+
+| TO_BASE64('a') | TO_BASE64('ab') | TO_BASE64('abc') |
++----------------+-----------------+------------------+
+| YQ==           | YWI=            | YWJj             |
++----------------+-----------------+------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/to-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,65 @@
+<div class="definition"><pre>GROUP_ARRAY_UNION</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>求出所有行中输入数组中的去重后的并集元素，返回一个新的数组</p>
+<h2>语法</h2>
+<pre><code>GROUP_ARRAY_UNION(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要求并集的表达式，支持类型为 Array&lt;Type&gt;, 不支持Array的复杂类型嵌套。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个包含并集结果的数组。
+如果组内没有合法数据，则返回空数组。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE group_array_union_test (
+	id INT,
+	c_array_string ARRAY&lt;STRING&gt;
+) DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO group_array_union_test VALUES
+	(1, ['a', 'b', 'c', 'd', 'e']),
+	(2, ['a', 'b']),
+	(3, ['a', null]),
+	(4, NULL);
+</code></pre>
+<pre><code>select GROUP_ARRAY_UNION(c_array_string) from group_array_union_test;
+</code></pre>
+<pre><code>+-----------------------------------+
+| GROUP_ARRAY_UNION(c_array_string) |
++-----------------------------------+
+| [null, "c", "e", "b", "d", "a"]   |
++-----------------------------------+
+</code></pre>
+<pre><code>select GROUP_ARRAY_UNION(c_array_string) from group_array_union_test where id in (3,4);
+</code></pre>
+<pre><code>+-----------------------------------+
+| GROUP_ARRAY_UNION(c_array_string) |
++-----------------------------------+
+| [null, "a"]                       |
++-----------------------------------+
+</code></pre>
+<pre><code>select GROUP_ARRAY_UNION(c_array_string) from group_array_union_test where id in (4);
+</code></pre>
+<pre><code>+-----------------------------------+
+| GROUP_ARRAY_UNION(c_array_string) |
++-----------------------------------+
+| []                                |
++-----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/group-array-union/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

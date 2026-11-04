@@ -1,0 +1,20 @@
+<div class="definition"><pre>UNION</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将多个聚合中间结果聚合为一个。
+结果的类型为 agg_state，函数签名与入参一致。</p>
+<h2>语法</h2>
+<p><code>AGGREGATE_FUNCTION_UNION(agg_state)</code></p>
+<h2>举例</h2>
+<pre><code>mysql [test]&gt;select avg_merge(t) from (select avg_union(avg_state(1)) as t from d_table group by k1)p;
++----------------+
+| avg_merge(`t`) |
++----------------+
+|              1 |
++----------------+
+</code></pre>
+<h3>关键词</h3>
+<p>AGG_STATE, UNION</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/combinators/union/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

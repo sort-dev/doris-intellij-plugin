@@ -1,0 +1,57 @@
+<div class="definition"><pre>MURMUR_HASH3_64_V2</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算有符号 64 位 murmur3 hash 值, 无符号版本参考<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/murmur-hash3-u64-v2/">murmur_hash3_u64_v2</a>。</p>
+<p>与<code>MURMUR_HASH3_64</code>的区别是：此版本复用 MurmurHash3 的 128 位处理函数，仅输出第一个 64 位哈希值，与<a href="https://mmh3.readthedocs.io/en/latest/api.html#mmh3.hash64">标准库</a>的行为保持一致。</p>
+<p>-注：经过测试 xxhash_64 的性能大约是 murmur_hash3_64_v2 的 2 倍，所以在计算 hash 值时，更推荐使用<code>xxhash_64</code>，而不是<code>murmur_hash3_64</code>。如需更优的 64 位 MurmurHash3 性能，可考虑使用 <code>murmur_hash3_64</code>。</p>
+<h2>语法</h2>
+<pre><code>MURMUR_HASH3_64_V2( &lt;str&gt; [ , &lt;str&gt; ... ] )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被计算 64 位 murmur3 hash 的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回输入字符串的 64 位 murmur3 hash 值。</p>
+<p>任一参数为 NULL 时返回 NULL</p>
+<h2>示例</h2>
+<pre><code>select murmur_hash3_64_v2(null), murmur_hash3_64_v2("hello"), murmur_hash3_64_v2("hello", "world");
+</code></pre>
+<pre><code>+--------------------------+-----------------------------+--------------------------------------+
+| murmur_hash3_64_v2(null) | murmur_hash3_64_v2("hello") | murmur_hash3_64_v2("hello", "world") |
++--------------------------+-----------------------------+--------------------------------------+
+|                     NULL |        -3758069500696749310 |                  -662943091231200135 |
++--------------------------+-----------------------------+--------------------------------------+
+</code></pre>
+<pre><code>-- 该函数输出有符号 64 位整形
+SELECT
+    mmhash3_64_v2,
+    mmhash3_u64_v2,
+    i64_to_ui64 = mmhash3_u64_v2 AS is_equal
+FROM (
+    SELECT
+        murmur_hash3_64_v2('1013199993_1756808272') AS mmhash3_64_v2,
+        murmur_hash3_u64_v2('1013199993_1756808272') AS mmhash3_u64_v2,
+        CAST(murmur_hash3_64_v2('1013199993_1756808272') AS LARGEINT) &amp; 18446744073709551615 AS i64_to_ui64
+) t;
+</code></pre>
+<pre><code>+----------------------+----------------------+----------+
+| mmhash3_64_v2        | mmhash3_u64_v2       | is_equal |
++----------------------+----------------------+----------+
+| -2648103510258542450 | 15798640563451009166 |        1 |
++----------------------+----------------------+----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/murmur-hash3-64-v2/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

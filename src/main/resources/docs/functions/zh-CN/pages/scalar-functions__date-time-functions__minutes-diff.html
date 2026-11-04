@@ -1,0 +1,88 @@
+<div class="definition"><pre>MINUTES_DIFF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MINUTES_DIFF 函数用于计算两个日期时间值之间的分钟差值，结果为结束时间减去开始时间的分钟数。该函数支持处理 DATE、DATETIME（含微秒精度）类型。</p>
+<h2>语法</h2>
+<pre><code>MINUTES_DIFF(`&lt;date_or_time_expr1&gt;`, `&lt;date_or_time_expr2&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr1&gt;</code></td>
+<td>结束时间，类型可以是 DATE、DATETIME ，具体 datetime/date 请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a>, <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+<tr>
+<td><code>&lt;date_or_time_expr1&gt;</code></td>
+<td>开始时间，类型可以是 DATE、DATETIME ，具体 datetime/date 请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a>, <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型的整数，表示 <code>&lt;date_or_time_expr1&gt;</code> 与 <code>&lt;date_or_time_expr2&gt;</code> 之间的分钟差值（1 小时 = 60 分钟）。</p>
+<ul>
+<li>若 <code>&lt;date_or_time_expr1&gt;</code>晚于 <code>&lt;date_or_time_expr2&gt;</code>，返回正数。</li>
+<li>若 <code>&lt;date_or_time_expr1&gt;</code> 早于 <code>&lt;date_or_time_expr2&gt;</code>，返回负数。</li>
+<li>计算时会计算真实差距，不会忽略秒，微秒。</li>
+<li>若输入为 DATE 类型（仅包含年月日），默认其时间部分为 00:00:00。</li>
+<li>若输入的日期时间包含 scale ,秒或毫秒部分不为零，计算时不会忽略。</li>
+<li>若任一参数为 NULL，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>--- 结束时间大于开始时间的分钟差
+SELECT MINUTES_DIFF('2020-12-25 22:00:00', '2020-12-25 21:00:00') AS result;
++--------+
+| result |
++--------+
+|     60 |
++--------+
+
+--- 包含 scale ，计算时不会忽略
+SELECT MINUTES_DIFF('2020-12-25 21:00:00.999', '2020-12-25 22:00:00.923');
++--------------------------------------------------------------------+
+| MINUTES_DIFF('2020-12-25 21:00:00.999', '2020-12-25 22:00:00.923') |
++--------------------------------------------------------------------+
+|                                                                -59 |
++--------------------------------------------------------------------+
+
+--- 结束时间早于开始时间，返回负数
+ SELECT MINUTES_DIFF('2023-07-13 21:50:00', '2023-07-13 22:00:00') AS result;
++--------+
+| result |
++--------+
+|    -10 |
++--------+
+
+--- 输入为 DATE 类型（默认时间 00:00:00）
+SELECT MINUTES_DIFF('2023-07-14', '2023-07-13') AS result;
++--------+
+| result |
++--------+
+|   1440 |
++--------+
+
+--- 两个时间的秒数不相同，也会把秒数计算入内
+SELECT MINUTES_DIFF('2023-07-13 22:30:59', '2023-07-13 22:31:01') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+--- 任一参数为 NULL，返回 NULL
+SELECT MINUTES_DIFF(NULL, '2023-07-13 22:00:00'), MINUTES_DIFF('2023-07-13 22:00:00', NULL) AS result;
++-------------------------------------------+--------+
+| MINUTES_DIFF(NULL, '2023-07-13 22:00:00') | result |
++-------------------------------------------+--------+
+|                                      NULL |   NULL |
++-------------------------------------------+--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/minutes-diff/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

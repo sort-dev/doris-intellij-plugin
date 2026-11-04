@@ -1,0 +1,50 @@
+<div class="definition"><pre>ARRAY_CONTAINS_ALL</pre></div>
+<div class="content">
+<h2>array_contains_all</h2>
+<p>array_contains_all</p>
+<h2>描述</h2>
+<h2>语法</h2>
+<p><code>BOOLEAN array_contains_all(ARRAY&lt;T&gt; array1, ARRAY&lt;T&gt; array2)</code></p>
+<p>判断数组 array1 中是否包含子数组 array2，且需要保证元素顺序完全一致。返回结果如下：</p>
+<pre><code>1    - array1中存在子数组array2；
+0    - array1中不存在数组array2；
+NULL - array1或array2为NULL。
+</code></pre>
+<h2>举例</h2>
+<pre><code>mysql [(none)]&gt;select array_contains_all([1,2,3,4], [1,2,4]);
++---------------------------------------------+
+| array_contains_all([1, 2, 3, 4], [1, 2, 4]) |
++---------------------------------------------+
+|                                           0 |
++---------------------------------------------+
+1 row in set (0.01 sec)
+
+mysql [(none)]&gt;select array_contains_all([1,2,3,4], [1,2]);
++------------------------------------------+
+| array_contains_all([1, 2, 3, 4], [1, 2]) |
++------------------------------------------+
+|                                        1 |
++------------------------------------------+
+1 row in set (0.01 sec)
+
+mysql [(none)]&gt;select array_contains_all([1,2,3,4], []);
++--------------------------------------------------------------+
+| array_contains_all([1, 2, 3, 4], cast([] as ARRAY&lt;TINYINT&gt;)) |
++--------------------------------------------------------------+
+|                                                            1 |
++--------------------------------------------------------------+
+1 row in set (0.01 sec)
+
+mysql [(none)]&gt;select array_contains_all([1,2,3,4], NULL);
++----------------------------------------+
+| array_contains_all([1, 2, 3, 4], NULL) |
++----------------------------------------+
+|                                   NULL |
++----------------------------------------+
+1 row in set (0.00 sec)
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY,CONTAIN,ARRAY_CONTAINS_ALL</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-contains_all/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,259 @@
+<div class="definition"><pre>HDFS | Table Valued Functions</pre></div>
+<div class="content">
+<h1>HDFS</h1>
+<h2>描述</h2>
+<p>HDFS 表函数（table-valued-function,tvf），可以让用户像访问关系表格式数据一样，读取并访问 HDFS 上的文件内容。目前支持<code>csv/csv_with_names/csv_with_names_and_types/json/parquet/orc</code>文件格式。</p>
+<h2>语法</h2>
+<pre><code>HDFS(
+    "uri" = "&lt;uri&gt;",
+    "fs.defaultFS" = "&lt;fs_defaultFS&gt;",
+    "hadoop.username" = "&lt;hadoop_username&gt;",
+    "format" = "&lt;format&gt;"
+    [, "&lt;optional_property_key&gt;" = "&lt;optional_property_value&gt;" [, ...] ]
+  );
+</code></pre>
+<h2>必填参数 (Required Parameters)</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uri</code></td>
+<td>访问 HDFS 的 URI。如果 URI 路径不存在或文件为空，HDFS TVF 将返回空集合。</td>
+</tr>
+<tr>
+<td><code>fs.defaultFS</code></td>
+<td>HDFS 的默认文件系统 URI</td>
+</tr>
+<tr>
+<td><code>hadoop.username</code></td>
+<td>必填，可以是任意字符串，但不能为空。</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>文件格式，必填，目前支持 <code>csv/csv_with_names/csv_with_names_and_types/json/parquet/orc/avro</code></td>
+</tr>
+</tbody>
+</table>
+<h2>可选参数 (Optional Parameters)</h2>
+<p>上述语法中的 <code>optional_property_key</code> 可以按需从以下列表中选取对应的参数，<code>optional_property_value</code> 则为该参数的值</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hadoop.security.authentication</code></td>
+<td>HDFS 安全认证类型</td>
+<td></td>
+</tr>
+<tr>
+<td><code>hadoop.username</code></td>
+<td>备用 HDFS 用户名</td>
+<td></td>
+</tr>
+<tr>
+<td><code>hadoop.kerberos.principal</code></td>
+<td>Kerberos 主体</td>
+<td></td>
+</tr>
+<tr>
+<td><code>hadoop.kerberos.keytab</code></td>
+<td>Kerberos 密钥表</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.client.read.shortcircuit</code></td>
+<td>启用短路读取</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.domain.socket.path</code></td>
+<td>域套接字路径</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.nameservices</code></td>
+<td>HA 模式下的命名服务</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.ha.namenodes.your-nameservices</code></td>
+<td>HA 模式下的 namenode 节点配置</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.namenode.rpc-address.your-nameservices.your-namenode</code></td>
+<td>指定 namenode 的 RPC 地址</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dfs.client.failover.proxy.provider.your-nameservices</code></td>
+<td>指定 failover 的代理提供程序</td>
+<td></td>
+</tr>
+<tr>
+<td><code>column_separator</code></td>
+<td>列分割符，默认为 <code>\t</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>line_delimiter</code></td>
+<td>行分割符，默认为 <code>\n</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>compress_type</code></td>
+<td>目前支持 UNKNOWN/PLAIN/GZ/LZO/BZ2/LZ4FRAME/DEFLATE/SNAPPYBLOCK。默认值为 UNKNOWN, 将会根据 uri 的后缀自动推断类型</td>
+<td></td>
+</tr>
+<tr>
+<td><code>read_json_by_line</code></td>
+<td>对 JSON 格式导入，默认为 <code>true</code></td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>strip_outer_array</code></td>
+<td>对 JSON 格式导入，默认为 <code>false</code></td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>json_root</code></td>
+<td>对 JSON 格式导入，默认为空</td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>json_paths</code></td>
+<td>对 JSON 格式导入，默认为空</td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>num_as_string</code></td>
+<td>对 JSON 格式导入，默认为 <code>false</code></td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>fuzzy_parse</code></td>
+<td>对 JSON 格式导入，默认为 <code>false</code></td>
+<td>参考：<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/file-format/json">JSON Load</a></td>
+</tr>
+<tr>
+<td><code>trim_double_quotes</code></td>
+<td>对 CSV 格式导入，布尔类型，默认为 <code>false</code>，为 <code>true</code> 时裁剪每个字段的外层双引号</td>
+<td></td>
+</tr>
+<tr>
+<td><code>skip_lines</code></td>
+<td>对 CSV 格式导入，整数类型，默认为 0，跳过 CSV 文件前几行，<code>csv_with_names</code> 或 <code>csv_with_names_and_types</code> 时失效</td>
+<td></td>
+</tr>
+<tr>
+<td><code>path_partition_keys</code></td>
+<td>指定文件路径中携带的分区列名，例如/path/to/city=beijing/date="2023-07-09", 则填写 path_partition_keys="city,date"，将会自动从路径中读取相应列名和列值进行导入</td>
+<td></td>
+</tr>
+<tr>
+<td><code>resource</code></td>
+<td>指定 Resource 名，HDFS TVF 可以利用已有的 HFDS Resource 来直接访问 HDFS。创建 HDFS Resource 的方法可以参照 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-statements/cluster-management/compute-management/CREATE-RESOURCE">CREATE-RESOURCE</a></td>
+<td>仅支持 2.1.4 及以上版本</td>
+</tr>
+<tr>
+<td><code>enable_mapping_varbinary</code></td>
+<td>默认为 false，在读取 PARQUET / ORC 时将 BYTE_ARRAY 类型映射为 STRING，开启后则会映射到 VARBINARY 类型。</td>
+<td>在 4.0.3 之后开始支持</td>
+</tr>
+<tr>
+<td><code>enable_mapping_timestamp_tz</code></td>
+<td>自 4.1.5 版本起仅作为兼容参数接收，值会被忽略。Parquet 的 <code>isAdjustedToUTC=true</code> Timestamp 和 ORC 的 <code>TIMESTAMP_INSTANT</code> 固定映射为 <code>TIMESTAMPTZ</code>，设为 <code>false</code> 也不能恢复 <code>DATETIME</code>。二进制映射的 <code>enable_mapping_varbinary</code> 仍可单独配置，默认 <code>false</code>。</td>
+<td>在 4.0.3 之后开始支持</td>
+</tr>
+<tr>
+<td><code>hive.parquet.time-zone</code></td>
+<td>可选字符串，默认空；自 4.1.5 起支持。指定 Parquet INT96 写入端时区，支持 IANA 时区或 -12:00 至 +14:00 偏移，不支持 CST / PRC 等短别名；详见 <a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/file-formats/parquet/#%E6%97%B6%E9%97%B4%E6%88%B3%E4%B8%8E%E6%97%A5%E6%9C%9F%E5%85%BC%E5%AE%B9%E6%80%A7415-%E8%B5%B7">Parquet</a>。</td>
+<td>4.1.5 起</td>
+</tr>
+</tbody>
+</table>
+<h2>权限控制</h2>
+<table>
+<thead>
+<tr>
+<th>权限（Privilege）</th>
+<th>对象（Object）</th>
+<th>说明（Notes）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>USAGE_PRIV</td>
+<td>Resource</td>
+<td>使用 <code>resource</code> 参数时，需要对指定 Resource 拥有 USAGE 权限。</td>
+</tr>
+</tbody>
+</table>
+<h2>示例</h2>
+<ul>
+<li>
+<p>读取并访问 HDFS 存储上的 CSV 格式文件</p>
+<pre><code>select * from hdfs(
+              "uri" = "hdfs://127.0.0.1:8424/user/doris/csv_format_test/student.csv",
+              "fs.defaultFS" = "hdfs://127.0.0.1:8424",
+              "hadoop.username" = "doris",
+              "format" = "csv");
+</code></pre>
+<pre><code>  +------+---------+------+
+  | c1   | c2      | c3   |
+  +------+---------+------+
+  | 1    | alice   | 18   |
+  | 2    | bob     | 20   |
+  | 3    | jack    | 24   |
+  | 4    | jackson | 19   |
+  | 5    | liming  | 18   |
+  +------+---------+------+
+</code></pre>
+</li>
+<li>
+<p>读取并访问 HA 模式的 HDFS 存储上的 CSV 格式文件</p>
+<pre><code>select * from hdfs(
+            "uri" = "hdfs://my_hdfs/user/doris/csv_format_test/student.csv",
+            "fs.defaultFS" = "hdfs://my_hdfs",
+            "hadoop.username" = "doris",
+            "format" = "csv",
+            "dfs.nameservices" = "my_hdfs",
+            "dfs.ha.namenodes.my_hdfs" = "nn1,nn2",
+            "dfs.namenode.rpc-address.my_hdfs.nn1" = "nanmenode01:8020",
+            "dfs.namenode.rpc-address.my_hdfs.nn2" = "nanmenode02:8020",
+            "dfs.client.failover.proxy.provider.my_hdfs" = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider");
+</code></pre>
+<pre><code>  +------+---------+------+
+  | c1   | c2      | c3   |
+  +------+---------+------+
+  | 1    | alice   | 18   |
+  | 2    | bob     | 20   |
+  | 3    | jack    | 24   |
+  | 4    | jackson | 19   |
+  | 5    | liming  | 18   |
+  +------+---------+------+
+</code></pre>
+</li>
+<li>
+<p>可以配合 <code>desc function</code> 使用。</p>
+<pre><code>desc function hdfs(
+            "uri" = "hdfs://127.0.0.1:8424/user/doris/csv_format_test/student_with_names.csv",
+            "fs.defaultFS" = "hdfs://127.0.0.1:8424",
+            "hadoop.username" = "doris",
+            "format" = "csv_with_names");
+</code></pre>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/hdfs/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

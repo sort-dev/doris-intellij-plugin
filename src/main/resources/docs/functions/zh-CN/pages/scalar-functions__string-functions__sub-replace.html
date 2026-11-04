@@ -1,0 +1,124 @@
+<div class="definition"><pre>SUB_REPLACE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SUB_REPLACE 函数用于替换字符串中指定位置和长度的子字符串。从 <code>start</code> 位置开始，用 <code>new_str</code> 替换长度为 <code>len</code> 的字符。</p>
+<h2>语法</h2>
+<pre><code>SUB_REPLACE(&lt;str&gt;, &lt;new_str&gt;, &lt;start&gt;[, &lt;len&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>要进行替换操作的目标字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;new_str&gt;</code></td>
+<td>用于替换的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;start&gt;</code></td>
+<td>替换开始的位置（从0开始）。类型：INT</td>
+</tr>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>要替换的字符长度（可选，默认为 <code>new_str</code> 的长度）。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为替换后的新字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 <code>&lt;start&gt;</code> 或 <code>&lt;len&gt;</code> 为负数，返回 NULL</li>
+<li>如果 <code>&lt;start&gt;</code> 超出字符串长度，返回 NULL</li>
+<li>如果 <code>&lt;len&gt;</code> 超出剩余字符串长度，替换到字符串末尾</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：指定位置和长度替换</li>
+</ol>
+<pre><code>SELECT sub_replace('doris', '***', 1, 2);
+</code></pre>
+<pre><code>+-----------------------------------+
+| sub_replace('doris', '***', 1, 2) |
++-----------------------------------+
+| d***is                            |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>使用默认长度替换</li>
+</ol>
+<pre><code>SELECT sub_replace('hello', 'Hi', 0);
+</code></pre>
+<pre><code>+--------------------------------+
+| sub_replace('hello', 'Hi', 0)  |
++--------------------------------+
+| Hillo                          |
++--------------------------------+
+</code></pre>
+<ol>
+<li>负数参数返回 NULL</li>
+</ol>
+<pre><code>SELECT sub_replace('hello', 'Hi', -1, 2);
+</code></pre>
+<pre><code>+------------------------------------+
+| sub_replace('hello', 'Hi', -1, 2)  |
++------------------------------------+
+| NULL                               |
++------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT sub_replace(NULL, 'new', 0, 3);
+</code></pre>
+<pre><code>+-------------------------------------+
+| sub_replace(NULL, 'new', 0, 3)      |
++-------------------------------------+
+| NULL                                |
++-------------------------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符串</li>
+</ol>
+<pre><code>SELECT sub_replace('doris', 'ṛìḍḍ', 1, 2);
+</code></pre>
+<pre><code>+-------------------------------------------+
+| sub_replace('doris', 'ṛìḍḍ', 1, 2)        |
++-------------------------------------------+
+| dṛìḍḍis                                   |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>起始位置大于字符串长度</li>
+</ol>
+<pre><code> SELECT sub_replace('hello', 'Hi', 9, 2);
+</code></pre>
+<pre><code>+----------------------------------+
+| sub_replace('hello', 'Hi', 9, 2) |
++----------------------------------+
+| NULL                             |
++----------------------------------+
+</code></pre>
+<ol>
+<li>指定替换长度大于剩余字符串长度</li>
+</ol>
+<pre><code>SELECT sub_replace('hello', 'Hi', 1, 9);
+</code></pre>
+<pre><code>+----------------------------------+
+| sub_replace('hello', 'Hi', 1, 9) |
++----------------------------------+
+| hHi                              |
++----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/sub-replace/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

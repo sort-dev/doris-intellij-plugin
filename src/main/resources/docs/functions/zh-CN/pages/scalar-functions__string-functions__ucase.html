@@ -1,0 +1,129 @@
+<div class="definition"><pre>UCASE/UPPER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>UCASE 函数（别名 UPPER）用于将字符串中的所有小写字母转换为大写字母。该函数支持 Unicode 字符转换，能够正确处理各种语言的大小写转换规则。</p>
+<h2>语法</h2>
+<pre><code>UCASE(&lt;str&gt;)
+UPPER(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要转换为大写的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示转换为大写字母后的字符串。</p>
+<p>转换规则：</p>
+<ul>
+<li>将字符串中所有小写字母转换为对应的大写字母</li>
+<li>非字母字符（数字、符号、空格等）保持不变</li>
+<li>已经是大写的字母保持不变</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果字符串为空，返回空字符串</li>
+<li>如果字符串中没有小写字母，返回原字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本英文字母转换</li>
+</ol>
+<pre><code>SELECT UCASE('aBc123'), UPPER('aBc123');
+</code></pre>
+<pre><code>+-----------------+-----------------+
+| UCASE('aBc123') | UPPER('aBc123') |
++-----------------+-----------------+
+| ABC123          | ABC123          |
++-----------------+-----------------+
+</code></pre>
+<ol>
+<li>混合字符处理</li>
+</ol>
+<pre><code>SELECT UCASE('Hello World!'), UPPER('test@123');
+</code></pre>
+<pre><code>+----------------------+------------------+
+| UCASE('Hello World!') | UPPER('test@123') |
++----------------------+------------------+
+| HELLO WORLD!         | TEST@123         |
++----------------------+------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT UCASE(NULL), UPPER(NULL);
+</code></pre>
+<pre><code>+-------------+-------------+
+| UCASE(NULL) | UPPER(NULL) |
++-------------+-------------+
+| NULL        | NULL        |
++-------------+-------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT UCASE(''), UPPER('');
+</code></pre>
+<pre><code>+-----------+-----------+
+| UCASE('') | UPPER('') |
++-----------+-----------+
+|           |           |
++-----------+-----------+
+</code></pre>
+<ol>
+<li>已经是大写的字符串</li>
+</ol>
+<pre><code>SELECT UCASE('ALREADY UPPERCASE'), UPPER('ABC123');
+</code></pre>
+<pre><code>+---------------------------+----------------+
+| UCASE('ALREADY UPPERCASE') | UPPER('ABC123') |
++---------------------------+----------------+
+| ALREADY UPPERCASE         | ABC123         |
++---------------------------+----------------+
+</code></pre>
+<ol>
+<li>数字和符号</li>
+</ol>
+<pre><code>SELECT UCASE('123!@#$%'), UPPER('price: $99.99');
+</code></pre>
+<pre><code>+-------------------+----------------------+
+| UCASE('123!@#$%') | UPPER('price: $99.99') |
++-------------------+----------------------+
+| 123!@#$%          | PRICE: $99.99        |
++-------------------+----------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT UCASE('ṭṛì test'), UPPER('ḍḍumai hello');
+</code></pre>
+<pre><code>+--------------------+-----------------------+
+| UCASE('ṭṛì test')  | UPPER('ḍḍumai hello') |
++--------------------+-----------------------+
+| ṬṚÌ TEST           | ḌḌUMAI HELLO          |
++--------------------+-----------------------+
+</code></pre>
+<ol>
+<li>西里尔字母</li>
+</ol>
+<pre><code>SELECT UCASE('Кириллица'), UPPER('Бәйтерек');
+</code></pre>
+<pre><code>+---------------------+-------------------+
+| UCASE('Кириллица')  | UPPER('Бәйтерек') |
++---------------------+-------------------+
+| КИРИЛЛИЦА           | БӘЙТЕРЕК          |
++---------------------+-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/ucase/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

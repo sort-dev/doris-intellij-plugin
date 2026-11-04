@@ -1,0 +1,129 @@
+<div class="definition"><pre>ARRAY_POSITION</pre></div>
+<div class="content">
+<h2>array_position</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>查找数组中指定元素第一次出现的位置索引（从1开始）。函数会从左到右遍历数组，找到第一个匹配的元素并返回其位置索引。</p>
+<h2>语法</h2>
+<pre><code>array_position(ARRAY&lt;T&gt; arr, T element)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要查找的数组</li>
+<li><code>element</code>：T 类型，要查找的元素</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BIGINT</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回指定元素在数组中第一次出现的位置索引，返回值从 1 开始，而不是从 0 开始。如果要查找的元素是数组中的第一个元素，则此函数返回 1，而不是 0</li>
+<li>0：如果没有找到匹配的元素，或者输入数组为 NULL</li>
+<li>NULL: 输入数组为NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会从左到右遍历数组，找到第一个匹配的元素，如果没有找到匹配的元素，返回 0</li>
+<li>空数组返回 0</li>
+<li>对数组元素中的 null 值：null 元素可以正常匹配</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>查找字符串在数组中的位置：</p>
+<pre><code>SELECT array_position(['apple', 'banana', 'cherry', 'apple'], 'apple');
++-----------------------------------------------------------------+
+| array_position(['apple', 'banana', 'cherry', 'apple'], 'apple') |
++-----------------------------------------------------------------+
+|                                                               1 |
++-----------------------------------------------------------------+
+</code></pre>
+<p>查找浮点数在数组中的位置：</p>
+<pre><code>SELECT array_position([1.1, 2.2, 3.3, 4.4, 5.5], 3.3);
++------------------------------------------------+
+| array_position([1.1, 2.2, 3.3, 4.4, 5.5], 3.3) |
++------------------------------------------------+
+|                                              3 |
++------------------------------------------------+
+</code></pre>
+<p>查找不存在的元素：</p>
+<pre><code>SELECT array_position([1, 2, 3, 4, 5], 10);
++-------------------------------------+
+| array_position([1, 2, 3, 4, 5], 10) |
++-------------------------------------+
+|                                   0 |
++-------------------------------------+
+</code></pre>
+<p>查找 null 元素：</p>
+<pre><code>| array_position([1, null, 3, null, 5], null) |
++---------------------------------------------+
+|                                           2 |
++---------------------------------------------+
+</code></pre>
+<p>空数组返回 0：</p>
+<pre><code>SELECT array_position([], 1);
++-----------------------+
+| array_position([], 1) |
++-----------------------+
+|                     0 |
++-----------------------+
+</code></pre>
+<p>输入数组是 NULL，返回为NULL</p>
+<pre><code>SELECT array_position(NULL, 1);
++-------------------------+
+| array_position(NULL, 1) |
++-------------------------+
+|                    NULL |
++-------------------------+
+</code></pre>
+<p>日期类型查找：</p>
+<pre><code>SELECT array_position(cast(['2023-01-01', '2022-12-31', '2023-06-15'] as array&lt;datetime&gt;), '2023-01-01');
++---------------------------------------------------------------------------------------------------+
+| array_position(cast(['2023-01-01', '2022-12-31', '2023-06-15'] as array&lt;datetime&gt;), '2023-01-01') |
++---------------------------------------------------------------------------------------------------+
+|                                                                                                 1 |
++---------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>IP 地址查找：</p>
+<pre><code>SELECT array_position(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;), '192.168.1.2');
++---------------------------------------------------------------------------------------------------+
+| array_position(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;), '192.168.1.2') |
++---------------------------------------------------------------------------------------------------+
+|                                                                                                 2 |
++---------------------------------------------------------------------------------------------------+
+
+SELECT array_position(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::0'] AS ARRAY&lt;IPV6&gt;), '2001:db8::0');
++---------------------------------------------------------------------------------------------------+
+| array_position(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::0'] AS ARRAY&lt;IPV6&gt;), '2001:db8::0') |
++---------------------------------------------------------------------------------------------------+
+|                                                                                                 3 |
++---------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组类型不支持，报错：</p>
+<pre><code>SELECT array_position([[1,2], [3,4], [5,6]], [3,4]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_position does not support type ARRAY&lt;ARRAY&lt;TINYINT&gt;&gt;, expression is array_position([[1, 2], [3, 4], [5, 6]])
+</code></pre>
+<p>map 类型查找：</p>
+<pre><code>SELECT array_position([{'k':1}, {'k':2}, {'k':3}], {'k':2});
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_position does not support type ARRAY&lt;MAP&lt;VARCHAR(1),TINYINT&gt;&gt;, expression is array_position([map('k', 1), map('k', 2), map('k', 3)])
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_position([1,2,3]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_position' which has 1 arity. Candidate functions are: [array_position(Expression, Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_position('not_an_array', 1);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_position(VARCHAR(12), TINYINT)
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, POSITION, ARRAY_POSITION</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-position/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

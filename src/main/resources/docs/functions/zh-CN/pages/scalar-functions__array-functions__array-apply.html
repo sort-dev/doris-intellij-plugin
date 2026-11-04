@@ -1,0 +1,139 @@
+<div class="definition"><pre>ARRAY_APPLY</pre></div>
+<div class="content">
+<h2>array_apply</h2>
+&lt;version since="1.2.3"&gt;
+
+<h2>描述</h2>
+<p>使用指定的二元操作符对数组元素进行过滤，返回满足条件的元素组成的新数组。这是一个简化的数组过滤函数，使用预定义的操作符而不是 lambda 表达式。</p>
+<h2>语法</h2>
+<pre><code>array_apply(arr, op, val)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要过滤的数组</li>
+<li><code>op</code>：STRING 类型，过滤条件操作符，必须是常量值。支持的操作符：<code>=</code>、<code>!=</code>、<code>&gt;</code>、<code>&gt;=</code>、<code>&lt;</code>、<code>&lt;=</code></li>
+<li><code>val</code>：T 类型，过滤的条件值，必须是常量值</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;T&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回满足过滤条件的所有元素组成的新数组</li>
+<li>NULL：如果输入数组为 NULL 或条件值为 NULL</li>
+<li>空数组：如果没有元素满足条件</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>操作符和条件值必须是常量，不能是列名或表达式</li>
+<li>支持的类型有限，主要是数值、日期和布尔类型</li>
+<li>空数组返回空数组，NULL 数组返回 NULL</li>
+<li>对数组元素中的 null 值：null 元素会被过滤掉，不参与比较操作</li>
+</ul>
+<h3>示例</h3>
+<pre><code>CREATE TABLE array_apply_test (
+    id INT,
+    int_array ARRAY&lt;INT&gt;,
+    double_array ARRAY&lt;DOUBLE&gt;,
+    date_array ARRAY&lt;DATE&gt;
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 3
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+INSERT INTO array_apply_test VALUES
+(1, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5], ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05']),
+(2, [10, 20, 30], [10.5, 20.5, 30.5], ['2023-02-01', '2023-02-02', '2023-02-03']),
+(3, [], [], []),
+(4, NULL, NULL, NULL);
+</code></pre>
+<p><strong>查询示例：</strong></p>
+<p>过滤 double_array 中大于 2 的元素：</p>
+<pre><code>SELECT array_apply(double_array, "&gt;", 2) FROM array_apply_test WHERE id = 1;
++------------------------------------------+
+| array_apply(double_array, '&gt;', 2)        |
++------------------------------------------+
+| [2.2, 3.3, 4.4, 5.5]                     |
++------------------------------------------+
+</code></pre>
+<p>过滤 int_array 中不等于 3 的元素：</p>
+<pre><code>SELECT array_apply(int_array, "!=", 3) FROM array_apply_test WHERE id = 1;
++------------------------------------------+
+| array_apply(int_array, '!=', 3)          |
++------------------------------------------+
+| [1, 2, 4, 5]                             |
++------------------------------------------+
+</code></pre>
+<p>过滤 date_array 中大于等于指定日期的元素：</p>
+<pre><code>SELECT array_apply(date_array, "&gt;=", '2023-01-03') FROM array_apply_test WHERE id = 1;
++---------------------------------------------+
+| array_apply(date_array, "&gt;=", '2023-01-03') |
++---------------------------------------------+
+| ["2023-01-03", "2023-01-04", "2023-01-05"]  |
++---------------------------------------------+
+</code></pre>
+<p>空数组返回空数组：</p>
+<pre><code>SELECT array_apply(int_array, "&gt;", 0) FROM array_apply_test WHERE id = 3;
++------------------------------------------+
+| array_apply(int_array, '&gt;', 0)           |
++------------------------------------------+
+| []                                        |
++------------------------------------------+
+</code></pre>
+<p>NULL 数组返回 NULL：当输入数组为 NULL 时返回 NULL，不会抛出错误。</p>
+<pre><code>SELECT array_apply(int_array, "&gt;", 0) FROM array_apply_test WHERE id = 4;
++------------------------------------------+
+| array_apply(int_array, '&gt;', 0)           |
++------------------------------------------+
+| NULL                                      |
++------------------------------------------+
+</code></pre>
+<p>包含 null 的数组，null 元素会被过滤：</p>
+<pre><code>SELECT array_apply([1, null, 3, null, 5], "&gt;", 2);
++------------------------------------------+
+| array_apply([1, null, 3, null, 5], '&gt;', 2) |
++------------------------------------------+
+| [3, 5]                                   |
++------------------------------------------+
+</code></pre>
+<h3>异常示例</h3>
+<p>不支持的操作符：</p>
+<pre><code>SELECT array_apply([1,2,3], "like", 2);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not build function: 'array_apply', expression: array_apply([1, 2, 3], 'like', 2), array_apply(arr, op, val): op support =, &gt;=, &lt;=, &gt;, &lt;, !=, but we get like
+</code></pre>
+<p>不支持字符串类型：</p>
+<pre><code>SELECT array_apply(['a','b','c'], "=", 'a');
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_apply does not support type VARCHAR(1), expression is array_apply(['a', 'b', 'c'], '=', 'a')
+</code></pre>
+<p>不支持复杂类型：</p>
+<pre><code>SELECT array_apply([[1,2],[3,4]], "=", [1,2]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_apply does not support type ARRAY&lt;TINYINT&gt;, expression is array_apply([[1, 2], [3, 4]], '=', [1, 2])
+</code></pre>
+<p>操作符不是常量：</p>
+<pre><code>SELECT array_apply([1,2,3], concat('&gt;', '='), 2);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not build function: 'array_apply', expression: array_apply([1, 2, 3], concat('&gt;', '='), 2), array_apply(arr, op, val): op support const value only.
+</code></pre>
+<p>条件值不是常量：</p>
+<pre><code>SELECT array_apply([1,2,3], "&gt;", id) FROM array_apply_test WHERE id = 1;
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not build function: 'array_apply', expression: array_apply([1, 2, 3], '&gt;', id), array_apply(arr, op, val): val support const value only.
+</code></pre>
+<p>参数数量错误：</p>
+<pre><code>SELECT array_apply([1,2,3], "&gt;");
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_apply' which has 2 arity. Candidate functions are: [array_apply(Expression, Expression, Expression)]
+</code></pre>
+<p>传入非数组类型：</p>
+<pre><code>SELECT array_apply('not_an_array', "&gt;", 2);
+ERROR 1105 (HY000): errCode = 2, detailMessage = class org.apache.doris.nereids.types.VarcharType cannot be cast to class org.apache.doris.nereids.types.ArrayType (org.apache.doris.nereids.types.VarcharType and org.apache.doris.nereids.types.ArrayType are in unnamed module of loader 'app')
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, APPLY, ARRAY_APPLY</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-apply/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

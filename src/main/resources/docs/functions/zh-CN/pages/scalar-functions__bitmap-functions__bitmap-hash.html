@@ -1,0 +1,68 @@
+<div class="definition"><pre>BITMAP_HASH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>对任意类型的输入，计算其 32 位的哈希值，并返回包含该哈希值的 Bitmap。</p>
+<h2>语法</h2>
+<pre><code>bitmap_hash(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>任何值或字段表达式</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>包含参数 <code>&lt;expr&gt;</code> 的 64 位 hash 值的 Bitmap。</p>
+<ul>
+<li>当参数存在NULL时，返回 Empty Bitmap</li>
+</ul>
+<p>该函数使用的哈希算法为 MurMur3。<br>
+MurMur3 算法是一种高性能的、低碰撞率的散列算法，其计算出来的值接近于随机分布，并且能通过卡方分布测试。需要注意的是，不同硬件平台、不同 Seed 值计算出来的散列值可能不同。<br>
+关于此算法的性能可以参考 <a>Smhasher</a> 排行榜。</p>
+<h2>举例</h2>
+<p>如果你想计算某个值的 MurMur3，你可以：</p>
+<pre><code>select bitmap_to_array(bitmap_hash('hello'))[1];
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------------------------------------------------------------+
+| %element_extract%(bitmap_to_array(bitmap_hash('hello')), 1) |
++-------------------------------------------------------------+
+|                                                  1321743225 |
++-------------------------------------------------------------+
+</code></pre>
+<p>如果你想统计某一列去重后的个数，可以使用位图的方式，某些场景下性能比 <code>count distinct</code> 好很多。下面的示例先建一张 <code>words</code> 表，插入 6 行（其中 4 个去重值）；在真实大数据集上同样形态的查询可以返回到百万级别：</p>
+<pre><code>CREATE TABLE `words` (`word` VARCHAR(64))
+DISTRIBUTED BY HASH(`word`) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO `words` VALUES ('apple'), ('banana'), ('cherry'), ('apple'), ('date'), ('banana');
+
+select bitmap_count(bitmap_union(bitmap_hash(`word`))) from `words`;
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| bitmap_count(bitmap_union(bitmap_hash(`word`))) |
++-------------------------------------------------+
+|                                               4 |
++-------------------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_hash(NULL)) AS res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|      |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-hash/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

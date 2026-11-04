@@ -1,0 +1,86 @@
+<div class="definition"><pre>BITMAP_SUBSET_LIMIT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>从不小于指定位置 position 开始，按照指定基数 cardinality_limit 为上限截取 Bitmap 元素，返回一个 Bitmap 子集。</p>
+<h2>语法</h2>
+<pre><code>bitmap_subset_limit(&lt;bitmap&gt;, &lt;position&gt;, &lt;cardinality_limit&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 值</td>
+</tr>
+<tr>
+<td><code>&lt;position&gt;</code></td>
+<td>范围开始的位置（包含）</td>
+</tr>
+<tr>
+<td><code>&lt;cardinality_limit&gt;</code></td>
+<td>基数上限</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>指定范围的子集 Bitmap。</p>
+<ul>
+<li>当参数存在NULL时或者指定范围为非法取值时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<p>获取从位置 0 开始，基数限制为 3 的 Bitmap 子集：</p>
+<pre><code>select bitmap_to_string(bitmap_subset_limit(bitmap_from_string('1,2,3,4,5'), 0, 3)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-----------+
+| value     |
++-----------+
+| 1,2,3     |
++-----------+
+</code></pre>
+<p>获取从位置 4 开始，基数限制为 3 的 Bitmap 子集：</p>
+<pre><code>select bitmap_to_string(bitmap_subset_limit(bitmap_from_string('1,2,3,4,5'), 4, 3)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| 4,5   |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_subset_limit(bitmap_from_string('1,2,3,4,5'), 4, NULL)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| NULL  |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_subset_limit(bitmap_from_string('1,2,3,4,5'), -4, 3)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| NULL  |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_subset_limit(bitmap_from_string('1,2,3,4,5'), 4, -3)) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+| NULL  |
++-------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-subset-limit/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

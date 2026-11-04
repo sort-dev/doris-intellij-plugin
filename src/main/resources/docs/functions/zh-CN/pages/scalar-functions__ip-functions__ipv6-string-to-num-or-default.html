@@ -1,0 +1,65 @@
+<div class="definition"><pre>IPV6_STRING_TO_NUM_OR_DEFAULT</pre></div>
+<div class="content">
+<h2>ipv6_string_to_num_or_default</h2>
+<h2>描述</h2>
+<p>IPv6NumToString 的反向函数，它接受一个 IP 地址字符串并返回二进制格式的 IPv6 地址。</p>
+<h2>语法</h2>
+<pre><code>IPV6_STRING_TO_NUM_OR_DEFAULT(&lt;ipv6_string&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv6_string&gt;</code>：字符串类型的 IPv6 地址</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：VARCHAR（长度 16 的二进制）</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 IPv6 的 16 字节二进制编码</li>
+<li>输入 NULL 返回全 0 的 16 字节二进制</li>
+<li>非法 IP 地址返回全 0 的 16 字节二进制（不抛异常）</li>
+<li>若输入为有效 IPv4 文本，返回等效的 IPv6 地址（<code>::ffff:&lt;ipv4&gt;</code>）</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>该函数不会抛出异常，非法输入统一返回 16 个 <code>0</code> 的二进制</li>
+<li>支持 IPv6 文本缩写；IPv4 文本会被映射为 IPv6 表示</li>
+<li>适用于容错型批量转换</li>
+</ul>
+<h2>举例</h2>
+<p>将 IPv6 文本 <code>1111::ffff</code> 转为 16 字节二进制（用 hex 展示）。</p>
+<pre><code>select hex(ipv6_string_to_num_or_default('1111::ffff')) as v6;
++----------------------------------+
+| v6                               |
++----------------------------------+
+| 1111000000000000000000000000FFFF |
++----------------------------------+
+</code></pre>
+<p>IPv4 文本会自动映射为 IPv6（<code>::ffff:&lt;ipv4&gt;</code>），再以 16 字节二进制返回。</p>
+<pre><code>select hex(ipv6_string_to_num_or_default('192.168.0.1')) as mapped;
++----------------------------------+
+| mapped                           |
++----------------------------------+
+| 00000000000000000000FFFFC0A80001 |
++----------------------------------+
+</code></pre>
+<p>参数为 NULL 返回全 0 的 16 字节二进制</p>
+<pre><code>select hex(ipv6_string_to_num_or_default(NULL)) as null_result;
++----------------------------------+
+| null_result                      |
++----------------------------------+
+| 00000000000000000000000000000000 |
++----------------------------------+
+</code></pre>
+<p>非法输入返回全 0 的 16 字节二进制（不抛异常）。</p>
+<pre><code>select hex(ipv6_string_to_num_or_default('notaaddress')) as invalid;
++----------------------------------+
+| invalid                          |
++----------------------------------+
+| 00000000000000000000000000000000 |
++----------------------------------+
+</code></pre>
+<h3>关键词</h3>
+<p>IPV6_STRING_TO_NUM_OR_DEFAULT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv6-string-to-num-or-default/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

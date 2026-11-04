@@ -1,0 +1,156 @@
+<div class="definition"><pre>STARTS_WITH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>STARTS_WITH 函数用于检查字符串是否以指定的前缀开头。这是一个布尔函数，执行精确的前缀匹配，大小写敏感。</p>
+<h2>语法</h2>
+<pre><code>STARTS_WITH(&lt;str&gt;, &lt;prefix&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>要检查的主字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;</code></td>
+<td>要匹配的前缀字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 BOOLEAN 类型（在 Doris 中以 TINYINT 形式显示，1 表示 true，0 表示 false）。</p>
+<p>匹配规则：</p>
+<ul>
+<li>精确前缀匹配，大小写敏感</li>
+<li>空前缀与任何字符串都匹配（返回 true）</li>
+<li>支持 UTF-8 多字节字符的正确匹配</li>
+<li>前缀长度不能超过主字符串长度（除非前缀为空）</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果前缀为空字符串，返回 true（任何字符串都以空字符串开头）</li>
+<li>如果主字符串为空但前缀不为空，返回 false</li>
+<li>如果两者都为空字符串，返回 true</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本前缀匹配</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('hello world', 'hello'), STARTS_WITH('hello world', 'world');
+</code></pre>
+<pre><code>+-------------------------------------+-------------------------------------+
+| STARTS_WITH('hello world', 'hello') | STARTS_WITH('hello world', 'world') |
++-------------------------------------+-------------------------------------+
+|                                   1 |                                   0 |
++-------------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>大小写敏感性</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('Hello World', 'hello'), STARTS_WITH('Hello World', 'Hello');
+</code></pre>
+<pre><code>+-------------------------------------+-------------------------------------+
+| STARTS_WITH('Hello World', 'hello') | STARTS_WITH('Hello World', 'Hello') |
++-------------------------------------+-------------------------------------+
+|                                   0 |                                   1 |
++-------------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT STARTS_WITH(NULL, 'test'), STARTS_WITH('test', NULL);
+</code></pre>
+<pre><code>+----------------------------+----------------------------+
+| STARTS_WITH(NULL, 'test')  | STARTS_WITH('test', NULL)  |
++----------------------------+----------------------------+
+| NULL                       | NULL                       |
++----------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('hello', ''), STARTS_WITH('', 'world');
+</code></pre>
+<pre><code>+---------------------------+----------------------------+
+| STARTS_WITH('hello', '')  | STARTS_WITH('', 'world')   |
++---------------------------+----------------------------+
+|                         1 |                          0 |
++---------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>完整字符串匹配</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('test', 'test'), STARTS_WITH('test', 'testing');
+</code></pre>
+<pre><code>+-----------------------------+--------------------------------+
+| STARTS_WITH('test', 'test') | STARTS_WITH('test', 'testing') |
++-----------------------------+--------------------------------+
+|                           1 |                              0 |
++-----------------------------+--------------------------------+
+</code></pre>
+<ol>
+<li>文件路径检查</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('/home/user/file.txt', '/home'), STARTS_WITH('C:\\Windows\\file.txt', 'C:\\');
+</code></pre>
+<pre><code>+--------------------------------------------+------------------------------------------------+
+| STARTS_WITH('/home/user/file.txt', '/home') | STARTS_WITH('C:\\Windows\\file.txt', 'C:\\')   |
++--------------------------------------------+------------------------------------------------+
+|                                          1 |                                              1 |
++--------------------------------------------+------------------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('ṭṛì ḍḍumai hello', 'ṭṛì'), STARTS_WITH('ṭṛì ḍḍumai hello', 'ḍḍumai');
+</code></pre>
+<pre><code>+------------------------------------------+---------------------------------------------+
+| STARTS_WITH('ṭṛì ḍḍumai hello', 'ṭṛì')   | STARTS_WITH('ṭṛì ḍḍumai hello', 'ḍḍumai')  |
++------------------------------------------+---------------------------------------------+
+|                                        1 |                                           0 |
++------------------------------------------+---------------------------------------------+
+</code></pre>
+<ol>
+<li>URL 和协议检查</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('https://example.com', 'https://'), STARTS_WITH('ftp://server.com', 'http://');
+</code></pre>
+<pre><code>+----------------------------------------------+---------------------------------------------+
+| STARTS_WITH('https://example.com', 'https://') | STARTS_WITH('ftp://server.com', 'http://') |
++----------------------------------------------+---------------------------------------------+
+|                                            1 |                                           0 |
++----------------------------------------------+---------------------------------------------+
+</code></pre>
+<ol>
+<li>数字字符串前缀</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('123456789', '123'), STARTS_WITH('987654321', '123');
+</code></pre>
+<pre><code>+----------------------------------+----------------------------------+
+| STARTS_WITH('123456789', '123')  | STARTS_WITH('987654321', '123')  |
++----------------------------------+----------------------------------+
+|                                1 |                                0 |
++----------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>特殊字符和符号</li>
+</ol>
+<pre><code>SELECT STARTS_WITH('@username', '@'), STARTS_WITH('#hashtag', '#');
+</code></pre>
+<pre><code>+-------------------------------+--------------------------------+
+| STARTS_WITH('@username', '@') | STARTS_WITH('#hashtag', '#')   |
++-------------------------------+--------------------------------+
+|                             1 |                              1 |
++-------------------------------+--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/starts-with/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

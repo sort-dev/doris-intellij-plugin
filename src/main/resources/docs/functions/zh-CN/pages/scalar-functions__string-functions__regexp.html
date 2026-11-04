@@ -1,0 +1,361 @@
+<div class="definition"><pre>REGEXP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>对字符串 <code>&lt;str&gt;</code> 执行正则表达式匹配，匹配成功返回 true，否则返回 false。模式不必匹配整个字符串；需要完整匹配时使用 <code>^</code> 和 <code>$</code>。任一参数为 NULL 时返回 NULL，非法模式会报错。字符串按 UTF-8 处理，匹配 Unicode 字符类别时可使用 <code>\p{Han}</code> 等字符类。</p>
+<p>常规模式的语法请参阅 <a href="https://github.com/google/re2/wiki/Syntax">RE2 语法</a>。</p>
+<h3>匹配引擎和会话变量</h3>
+<p>普通 <code>LIKE</code>、<code>REGEXP</code> 匹配可使用 Hyperscan 加速，并根据下列会话变量选择回退行为：</p>
+<table>
+<thead>
+<tr>
+<th>会话变量</th>
+<th>默认值</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enable_hyperscan_fallback</code></td>
+<td><code>true</code></td>
+<td>Doris 4.1 系列自 4.1.5 起支持。实际采用 Hyperscan 编译的路径遇到编译失败或无法分配匹配空间时，允许回退到 RE2；为 <code>false</code> 时直接返回对应错误。简单模式优化或直接使用 RE2 的路径不受此开关控制。</td>
+</tr>
+<tr>
+<td><code>enable_extended_regex</code></td>
+<td><code>false</code></td>
+<td><code>REGEXP</code> 的模式被 RE2 拒绝时，允许进一步使用 Boost.Regex，以支持 look-around 等扩展语法。此变量不改变 RE2 的语法能力，也不为 <code>LIKE</code>、<code>MATCH_REGEXP</code> 或 <code>MULTI_MATCH_ANY</code> 增加扩展语法。</td>
+</tr>
+</tbody>
+</table>
+<p>Doris 4.1 系列自 4.1.5 起，<code>enable_extended_regex=true</code> 对常量模式和从列中读取的非常量模式均生效。使用 Hyperscan 的路径若已设置 <code>enable_hyperscan_fallback=false</code>，仍会在 Hyperscan 失败时返回错误，不能靠开启 <code>enable_extended_regex</code> 绕过该错误。</p>
+<p><code>enable_hyperscan_fallback</code> 的取值和作用域也可查阅<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/session-variables/#enable_hyperscan_fallback">会话变量列表</a>。</p>
+<p>Boost.Regex 的语法请参阅 <a href="https://www.boost.org/doc/libs/latest/libs/regex/doc/html/boost_regex/syntax/perl_syntax.html">Perl 语法说明</a>。仅在实际使用 Boost.Regex 时，才承担该引擎的匹配开销；复杂的回溯模式也可能报错 <code>Failed to match regex expression</code>。</p>
+<h3>重复次数限制</h3>
+<p>Doris 4.1 系列自 4.1.5 起，在提交给 Hyperscan 的正则模式中检测到 <code>{m}</code>、<code>{m,}</code> 或 <code>{m,n}</code> 形式包含大于 50 的数值时，会跳过 Hyperscan 编译。例如，<code>a{51}</code>、<code>a{51,}</code>、<code>a{0,51}</code> 会触发此检查，<code>a{50}</code> 和 <code>a{0,50}</code> 不会。这是保守的文本检查，字符类或注释中出现相同形式也可能触发。</p>
+<table>
+<thead>
+<tr>
+<th>匹配路径</th>
+<th>检测到上述模式后的行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>普通 <code>LIKE</code>、<code>REGEXP</code> 的 Hyperscan 路径</td>
+<td><code>enable_hyperscan_fallback=true</code> 时尝试回退；为 <code>false</code> 时返回错误。回退后的模式仍须满足目标引擎的语法和数量限制。</td>
+</tr>
+<tr>
+<td><code>MATCH_REGEXP</code> 的行匹配和倒排索引正则匹配</td>
+<td>直接拒绝，不使用 <code>enable_hyperscan_fallback</code> 回退。</td>
+</tr>
+<tr>
+<td><code>MULTI_MATCH_ANY</code> 的多模式匹配</td>
+<td>直接拒绝，不使用 <code>enable_hyperscan_fallback</code> 回退。</td>
+</tr>
+</tbody>
+</table>
+<p>触发检查且未回退时，错误信息包含：</p>
+<pre><code>Skip hyperscan compilation because bounded repetition exceeds 50
+</code></pre>
+<h2>语法</h2>
+<pre><code>REGEXP(&lt;str&gt;, &lt;pattern&gt;)
+&lt;str&gt; [NOT] REGEXP &lt;pattern&gt;
+&lt;str&gt; [NOT] RLIKE &lt;pattern&gt;
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>字符串类型。表示要执行正则表达式匹配的字符串，可以是表中的列或字面值字符串。</td>
+</tr>
+<tr>
+<td><code>&lt;pattern&gt;</code></td>
+<td>字符串类型。用于与字符串 <code>&lt;str&gt;</code> 匹配的正则表达式模式。正则表达式提供了定义复杂搜索模式的强大方式，包括字符类、量词和锚点。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>REGEXP 函数返回布尔值（BOOLEAN）。如果字符串 <code>&lt;str&gt;</code> 匹配正则表达式模式 <code>&lt;pattern&gt;</code>，函数返回 true（在 SQL 中表示为 1）；如果不匹配，返回 false（在 SQL 中表示为 0）。任一参数为 NULL 时返回 NULL。</p>
+<p>Doris 4.1 系列自 4.1.5 起修复常量空模式的匹配，使其与列模式一致：空模式对任意非 NULL 字符串（包括空字符串）都返回 true。</p>
+<p><strong>默认行为</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>默认配置</th>
+<th>行为说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.</code> 匹配换行符</td>
+<td><code>.</code> 默认可以匹配 <code>\n</code>（换行符）。</td>
+</tr>
+<tr>
+<td>大小写敏感</td>
+<td>匹配时区分大小写。</td>
+</tr>
+<tr>
+<td><code>^</code>/<code>$</code> 匹配整个字符串边界</td>
+<td><code>^</code> 仅匹配字符串开头，<code>$</code> 仅匹配字符串结尾，而非每行的行首/行尾。</td>
+</tr>
+<tr>
+<td>量词贪婪</td>
+<td><code>*</code>、<code>+</code> 等量词默认尽可能多地匹配。</td>
+</tr>
+<tr>
+<td>UTF-8</td>
+<td>字符串按 UTF-8 处理。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>模式修饰符</strong>：</p>
+<p>可通过在 <code>pattern</code> 前缀写入 <code>(?flags)</code> 来覆盖默认行为。多个修饰符可组合，如 <code>(?im)</code>；<code>-</code> 前缀表示关闭对应选项，如 <code>(?-s)</code>。</p>
+<p>下表描述常规 Hyperscan/RE2 路径的模式修饰符。若模式因零宽断言等语法回退到 Boost.Regex，应按 Boost.Regex 的语法解释修饰符，不能假定两种引擎的行为完全一致。</p>
+<table>
+<thead>
+<tr>
+<th>标志</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(?i)</code></td>
+<td>大小写不敏感匹配</td>
+</tr>
+<tr>
+<td><code>(?-i)</code></td>
+<td>大小写敏感（默认）</td>
+</tr>
+<tr>
+<td><code>(?s)</code></td>
+<td><code>.</code> 匹配换行符（默认已开启）</td>
+</tr>
+<tr>
+<td><code>(?-s)</code></td>
+<td><code>.</code> 不匹配换行符</td>
+</tr>
+<tr>
+<td><code>(?m)</code></td>
+<td>多行模式：<code>^</code> 匹配每行行首，<code>$</code> 匹配每行行尾</td>
+</tr>
+<tr>
+<td><code>(?-m)</code></td>
+<td>单行模式：<code>^</code>/<code>$</code> 匹配整个字符串首尾（默认）</td>
+</tr>
+<tr>
+<td><code>(?U)</code></td>
+<td>量词非贪婪：<code>*</code>、<code>+</code> 等尽可能少地匹配</td>
+</tr>
+<tr>
+<td><code>(?-U)</code></td>
+<td>量词贪婪（默认）：<code>*</code>、<code>+</code> 等尽可能多地匹配</td>
+</tr>
+</tbody>
+</table>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/regexp/"></a></p>
+<h2>示例</h2>
+<pre><code>CREATE TABLE test ( k1 VARCHAR(255) ) properties("replication_num"="1");
+
+INSERT INTO test (k1) VALUES ('billie eillish'), ('It\'s ok'), ('billie jean'), ('hello world');
+</code></pre>
+<pre><code>--- 查找k1字段中以'billie'开头的所有数据
+SELECT k1 FROM test WHERE k1 REGEXP '^billie' ORDER BY k1;
+</code></pre>
+<pre><code>+----------------+
+| k1             |
++----------------+
+| billie eillish |
+| billie jean    |
++----------------+
+</code></pre>
+<pre><code>--- 查找k1字段中以'ok'结尾的数据：
+SELECT k1 FROM test WHERE k1 REGEXP 'ok$';
+</code></pre>
+<pre><code>+---------+
+| k1      |
++---------+
+| It's ok |
++---------+
+</code></pre>
+<p>中文测试</p>
+<pre><code>select regexp('这是一段中文 This is a passage in English 1234567', '\\p{Han}');
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------+
+| ('这是一段中文 This is a passage in English 1234567' regexp '\p{Han}')         |
++-----------------------------------------------------------------------------+
+|                                                                           1 |
++-----------------------------------------------------------------------------+
+</code></pre>
+<p>插入然后进行简单的变量字符串匹配</p>
+<pre><code>CREATE TABLE test_regexp (
+    id INT,
+    name VARCHAR(255)
+) PROPERTIES("replication_num"="1");
+
+INSERT INTO test_regexp (id, name) VALUES
+    (1, 'Alice'),
+    (2, 'Bob'),
+    (3, 'Charlie'),
+    (4, 'David');
+
+--查找以'A'开头的名字
+SELECT id, name FROM test_regexp WHERE name REGEXP '^A';
+</code></pre>
+<pre><code>+------+-------+
+| id   | name  |
++------+-------+
+|    1 | Alice |
++------+-------+
+</code></pre>
+<p>特殊字符匹配</p>
+<pre><code>-- 插入具有特殊字符的名字
+INSERT INTO test_regexp (id, name) VALUES
+    (5, 'Anna-Maria'),
+    (6, 'John_Doe');
+
+-- 查找包含'-'字符的名字
+SELECT id, name FROM test_regexp WHERE name REGEXP '-';
+</code></pre>
+<pre><code>+------+------------+
+| id   | name       |
++------+------------+
+|    5 | Anna-Maria |
++------+------------+
+</code></pre>
+<p>结尾字符匹配</p>
+<pre><code>-- Find names ending with 'e'
+SELECT id, name FROM test_regexp WHERE name REGEXP 'e$' ORDER BY id;
+</code></pre>
+<pre><code>+------+----------+
+| id   | name     |
++------+----------+
+|    1 | Alice    |
+|    3 | Charlie  |
+|    6 | John_Doe |
++------+----------+
+</code></pre>
+<p>emoji字符匹配</p>
+<pre><code>SELECT 'Hello' REGEXP '😀'; 
+</code></pre>
+<pre><code>+-----------------------+
+| 'Hello' REGEXP '😀'     |
++-----------------------+
+|                     0 |
++-----------------------+
+</code></pre>
+<p>空模式匹配任意非 NULL 字符串，包括空字符串：</p>
+<pre><code>SELECT REGEXP('abc', ''), REGEXP('', ''), REGEXP(NULL, '');
+</code></pre>
+<pre><code>1    1    NULL
+</code></pre>
+<p>'str' 是NULL值，则返回NULL值</p>
+<pre><code>SELECT REGEXP(NULL, '^billie');
+</code></pre>
+<pre><code>+-------------------------+
+| REGEXP(NULL, '^billie') |
++-------------------------+
+|                    NULL |
++-------------------------+
+</code></pre>
+<p>'pattern' 是NULL值，则返回NULL值</p>
+<pre><code>SELECT REGEXP('billie eillish', NULL);
+</code></pre>
+<pre><code>+--------------------------------+
+| REGEXP('billie eillish', NULL) |
++--------------------------------+
+|                           NULL |
++--------------------------------+
+</code></pre>
+<p>所有参数都是NULL值，则返回NULL值</p>
+<pre><code>SELECT REGEXP(NULL, NULL);
+</code></pre>
+<pre><code>+--------------------+
+| REGEXP(NULL, NULL) |
++--------------------+
+|               NULL |
++--------------------+
+</code></pre>
+<p>如果 'pattern' 参数不符合正则表达式，则抛出错误</p>
+<pre><code>SELECT REGEXP('Hello, World!', '([a-z');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.2)[INTERNAL_ERROR]Invalid regex expression: ([a-z
+</code></pre>
+<p>高级正则表达式需要开启扩展语法，普通 RE2 回退本身不支持 look-around：</p>
+<pre><code>SET enable_hyperscan_fallback = true;
+SET enable_extended_regex = true;
+SELECT REGEXP('foobar', '(?&lt;=foo)bar');
+</code></pre>
+<pre><code>1
+</code></pre>
+<p>非常量模式也可使用扩展语法（Doris 4.1 系列自 4.1.5 起）：</p>
+<pre><code>CREATE TABLE regexp_patterns (
+    id INT,
+    s VARCHAR(32),
+    p VARCHAR(64)
+) DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO regexp_patterns VALUES
+    (1, 'foobar', '(?&lt;=foo)bar'),
+    (2, 'fobar', '(?&lt;=foo)bar'),
+    (3, 'foo123bar', 'foo(?=123)'),
+    (4, 'foo124bar', 'foo(?=123)');
+
+SELECT id, REGEXP(s, p) FROM regexp_patterns ORDER BY id;
+</code></pre>
+<pre><code>1    1
+2    0
+3    1
+4    0
+</code></pre>
+<p>还原会话设置，再查看下面的常规语法示例：</p>
+<pre><code>SET enable_extended_regex = false;
+</code></pre>
+<p>模式修饰符</p>
+<p>大小写不敏感匹配：<code>(?i)</code> 使匹配忽略大小写</p>
+<pre><code>SELECT REGEXP('Hello World', 'hello') AS case_sensitive, REGEXP('Hello World', '(?i)hello') AS case_insensitive;
+</code></pre>
+<pre><code>+----------------+------------------+
+| case_sensitive | case_insensitive |
++----------------+------------------+
+|              0 |                1 |
++----------------+------------------+
+</code></pre>
+<p><code>.</code> 默认匹配换行符；使用 <code>(?-s)</code> 后 <code>.</code> 不匹配换行符</p>
+<pre><code>SELECT REGEXP('foo\nbar', '^.+$') AS dot_match_nl, REGEXP('foo\nbar', '(?-s)^.+$') AS dot_not_match_nl;
+</code></pre>
+<pre><code>+--------------+------------------+
+| dot_match_nl | dot_not_match_nl |
++--------------+------------------+
+|            1 |                0 |
++--------------+------------------+
+</code></pre>
+<p>多行模式：<code>(?m)</code> 使 <code>^</code> 和 <code>$</code> 匹配每行行首/行尾</p>
+<pre><code>SELECT REGEXP('foo\nbar', '^bar') AS single_line, REGEXP('foo\nbar', '(?m)^bar') AS multi_line;
+</code></pre>
+<pre><code>+-------------+------------+
+| single_line | multi_line |
++-------------+------------+
+|           0 |          1 |
++-------------+------------+
+</code></pre>
+<p>贪婪与非贪婪：<code>(?U)</code> 使量词尽可能少地匹配</p>
+<pre><code>SELECT REGEXP_EXTRACT('aXbXc', '(a.*X)', 1) AS greedy,
+       REGEXP_EXTRACT('aXbXc', '(?U)(a.*X)', 1) AS non_greedy;
+</code></pre>
+<pre><code>+--------+------------+
+| greedy | non_greedy |
++--------+------------+
+| aXbX   | aX         |
++--------+------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/regexp/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

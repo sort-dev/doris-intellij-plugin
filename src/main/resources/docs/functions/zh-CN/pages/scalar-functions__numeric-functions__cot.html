@@ -1,0 +1,75 @@
+<div class="definition"><pre>COT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 x 的余切值，x 为弧度值，仅支持输入输出为double。输入null值时会返回null。</p>
+<h2>语法</h2>
+<pre><code>COT(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要被计算余切值的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 Double 类型的值表示 x 的余切值。</p>
+<h2>特殊情况</h2>
+<ul>
+<li>当 <code>x</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为正无穷或负无穷（<code>±Infinity</code>），返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select cot(1),cot(2),cot(1000);
+</code></pre>
+<pre><code>+--------------------+----------------------+--------------------+
+| cot(1)             | cot(2)               | cot(1000)          |
++--------------------+----------------------+--------------------+
+| 0.6420926159343306 | -0.45765755436028577 | 0.6801221323348698 |
++--------------------+----------------------+--------------------+
+</code></pre>
+<p>输入null值。</p>
+<pre><code>select cot(null);
+</code></pre>
+<pre><code>+--------------------+
+| cot(null)          |
++--------------------+
+|      NULL          |
++--------------------+
+</code></pre>
+<pre><code>select cot(cast('nan' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| cot(cast('nan' AS DOUBLE)) |
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<pre><code>select cot(cast('inf' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| cot(cast('inf' AS DOUBLE)) |
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<pre><code>select cot(cast('-inf' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| cot(cast('-inf' AS DOUBLE)) |
++-----------------------------+
+| NaN                         |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/cot/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

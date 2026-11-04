@@ -1,0 +1,83 @@
+<div class="definition"><pre>SKEW,SKEW_POP,SKEWNESS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回表达式的 <a href="https://en.wikipedia.org/wiki/Skewness">斜度</a>。
+用来计算斜度的公式是 <code>3阶中心矩 / ((方差)^{1.5})</code>。</p>
+<p><strong>相关命令</strong></p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/kurt/">kurt</a></p>
+<h2>别名</h2>
+<ul>
+<li>SKEW</li>
+<li>SKEW_POP</li>
+</ul>
+<h2>语法</h2>
+<pre><code>SKEWNESS(&lt;col&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;col&gt;</code></td>
+<td>需要被计算斜度的列，支持类型为 Double。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 Double 类型的表达式的斜度。
+当方差为零时，返回 NULL。
+当组内没有合法数据时，返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>CREATE TABLE statistic_test(
+    tag int, 
+    val1 double not null, 
+    val2 double null
+) DISTRIBUTED BY HASH(tag)
+PROPERTIES (
+    "replication_num"="1"
+);
+
+INSERT INTO statistic_test VALUES
+(1, -10, -10),
+(2, -20, NULL),
+(3, 100, NULL),
+(4, 100, NULL),
+(5, 1000,1000);
+
+-- NULL 值会被忽略
+SELECT 
+  skew(val1), 
+  skew(val2)
+FROM statistic_test;
+</code></pre>
+<pre><code>+--------------------+------------+
+| skew(val1)         | skew(val2) |
++--------------------+------------+
+| 1.4337199628825619 |          0 |
++--------------------+------------+
+</code></pre>
+<pre><code>-- 每组仅包含一行，结果为 NULL。
+SELECT 
+  skew(val1), 
+  skew(val2) 
+FROM statistic_test
+GROUP BY tag;
+</code></pre>
+<pre><code>+------------+------------+
+| skew(val1) | skew(val2) |
++------------+------------+
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
++------------+------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/skew/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

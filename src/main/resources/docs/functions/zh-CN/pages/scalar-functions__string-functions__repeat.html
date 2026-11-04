@@ -1,0 +1,156 @@
+<div class="definition"><pre>REPEAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>REPEAT 函数用于将指定字符串重复指定次数，生成新的字符串。该函数常用于生成填充字符、创建分隔符或生成测试数据。</p>
+<h2>语法</h2>
+<pre><code>REPEAT(&lt;str&gt;, &lt;count&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要重复的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;count&gt;</code></td>
+<td>重复次数，必须为非负整数。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示重复指定次数后的字符串。</p>
+<p>重复规则：</p>
+<ul>
+<li>count 大于 0 时，返回 str 重复 count 次的结果</li>
+<li>count 等于 0 时，返回空字符串</li>
+<li>count 小于 0 时，返回空字符串</li>
+<li>如果结果字符串过长，可能受到字符串长度限制</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 str 为空字符串，无论 count 为多少都返回空字符串</li>
+<li>如果 count 为 0，返回空字符串</li>
+<li>如果 count 为负数，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符重复</li>
+</ol>
+<pre><code>SELECT REPEAT('a', 3);
+</code></pre>
+<pre><code>+----------------+
+| REPEAT('a', 3) |
++----------------+
+| aaa            |
++----------------+
+</code></pre>
+<ol>
+<li>多字符字符串重复</li>
+</ol>
+<pre><code>SELECT REPEAT('hello', 2);
+</code></pre>
+<pre><code>+--------------------+
+| REPEAT('hello', 2) |
++--------------------+
+| hellohello         |
++--------------------+
+</code></pre>
+<ol>
+<li>零次重复</li>
+</ol>
+<pre><code>SELECT REPEAT('test', 0);
+</code></pre>
+<pre><code>+-------------------+
+| REPEAT('test', 0) |
++-------------------+
+|                   |
++-------------------+
+</code></pre>
+<ol>
+<li>负数重复</li>
+</ol>
+<pre><code>SELECT REPEAT('a', -1);
+</code></pre>
+<pre><code>+-----------------+
+| REPEAT('a', -1) |
++-----------------+
+|                 |
++-----------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT REPEAT(NULL, 3), REPEAT('a', NULL);
+</code></pre>
+<pre><code>+------------------+-------------------+
+| REPEAT(NULL, 3)  | REPEAT('a', NULL) |
++------------------+-------------------+
+| NULL             | NULL              |
++------------------+-------------------+
+</code></pre>
+<ol>
+<li>空字符串重复</li>
+</ol>
+<pre><code>SELECT REPEAT('', 5);
+</code></pre>
+<pre><code>+----------------+
+| REPEAT('', 5)  |
++----------------+
+|                |
++----------------+
+</code></pre>
+<ol>
+<li>特殊字符重复</li>
+</ol>
+<pre><code>SELECT REPEAT('-', 10), REPEAT('*', 5);
+</code></pre>
+<pre><code>+------------------+-----------------+
+| REPEAT('-', 10)  | REPEAT('*', 5)  |
++------------------+-----------------+
+| ----------       | *****           |
++------------------+-----------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符重复</li>
+</ol>
+<pre><code>SELECT REPEAT('ṭṛì', 3), REPEAT('ḍḍu', 2);
+</code></pre>
+<pre><code>+-------------------+-------------------+
+| REPEAT('ṭṛì', 3)  | REPEAT('ḍḍu', 2)  |
++-------------------+-------------------+
+| ṭṛìṭṛìṭṛì          | ḍḍuḍḍu            |
++-------------------+-------------------+
+</code></pre>
+<ol>
+<li>数字和符号混合</li>
+</ol>
+<pre><code>SELECT REPEAT('123', 3), REPEAT('@#', 4);
+</code></pre>
+<pre><code>+-------------------+------------------+
+| REPEAT('123', 3)  | REPEAT('@#', 4)  |
++-------------------+------------------+
+| 123123123         | @#@#@#@#         |
++-------------------+------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符重复</li>
+</ol>
+<pre><code>SELECT REPEAT('ṭṛìṭṛì', 3);
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| REPEAT('ṭṛìṭṛì', 3)                              |
++--------------------------------------------------+
+| ṭṛìṭṛìṭṛìṭṛìṭṛìṭṛì                               |
++--------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/repeat/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,181 @@
+<div class="definition"><pre>DEFAULT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回表中特定列的默认值。如果该列没有默认值，则会抛出错误。</p>
+<p>该函数与 MySQL 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/miscellaneous-functions.html#function_default">DEFAULT 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>DEFAULT(&lt;column&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;column&gt;</code></td>
+<td>需要查询默认值的列。仅接受列，否则会抛出错误。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回列的默认值，类型与列类型相同</p>
+<ul>
+<li>若有设置默认值，则返回对应的默认值</li>
+<li>若没有设置默认值，且列不为 NOT NULL， 则返回 NULL</li>
+<li>若没有设置默认值，且列为 NOT NULL， 则抛出错误</li>
+</ul>
+<p>特殊情况:</p>
+<ul>
+<li>输入参数仅允许列，当输入为常量(包括 NULL)或表达式时，抛出错误</li>
+<li>输入为自增列或生成列时，抛出错误</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-statements/table-and-view/table/CREATE-TABLE/#%E5%88%97%E7%9A%84%E9%BB%98%E8%AE%A4%E5%80%BC%E7%9B%B8%E5%85%B3%E5%8F%82%E6%95%B0">Doris 支持的默认值相关参数</a></p>
+<h2>举例</h2>
+<ol>
+<li>非聚合类型常量默认值举例</li>
+</ol>
+<pre><code>-- setup
+-- 表中没有显示表明DEFAULT值的代表其默认值仅接受 NULL 值
+-- ARRAY 类型的默认值仅接受 `[]` 和 NULL
+CREATE TABLE test_default_scalar (
+    c_bool                   BOOLEAN                               NULL     DEFAULT 1,
+    c_tinyint                TINYINT                               NULL     DEFAULT 7,
+    c_smallint               SMALLINT                              NULL     DEFAULT 32000,
+    c_int                    INT                                   NULL     DEFAULT 2147483647,
+    c_bigint                 BIGINT                                NULL     DEFAULT 9223372036854775807,
+    c_largeint               LARGEINT                              NULL     DEFAULT '170141183460469231731687303715884105727',
+    c_float                  FLOAT                                 NULL     DEFAULT 3.125,
+    c_double                 DOUBLE                                NULL     DEFAULT 2.718281828,
+    c_decimal                DECIMAL(27, 9)                        NULL     DEFAULT '123456789.123456789',
+    c_decimal_compact        DECIMAL(18, 4)                        NULL     DEFAULT '99999.1234',
+    c_pi                     DOUBLE                                NULL     DEFAULT PI,
+    c_e                      DOUBLE                                NULL     DEFAULT E,
+    c_char                   CHAR(8)                               NULL     DEFAULT 'charDemo',
+    c_varchar                VARCHAR(32)                           NULL     DEFAULT '',
+    c_string                 STRING                                NULL     DEFAULT 'plain string',
+    c_datetime               DATETIME                              NULL     DEFAULT '2025-10-25 11:22:33',
+    c_date                   DATE                                  NULL     DEFAULT '2025-10-31',
+    c_json                   JSON                                  NULL,
+    c_ipv4                   IPV4                                  NULL     DEFAULT '192.168.1.1',
+    c_ipv6                   IPV6                                  NULL     DEFAULT '2001:db8::1',
+    c_array_int              ARRAY&lt;INT&gt;                            NULL     DEFAULT '[]',
+    c_array_string           ARRAY&lt;STRING&gt;                         NULL,
+    c_map_str_int            MAP&lt;STRING, INT&gt;                      NULL,
+    c_struct                 STRUCT&lt;f1:INT,f2:STRING,f3:BOOLEAN&gt;   NULL,
+    c_variant                VARIANT                               NULL
+) PROPERTIES ( 'replication_num' = '1');
+
+-- 例中省略 INSERT 语句
+SELECT
+    DEFAULT(c_bool),
+    DEFAULT(c_tinyint),
+    DEFAULT(c_smallint),
+    DEFAULT(c_int),
+    DEFAULT(c_bigint),
+    DEFAULT(c_largeint),
+    DEFAULT(c_float),
+    DEFAULT(c_double),
+    DEFAULT(c_decimal),
+    DEFAULT(c_decimal_compact),
+    DEFAULT(c_pi),
+    DEFAULT(c_e),
+    DEFAULT(c_char),
+    DEFAULT(c_varchar),
+    DEFAULT(c_string),
+    DEFAULT(c_datetime),
+    DEFAULT(c_date),
+    DEFAULT(c_json),
+    DEFAULT(c_ipv4),
+    DEFAULT(c_ipv6),
+    DEFAULT(c_array_int),
+    DEFAULT(c_array_string),
+    DEFAULT(c_map_str_int),
+    DEFAULT(c_struct),
+    DEFAULT(c_variant)
+FROM test_default_scalar
+LIMIT 1;
+</code></pre>
+<pre><code>+-----------------+--------------------+---------------------+----------------+---------------------+-----------------------------------------+------------------+-------------------+---------------------+----------------------------+-------------------+-------------------+-----------------+--------------------+-------------------+---------------------+-----------------+-----------------+-----------------+-----------------+----------------------+-------------------------+------------------------+-------------------+--------------------+
+| DEFAULT(c_bool) | DEFAULT(c_tinyint) | DEFAULT(c_smallint) | DEFAULT(c_int) | DEFAULT(c_bigint)   | DEFAULT(c_largeint)                     | DEFAULT(c_float) | DEFAULT(c_double) | DEFAULT(c_decimal)  | DEFAULT(c_decimal_compact) | DEFAULT(c_pi)     | DEFAULT(c_e)      | DEFAULT(c_char) | DEFAULT(c_varchar) | DEFAULT(c_string) | DEFAULT(c_datetime) | DEFAULT(c_date) | DEFAULT(c_json) | DEFAULT(c_ipv4) | DEFAULT(c_ipv6) | DEFAULT(c_array_int) | DEFAULT(c_array_string) | DEFAULT(c_map_str_int) | DEFAULT(c_struct) | DEFAULT(c_variant) |
++-----------------+--------------------+---------------------+----------------+---------------------+-----------------------------------------+------------------+-------------------+---------------------+----------------------------+-------------------+-------------------+-----------------+--------------------+-------------------+---------------------+-----------------+-----------------+-----------------+-----------------+----------------------+-------------------------+------------------------+-------------------+--------------------+
+|               1 |                  7 |               32000 |     2147483647 | 9223372036854775807 | 170141183460469231731687303715884105727 |            3.125 |       2.718281828 | 123456789.123456789 |                 99999.1234 | 3.141592653589793 | 2.718281828459045 | charDemo        |                    | plain string      | 2025-10-25 11:22:33 | 2025-10-31      | NULL            | 192.168.1.1     | 2001:db8::1     | []                   | NULL                    | NULL                   | NULL              | NULL               |
++-----------------+--------------------+---------------------+----------------+---------------------+-----------------------------------------+------------------+-------------------+---------------------+----------------------------+-------------------+-------------------+-----------------+--------------------+-------------------+---------------------+-----------------+-----------------+-----------------+-----------------+----------------------+-------------------------+------------------------+-------------------+--------------------+
+</code></pre>
+<ol>
+<li>聚合类型举例</li>
+</ol>
+<pre><code>CREATE TABLE test_default_agg (
+    k_id          INT             NOT NULL COMMENT '聚合键',
+    bitmap_col    BITMAP          BITMAP_UNION,
+    hll_col       HLL             HLL_UNION,
+    quantile_col  QUANTILE_STATE QUANTILE_UNION
+) AGGREGATE KEY(k_id)
+PROPERTIES ( 'replication_num' = '1' );
+
+SELECT
+    default(bitmap_col),default(hll_col)
+FROM test_default_agg
+LIMIT 1;
+</code></pre>
+<pre><code>+---------------------+------------------+
+| default(bitmap_col) | default(hll_col) |
++---------------------+------------------+
+| NULL                | NULL             |
++---------------------+------------------+
+</code></pre>
+<ol>
+<li>非常量默认值(<code>CURRENT_TIMESTAMP</code>, <code>CURRENT_DATE</code>)举例：</li>
+</ol>
+<pre><code>CREATE TABLE test_default_time(
+	tm DATETIME(5) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    dt DATE DEFAULT CURRENT_DATE
+) PROPERTIES( 'replication_num' = '1' );
+
+SELECT DEFAULT(tm), DEFAULT(dt) FROM test_default_time;
+</code></pre>
+<pre><code>+---------------------------+-------------+
+| DEFAULT(tm)               | DEFAULT(dt) |
++---------------------------+-------------+
+| 2026-01-23 17:32:10.90500 | 2026-01-23  |
++---------------------------+-------------+
+</code></pre>
+<ol>
+<li>常量值</li>
+</ol>
+<pre><code>SELECT DEFAULT('hello');
+-- ERROR 1105 (HY000): errCode = 2, detailMessage = 
+-- mismatched input ''hello'' expecting {'{', '}', 'ACTIONS', 'AFTER', 'AGG_STATE', 'AGGREGATE', 'ALIAS', 'ANALYZED', 'ARRAY', 'AT', 'AUTHORS', 'AUTO_INCREMENT', 'ALWAYS', 'BACKENDS', 'BACKUP', 'BEGIN', 'BELONG', 'BIN', 'BITAND', 'BITMAP', 'BITMAP_EMPTY', 'BITMAP_UNION', 'BITOR', 'BITXOR', 'BLOB', 'BOOLEAN', 'BRANCH', 'BRIEF', 'BROKER', 'BUCKETS', 'BUILD', 'BUILTIN', 'CACHE', 'CACHED', 'CALL', 'CATALOG', 'CATALOGS', 'CHAIN', CHAR, 'CHARSET', 'CHECK', 'CLUSTER', 'CLUSTERS', 'COLLA
+
+SELECT DEFAULT(NULL);
+-- ERROR 1105 (HY000): errCode = 2, detailMessage = 
+-- mismatched input 'NULL' expecting {'{', '}', 'ACTIONS', 'AFTER', 'AGG_STATE', 'AGGREGATE', 'ALIAS', 'ANALYZED', 'ARRAY', 'AT', 'AUTHORS', 'AUTO_INCREMENT', 'ALWAYS', 'BACKENDS', 'BACKUP', 'BEGIN', 'BELONG', 'BIN', 'BITAND', 'BITMAP', 'BITMAP_EMPTY', 'BITMAP_UNION', 'BITOR', 'BITXOR', 'BLOB', 'BOOLEAN', 'BRANCH', 'BRIEF', 'BROKER', 'BUCKETS', 'BUILD', 'BUILTIN', 'CACHE', 'CACHED', 'CALL', 'CATALOG', 'CATALOGS', 'CHAIN', CHAR, 'CHARSET', 'CHECK', 'CLUSTER', 'CLUSTERS', 'COLLATIO
+</code></pre>
+<ol>
+<li>自增列</li>
+</ol>
+<pre><code>CREATE TABLE test_auto_inc (
+      id BIGINT NULL AUTO_INCREMENT,
+      value BIGINT NOT NULL
+) PROPERTIES ('replication_num' = '1' );
+
+INSERT INTO test_auto_inc(value) VALUES (1), (2);
+--ERROR 1105 (HY000): errCode = 2, detailMessage = Column 'id' has no default value and does not allow NULL or column is auto-increment
+</code></pre>
+<ol>
+<li>生成列</li>
+</ol>
+<pre><code>CREATE TABLE test_gen_col (
+    a INT,
+    b INT AS (a + 10)
+) PROPERTIES ('replication_num' = '1' );
+
+SELECT DEFAULT(b) FROM test_gen_col;
+-- ERROR 1105 (HY000): errCode = 2, detailMessage = DEFAULT cannot be used on generated column 'b'
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/other-functions/default/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

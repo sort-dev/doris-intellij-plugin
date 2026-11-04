@@ -1,0 +1,61 @@
+<div class="definition"><pre>SIGNBIT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断给定浮点数的符号位是否为负。</p>
+<h2>语法</h2>
+<pre><code>SIGNBIT(&lt;a&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>要检查的浮点数参数</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>如果 <code>&lt;a&gt;</code> 的符号位为负（即 <code>&lt;a&gt;</code> 是负数），返回 true，否则返回 false。
+特别的，对于浮点数的正负零，也可以区分。</p>
+<h2>示例</h2>
+<pre><code>select signbit(-1.0);
+</code></pre>
+<pre><code>+---------------+
+| signbit(-1.0) |
++---------------+
+|             1 |
++---------------+
+</code></pre>
+<pre><code>select signbit(0.0);
+</code></pre>
+<pre><code>+--------------+
+| signbit(0.0) |
++--------------+
+|            0 |
++--------------+
+</code></pre>
+<pre><code>select signbit(1.0);
+</code></pre>
+<pre><code>+--------------+
+| signbit(1.0) |
++--------------+
+|            0 |
++--------------+
+</code></pre>
+<pre><code>select signbit(cast('+0.0' as double)) , signbit(cast('-0.0' as double));
+</code></pre>
+<pre><code>+---------------------------------+---------------------------------+
+| signbit(cast('+0.0' as double)) | signbit(cast('-0.0' as double)) |
++---------------------------------+---------------------------------+
+|                               0 |                               1 |
++---------------------------------+---------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/signbit/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

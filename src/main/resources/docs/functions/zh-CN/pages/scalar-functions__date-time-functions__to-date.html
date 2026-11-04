@@ -1,0 +1,57 @@
+<div class="definition"><pre>TO_DATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>该函数等价于 <code>CAST(&lt;STRING&gt; TO DATE)</code>。</p>
+<p>TO_DATE 函数用于将日期时间值转换为 DATE 类型（仅包含年月日，格式为 YYYY-MM-DD）。该函数会自动忽略输入中的时间部分（时、分、秒、微秒），仅提取日期部分进行转换。</p>
+<h2>语法</h2>
+<pre><code>TO_DATE(`&lt;datetime_value&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime_value&gt;</code></td>
+<td>DATETIME 类型日期时间，支持 DATETIME ，datetime 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>将输入日期时间提取其中的日期返回，类型为 DATE。</p>
+<ul>
+<li>若输入 NULL ，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- 提取 datetime 中的日期部分
+select to_date("2020-02-02 00:00:00");
+
++--------------------------------+
+| to_date('2020-02-02 00:00:00') |
++--------------------------------+
+| 2020-02-02                     |
++--------------------------------+
+
+-- 输入 date，返回本身
+select to_date("2020-02-02");
++-----------------------+
+| to_date("2020-02-02") |
++-----------------------+
+| 2020-02-02            |
++-----------------------+
+
+-- 输入 NULL，返回 NULL
+SELECT TO_DATE(NULL) AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/to-date/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

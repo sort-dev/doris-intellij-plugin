@@ -1,0 +1,84 @@
+<div class="definition"><pre>CATALOGS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>CATALOGS()</code> 函数生成一个临时的 catalogs 表，允许查看当前 Doris 中所有已创建的 catalogs 信息，其结果综合了 <code>show catalogs</code> 和 <code>show catalog xxx</code> 的信息。</p>
+<p>该函数用于 FROM 子句中，便于查询和分析 Doris 中的 catalog 数据。</p>
+<h2>语法</h2>
+<pre><code>CATALOGS()
+</code></pre>
+<h2>返回值</h2>
+<p>查看 catalog() 函数的描述字段</p>
+<pre><code>desc function catalogs();
+</code></pre>
+<pre><code>+-------------+--------+------+-------+---------+-------+
+| Field       | Type   | Null | Key   | Default | Extra |
++-------------+--------+------+-------+---------+-------+
+| CatalogId   | BIGINT | No   | false | NULL    | NONE  |
+| CatalogName | TEXT   | No   | false | NULL    | NONE  |
+| CatalogType | TEXT   | No   | false | NULL    | NONE  |
+| Property    | TEXT   | No   | false | NULL    | NONE  |
+| Value       | TEXT   | No   | false | NULL    | NONE  |
++-------------+--------+------+-------+---------+-------+
+</code></pre>
+<p>字段含义如下：</p>
+<table>
+<thead>
+<tr>
+<th>字段名称</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CatalogId</code></td>
+<td>BIGINT</td>
+<td>Catalog 的唯一标识符，用于区分不同的 catalog 实例。</td>
+</tr>
+<tr>
+<td><code>CatalogName</code></td>
+<td>TEXT</td>
+<td>Catalog 的名称，用于标识 Doris 中的 catalog。</td>
+</tr>
+<tr>
+<td><code>CatalogType</code></td>
+<td>TEXT</td>
+<td>Catalog 的类型，例如 <code>hms</code>（Hive Metastore）、<code>es</code>（Elasticsearch）。</td>
+</tr>
+<tr>
+<td><code>Property</code></td>
+<td>TEXT</td>
+<td>与 catalog 相关的属性名称或配置项。</td>
+</tr>
+<tr>
+<td><code>Value</code></td>
+<td>TEXT</td>
+<td>属性的值，描述 catalog 配置的具体内容。</td>
+</tr>
+</tbody>
+</table>
+<h2>示例</h2>
+<p>查看 doris 集群所有 catalog 信息</p>
+<pre><code>select * from catalogs()
+</code></pre>
+<pre><code>+-----------+-------------+-------------+--------------------------------------------+---------------------------------------------------------------------------+
+| CatalogId | CatalogName | CatalogType | Property                                   | Value                                                                     |
++-----------+-------------+-------------+--------------------------------------------+---------------------------------------------------------------------------+
+|     16725 | hive        | hms         | dfs.client.failover.proxy.provider.HANN    | org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider |
+|     16725 | hive        | hms         | dfs.ha.namenodes.HANN                      | nn1,nn2                                                                   |
+|     16725 | hive        | hms         | create_time                                | 2023-07-13 16:24:38.968                                                   |
+|     16725 | hive        | hms         | ipc.client.fallback-to-simple-auth-allowed | true                                                                      |
+|     16725 | hive        | hms         | dfs.namenode.rpc-address.HANN.nn1          | nn1_host:rpc_port                                                         |
+|     16725 | hive        | hms         | hive.metastore.uris                        | thrift://127.0.0.1:7004                                                   |
+|     16725 | hive        | hms         | dfs.namenode.rpc-address.HANN.nn2          | nn2_host:rpc_port                                                         |
+|     16725 | hive        | hms         | type                                       | hms                                                                       |
+|     16725 | hive        | hms         | dfs.nameservices                           | HANN                                                                      |
+|         0 | internal    | internal    | NULL                                       | NULL                                                                      |
+|     16726 | es          | es          | create_time                                | 2023-07-13 16:24:44.922                                                   |
+|     16726 | es          | es          | type                                       | es                                                                        |
+|     16726 | es          | es          | hosts                                      | http://127.0.0.1:9200                                                     |
++-----------+-------------+-------------+--------------------------------------------+---------------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/catalogs/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

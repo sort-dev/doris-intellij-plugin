@@ -1,0 +1,86 @@
+<div class="definition"><pre>JSON_ARRAY_IGNORE_NULL</pre></div>
+<div class="content">
+<h1>JSON_ARRAY_IGNORE_NULL</h1>
+<h2>功能</h2>
+<p>生成一个包含指定元素的 json 数组，未传入参数时返回空数组，它与 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-array/"><code>JSON_ARRAY</code></a> 只有一个区别：会忽略值为 NULL 的参数。</p>
+<h2>语法</h2>
+<pre><code>JSON_ARRAY_IGNORE_NULL([&lt;expression&gt;, ...]) 
+</code></pre>
+<h2>参数</h2>
+<h3>可变参数：</h3>
+<ul>
+<li><code>&lt;expression&gt;</code>: 要包含在 JSON 数组中的元素。可以是单个或者多种类型的值，包括NULL。</li>
+</ul>
+<h2>返回值</h2>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/JSON/"><code>JSON</code></a>： 返回由参数列表组成的 JSON 数组。</p>
+<h2>使用说明</h2>
+<ul>
+<li>JSON_ARRAY_IGNORE_NULL 的实现是通过将不同类型的参数通过隐式调用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 函数将其转换为 Json 值，所以参数必须是 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 支持的类型</li>
+<li>NULL 会丢弃, 如果希望在数组中保留 NULL 值，可以使用函数 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-array/"><code>JSON_ARRAY</code></a>.</li>
+<li>如果参数类型不被 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 支持，那么会得到错误，可以先将该参数转换为 String 类型，比如:<pre><code>select JSON_ARRAY_IGNORE_NULL(CAST(NOW() as String));
+</code></pre>
+<blockquote>
+<p>NOW() 函数得到的是 DateTime 类型，需要通过 CAST 函数转换为 String 类型</p>
+</blockquote>
+</li>
+<li>如果参数是 Json 字符串并且希望将其作为 Json 对象加入到数组中，应该显式调用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-parse/"><code>JSON_PARSE</code></a> 函数将其解析为 Json 对象：<pre><code>select JSON_ARRAY_IGNORE_NULL(JSON_PARSE('{"key": "value"}'));
+</code></pre>
+</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>
+<p>常规参数</p>
+<pre><code>select json_array_ignore_null() as empty_array, json_array_ignore_null(1) v1, json_array_ignore_null(1, 'abc') v2;
+</code></pre>
+<pre><code>+-------------+------+-----------+
+| empty_array | v1   | v2        |
++-------------+------+-----------+
+| []          | [1]  | [1,"abc"] |
++-------------+------+-----------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>select json_array_ignore_null(null) v1, json_array_ignore_null(1, null, 'I am a string') v2;
+</code></pre>
+<pre><code>+------+---------------------+
+| v1   | v2                  |
++------+---------------------+
+| []   | [1,"I am a string"] |
++------+---------------------+
+</code></pre>
+</li>
+<li>
+<p>不支持的参数类型</p>
+<pre><code>select json_array_ignore_null('item1', map(123, 'abc'));
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: to_json(MAP&lt;TINYINT,VARCHAR(3)&gt;)
+</code></pre>
+</li>
+<li>
+<p>Map 类型参数可以先显式转换为 JSON</p>
+<pre><code>select json_array_ignore_null(1, cast(map('key', 'value') as json));
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| json_array_ignore_null(1, cast(map('key', 'value') as json)) |
++--------------------------------------------------------------+
+| [1,{"key":"value"}]                                          |
++--------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>Json 字符串可以用 json_parse 解析</p>
+<pre><code>select json_array_ignore_null(json_parse('{"key1": "value", "key2": [1, "I am a string", 3]}'));
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------------+
+| json_array_ignore_null(json_parse('{"key1": "value", "key2": [1, "I am a string", 3]}')) |
++------------------------------------------------------------------------------------------+
+| [{"key1":"value","key2":[1,"I am a string",3]}]                                          |
++------------------------------------------------------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-array-ignore-null/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

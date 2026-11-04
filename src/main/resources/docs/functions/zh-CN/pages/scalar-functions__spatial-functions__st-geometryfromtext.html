@@ -1,0 +1,140 @@
+<div class="definition"><pre>ST_GEOMETRYFROMTEXT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 WKT（Well Known Text）转化为对应的内存的几何形式</p>
+<h2>别名</h2>
+<ul>
+<li>ST_GEOMFROMTEXT</li>
+</ul>
+<h2>语法</h2>
+<pre><code>ST_GEOMETRYFROMTEXT( &lt;wkt&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;wkt&gt;</code></td>
+<td>图形的内存形式</td>
+</tr>
+</tbody>
+</table>
+<p>支持的WKT格式:</p>
+<ul>
+<li><code>POINT</code> - 空间中的单个点</li>
+<li><code>LINESTRING</code> - 连接的线段序列</li>
+<li><code>POLYGON</code> - 由一个或多个环定义的封闭区域, 要求至少有三个不同的点且首尾闭合</li>
+<li><code>MULTIPOLYGON</code> - 多边形的集合, 要求多边形之间仅能存在有限个离散点的接触</li>
+</ul>
+<p>从 Apache Doris 3.0.6 开始支持 MULTIPOLYGON 格式解析</p>
+<h2>返回值</h2>
+<p>WKB 的对应的几何存储形式</p>
+<p>当输入的 WKT 格式不符合规范或输入为 NULL 时返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>-- POINT 样例
+SELECT ST_AsText(ST_GeometryFromText("POINT (1 1)"));
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| ST_AsText(ST_GeometryFromText("POINT (1 1)")) |
++-----------------------------------------------+
+| POINT (1 1)                                   |
++-----------------------------------------------+
+</code></pre>
+<pre><code>-- POINT 不合法样例(端点过多)
+SELECT ST_AsText(ST_GeometryFromText("POINT (1 1, 2 2)"));
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("POINT (1 1, 2 2)")) |
++----------------------------------------------------+
+| NULL                                               |
++----------------------------------------------------+
+</code></pre>
+<pre><code>-- LINESTRING 样例
+SELECT ST_AsText(ST_GeometryFromText("LINESTRING (1 1, 2 2)"));
+</code></pre>
+<pre><code>+---------------------------------------------------------+
+| st_astext(st_geometryfromtext('LINESTRING (1 1, 2 2)')) |
++---------------------------------------------------------+
+| LINESTRING (1 1, 2 2)                                   |
++---------------------------------------------------------+
+</code></pre>
+<pre><code>-- LINESTRING 不合法样例(端点过少)
+SELECT ST_AsText(ST_GeometryFromText("LINESTRING (1 1)"));
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("LINESTRING (1 1)")) |
++----------------------------------------------------+
+| NULL                                               |
++----------------------------------------------------+
+</code></pre>
+<pre><code>-- POLYGON 样例
+SELECT ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))"));
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))")) |
++-----------------------------------------------------------------------+
+| POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))                                   |
++-----------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- POLYGON 不合法样例(首尾不闭合)
+SELECT ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 1 1, 0 1))"));
+</code></pre>
+<pre><code>+------------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 1 1, 0 1))")) |
++------------------------------------------------------------------+
+| NULL                                                             |
++------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- POLYGON 不合法样例(端点过少)
+SELECT ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 0 0))"));
+</code></pre>
+<pre><code>+-------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("POLYGON ((0 0, 1 0, 0 0))")) |
++-------------------------------------------------------------+
+| NULL                                                        |
++-------------------------------------------------------------+
+</code></pre>
+<pre><code>-- MULTIPOLYGON 样例
+SELECT ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)), ((2 2, 3 2, 3 3, 2 3, 2 2)))"));
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)), ((2 2, 3 2, 3 3, 2 3, 2 2)))")) |
++-----------------------------------------------------------------------------------------------------------+
+| MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)), ((2 2, 3 2, 3 3, 2 3, 2 2)))                                   |
++-----------------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- MULTIPOLYGON 样例(仅有有限个离散点接触)
+SELECT ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0), (4 4, 6 4, 6 6, 4 6, 4 4)), ((4 5, 5 4, 6 5, 5 6, 4 5)))"));
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0), (4 4, 6 4, 6 6, 4 6, 4 4)), ((4 5, 5 4, 6 5, 5 6, 4 5)))")) |
++------------------------------------------------------------------------------------------------------------------------------------------+
+| MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0), (4 4, 6 4, 6 6, 4 6, 4 4)), ((4 5, 5 4, 6 5, 5 6, 4 5)))                                   |
++------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- MULTIPOLYGON 不合法样例(存在重叠部分)
+SELECT ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((10 0, 20 0, 20 10, 10 10, 10 0)))"));
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------------------------------------------------+
+| ST_AsText(ST_GeometryFromText("MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((10 0, 20 0, 20 10, 10 10, 10 0)))")) |
++----------------------------------------------------------------------------------------------------------------------+
+| NULL                                                                                                                 |
++----------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- 输入 NULL
+SELECT ST_AsText(ST_GeometryFromText(NULL));
+</code></pre>
+<pre><code>+--------------------------------------+
+| ST_AsText(ST_GeometryFromText(NULL)) |
++--------------------------------------+
+| NULL                                 |
++--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-geometryfromtext/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

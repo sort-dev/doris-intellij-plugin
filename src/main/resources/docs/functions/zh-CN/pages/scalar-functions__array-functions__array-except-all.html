@@ -1,0 +1,78 @@
+<div class="definition"><pre>ARRAY_EXCEPT_ALL</pre></div>
+<div class="content">
+<h2>array_except_all</h2>
+&lt;version since="4.1.0"&gt;
+
+<h2>描述</h2>
+<p>返回 <code>arr1</code> 和 <code>arr2</code> 的多重集差集。<code>arr2</code> 中的每个元素最多抵消 <code>arr1</code> 中一个相同的元素；未被抵消的元素（包括重复元素）按照 <code>arr1</code> 的原始顺序保留。数组元素中的 <code>NULL</code> 也按出现次数进行比较和抵消；如果任一输入数组为 <code>NULL</code>，则返回 <code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>ARRAY_EXCEPT_ALL(&lt;arr1&gt;, &lt;arr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;arr1&gt;</code></td>
+<td>第一个数组。元素必须为支持的标量类型，且必须与 <code>&lt;arr2&gt;</code> 的元素类型兼容。</td>
+</tr>
+<tr>
+<td><code>&lt;arr2&gt;</code></td>
+<td>第二个数组。其中每次出现的元素会抵消 <code>&lt;arr1&gt;</code> 中一个相同的元素；元素必须为支持的标量类型，且必须与 <code>&lt;arr1&gt;</code> 兼容。</td>
+</tr>
+</tbody>
+</table>
+<p>支持的标量元素类型包括数值、布尔、字符串、日期时间以及 IPv4/IPv6 类型。不支持 <code>ARRAY</code>、<code>MAP</code>、<code>STRUCT</code>、<code>JSON</code> 和 <code>VARIANT</code> 等复杂元素类型。</p>
+<h2>返回值</h2>
+<p>返回 <code>ARRAY&lt;T&gt;</code>，包含 <code>&lt;arr1&gt;</code> 中剩余的元素，并保持其原始顺序。如果任一输入数组为 <code>NULL</code>，返回 <code>NULL</code>；如果没有剩余元素，返回空数组。</p>
+<h2>示例</h2>
+<p>基本多重集差集：</p>
+<pre><code>SELECT array_except_all([1, 1, 2, 3], [1, 3]);
+</code></pre>
+<pre><code>[1, 2]
+</code></pre>
+<p>元素按出现次数逐个抵消，未匹配的重复元素会保留：</p>
+<pre><code>SELECT array_except_all(['a', 'a', 'b'], ['a']);
+</code></pre>
+<pre><code>["a", "b"]
+</code></pre>
+<p>结果保持第一个数组的顺序：</p>
+<pre><code>SELECT array_except_all([3, 1, 3, 2], [3]);
+</code></pre>
+<pre><code>[1, 3, 2]
+</code></pre>
+<p>数组中的 <code>NULL</code> 参与多重集差集运算：</p>
+<pre><code>SELECT array_except_all(['a', NULL, 'a', NULL], [NULL]);
+</code></pre>
+<pre><code>["a", "a", null]
+</code></pre>
+<p>任一输入数组为 <code>NULL</code> 时返回 <code>NULL</code>：</p>
+<pre><code>SELECT array_except_all(CAST(NULL AS ARRAY&lt;INT&gt;), [1]);
+</code></pre>
+<pre><code>NULL
+</code></pre>
+<p>第二个数组为空时，第一个数组保持不变：</p>
+<pre><code>SELECT array_except_all([1, 1, 2], CAST([] AS ARRAY&lt;INT&gt;));
+</code></pre>
+<pre><code>[1, 1, 2]
+</code></pre>
+<p>与 <code>array_except</code> 不同，本函数会保留剩余的重复元素：</p>
+<pre><code>SELECT array_except([1, 1, 2], [1]), array_except_all([1, 1, 2], [1]);
+</code></pre>
+<pre><code>[2]    [1, 2]
+</code></pre>
+<p>不支持复杂元素类型：</p>
+<pre><code>SELECT array_except_all([[1], [2]], [[1]]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): array_except_all does not support types
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY、EXCEPT、MULTISET、ARRAY_EXCEPT_ALL</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-except-all/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

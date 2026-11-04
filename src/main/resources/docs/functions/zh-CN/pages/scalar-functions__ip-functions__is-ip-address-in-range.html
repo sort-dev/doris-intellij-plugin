@@ -1,0 +1,103 @@
+<div class="definition"><pre>IS_IP_ADDRESS_IN_RANGE</pre></div>
+<div class="content">
+<h2>is_ip_address_in_range</h2>
+<h2>描述</h2>
+<p>检查指定的 IP 地址是否在给定的 CIDR 网段范围内。支持 IPv4 和 IPv6 地址。</p>
+<h2>语法</h2>
+<pre><code>IS_IP_ADDRESS_IN_RANGE(&lt;ip_address&gt;, &lt;cidr_range&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ip_address&gt;</code>：要检查的 IP 地址（IPv4、IPv6 类型或字符串）</li>
+<li><code>&lt;cidr_range&gt;</code>：CIDR 网段范围（字符串格式，如 "192.168.1.0/24"）</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BOOLEAN</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 1：表示 IP 地址在指定的 CIDR 范围内</li>
+<li>返回 0：表示 IP 地址不在指定的 CIDR 范围内</li>
+<li>输入 NULL 时返回 0</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>支持 IPv4 和 IPv6 地址的检查</li>
+<li>CIDR 范围必须是有效的格式（如 "192.168.1.0/24" 或 "2001:db8::/64"）</li>
+<li>支持倒排索引优化，当 CIDR 参数为常量时可以使用索引加速查询</li>
+<li>对于无效的 CIDR 格式，返回 0</li>
+<li>输入参数为 NULL 时返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<p>检查 IPv4 地址是否在指定网段内。</p>
+<pre><code>SELECT is_ip_address_in_range(to_ipv4('192.168.1.100'), '192.168.1.0/24') as in_range;
++----------+
+| in_range |
++----------+
+| 1        |
++----------+
+</code></pre>
+<p>检查 IPv6 地址是否在指定网段内。</p>
+<pre><code>SELECT is_ip_address_in_range(INET6_ATON('2001:db8::100'), '2001:db8::/64') as in_range;
++----------+
+| in_range |
++----------+
+| 1        |
++----------+
+</code></pre>
+<p>检查多个地址是否在指定网段内。</p>
+<pre><code>SELECT 
+  is_ip_address_in_range(to_ipv4('192.168.1.100'), '192.168.1.0/24') as in_192_168_1,
+  is_ip_address_in_range(to_ipv4('192.168.2.100'), '192.168.1.0/24') as in_192_168_2,
+  is_ip_address_in_range(to_ipv4('10.0.0.1'), '192.168.1.0/24') as in_10_0_0;
++-------------+-------------+----------+
+| in_192_168_1| in_192_168_2| in_10_0_0|
++-------------+-------------+----------+
+| 1           | 0           | 0        |
++-------------+-------------+----------+
+</code></pre>
+<p>检查不同 CIDR 前缀长度的范围。</p>
+<pre><code>SELECT 
+  is_ip_address_in_range(to_ipv4('192.168.1.100'), '192.168.0.0/16') as in_16,
+  is_ip_address_in_range(to_ipv4('192.168.1.100'), '192.168.1.0/24') as in_24,
+  is_ip_address_in_range(to_ipv4('192.168.1.100'), '192.168.1.100/32') as in_32;
++--------+--------+--------+
+| in_16  | in_24  | in_32  |
++--------+--------+--------+
+| 1      | 1      | 1      |
++--------+--------+--------+
+</code></pre>
+<p>无效的 CIDR 格式返回 0。</p>
+<pre><code>SELECT is_ip_address_in_range(to_ipv4('192.168.1.100'), 'invalid-cidr') as in_range;
++----------+
+| in_range |
++----------+
+| 0        |
++----------+
+</code></pre>
+<p>输入参数为 NULL 返回 NULL。</p>
+<pre><code>SELECT is_ip_address_in_range(NULL, '192.168.1.0/24') as null_ip;
++---------+
+| null_ip |
++---------+
+| NULL    |
++---------+
+
+SELECT is_ip_address_in_range(to_ipv4('192.168.1.100'), NULL) as null_cidr;
++-----------+
+| null_cidr |
++-----------+
+| NULL      |
++-----------+
+
+SELECT is_ip_address_in_range(NULL, NULL) as both_null;
++-----------+
+| both_null |
++-----------+
+| NULL      |
++-----------+
+</code></pre>
+<h3>关键词</h3>
+<p>IS_IP_ADDRESS_IN_RANGE</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/is-ip-address-in-range/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

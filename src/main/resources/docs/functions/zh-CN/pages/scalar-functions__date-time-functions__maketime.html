@@ -1,0 +1,101 @@
+<div class="definition"><pre>MAKETIME</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回根据<code>hour</code>, <code>minute</code>, <code>second</code>组合出的时间值</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_maketime">makedate 函数</a> 行为一致。</p>
+<h2>语法</h2>
+<pre><code>MAKETIME(`&lt;hour&gt;`, `&lt;minute&gt;`, `&lt;second&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hour</code></td>
+<td>时间的小时部分，支持整数类型(BIGINT)。取值范围被限制在 [-838, 838], 若输入值超过该范围，则自动修正为最接近的边界值。</td>
+</tr>
+<tr>
+<td><code>minute</code></td>
+<td>时间的分钟部分，支持整数类型(BITINT)。允许的取值范围为 [0, 59]。</td>
+</tr>
+<tr>
+<td><code>second</code></td>
+<td>时间的秒数部分，支持整数(BIGINT)和小数类型(DOUBLE)。允许的取值范围为 [0, 60), 支持小数点后六位精度，若超过六位，会自动进行四舍五入。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个TIME 类型的值，格式为 <code>hour:minute:second</code>。当输入的<code>seconde</code>为整数类型，输出值精度为 0，当其为小数类型时，输出值精度为最大精度 6。</p>
+<ul>
+<li>若<code>minute</code> 或 <code>second</code> 超过允许范围，返回 NULL</li>
+<li>任一参数为 NULL，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT `hour`, `minute`, `sec`, MAKETIME(`hour`, `minute`, `sec`) AS ans FROM `test_maketime`;
+</code></pre>
+<pre><code>+-------+--------+---------+-------------------+
+| hour  | minute | sec     | ans               |
++-------+--------+---------+-------------------+
+|    12 |     15 |      30 | 12:15:30.000000   |
+|    14 |     56 | 12.5789 | 14:56:12.578900   |
+|  1234 |     11 |       4 | 838:59:59.000000  |
+| -1234 |      6 |      52 | -838:59:59.000000 |
+|    20 |     60 |      12 | NULL              |
+|    14 |     51 |      66 | NULL              |
+|  NULL |     15 |      16 | NULL              |
+|     7 |   NULL |       8 | NULL              |
+|     1 |      2 |    NULL | NULL              |
+|    23 |    -40 |      12 | NULL              |
+|    20 |      6 |     -12 | NULL              |
++-------+--------+---------+-------------------+
+</code></pre>
+<blockquote>
+<p>注：</p>
+<ol>
+<li><code>sec</code> 列类型为 Float，所以输出格式全部为六位精度的时间值</li>
+<li>1 - 2 为正常样例。</li>
+<li>3 - 4 为 hour 越界情况样例（<em>返回固定边界值</em>）。</li>
+<li>5 - 6 分别为 minute 参数和 sec 参数在正数区间超出合理范围的样例（<em>返回 NULL</em>）。</li>
+<li>7 - 9 为任一参数为 NULL 的样例（<em>返回 NULL</em>）。</li>
+<li>10 - 11 为 minute 和 sec 为负值的样例（<em>即使绝对值合理也返回 NULL</em>）</li>
+</ol>
+</blockquote>
+<pre><code>SELECT `id`, `hour`, `minute`, MAKETIME(`hour`, `minute`, 27) AS ans FROM `test_maketime`;
+</code></pre>
+<pre><code>+------+-------+--------+------------+
+| id   | hour  | minute | ans        |
++------+-------+--------+------------+
+|    1 |    12 |     15 | 12:15:27   |
+|    2 |    14 |     56 | 14:56:27   |
+|    3 |  1234 |     11 | 838:59:59  |
+|    4 | -1234 |      6 | -838:59:59 |
+|    5 |    20 |     60 | NULL       |
+|    6 |    14 |     51 | 14:51:27   |
+|    7 |  NULL |     15 | NULL       |
+|    8 |     7 |   NULL | NULL       |
+|    9 |     1 |      2 | 01:02:27   |
+|   10 |    23 |    -40 | NULL       |
+|   11 |    20 |      6 | 20:06:27   |
++------+-------+--------+------------+
+</code></pre>
+<blockquote>
+<p>注：
+<code>sec</code> 的输入类型为正数类型，故输出类型均为不带微秒的时间类型</p>
+</blockquote>
+<pre><code>-- second的精度超过六位会四舍五入取六位精度
+SELECT MAKETIME(12, 7, 56.1234567);
+</code></pre>
+<pre><code>+-----------------------------+
+| MAKETIME(12, 7, 56.1234567) |
++-----------------------------+
+| 12:07:56.123457             |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/maketime/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,56 @@
+<div class="definition"><pre>UNCOMPRESS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>UNCOMPRESS 函数用于将二进制数据解压缩成字符串或值，你需要确保二进制数据需要是<code>COMPRESS</code>的结果。</p>
+<h2>语法</h2>
+<pre><code>UNCOMPRESS(&lt;compressed_str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;compressed_str&gt;</code></td>
+<td>压缩得到的二进制数据，参数类型是 varchar 或者 string</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回值与输入的 <code>compressed_str</code> 类型一致</p>
+<p>特殊情况：</p>
+<ul>
+<li><code>compressed_str</code> 输入不是<code>COMPRESS</code>得到的二进制数据时，返回 NULL.</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select uncompress(compress('abc'));
+</code></pre>
+<pre><code>+-----------------------------+
+| uncompress(compress('abc')) |
++-----------------------------+
+| abc                         |
++-----------------------------+
+</code></pre>
+<pre><code>select uncompress(compress(''));
+</code></pre>
+<pre><code>+--------------------------+
+| uncompress(compress('')) |
++--------------------------+
+|                          |
++--------------------------+
+</code></pre>
+<pre><code>select uncompress('abc');
+</code></pre>
+<pre><code>+-------------------+
+| uncompress('abc') |
++-------------------+
+| NULL              |
++-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/uncompress/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

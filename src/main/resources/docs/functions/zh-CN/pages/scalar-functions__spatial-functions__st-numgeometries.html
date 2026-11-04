@@ -1,0 +1,90 @@
+<div class="definition"><pre>ST_NUMGEOMETRIES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回几何对象中包含的子几何数量。对于非集合类型（Point、LineString、Polygon、Circle），始终返回 1。对于集合类型（MultiPolygon），返回集合中的子几何数量。</p>
+<p>Since 4.1.2</p>
+<h2>语法</h2>
+<pre><code>ST_NUMGEOMETRIES( &lt;shape&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;shape&gt;</code></td>
+<td>输入几何，类型为 GEOMETRY 或 VARCHAR（WKT 格式），且可转换为 GEOMETRY。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BIGINT 值，表示几何对象中的子几何数量。</p>
+<p><code>ST_NUMGEOMETRIES</code> 具有如下边界情况：</p>
+<ul>
+<li>如果输入参数为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+<li>如果输入参数无法解析为有效几何对象，返回 <code>NULL</code>。</li>
+<li>对于非集合类型（<code>POINT</code>、<code>LINESTRING</code>、<code>POLYGON</code>、<code>CIRCLE</code>），始终返回 <code>1</code>。</li>
+<li>对于 <code>MULTIPOLYGON</code>，返回集合中的多边形数量。</li>
+</ul>
+<h2>示例</h2>
+<p><strong>Point 中的几何数量</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(ST_Point(1, 2));
+</code></pre>
+<pre><code>+----------------------------------+
+| ST_NUMGEOMETRIES(ST_Point(1, 2)) |
++----------------------------------+
+|                                1 |
++----------------------------------+
+</code></pre>
+<p><strong>Polygon 中的几何数量</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'));
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------+
+| ST_NUMGEOMETRIES(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')) |
++------------------------------------------------------------------------------+
+|                                                                            1 |
++------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>包含两个多边形的 MultiPolygon 中的几何数量</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(ST_GeometryFromText('MULTIPOLYGON(((0 0, 1 0, 1 1, 0 1, 0 0)),((2 2, 3 2, 3 3, 2 3, 2 2)))'));
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------------------------------------+
+| ST_NUMGEOMETRIES(ST_GeometryFromText('MULTIPOLYGON(((0 0, 1 0, 1 1, 0 1, 0 0)),((2 2, 3 2, 3 3, 2 3, 2 2)))')) |
++------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                2 |
++------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>Circle 中的几何数量</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(ST_Circle(0, 0, 100));
+</code></pre>
+<pre><code>+----------------------------------------+
+| ST_NUMGEOMETRIES(ST_Circle(0, 0, 100)) |
++----------------------------------------+
+|                                      1 |
++----------------------------------------+
+</code></pre>
+<p><strong>NULL 参数</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(NULL);
+</code></pre>
+<pre><code>+------------------------+
+| ST_NUMGEOMETRIES(NULL) |
++------------------------+
+|                   NULL |
++------------------------+
+</code></pre>
+<p><strong>非法参数（返回 NULL）</strong></p>
+<pre><code>SELECT ST_NUMGEOMETRIES(ST_GeometryFromText('INVALID'));
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| ST_NUMGEOMETRIES(ST_GeometryFromText('INVALID')) |
++--------------------------------------------------+
+|                                             NULL |
++--------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-numgeometries/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

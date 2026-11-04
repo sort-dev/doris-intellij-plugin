@@ -1,0 +1,127 @@
+<div class="definition"><pre>JSON_EXTRACT_STRING</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_EXTRACT_STRING</code> 从 JSON 对象中提取 <code>&lt;json_path&gt;</code> 指定的字段，并将其转换为 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/string-type/STRING/"><code>STRING</code></a> 类型。</p>
+<h2>语法</h2>
+<pre><code>JSON_EXTRACT_STRING(&lt;json_object&gt;, &lt;json_path&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;json_object&gt;</code></td>
+<td>必需。JSON 值，或可转换为 JSON 的合法 JSON 字符串。</td>
+</tr>
+<tr>
+<td><code>&lt;json_path&gt;</code></td>
+<td>必需。STRING 类型的 JSON 路径；数组遍历使用显式通配符。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p><code>Nullable(STRING)</code> 返回提取出的 STRING 值，某些情况会得到 NULL</p>
+<h2>使用说明</h2>
+<ol>
+<li>如果 <code>&lt;json_object&gt;</code> 或则 <code>&lt;json_path&gt;</code> 为 NULL，返回 NULL。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 指定的元素不存在返回 NULL。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 指定的元素无法转换为 STRING 返回 NULL。</li>
+<li>其行为与 "cast + json_extract" 一致，即等价于：<pre><code>CAST(JSON_EXTRACT(&lt;json_object&gt;, &lt;json_path&gt;) as STRING)
+</code></pre>
+所以即使 <code>&lt;json_path&gt;</code> 指向的对象不是 STRING 类型，但是只要支持转换为 STRING 类型也能得到转换后的值。</li>
+<li>这里返回的 STRING 是不带有双引号的(")。</li>
+<li>对于 JSON 对象中的 null 值，得到的不是 NULL 而是字符串 null，如果想要判断一个元素是否为 null 请使用函数 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-extract-isnull/"><code>JSON_EXTRACT_ISNULL</code></a>。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>正常参数<pre><code>SELECT json_extract_string('{"id": 123, "name": "doris"}', '$.name');
+</code></pre>
+<pre><code></code></pre>
+</li>
+</ol>
+<pre><code>
+```text
++---------------------------------------------------------------+
+    | json_extract_string('{"id": 123, "name": "doris"}', '$.name') |
+    +---------------------------------------------------------------+
+    | doris                                                         |
+    +---------------------------------------------------------------+
+    ```
+2. 路径不存在的情况
+    ```sql
+    SELECT json_extract_string('{"id": 123, "name": "doris"}', '$.name2');
+    ```
+    ```text
+    +----------------------------------------------------------------+
+    | json_extract_string('{"id": 123, "name": "doris"}', '$.name2') |
+    +----------------------------------------------------------------+
+    | NULL                                                           |
+    +----------------------------------------------------------------+
+    ```
+3. NULL 参数
+    ```sql
+    SELECT json_extract_string('{"id": 123, "name": "doris"}', NULl);
+    ```
+    ```text
+    +-----------------------------------------------------------+
+    | json_extract_string('{"id": 123, "name": "doris"}', NULl) |
+    +-----------------------------------------------------------+
+    | NULL                                                      |
+    +-----------------------------------------------------------+
+    ```
+    ```sql
+    SELECT json_extract_string(NULL, '$.id2');
+    ```
+    ```text
+    +------------------------------------+
+    | json_extract_string(NULL, '$.id2') |
+    +------------------------------------+
+    | NULL                               |
+    +------------------------------------+
+    ```
+4. 其他类型被转换为 STRING 的情况
+    ```sql
+    SELECT json_extract_string('{"id": 123, "name": "doris"}','$.id');
+    ```
+    ```text
+    +------------------------------------------------------------+
+    | json_extract_string('{"id": 123, "name": "doris"}','$.id') |
+    +------------------------------------------------------------+
+    | 123                                                        |
+    +------------------------------------------------------------+
+    ```
+5. null 值会被转换为字符串 "null" 而不是 NULL
+    ```sql
+    SELECT json_extract_string('{"id": null, "name": "doris"}','$.id');
+    ```
+    ```text
+    +-------------------------------------------------------------+
+    | json_extract_string('{"id": null, "name": "doris"}','$.id') |
+    +-------------------------------------------------------------+
+    | null                                                        |
+    +-------------------------------------------------------------+
+    ```
+
+### 提取数组中的同名字段（Doris 4.0 及后续版本）
+
+使用 `$[*].k1` 显式遍历数组元素；`$.k1` 只访问对象成员，不会隐式遍历数组，因此下面的直接路径返回 SQL `NULL`。没有 `k1` 的数组元素会被忽略。
+
+返回值是包含 JSON 数组文本的 `STRING`，不是 SQL `ARRAY`。
+```sql
+SELECT json_extract_string('[{"k1":"v1"},{"k2":"v2"},{"k1":"v3"},{"k1":"v4"}]', '$.k1') AS direct_path,
+       json_extract_string('[{"k1":"v1"},{"k2":"v2"},{"k1":"v3"},{"k1":"v4"}]', '$[*].k1') AS all_values;
+</code></pre>
+<pre><code>+-------------+------------------+
+| direct_path | all_values       |
++-------------+------------------+
+| NULL        | ["v1","v3","v4"] |
++-------------+------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-extract-string/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

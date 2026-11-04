@@ -1,0 +1,78 @@
+<div class="definition"><pre>JSON_REPLACE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_REPLACE</code> 函数用于在 JSON 中插入数据并返回结果。</p>
+<h2>语法</h2>
+<pre><code>JSON_REPLACE (&lt;json_object&gt;, &lt;path&gt;,  &lt;value&gt;[, &lt;path&gt;,  &lt;value&gt;, ...])
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code> JSON 类型表达式，被修改的目标。</li>
+<li><code>&lt;path&gt;</code> String 类型表达式，指定替换值的路径</li>
+<li><code>&lt;value&gt;</code> JSON 类型或其他 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/to-json/"><code>TO_JSON</code></a> 支持的类型，要替换的值。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li><code>Nullable(JSON)</code> 返回被修改后的 JSON 对象</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>需要注意的是，路径值对按从左到右的顺序进行评估。</li>
+<li>如果 <code>&lt;path&gt;</code> 指向的值在 JSON 对象中不存在，不会产生任何影响。</li>
+<li><code>&lt;path&gt;</code> 中不能包含通配符，如果包含通配符会报错。</li>
+<li><code>&lt;json_object&gt;</code> 或者 <code>&lt;path&gt;</code> 为 NULL 时，会得到 NULL，如果 <code>&lt;value&gt;</code> 为 NULL 会插入一个 JSON 的 null 值。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>路径值对按从左到右的顺序进行评估<pre><code>select json_replace('{"k": {"k2": "v2"}}', '$.k', json_parse('{"k2": 321, "k3": 456}'), '$.k.k2', 123);
+</code></pre>
+<pre><code>+-------------------------------------------------------------------------------------------------+
+| json_replace('{"k": {"k2": "v2"}}', '$.k', json_parse('{"k2": 321, "k3": 456}'), '$.k.k2', 123) |
++-------------------------------------------------------------------------------------------------+
+| {"k":{"k2":123,"k3":456}}                                                                       |
++-------------------------------------------------------------------------------------------------+
+</code></pre>
+</li>
+<li><code>&lt;path&gt;</code> 指向的值在 JSON 对象中不存在<pre><code>select json_replace('{"k": 1}', "$.k2", 2);
+</code></pre>
+<pre><code>+-------------------------------------+
+| json_replace('{"k": 1}', "$.k2", 2) |
++-------------------------------------+
+| {"k":1}                             |
++-------------------------------------+
+</code></pre>
+</li>
+<li><code>&lt;path&gt;</code> 不能包含通配符<pre><code>select json_replace('{"k": 1}', "$.*", 2);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = [INVALID_ARGUMENT] In this situation, path expressions may not contain the * and ** tokens or an array range, argument index: 1, row index: 0
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select json_replace(NULL, '$[1]', 123);
+</code></pre>
+<pre><code>+---------------------------------+
+| json_replace(NULL, '$[1]', 123) |
++---------------------------------+
+| NULL                            |
++---------------------------------+
+</code></pre>
+<pre><code>select json_replace('{"k": "v"}', NULL, 123);
+</code></pre>
+<pre><code>+---------------------------------------+
+| json_replace('{"k": "v"}', NULL, 123) |
++---------------------------------------+
+| NULL                                  |
++---------------------------------------+
+</code></pre>
+<pre><code>select json_replace('{"k": "v"}', '$.k', NULL);
+</code></pre>
+<pre><code>+-----------------------------------------+
+| json_replace('{"k": "v"}', '$.k', NULL) |
++-----------------------------------------+
+| {"k":null}                              |
++-----------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-replace/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

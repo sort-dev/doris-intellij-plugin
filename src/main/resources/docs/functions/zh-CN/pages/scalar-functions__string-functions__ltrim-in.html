@@ -1,0 +1,72 @@
+<div class="definition"><pre>LTRIM_IN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>LTRIM_IN 函数用于移除字符串左侧的指定字符。当不指定移除字符集合时，默认移除左侧的空格；当指定字符集合时，将移除左侧出现的所有指定字符（不考虑字符集合顺序）。
+LTRIM_IN 的特点是会移除指定字符集合中的任意字符组合，而 LTRIM 函数则是按照完整的字符串匹配进行移除。</p>
+<h2>语法</h2>
+<pre><code>LTRIM_IN(&lt;str&gt;[, &lt;rhs&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要处理的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;rhs&gt;</code></td>
+<td>可选参数，要移除的字符集合。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示处理后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 str 为 NULL，返回 NULL</li>
+<li>如果不指定 rhs，移除左侧所有空格</li>
+<li>如果指定 rhs，移除左侧出现在 rhs 中的所有字符，直到遇到第一个不在 rhs 中的字符</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>移除左侧空格</li>
+</ol>
+<pre><code>SELECT ltrim_in('   ab d') str;
+</code></pre>
+<pre><code>+------+
+| str  |
++------+
+| ab d |
++------+
+</code></pre>
+<ol>
+<li>移除指定字符集合</li>
+</ol>
+<pre><code>SELECT ltrim_in('ababccaab', 'ab') str;
+</code></pre>
+<pre><code>+-------+
+| str   |
++-------+
+| ccaab |
++-------+
+</code></pre>
+<ol>
+<li>与 LTRIM 函数的对比</li>
+</ol>
+<pre><code>SELECT ltrim_in('abcd', 'ae'),ltrim('abcd', 'abe');
+</code></pre>
+<pre><code>+------------------------+----------------------+
+| ltrim_in('abcd', 'ae') | ltrim('abcd', 'abe') |
++------------------------+----------------------+
+| bcd                    | abcd                 |
++------------------------+----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/ltrim-in/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

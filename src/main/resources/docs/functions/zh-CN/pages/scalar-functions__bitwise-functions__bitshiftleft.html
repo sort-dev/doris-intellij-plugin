@@ -1,0 +1,43 @@
+<div class="definition"><pre>BIT_SHIFT_LEFT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于 左移 操作的函数，通常用于执行 位移操作，将二进制数字的所有位向左移动指定的位数。它是位运算的一种形式，常用于处理二进制数据或进行高效的数学计算。</p>
+<p>对于 BIGINT 类型的最大值 9223372036854775807，进行一位左移的结果将得到 -2。</p>
+<h2>语法</h2>
+<pre><code>BIT_SHIFT_LEFT( &lt;x&gt;, &lt;bits&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;x&gt;</code> 需要进行位移的数字。</li>
+<li><code>&lt;bits&gt;</code> 需要左移的位数。它是一个整数，决定了 <code>&lt;x&gt;</code> 将被左移多少位。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回一个整数，表示左移操作后的结果。</p>
+<h2>举例</h2>
+<ol>
+<li>
+<p>示例 1</p>
+<pre><code>select BIT_SHIFT_LEFT(5, 2), BIT_SHIFT_LEFT(-5, 2), BIT_SHIFT_LEFT(9223372036854775807, 1);
+</code></pre>
+<pre><code>+----------------------+-----------------------+----------------------------------------+
+| BIT_SHIFT_LEFT(5, 2) | BIT_SHIFT_LEFT(-5, 2) | BIT_SHIFT_LEFT(9223372036854775807, 1) |
++----------------------+-----------------------+----------------------------------------+
+|                   20 |                   -20 |                                     -2 |
++----------------------+-----------------------+----------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>select BIT_SHIFT_LEFT(5, NULL), BIT_SHIFT_LEFT(NULL, 2), BIT_SHIFT_LEFT(NULL, NULL);
+</code></pre>
+<pre><code>+-------------------------+-------------------------+----------------------------+
+| BIT_SHIFT_LEFT(5, NULL) | BIT_SHIFT_LEFT(NULL, 2) | BIT_SHIFT_LEFT(NULL, NULL) |
++-------------------------+-------------------------+----------------------------+
+|                    NULL |                    NULL |                       NULL |
++-------------------------+-------------------------+----------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/bitshiftleft/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,77 @@
+<div class="definition"><pre>SPACE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SPACE 函数用于生成由指定数量的空格组成的字符串。</p>
+<h2>语法</h2>
+<pre><code>SPACE(&lt;len&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>要生成的空格数量。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，包含指定数量的空格字符。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果 <code>&lt;len&gt;</code> 小于或等于 0，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：生成指定数量空格</li>
+</ol>
+<pre><code>SELECT space(5);
+</code></pre>
+<pre><code>+----------+
+| space(5) |
++----------+
+|          |
++----------+
+</code></pre>
+<ol>
+<li>零或负数处理</li>
+</ol>
+<pre><code>SELECT space(0), space(-5);
+</code></pre>
+<pre><code>+----------+-----------+
+| space(0) | space(-5) |
++----------+-----------+
+|          |           |
++----------+-----------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT space(NULL);
+</code></pre>
+<pre><code>+-------------+
+| space(NULL) |
++-------------+
+| NULL        |
++-------------+
+</code></pre>
+<ol>
+<li>配合其他函数使用</li>
+</ol>
+<pre><code>SELECT CONCAT('Hello', space(3), 'World');
+</code></pre>
+<pre><code>+------------------------------------+
+| concat('Hello', space(3), 'World') |
++------------------------------------+
+| Hello   World                      |
++------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/space/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

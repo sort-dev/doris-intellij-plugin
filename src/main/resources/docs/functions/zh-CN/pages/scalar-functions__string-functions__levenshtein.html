@@ -1,0 +1,134 @@
+<div class="definition"><pre>LEVENSHTEIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>LEVENSHTEIN</code> 函数用于计算两个字符串之间的 <a href="https://en.wikipedia.org/wiki/Edit_distance">Levenshtein 编辑距离</a>。</p>
+<p>Levenshtein 编辑距离表示将一个字符串转换为另一个字符串所需的最少单字符编辑次数。支持的编辑操作包括：</p>
+<ul>
+<li>插入一个字符</li>
+<li>删除一个字符</li>
+<li>替换一个字符</li>
+</ul>
+<p>该函数按 UTF-8 字符计算距离，而不是按字节计算。因此，多字节字符（例如中文字符）会被视为一个字符。</p>
+<p>Since 4.2.0</p>
+<h2>别名</h2>
+<ul>
+<li><code>LEVENSHTEIN_DISTANCE</code></li>
+<li><code>EDIT_DISTANCE</code></li>
+</ul>
+<h2>语法</h2>
+<pre><code>LEVENSHTEIN(&lt;str1&gt;, &lt;str2&gt;)
+LEVENSHTEIN_DISTANCE(&lt;str1&gt;, &lt;str2&gt;)
+EDIT_DISTANCE(&lt;str1&gt;, &lt;str2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str1&gt;</code></td>
+<td>第一个字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;str2&gt;</code></td>
+<td>第二个字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示两个字符串之间的 Levenshtein 编辑距离。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL。</li>
+<li>如果两个字符串相同，返回 0。</li>
+<li>如果其中一个字符串为空字符串，返回另一个字符串的字符数。</li>
+<li>该函数满足交换律，即 <code>LEVENSHTEIN(a, b)</code> 与 <code>LEVENSHTEIN(b, a)</code> 返回相同结果。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法</li>
+</ol>
+<pre><code>SELECT levenshtein('kitten', 'sitting');
+</code></pre>
+<pre><code>+----------------------------------+
+| levenshtein('kitten', 'sitting') |
++----------------------------------+
+|                                3 |
++----------------------------------+
+</code></pre>
+<p><code>kitten</code> 可以通过 3 次编辑变为 <code>sitting</code>：将 <code>k</code> 替换为 <code>s</code>，将 <code>e</code> 替换为 <code>i</code>，并在末尾插入 <code>g</code>。</p>
+<ol>
+<li>字符串相同</li>
+</ol>
+<pre><code>SELECT levenshtein('abc', 'abc');
+</code></pre>
+<pre><code>+---------------------------+
+| levenshtein('abc', 'abc') |
++---------------------------+
+|                         0 |
++---------------------------+
+</code></pre>
+<ol>
+<li>空字符串</li>
+</ol>
+<pre><code>SELECT levenshtein('', 'abc'), levenshtein('数据库', '');
+</code></pre>
+<pre><code>+------------------------+------------------------------+
+| levenshtein('', 'abc') | levenshtein('数据库', '')    |
++------------------------+------------------------------+
+|                      3 |                            3 |
++------------------------+------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符</li>
+</ol>
+<pre><code>SELECT levenshtein('你好世界', '你好世间');
+</code></pre>
+<pre><code>+---------------------------------------------+
+| levenshtein('你好世界', '你好世间')         |
++---------------------------------------------+
+|                                           1 |
++---------------------------------------------+
+</code></pre>
+<p><code>界</code> 替换为 <code>间</code> 需要 1 次编辑。</p>
+<ol>
+<li>相邻字符交换会按两次编辑计算</li>
+</ol>
+<pre><code>SELECT levenshtein('abcd', 'abdc');
+</code></pre>
+<pre><code>+-----------------------------+
+| levenshtein('abcd', 'abdc') |
++-----------------------------+
+|                           2 |
++-----------------------------+
+</code></pre>
+<p>Levenshtein 距离不把相邻字符交换作为单独操作，因此 <code>abcd</code> 与 <code>abdc</code> 的距离为 2。</p>
+<ol>
+<li>使用别名</li>
+</ol>
+<pre><code>SELECT levenshtein_distance('abcd', 'abdc'), edit_distance('kitten', 'sitting');
+</code></pre>
+<pre><code>+--------------------------------------+------------------------------------+
+| levenshtein_distance('abcd', 'abdc') | edit_distance('kitten', 'sitting') |
++--------------------------------------+------------------------------------+
+|                                    2 |                                  3 |
++--------------------------------------+------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 参数</li>
+</ol>
+<pre><code>SELECT levenshtein(NULL, 'abc'), levenshtein('abc', NULL);
+</code></pre>
+<pre><code>+--------------------------+--------------------------+
+| levenshtein(NULL, 'abc') | levenshtein('abc', NULL) |
++--------------------------+--------------------------+
+|                     NULL |                     NULL |
++--------------------------+--------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/levenshtein/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

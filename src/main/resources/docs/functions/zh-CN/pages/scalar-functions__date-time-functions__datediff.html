@@ -1,0 +1,80 @@
+<div class="definition"><pre>DATEDIFF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>DATEDIFF 函数用于计算两个日期或日期时间值之间的差值，结果精确到天，即返回 expr1 减去 expr2 所得到的天数差。该函数仅关注日期部分，忽略时间部分的具体小时、分钟、秒。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_datediff">datediff 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>DATEDIFF(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr1&gt;</code></td>
+<td>日期被减数，支持的类型为 datetime 或者 date 类型，具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a>)</td>
+</tr>
+<tr>
+<td><code>&lt;expr2&gt;</code></td>
+<td>日期减数，支持的类型为 date 和 datetime</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 expr1 - expr2 的值，结果精确到天，类型为 INT。</p>
+<p>特殊情况:</p>
+<ul>
+<li>expr1 大于 expr2 ,返回正数，反之返回负数</li>
+<li>若输入任一参数为 NULL, 返回 NULL.</li>
+<li>忽略时间部分</li>
+</ul>
+<h2>举例</h2>
+<pre><code>
+-- 两个日期相差1天（忽略时间部分）
+select datediff(CAST('2007-12-31 23:59:59' AS DATETIME), CAST('2007-12-30' AS DATETIME));
++-----------------------------------------------------------------------------------+
+| datediff(CAST('2007-12-31 23:59:59' AS DATETIME), CAST('2007-12-30' AS DATETIME)) |
++-----------------------------------------------------------------------------------+
+|                                                                                 1 |
++-----------------------------------------------------------------------------------+
+
+-- 前一个日期早于后一个日期，返回负数
+select datediff(CAST('2010-11-30 23:59:59' AS DATETIME), CAST('2010-12-31' AS DATETIME));
++-----------------------------------------------------------------------------------+
+| datediff(CAST('2010-11-30 23:59:59' AS DATETIME), CAST('2010-12-31' AS DATETIME)) |
++-----------------------------------------------------------------------------------+
+|                                                                               -31 |
++-----------------------------------------------------------------------------------+
+
+--- 任一参数为 NULL
+mysql&gt; select datediff('2023-01-01', NULL);
++------------------------------+
+| datediff('2023-01-01', NULL) |
++------------------------------+
+|                         NULL |
++------------------------------+
+
+---若输入 datetime 类型，会忽略时间部分
+select datediff('2023-01-02 13:00:00', '2023-01-01 12:00:00');
++--------------------------------------------------------+
+| datediff('2023-01-02 13:00:00', '2023-01-01 12:00:00') |
++--------------------------------------------------------+
+|                                                      1 |
++--------------------------------------------------------+
+
+select datediff('2023-01-02 12:00:00', '2023-01-01 13:00:00');
++--------------------------------------------------------+
+| datediff('2023-01-02 12:00:00', '2023-01-01 13:00:00') |
++--------------------------------------------------------+
+|                                                      1 |
++--------------------------------------------------------+
+1 row in set (0.01 sec)
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/datediff/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,49 @@
+<div class="definition"><pre>MD5</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算 MD5 128-bit</p>
+<h2>语法</h2>
+<pre><code>MD5( &lt;input&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;input&gt;</code></td>
+<td>需要被计算 MD5 的值, 接受字符串和二进制类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回字符串的 MD5 值。</p>
+<h2>示例</h2>
+<pre><code>-- vb (VarBinary) 和 vc (VarChar) 插入时使用了相同的字符串.
+SELECT * FROM mysql_catalog.binary_test.binary_test;
+</code></pre>
+<pre><code>+------+------------+------+
+| id   | vb         | vc   |
++------+------------+------+
+|    1 | 0x616263   | abc  |
+|    2 | 0x78797A   | xyz  |
+|    3 | NULL       | NULL |
++------+------------+------+
+</code></pre>
+<pre><code>SELECT MD5(vb), MD5(vc) FROM mysql_catalog.binary_test.binary_test;
+</code></pre>
+<pre><code>+----------------------------------+----------------------------------+
+| MD5(vb)                          | MD5(vc)                          |
++----------------------------------+----------------------------------+
+| 900150983cd24fb0d6963f7d28e17f72 | 900150983cd24fb0d6963f7d28e17f72 |
+| d16fb36f0911f878998c136191af705e | d16fb36f0911f878998c136191af705e |
+| NULL                             | NULL                             |
++----------------------------------+----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/md5/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

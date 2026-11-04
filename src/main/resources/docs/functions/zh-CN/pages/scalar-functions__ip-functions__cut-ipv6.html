@@ -1,0 +1,66 @@
+<div class="definition"><pre>CUT_IPV6 | Ip Functions</pre></div>
+<div class="content">
+<h1>CUT_IPV6</h1>
+<h2>cut_ipv6</h2>
+<h2>描述</h2>
+<p>根据 IPv6 地址的类型（IPv4 映射或纯 IPv6），从 IPv6 地址的末尾截取指定数量的字节，并返回截取后的 IPv6 地址字符串。</p>
+<h2>语法</h2>
+<pre><code>CUT_IPV6(&lt;ipv6_address&gt;, &lt;bytes_to_cut_for_ipv6&gt;, &lt;bytes_to_cut_for_ipv4&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv6_address&gt;</code>：IPv6 类型的地址</li>
+<li><code>&lt;bytes_to_cut_for_ipv6&gt;</code>：纯 IPv6 地址要截取的字节数（TINYINT 类型）</li>
+<li><code>&lt;bytes_to_cut_for_ipv4&gt;</code>：IPv4 映射地址要截取的字节数（TINYINT 类型）</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：VARCHAR</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回截取后的 IPv6 地址字符串</li>
+<li>如果输入是 IPv4 映射地址，使用 <code>bytes_to_cut_for_ipv4</code> 参数</li>
+<li>如果输入是纯 IPv6 地址，使用 <code>bytes_to_cut_for_ipv6</code> 参数</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>自动检测 IPv6 地址是否为 IPv4 映射地址（格式为 <code>::ffff:IPv4</code>）</li>
+<li>根据地址类型选择相应的截取字节数</li>
+<li>截取操作从地址末尾开始，将指定数量的字节置零</li>
+<li>参数值不能超过 16（IPv6 地址的总字节数）</li>
+</ul>
+<h2>举例</h2>
+<p>截取纯 IPv6 地址的末尾字节。</p>
+<pre><code>SELECT cut_ipv6(to_ipv6('2001:db8::1'), 4, 4) as cut_result;
++------------------+
+| cut_result       |
++------------------+
+| 2001:db8::       |
++------------------+
+</code></pre>
+<p>截取 IPv4 映射地址的末尾字节。</p>
+<pre><code>SELECT cut_ipv6(to_ipv6('::ffff:192.168.1.1'), 4, 4) as cut_result;
++----------------+
+| cut_result     |
++----------------+
+| ::ffff:0.0.0.0 |
++----------------+
+</code></pre>
+<p>使用不同的截取参数。</p>
+<pre><code>SELECT 
+  cut_ipv6(to_ipv6('2001:db8::1'), 8, 4) as ipv6_cut_8,
+  cut_ipv6(to_ipv6('::ffff:192.168.1.1'), 4, 8) as ipv4_cut_8;
++------------+------------+
+| ipv6_cut_8 | ipv4_cut_8 |
++------------+------------+
+| 2001:db8:: | ::         |
++------------+------------+
+</code></pre>
+<p>参数值超出范围会抛出异常。</p>
+<pre><code>SELECT cut_ipv6(to_ipv6('2001:db8::1'), 17, 4);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (...)[INVALID_ARGUMENT]Illegal value for argument 2 TINYINT of function cut_ipv6
+</code></pre>
+<h3>关键词</h3>
+<p>CUT_IPV6</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/cut-ipv6/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

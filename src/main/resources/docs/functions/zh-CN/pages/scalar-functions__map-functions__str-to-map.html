@@ -1,0 +1,28 @@
+<div class="definition"><pre>STR_TO_MAP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将字符串转换为 <code>Map&lt;String, String&gt;</code> 类型。</p>
+<p>该函数自 3.0.6 版本开始支持.</p>
+<h2>语法</h2>
+<pre><code>STR_TO_MAP(&lt;str&gt; [, &lt;pair_delimiter&gt; [, &lt;key_value_delimiter&gt;]])
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;str&gt;</code> 要转换为 map 的字符串。</li>
+<li><code>&lt;pair_delimiter&gt;</code> 字符串中键值对的分割符，默认为 <code>,</code>。</li>
+<li><code>&lt;key_value_delimiter&gt;</code> 字符串中键和值的分割符，默认为 <code>:</code>。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回从字符串构造的 <code>Map&lt;String, String&gt;</code>。</p>
+<h2>示例</h2>
+<pre><code>select str_to_map('a=1&amp;b=2&amp;c=3', '&amp;', '=') as map1, str_to_map('x:10|y:20|z:30', '|', ':') as map2;
+</code></pre>
+<pre><code>+-----------------------------+--------------------------------+
+| map1                        | map2                           |
++-----------------------------+--------------------------------+
+| {"a":"1", "b":"2", "c":"3"} | {"x":"10", "y":"20", "z":"30"} |
++-----------------------------+--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/str-to-map/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,67 @@
+<div class="definition"><pre>EXPLODE_NUMBERS_OUTER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>explode_numbers_outer</code> 函数接受一个数组，会将数组的每个元素映射为单独的行。需要与 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 配合使用，以将嵌套数据结构展开为标准的平面表格式。 <code>explode_numbers_outer</code> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-numbers/"><code>explode_numbers</code></a> 区别主要在于空值处理。</p>
+<h2>语法</h2>
+<pre><code>EXPLODE_NUMBERS_OUTER(&lt;int&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;int&gt;</code> 数组类型</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回一个 <code>[0, n)</code> 整数列，列类型为 <code>Nullable&lt;INT&gt;</code>。</li>
+<li>如果 <code>&lt;int&gt;</code> 为 NULL 或者为空数组（元素个数为 0），返回 1 行 NULL 数据。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>常规参数<pre><code>select  * from (select 1 as k1) t1 lateral view explode_numbers_outer(10) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 |    0 |
+|    1 |    1 |
+|    1 |    2 |
+|    1 |    3 |
+|    1 |    4 |
+|    1 |    5 |
+|    1 |    6 |
+|    1 |    7 |
+|    1 |    8 |
+|    1 |    9 |
++------+------+
+</code></pre>
+</li>
+<li>参数 0<pre><code>select  * from (select 1 as k1) t1 lateral view explode_numbers_outer(0) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select  * from (select 1 as k1) t1 lateral view explode_numbers_outer(NULL) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+<li>负数参数<pre><code>select  * from (select 1 as k1) t1 lateral view explode_numbers_outer(-1) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-numbers-outer/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,28 @@
+<div class="definition"><pre>NULL_OR_EMPTY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>null_or_empty</code> 函数用于判断给定的值是否为非 NULL 且非空。如果输入值不为 NULL 且不为空，则返回 true；否则返回 false。</p>
+<h2>语法</h2>
+<pre><code>NULL_OR_EMPTY (&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;str&gt;</code> String 类型，用于判定是否为 NULL 或者为空的字符串。</li>
+</ul>
+<h2>返回值</h2>
+<p>如果字符串为空字符串或者 NULL，返回 true；否则返回 false。</p>
+<h2>举例</h2>
+<ol>
+<li>示例1<pre><code>select null_or_empty(null), null_or_empty(""), null_or_empty(" ");
+</code></pre>
+<pre><code>+---------------------+-------------------+--------------------+
+| null_or_empty(null) | null_or_empty("") | null_or_empty(" ") |
++---------------------+-------------------+--------------------+
+|                   1 |                 1 |                  0 |
++---------------------+-------------------+--------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/conditional-functions/null-or-empty/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

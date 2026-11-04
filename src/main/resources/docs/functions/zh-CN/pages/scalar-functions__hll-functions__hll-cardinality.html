@@ -1,0 +1,36 @@
+<div class="definition"><pre>HLL_CARDINALITY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>HLL_CARDINALITY</code> 用于计算 HLL（HyperLogLog）类型值的基数。HLL 是一种近似计数的算法，适用于大规模数据集的基数估算。</p>
+<h2>语法</h2>
+<pre><code>HLL_CARDINALITY(&lt;hll&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;hll&gt;</code></td>
+<td>HLL 类型的值，表示需要计算基数的数据集合。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 HLL 类型值的基数，即数据集合中不重复元素的估算数。</p>
+<h2>举例</h2>
+<pre><code>select HLL_CARDINALITY(uv_set) from test_uv;
+</code></pre>
+<pre><code>+---------------------------+
+| hll_cardinality(`uv_set`) |
++---------------------------+
+|                         3 |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/hll-functions/hll-cardinality/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

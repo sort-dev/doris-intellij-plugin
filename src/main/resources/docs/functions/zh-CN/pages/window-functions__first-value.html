@@ -1,0 +1,75 @@
+<div class="definition"><pre>FIRST_VALUE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FIRST_VALUE() 是一个窗口函数，用于返回窗口分区中有序数据集的第一个值。可以通过 IGNORE NULL 选项来控制是否忽略NULL值。</p>
+<h2>语法</h2>
+<pre><code>FIRST_VALUE(&lt;expr&gt;[, &lt;ignore_null&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>expr</td>
+<td>需要获取第一个值的表达式,支持类型: tinyint/smallint/int/bigint/float/double/decimal/string/date/datetime/array/struct/map/bitmap</td>
+</tr>
+<tr>
+<td>ignore_null</td>
+<td>可选 boolean 类型。参数 ignore_null 默认值为 false, 设置后会忽略NULL值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回与输入表达式相同的数据类型。</p>
+<h2>举例</h2>
+<pre><code>WITH example_data AS (
+    SELECT 1 as column1, NULL as column2, 'A' as group_name
+    UNION ALL
+    SELECT 1, 10, 'A'
+    UNION ALL
+    SELECT 1, NULL, 'A'
+    UNION ALL
+    SELECT 1, 20, 'A'
+    UNION ALL
+    SELECT 2, NULL, 'B'
+    UNION ALL
+    SELECT 2, 30, 'B'
+    UNION ALL
+    SELECT 2, 40, 'B'
+)
+SELECT 
+    group_name,
+    column1,
+    column2,
+    FIRST_VALUE(column2) OVER (
+        PARTITION BY column1 
+        ORDER BY column2 NULLS LAST -- 定义NULL值位置在最后
+    ) AS first_value_default,
+    FIRST_VALUE(column2, true) OVER (
+        PARTITION BY column1 
+        ORDER BY column2 NULLS FIRST -- 定义NULL值位置在最前
+    ) AS first_value_ignore_null
+FROM example_data
+ORDER BY column1, column2;
+</code></pre>
+<pre><code>+------------+---------+---------+---------------------+-------------------------+
+| group_name | column1 | column2 | first_value_default | first_value_ignore_null |
++------------+---------+---------+---------------------+-------------------------+
+| A          |       1 |    NULL |                  10 |                    NULL |
+| A          |       1 |    NULL |                  10 |                    NULL |
+| A          |       1 |      10 |                  10 |                      10 |
+| A          |       1 |      20 |                  10 |                      10 |
+| B          |       2 |    NULL |                  30 |                    NULL |
+| B          |       2 |      30 |                  30 |                      30 |
+| B          |       2 |      40 |                  30 |                      30 |
++------------+---------+---------+---------------------+-------------------------+
+</code></pre>
+<p>注意：<code>first_value_ignore_null</code> 列设置了 <code>ignore_null=true</code>，因此分区内会跳过开头的 NULL 行，返回首个非 NULL 值（A 组首个非 NULL 值为 10，B 组为 30）。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/window-functions/first-value/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

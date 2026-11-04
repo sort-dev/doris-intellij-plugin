@@ -1,0 +1,94 @@
+<div class="definition"><pre>FORMAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FORMAT 函数用于返回一个使用指定格式字符串和参数格式化的字符串。格式规则遵循 <a href="https://fmt.dev/11.1/syntax/#format-specification-mini-language">fmt 格式规范</a>。</p>
+<h2>语法</h2>
+<pre><code>FORMAT(&lt;format&gt;, &lt;args&gt;[, ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;format&gt;</code></td>
+<td>格式化字符串，包含格式占位符。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;args&gt;</code></td>
+<td>需要被格式化的参数（可以是多个）。类型：ANY</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为根据格式字符串格式化后的结果。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>格式字符串使用 <code>{}</code> 作为占位符</li>
+<li>支持位置参数（如 <code>{0}</code>, <code>{1}</code>）和命名参数</li>
+<li>支持各种格式选项（对齐、精度、填充等）</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：格式化数字精度</li>
+</ol>
+<pre><code>SELECT format('{:.2}', pi());
+</code></pre>
+<pre><code>+-----------------------+
+| format('{:.2}', pi()) |
++-----------------------+
+| 3.1                   |
++-----------------------+
+</code></pre>
+<ol>
+<li>多参数格式化</li>
+</ol>
+<pre><code>SELECT format('{0}-{1}', 'hello', 'world');
+</code></pre>
+<pre><code>+-------------------------------------+
+| format('{0}-{1}', 'hello', 'world') |
++-------------------------------------+
+| hello-world                         |
++-------------------------------------+
+</code></pre>
+<ol>
+<li>对齐和填充</li>
+</ol>
+<pre><code>SELECT format('{:&gt;10}', 123);
+</code></pre>
+<pre><code>+-----------------------+
+| format('{:&gt;10}', 123) |
++-----------------------+
+|        123            |
++-----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT format('{:.2}', NULL);
+</code></pre>
+<pre><code>+-----------------------+
+| format('{:.2}', NULL) |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符串处理</li>
+</ol>
+<pre><code>SELECT format('{0}-{1}', 'ṭṛṭṛ', 'ṭṛ');
+</code></pre>
+<pre><code>+---------------------------------------------+
+| format('{0}-{1}', 'ṭṛṭṛ', 'ṭṛ')             |
++---------------------------------------------+
+| ṭṛṭṛ-ṭṛ                                     |
++---------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/format/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

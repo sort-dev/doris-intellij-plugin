@@ -1,0 +1,96 @@
+<div class="definition"><pre>ST_GEOMETRYTYPE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回给定几何对象的类型名称（大写字符串）。用于识别几何图形的具体类型。</p>
+<h2>语法</h2>
+<pre><code>ST_GEOMETRYTYPE( &lt;shape&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;shape&gt;</code></td>
+<td>输入的几何图形，类型为 GEOMETRY 或可以转换为 GEOMETRY 的 VARCHAR（WKT 格式）。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 VARCHAR 类型的大写字符串，表示几何对象的类型。</p>
+<p><code>ST_GEOMETRYTYPE</code> 存在以下边缘情况：</p>
+<ul>
+<li>若输入参数为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+<li>若输入参数无法解析为有效的几何对象，返回 <code>NULL</code>。</li>
+<li>支持的几何类型及返回值示例如下：
+<ul>
+<li><code>POINT</code>: <code>"ST_POINT"</code></li>
+<li><code>LINESTRING</code>: <code>"ST_LINESTRING"</code></li>
+<li><code>POLYGON</code>: <code>"ST_POLYGON"</code></li>
+<li><code>MULTIPOLYGON</code>: <code>"ST_MULTIPOLYGON"</code></li>
+<li><code>CIRCLE</code> : <code>"ST_CIRCLE"</code></li>
+</ul>
+</li>
+</ul>
+<h2>举例</h2>
+<p><strong>点的类型</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE(ST_GeometryFromText('POINT(1 1)'));
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| ST_GEOMETRYTYPE(ST_GeometryFromText('POINT(1 1)')) |
++----------------------------------------------------+
+| ST_POINT                                           |
++----------------------------------------------------+
+</code></pre>
+<p><strong>线的类型</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE(ST_LineFromText("LINESTRING (1 1,2 2,3 3)"));
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| ST_GEOMETRYTYPE(ST_LineFromText("LINESTRING (1 1,2 2,3 3)")) |
++--------------------------------------------------------------+
+| ST_LINESTRING                                                |
++--------------------------------------------------------------+
+</code></pre>
+<p><strong>多边形的类型</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE(ST_GeometryFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))'));
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------------+
+| ST_GEOMETRYTYPE(ST_GeometryFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))')) |
++--------------------------------------------------------------------------------+
+| ST_POLYGON                                                                     |
++--------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>圆的类型 (Doris 扩展)</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE(ST_Circle(0, 0, 100));
+</code></pre>
+<pre><code>+---------------------------------------+
+| ST_GEOMETRYTYPE(ST_Circle(0, 0, 100)) |
++---------------------------------------+
+| ST_CIRCLE                             |
++---------------------------------------+
+</code></pre>
+<p><strong>无效参数（返回 NULL）</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE('NOT_A_GEOMETRY');
+</code></pre>
+<pre><code>+-----------------------------------+
+| ST_GEOMETRYTYPE('NOT_A_GEOMETRY') |
++-----------------------------------+
+| NULL                              |
++-----------------------------------+
+</code></pre>
+<p><strong>NULL 参数</strong></p>
+<pre><code>SELECT ST_GEOMETRYTYPE(NULL);
+</code></pre>
+<pre><code>+-----------------------+
+| ST_GEOMETRYTYPE(NULL) |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-geometrytype/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

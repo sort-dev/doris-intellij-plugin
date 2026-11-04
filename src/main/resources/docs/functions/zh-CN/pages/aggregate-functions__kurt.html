@@ -1,0 +1,68 @@
+<div class="definition"><pre>KURT,KURT_POP,KURTOSIS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>KURTOSIS 函数用于计算数据的<a href="https://en.wikipedia.org/wiki/Kurtosis">峰度值</a>。此函数使用的公式为 第四阶中心矩 / (方差的平方) - 3。</p>
+<h2>别名</h2>
+<p>KURT_POP,KURTOSIS</p>
+<h2>语法</h2>
+<pre><code>KURTOSIS(&lt;expr&gt;)
+KURT_POP(&lt;expr&gt;)
+KURT(&lt;expr&gt;)
+</code></pre>
+<h2>参数说明</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要获取值的表达式，支持类型为 Double 。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 DOUBLE 类型的值。
+当方差为零时，返回 NULL 。
+组内没有合法数据时，返回 NULL 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+create table statistic_test(
+    tag int,
+    val1 double,
+    val2 double
+) distributed by hash(tag) buckets 1
+properties ("replication_num"="1");
+insert into statistic_test values
+    (1, -10, -10),
+    (2, -20, null),
+    (3, 100, null),
+    (4, 100, null),
+    (5, 1000, 1000);
+</code></pre>
+<pre><code>select kurt(val1), kurt(val2) from statistic_test;
+</code></pre>
+<pre><code>+---------------------+------------+
+| kurt(val1)          | kurt(val2) |
++---------------------+------------+
+| 0.16212458373485106 |         -2 |
++---------------------+------------+
+</code></pre>
+<pre><code>select kurt(val1), kurt(val2) from statistic_test group by tag;
+</code></pre>
+<pre><code>+------------+------------+
+| kurt(val1) | kurt(val2) |
++------------+------------+
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
+|       NULL |       NULL |
++------------+------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/kurt/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

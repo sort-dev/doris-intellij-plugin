@@ -1,0 +1,136 @@
+<div class="definition"><pre>JSON_PARSE_ERROR_TO_NULL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>函数 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-parse/"><code>JSON_PARSE</code></a> 的变种。</p>
+<h2>相关函数的参数与用法</h2>
+<h2>描述</h2>
+<p>将原始 JSON 字符串解析成 JSON 二进制格式。为了满足不同的异常数据处理需求，提供不同的 JSON_PARSE 系列函数，具体如下：</p>
+<ul>
+<li><code>JSON_PARSE</code>  解析 JSON 字符串，当输入的字符串不是合法的 JSON 字符串时，报错。</li>
+<li><code>JSON_PARSE_ERROR_TO_NULL</code> 解析 JSON 字符串，当输入的字符串不是合法的 JSON 字符串时，返回 NULL。</li>
+<li><code>JSON_PARSE_ERROR_TO_VALUE</code> 解析 JSON 字符串，当输入的字符串不是合法的 JSON 字符串时，返回参数 default_json_value 指定的默认值。</li>
+</ul>
+<h2>语法</h2>
+<pre><code>JSON_PARSE (&lt;json_str&gt;)
+</code></pre>
+<pre><code>JSON_PARSE_ERROR_TO_NULL (&lt;json_str&gt;)
+</code></pre>
+<pre><code>JSON_PARSE_ERROR_TO_VALUE (&lt;json_str&gt;, &lt;default_json_value&gt;)
+</code></pre>
+<h2>参数</h2>
+<h3>必须参数</h3>
+<ul>
+<li><code>&lt;json_str&gt;</code> String 类型，其内容应是合法的 JSON 字符串。</li>
+</ul>
+<h3>可选参数</h3>
+<ul>
+<li><code>&lt;default_json_value&gt;</code> JSON 类型，可以是 NULL，当 <code>&lt;json_str&gt;</code> 解析失败时，<code>&lt;default_json_value&gt;</code> 作为默认值返回。</li>
+</ul>
+<h2>返回值</h2>
+<p><code>Nullable&lt;JSON&gt;</code> 返回解析后得到的 JSON 对象</p>
+<h2>使用说明</h2>
+<ol>
+<li>如果 <code>&lt;json_str&gt;</code> 是 NULL，得到的结果也是 NULL。</li>
+<li><code>JSON_PARSE</code>/<code>JSON_PARSE_ERROR_TO_NULL</code>/<code>JSON_PARSE_ERROR_TO_VALUE</code> 行为基本一致，只是在解析失败时得到的结果不同。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>正常 JSON 字符串解析<pre><code>SELECT json_parse('{"k1":"v31","k2":300}');
+</code></pre>
+<pre><code>+-------------------------------------+
+| json_parse('{"k1":"v31","k2":300}') |
++-------------------------------------+
+| {"k1":"v31","k2":300}               |
++-------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_null('{"k1":"v31","k2":300}');
+</code></pre>
+<pre><code>+---------------------------------------------------+
+| json_parse_error_to_null('{"k1":"v31","k2":300}') |
++---------------------------------------------------+
+| {"k1":"v31","k2":300}                             |
++---------------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value('{"k1":"v31","k2":300}','{}');
+</code></pre>
+<pre><code>+---------------------------------------------------------+
+| json_parse_error_to_value('{"k1":"v31","k2":300}','{}') |
++---------------------------------------------------------+
+| {"k1":"v31","k2":300}                                   |
++---------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value('{"k1":"v31","k2":300}', NULL);
+</code></pre>
+<pre><code>+----------------------------------------------------------+
+| json_parse_error_to_value('{"k1":"v31","k2":300}', NULL) |
++----------------------------------------------------------+
+| {"k1":"v31","k2":300}                                    |
++----------------------------------------------------------+
+</code></pre>
+</li>
+<li>非法 JSON 字符串解析<pre><code>SELECT json_parse('invalid json');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = [INVALID_ARGUMENT]Parse json document failed at row 0, error: [INTERNAL_ERROR]simdjson parse exception:
+</code></pre>
+<pre><code>SELECT json_parse_error_to_null('invalid json');
+</code></pre>
+<pre><code>+------------------------------------------+
+| json_parse_error_to_null('invalid json') |
++------------------------------------------+
+| NULL                                     |
++------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value('invalid json');
+</code></pre>
+<pre><code>+-------------------------------------------+
+| json_parse_error_to_value('invalid json') |
++-------------------------------------------+
+| {}                                        |
++-------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value('invalid json', '{"key": "default value"}');
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------+
+| json_parse_error_to_value('invalid json', '{"key": "default value"}') |
++-----------------------------------------------------------------------+
+| {"key":"default value"}                                               |
++-----------------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value('invalid json', NULL);
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| json_parse_error_to_value('invalid json', NULL) |
++-------------------------------------------------+
+| NULL                                            |
++-------------------------------------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>SELECT json_parse(NULL);
+</code></pre>
+<pre><code>+------------------+
+| json_parse(NULL) |
++------------------+
+| NULL             |
++------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_null(NULL);
+</code></pre>
+<pre><code>+--------------------------------+
+| json_parse_error_to_null(NULL) |
++--------------------------------+
+| NULL                           |
++--------------------------------+
+</code></pre>
+<pre><code>SELECT json_parse_error_to_value(NULL, '{}');
+</code></pre>
+<pre><code>+---------------------------------------+
+| json_parse_error_to_value(NULL, '{}') |
++---------------------------------------+
+| NULL                                  |
++---------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-parse-error-to-null/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

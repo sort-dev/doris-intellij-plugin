@@ -1,0 +1,87 @@
+<div class="definition"><pre>MAP_AGG</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MAP_AGG 函数用于根据多行数据中的键值对形成一个映射结构。</p>
+<p>对于相同的 key，<code>MAP_AGG</code> 保留聚合过程中先遇到的 value；如果 key 已存在，则忽略后来遇到的 value。合并局部聚合结果时，同样保留目标聚合状态中已有 key 的 value。</p>
+<p>这里的“先遇到”指执行时的处理顺序，不代表数据写入顺序。扫描、并行执行和局部聚合结果的合并顺序都可能影响最终保留的 value，因此重复 key 对应的 value 不保证在多次查询之间保持一致。查询外层的 <code>ORDER BY</code> 只对结果行排序，不能决定重复 key 保留哪个 value。</p>
+<h2>语法</h2>
+<pre><code>MAP_AGG(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数说明</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr1&gt;</code></td>
+<td>用于指定作为键的表达式, 支持类型为Bool，TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal，Date，Datetime，String。</td>
+</tr>
+<tr>
+<td><code>&lt;expr2&gt;</code></td>
+<td>用于指定作为对应的值的表达式, 支持类型为Bool，TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal，Date，Datetime，String。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回映射后的 Map 类型的值。
+如果组内不存在合法数据，则返回一个空 Map 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE nation (
+    n_nationkey INT,
+    n_name STRING,
+    n_regionkey INT
+) DISTRIBUTED BY HASH(n_nationkey) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO nation VALUES
+    (0, 'ALGERIA', 0),
+    (1, 'ARGENTINA', 1),
+    (2, 'BRAZIL', 1),
+    (3, 'CANADA', 1);
+</code></pre>
+<pre><code>select `n_regionkey`, map_agg(`n_nationkey`, `n_name`) from `nation` group by `n_regionkey`;
+</code></pre>
+<pre><code>+-------------+-----------------------------------------+
+| n_regionkey | map_agg(`n_nationkey`, `n_name`)        |
++-------------+-----------------------------------------+
+|           0 | {0:"ALGERIA"}                           |
+|           1 | {1:"ARGENTINA", 2:"BRAZIL", 3:"CANADA"} |
++-------------+-----------------------------------------+
+</code></pre>
+<pre><code>select map_agg(`n_name`, `n_nationkey` % 5) from `nation`;
+</code></pre>
+<pre><code>+------------------------------------------------------+
+| map_agg(`n_name`, `n_nationkey` % 5)                 |
++------------------------------------------------------+
+| {"ALGERIA":0, "ARGENTINA":1, "BRAZIL":2, "CANADA":3} |
++------------------------------------------------------+
+</code></pre>
+<pre><code>select map_agg(`n_name`, `n_nationkey` % 5) from `nation` where n_nationkey is null;
+</code></pre>
+<pre><code>+--------------------------------------+
+| map_agg(`n_name`, `n_nationkey` % 5) |
++--------------------------------------+
+| {}                                   |
++--------------------------------------+
+</code></pre>
+<p>下面的查询包含两个相同的 key，结果只包含一个键值对。输出可能为 <code>{1:"a"}</code> 或 <code>{1:"b"}</code>，取决于执行时先处理哪个 value。以下是一种可能的输出：</p>
+<pre><code>SELECT MAP_AGG(k, v) AS result
+FROM (
+    SELECT 1 AS k, 'a' AS v
+    UNION ALL
+    SELECT 1 AS k, 'b' AS v
+) AS input;
+</code></pre>
+<pre><code>+---------+
+| result  |
++---------+
+| {1:"a"} |
++---------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/map-agg/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

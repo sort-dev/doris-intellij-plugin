@@ -1,0 +1,110 @@
+<div class="definition"><pre>MULTI_SEARCH_ALL_POSITIONS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MULTI_SEARCH_ALL_POSITIONS 函数用于在字符串中批量查找多个子串的位置。返回一个数组，包含每个子串首次出现的位置。查找是大小写敏感的。</p>
+<h2>语法</h2>
+<pre><code>MULTI_SEARCH_ALL_POSITIONS(&lt;haystack&gt;, &lt;needles&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;haystack&gt;</code></td>
+<td>需要搜索的目标字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;needles&gt;</code></td>
+<td>包含多个待查找子串的数组。类型：ARRAY&lt;VARCHAR&gt;</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 ARRAY&lt;INT&gt; 类型，数组中第 i 个元素表示 <code>&lt;needles&gt;</code> 中第 i 个子串在 <code>&lt;haystack&gt;</code> 中首次出现的位置。</p>
+<p>特殊情况：</p>
+<ul>
+<li>位置从 1 开始计数</li>
+<li>如果子串未找到，对应位置返回 0</li>
+<li>查找是大小写敏感的</li>
+<li>如果 <code>&lt;haystack&gt;</code> 为 NULL，返回与 <code>&lt;needles&gt;</code> 长度相同、元素均为 0 的数组</li>
+<li>如果 <code>&lt;needles&gt;</code> 为 NULL，返回空数组 <code>[]</code>，包括两个参数均为 NULL 的情况</li>
+<li>返回的是字节位置，不是第 n 个字符位置</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：查找多个子串</li>
+</ol>
+<pre><code>SELECT multi_search_all_positions('Hello, World!', ['Hello', 'World']);
+</code></pre>
+<pre><code>+----------------------------------------------------------+
+| multi_search_all_positions('Hello, World!', ['Hello', 'World']) |
++----------------------------------------------------------+
+| [1, 8]                                                   |
++----------------------------------------------------------+
+</code></pre>
+<ol>
+<li>大小写敏感：小写未找到</li>
+</ol>
+<pre><code>SELECT multi_search_all_positions('Hello, World!', ['hello', '!', 'world']);
+</code></pre>
+<pre><code>+----------------------------------------------------------------------+
+| multi_search_all_positions('Hello, World!', ['hello', '!', 'world']) |
++----------------------------------------------------------------------+
+| [0, 13, 0]                                                           |
++----------------------------------------------------------------------+
+</code></pre>
+<ol>
+<li>混合查找：部分找到</li>
+</ol>
+<pre><code>SELECT multi_search_all_positions('Hello, World!', ['Hello', '!', 'xyz']);
+</code></pre>
+<pre><code>+--------------------------------------------------------------------+
+| multi_search_all_positions('Hello, World!', ['Hello', '!', 'xyz']) |
++--------------------------------------------------------------------+
+| [1, 13, 0]                                                         |
++--------------------------------------------------------------------+
+</code></pre>
+<ol>
+<li>空数组</li>
+</ol>
+<pre><code>SELECT multi_search_all_positions('Hello', []);
+</code></pre>
+<pre><code>+------------------------------------------+
+| multi_search_all_positions('Hello', [])  |
++------------------------------------------+
+| []                                       |
++------------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT multi_search_all_positions('ṭṛì ḍḍumai Hello', ['ṭṛì', 'Hello', 'test']);
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------------------+
+| multi_search_all_positions('ṭṛì ḍḍumai Hello', ['ṭṛì', 'Hello', 'test'])               |
++----------------------------------------------------------------------------------------+
+| [1, 21, 0]                                                                             |
++----------------------------------------------------------------------------------------+
+</code></pre>
+<p>NULL 输入：</p>
+<pre><code>SELECT multi_search_all_positions(NULL, ['a', 'b']) AS null_haystack,
+       multi_search_all_positions('a', NULL) AS null_needles,
+       multi_search_all_positions(NULL, NULL) AS both_null;
+</code></pre>
+<pre><code>+---------------+--------------+-----------+
+| null_haystack | null_needles | both_null |
++---------------+--------------+-----------+
+| [0, 0]        | []           | []        |
++---------------+--------------+-----------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>MULTI_SEARCH,SEARCH,POSITIONS
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/multi-search-all-positions/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

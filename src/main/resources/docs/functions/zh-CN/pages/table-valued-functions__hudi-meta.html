@@ -1,0 +1,73 @@
+<div class="definition"><pre>HUDI_META</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>hudi_meta</code> 表函数（table-valued-function,tvf），可以用于读取 hudi 表的各类元数据信息，如操作历史、表的时间线、文件元数据等。</p>
+<p>该函数自 3.1.0 版本支持。</p>
+<h2>语法</h2>
+<pre><code>HUDI_META(
+    "table" = "&lt;table&gt;", 
+    "query_type" = "&lt;query_type&gt;"
+  );
+</code></pre>
+<h2>必填参数</h2>
+<p><code>hudi_meta</code> 表函数 tvf 中的每一个参数都是一个 <code>"key"="value"</code> 对</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;table&gt;</code></td>
+<td>完整的表名，需要按照目录名。库名。表名的格式，填写需要查看的 Hudi 表名。</td>
+</tr>
+<tr>
+<td><code>&lt;query_type&gt;</code></td>
+<td>想要查看的元数据类型，目前仅支持 <code>timeline</code>。</td>
+</tr>
+</tbody>
+</table>
+<h2>示例（Examples）</h2>
+<ul>
+<li>
+<p>读取并访问 hudi 表格式的 timeline 元数据。</p>
+<pre><code>select * from hudi_meta("table" = "ctl.db.tbl", "query_type" = "timeline");
+
+</code></pre>
+</li>
+<li>
+<p>可以配合<code>desc function</code>使用</p>
+<pre><code>desc function hudi_meta("table" = "ctl.db.tbl", "query_type" = "timeline");
+</code></pre>
+</li>
+<li>
+<p>查看 hudi 表的 timeline</p>
+<pre><code>select * from hudi_meta("table" = "hudi_ctl.test_db.test_tbl", "query_type" = "timeline");
+</code></pre>
+<pre><code>+-------------------+--------+--------------------------+-----------+-----------------------+
+| timestamp         | action | file_name                | state     | state_transition_time |
++-------------------+--------+--------------------------+-----------+-----------------------+
+| 20240724195843565 | commit | 20240724195843565.commit | COMPLETED | 20240724195844269     |
+| 20240724195845718 | commit | 20240724195845718.commit | COMPLETED | 20240724195846653     |
+| 20240724195848377 | commit | 20240724195848377.commit | COMPLETED | 20240724195849337     |
+| 20240724195850799 | commit | 20240724195850799.commit | COMPLETED | 20240724195851676     |
++-------------------+--------+--------------------------+-----------+-----------------------+
+</code></pre>
+</li>
+<li>
+<p>根据 timestamp 字段筛选</p>
+<pre><code>select * from hudi_meta("table" = "hudi_ctl.test_db.test_tbl", "query_type" = "timeline") where timestamp = 20240724195843565;
+</code></pre>
+<pre><code>+-------------------+--------+--------------------------+-----------+-----------------------+
+| timestamp         | action | file_name                | state     | state_transition_time |
++-------------------+--------+--------------------------+-----------+-----------------------+
+| 20240724195843565 | commit | 20240724195843565.commit | COMPLETED | 20240724195844269     |
++-------------------+--------+--------------------------+-----------+-----------------------+
+</code></pre>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/hudi-meta/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

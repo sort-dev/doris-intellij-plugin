@@ -1,0 +1,58 @@
+<div class="definition"><pre>ARRAY_AGG</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一列中的值（包括空值 null）串联成一个数组，可以用于多行转一行（行转列）。</p>
+<h2>语法</h2>
+<pre><code>ARRAY_AGG(&lt;col&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;col&gt;</code></td>
+<td>确定要放入数组的值的表达式，支持类型为 Bool，TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal，Date，Datetime，Timestamptz，IPV4，IPV6，String，Array，Map，Struct。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 ARRAY 类型的值，特殊情况：</p>
+<ul>
+<li>数组中元素不保证顺序。</li>
+<li>返回转换生成的数组。数组中的元素类型与 <code>col</code> 类型一致。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE test_doris_array_agg (
+	c1 INT,
+	c2 INT
+) DISTRIBUTED BY HASH(c1) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO test_doris_array_agg VALUES (1, 10), (1, 20), (1, 30), (2, 100), (2, 200), (3, NULL);
+</code></pre>
+<pre><code>select c1, array_agg(c2) from test_doris_array_agg group by c1;
+</code></pre>
+<pre><code>+------+---------------+
+| c1   | array_agg(c2) |
++------+---------------+
+|    1 | [10, 20, 30]  |
+|    2 | [100, 200]    |
+|    3 | [null]        |
++------+---------------+
+</code></pre>
+<pre><code>select array_agg(c2) from test_doris_array_agg where c1 is null;
+</code></pre>
+<pre><code>+---------------+
+| array_agg(c2) |
++---------------+
+| []            |
++---------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/array-agg/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,70 @@
+<div class="definition"><pre>IF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>如果表达式 <code>&lt;condition&gt;</code> 成立，则返回 <code>&lt;value_true&gt;</code>；否则返回 <code>&lt;value_false_or_null&gt;</code>。<br>
+返回类型：<code>&lt;value_true&gt;</code> 表达式的结果类型。</p>
+<h2>语法</h2>
+<pre><code>IF(&lt;condition&gt;, &lt;value_true&gt;, &lt;value_false_or_null&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;condition&gt;</code> Boolean 类型，用于判断条件是否成立的表达式。</li>
+<li><code>&lt;value_true&gt;</code> 当 <code>&lt;condition&gt;</code> 为真时返回的值。</li>
+<li><code>&lt;value_false_or_null&gt;</code> 当 <code>&lt;condition&gt;</code> 为假或者 NULl 时返回的值。</li>
+</ul>
+<h2>举例</h2>
+<ol>
+<li>
+<p>准备数据</p>
+<pre><code>create table test_if(
+    user_id int
+) properties('replication_num' = '1');
+insert into test_if values(1),(2),(null);
+</code></pre>
+</li>
+<li>
+<p>示例 1</p>
+<pre><code>SELECT user_id, IF(user_id = 1, "true", "false") AS test_if FROM test_if;
+</code></pre>
+<pre><code>+---------+---------+
+| user_id | test_if |
++---------+---------+
+|    NULL | false   |
+|       1 | true    |
+|       2 | false   |
++---------+---------+
+</code></pre>
+</li>
+<li>
+<p>类型转换</p>
+<pre><code>SELECT user_id, IF(user_id = 1, 2, 3.14) AS test_if FROM test_if;
+</code></pre>
+<pre><code>+---------+---------+
+| user_id | test_if |
++---------+---------+
+|    NULL |    3.14 |
+|       1 |    2.00 |
+|       2 |    3.14 |
++---------+---------+
+</code></pre>
+<blockquote>
+<p>第二个参数 "2" 被转换为第三个参数 "3.14" 的类型（Decimal）。</p>
+</blockquote>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>SELECT user_id, IF(user_id = 1, 2, NULL) AS test_if FROM test_if;
+</code></pre>
+<pre><code>+---------+---------+
+| user_id | test_if |
++---------+---------+
+|    NULL |    NULL |
+|       1 |       2 |
+|       2 |    NULL |
++---------+---------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/conditional-functions/if/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

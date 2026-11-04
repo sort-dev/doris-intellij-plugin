@@ -1,0 +1,21 @@
+<div class="definition"><pre>HLL_EMPTY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>HLL_EMPTY</code> 用于返回一个 HLL（HyperLogLog）类型的空值，表示一个没有任何元素的数据集合。</p>
+<h2>语法</h2>
+<pre><code>HLL_EMPTY()
+</code></pre>
+<h2>返回值</h2>
+<p>返回一个 HLL 类型的空值，表示一个没有任何元素的数据集合。</p>
+<h2>举例</h2>
+<pre><code>select hll_cardinality(hll_empty());
+</code></pre>
+<pre><code>+------------------------------+
+| hll_cardinality(hll_empty()) |
++------------------------------+
+|                            0 |
++------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/hll-functions/hll-empty/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,78 @@
+<div class="definition"><pre>CONV</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>对输入的数字进行进制转换</p>
+<h2>语法</h2>
+<pre><code>CONV(&lt;input&gt;, &lt;from_base&gt;, &lt;to_base&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;input&gt;</code></td>
+<td>需要进行进制转换的参数，可为字符串或整数</td>
+</tr>
+<tr>
+<td><code>&lt;from_base&gt;</code></td>
+<td>数字，原始进制，范围应在 <code>[2,36]</code> 以内</td>
+</tr>
+<tr>
+<td><code>&lt;to_base&gt;</code></td>
+<td>数字，目标进制，范围应在 <code>[2,36]</code> 以内</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>转换后目标进制 <code>&lt;to_base&gt;</code> 下的数字，以字符串形式返回。
+任意一个输入参数为 NULL 时，返回 NULL。
+如果&lt;from_base&gt;，&lt;to_base&gt;不满足范围限制，返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>SELECT CONV(15,10,2);
+</code></pre>
+<pre><code>+-----------------+
+| conv(15, 10, 2) |
++-----------------+
+| 1111            |
++-----------------+
+</code></pre>
+<pre><code>SELECT CONV('ff',16,10);
+</code></pre>
+<pre><code>+--------------------+
+| conv('ff', 16, 10) |
++--------------------+
+| 255                |
++--------------------+
+</code></pre>
+<pre><code>SELECT CONV(230,10,16);
+</code></pre>
+<pre><code>+-------------------+
+| conv(230, 10, 16) |
++-------------------+
+| E6                |
++-------------------+
+</code></pre>
+<pre><code>SELECT CONV(230,10,NULL);
+</code></pre>
+<pre><code>+-------------------+
+| CONV(230,10,NULL) |
++-------------------+
+| NULL              |
++-------------------+
+</code></pre>
+<pre><code>SELECT CONV(230,10,56);
+</code></pre>
+<pre><code>+-----------------+
+| CONV(230,10,56) |
++-----------------+
+| NULL            |
++-----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/conv/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

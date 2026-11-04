@@ -1,0 +1,263 @@
+<div class="definition"><pre>TASKS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>表函数，生成 tasks 临时表，可以查看当前 doris 集群中的 job 产生的 tasks 信息。</p>
+<h2>语法</h2>
+<pre><code>TASKS(
+    "type"="&lt;type&gt;"
+)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>&lt;type&gt;</code></strong></td>
+<td>任务的类型：<br> <code>insert</code>：insert into 类型的任务。 <br> <code>mv</code>：物化视图类型的任务。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>该表函数返回 0 行或多行结果。函数本身不返回 NULL；当对应 task 元数据不可用时，部分字段可能为空、<code>NULL</code> 或 <code>\N</code>。</p>
+<ul>
+<li>
+<p><strong><code>tasks("type"="insert")</code></strong> insert 类型的 tasks 返回值</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TaskId</strong></td>
+<td>task id</td>
+</tr>
+<tr>
+<td><strong>JobId</strong></td>
+<td>job id</td>
+</tr>
+<tr>
+<td><strong>JobName</strong></td>
+<td>job 名称</td>
+</tr>
+<tr>
+<td><strong>Label</strong></td>
+<td>label</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>task 状态</td>
+</tr>
+<tr>
+<td><strong>ErrorMsg</strong></td>
+<td>task 失败信息</td>
+</tr>
+<tr>
+<td><strong>CreateTime</strong></td>
+<td>task 创建时间</td>
+</tr>
+<tr>
+<td><strong>FinishTime</strong></td>
+<td>task 结束时间</td>
+</tr>
+<tr>
+<td><strong>TrackingUrl</strong></td>
+<td>task tracking url</td>
+</tr>
+<tr>
+<td><strong>LoadStatistic</strong></td>
+<td>task 统计信息</td>
+</tr>
+<tr>
+<td><strong>User</strong></td>
+<td>执行用户</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p><strong><code>tasks("type"="mv")</code></strong> MV 类型的 tasks 返回值</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TaskId</strong></td>
+<td>刷新任务的唯一 ID。每次物化视图刷新都会生成一条新的 task 记录。</td>
+</tr>
+<tr>
+<td><strong>JobId</strong></td>
+<td>生成该 task 的 job ID，对应 <code>jobs("type"="mv").Id</code>。</td>
+</tr>
+<tr>
+<td><strong>JobName</strong></td>
+<td>生成该 task 的 job 名称，对应 <code>mv_infos("database"="...").JobName</code> 和 <code>jobs("type"="mv").Name</code>。</td>
+</tr>
+<tr>
+<td><strong>MvId</strong></td>
+<td>该 task 刷新的物化视图 ID。</td>
+</tr>
+<tr>
+<td><strong>MvName</strong></td>
+<td>该 task 刷新的物化视图名称。</td>
+</tr>
+<tr>
+<td><strong>MvDatabaseId</strong></td>
+<td>物化视图所属数据库 ID。</td>
+</tr>
+<tr>
+<td><strong>MvDatabaseName</strong></td>
+<td>物化视图所属数据库名称。</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>task 状态。可取值：<code>PENDING</code> 表示等待运行；<code>RUNNING</code> 表示正在运行；<code>SUCCESS</code> 表示运行成功；<code>FAILED</code> 表示运行失败；<code>CANCELED</code> 表示已取消。</td>
+</tr>
+<tr>
+<td><strong>ErrorMsg</strong></td>
+<td>当 <code>Status</code> 为 <code>FAILED</code> 或 <code>CANCELED</code> 时记录错误信息；运行成功时通常为空。</td>
+</tr>
+<tr>
+<td><strong>CreateTime</strong></td>
+<td>task 记录创建时间。</td>
+</tr>
+<tr>
+<td><strong>StartTime</strong></td>
+<td>task 开始运行时间。如果 task 尚未开始，可能为 <code>\N</code>。</td>
+</tr>
+<tr>
+<td><strong>FinishTime</strong></td>
+<td>task 结束时间。如果 task 仍在等待或运行，可能为 <code>\N</code>。</td>
+</tr>
+<tr>
+<td><strong>DurationMs</strong></td>
+<td>task 运行耗时，单位毫秒，按 <code>FinishTime - StartTime</code> 计算。如果 task 尚未结束，可能为 <code>\N</code>。</td>
+</tr>
+<tr>
+<td><strong>TaskContext</strong></td>
+<td>task 触发方式和用户刷新参数的 JSON 字符串。常见字段包括 <code>triggerMode</code>、<code>partitions</code> 和 <code>isComplete</code>。<code>triggerMode</code> 可取值为 <code>MANUAL</code>、<code>COMMIT</code>、<code>SYSTEM</code>。</td>
+</tr>
+<tr>
+<td><strong>RefreshMode</strong></td>
+<td>该 task 实际执行的刷新范围。可取值：<code>COMPLETE</code> 表示刷新全部物化视图分区；<code>PARTIAL</code> 表示只刷新部分分区；<code>NOT_REFRESH</code> 表示没有分区需要刷新。</td>
+</tr>
+<tr>
+<td><strong>NeedRefreshPartitions</strong></td>
+<td>JSON 数组，记录本次 task 需要刷新的物化视图分区。空数组表示没有分区需要刷新。</td>
+</tr>
+<tr>
+<td><strong>CompletedPartitions</strong></td>
+<td>JSON 数组，记录本次 task 已成功刷新的分区。可与 <code>NeedRefreshPartitions</code> 对比判断是否全部完成。</td>
+</tr>
+<tr>
+<td><strong>Progress</strong></td>
+<td>task 刷新进度，格式为 <code>百分比 (已完成分区数/需刷新分区数)</code>，例如 <code>100.00% (1/1)</code>。没有分区需要刷新时可能为 <code>\N</code>。</td>
+</tr>
+<tr>
+<td><strong>LastQueryId</strong></td>
+<td>刷新 task 执行 SQL 的 query ID。排查 task 失败或耗时时，可用该 ID 搜索 FE 或 BE 日志。没有执行刷新 SQL 时可能为空。该字段从 Doris 3.0.0 开始支持。</td>
+</tr>
+</tbody>
+</table>
+</li>
+</ul>
+<h3>MV task 枚举字段说明</h3>
+<p>查看物化视图刷新 task 时，下面这些枚举字段最常用：</p>
+<ul>
+<li><code>Status</code>：task 生命周期状态。
+<ul>
+<li><code>PENDING</code>：task 已创建，但还没有开始执行，正在等待调度或资源。</li>
+<li><code>RUNNING</code>：task 正在执行。</li>
+<li><code>SUCCESS</code>：task 执行成功。</li>
+<li><code>FAILED</code>：task 执行失败。优先查看 <code>ErrorMsg</code>；如果 <code>LastQueryId</code> 不为空，可以用它搜索日志。</li>
+<li><code>CANCELED</code>：task 在完成前被取消。</li>
+</ul>
+</li>
+<li><code>TaskContext.triggerMode</code>：该 task 是因为什么原因创建的。
+<ul>
+<li><code>MANUAL</code>：由手动刷新命令创建，例如 <code>REFRESH MATERIALIZED VIEW</code>。</li>
+<li><code>COMMIT</code>：由相关基表数据变更触发创建。</li>
+<li><code>SYSTEM</code>：由系统内部动作创建，例如创建物化视图时的初始构建。</li>
+</ul>
+</li>
+<li><code>TaskContext.isComplete</code>：刷新请求是否要求全量刷新。
+<ul>
+<li><code>true</code>：请求 Doris 刷新全部物化视图分区。</li>
+<li><code>false</code>：请求不强制全量刷新，Doris 可以根据分区新鲜度判断实际刷新范围。</li>
+</ul>
+</li>
+<li><code>RefreshMode</code>：task 检查分区后选择的实际刷新范围。
+<ul>
+<li><code>COMPLETE</code>：选择刷新该物化视图的全部分区。</li>
+<li><code>PARTIAL</code>：只选择刷新部分物化视图分区。</li>
+<li><code>NOT_REFRESH</code>：没有分区需要刷新。此时 <code>NeedRefreshPartitions</code> 通常为空，<code>Progress</code> 可能为 <code>\N</code>。</li>
+</ul>
+</li>
+</ul>
+<p><code>LastQueryId</code> 从 Doris 3.0.0 开始支持，Doris 2.1.x 没有该字段。</p>
+<h2>示例</h2>
+<p>查看某个物化视图最近一次刷新 task。</p>
+<pre><code>select *
+from tasks("type"="mv")
+where MvDatabaseName = "test" and MvName = "mv1"
+order by CreateTime desc
+limit 1\G
+</code></pre>
+<pre><code>*************************** 1. row ***************************
+               TaskId: 437156301250803
+                JobId: 19508
+              JobName: inner_mtmv_19494
+                 MvId: 19494
+               MvName: mv1
+         MvDatabaseId: 16016
+       MvDatabaseName: test
+               Status: SUCCESS
+             ErrorMsg:
+           CreateTime: 2025-01-07 22:13:48
+            StartTime: 2025-01-07 22:13:48
+           FinishTime: 2025-01-07 22:17:45
+           DurationMs: 236985
+          TaskContext: {"triggerMode":"MANUAL","partitions":[],"isComplete":false}
+          RefreshMode: COMPLETE
+NeedRefreshPartitions: ["p_20210101_MAXVALUE","p_20200101_20210101"]
+  CompletedPartitions: ["p_20210101_MAXVALUE","p_20200101_20210101"]
+             Progress: 100.00% (2/2)
+          LastQueryId: 7965b4ddce8a4480-8884e9701679c1c4
+</code></pre>
+<p>该结果中：</p>
+<ul>
+<li><code>TaskId</code> 表示这次刷新执行的唯一 ID。每次刷新都会生成不同的 task。</li>
+<li><code>JobId</code> 和 <code>JobName</code> 标识该 task 所属的物化视图刷新 job。可以通过 <code>select * from jobs("type"="mv") where Name = "inner_mtmv_19494";</code> 查询 job。</li>
+<li><code>MvId</code>、<code>MvName</code>、<code>MvDatabaseId</code>、<code>MvDatabaseName</code> 标识该 task 刷新的物化视图。</li>
+<li><code>Status</code> 为 <code>SUCCESS</code>，表示 task 执行成功。如果为 <code>FAILED</code>，优先查看 <code>ErrorMsg</code>。</li>
+<li><code>CreateTime</code>、<code>StartTime</code>、<code>FinishTime</code>、<code>DurationMs</code> 分别表示 task 创建时间、开始运行时间、结束时间和运行耗时。</li>
+<li><code>TaskContext</code> 表示该 task 是手动触发的。<code>partitions: []</code> 表示刷新命令没有指定分区列表。</li>
+<li><code>RefreshMode</code> 为 <code>COMPLETE</code>，表示本次 task 刷新了该物化视图需要刷新的全部分区。</li>
+<li><code>NeedRefreshPartitions</code> 列出本次需要刷新的两个分区，<code>CompletedPartitions</code> 列出同样两个分区，说明需要刷新的分区都已完成。</li>
+<li><code>Progress</code> 为 <code>100.00% (2/2)</code>，也表示两个需要刷新的分区都已完成。</li>
+<li><code>LastQueryId</code> 是刷新 SQL 的 query ID。排查 task 失败或耗时时，可以用该 ID 搜索 Doris 日志。</li>
+</ul>
+<p>task 记录默认保存和展示数量由 FE 配置项 <code>max_persistence_task_count</code> 控制，默认值为 100。超过该数量时，旧 task 记录会被丢弃。如果该值小于 1，则不持久化 task 记录。修改该配置后需要重启 FE 生效。</p>
+<p>查看所有 insert 任务的 tasks</p>
+<pre><code>select * from tasks("type"="insert");
+</code></pre>
+<pre><code>+----------------+----------------+----------------+-------------------------------+---------+----------+---------------------+---------------------+---------------------+-------------+---------------+------+
+| TaskId         | JobId          | JobName        | Label                         | Status  | ErrorMsg | CreateTime          | StartTime           | FinishTime          | TrackingUrl | LoadStatistic | User |
++----------------+----------------+----------------+-------------------------------+---------+----------+---------------------+---------------------+---------------------+-------------+---------------+------+
+| 79133848479750 | 78533940810334 | insert_tab_job | 78533940810334_79133848479750 | SUCCESS |          | 2025-01-17 14:42:54 | 2025-01-17 14:42:54 | 2025-01-17 14:42:54 |             |               | root |
++----------------+----------------+----------------+-------------------------------+---------+----------+---------------------+---------------------+---------------------+-------------+---------------+------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/tasks/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

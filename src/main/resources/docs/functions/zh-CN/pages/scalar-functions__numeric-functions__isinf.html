@@ -1,0 +1,53 @@
+<div class="definition"><pre>ISINF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断指定的值是否为无穷大。</p>
+<h2>语法</h2>
+<pre><code>ISINF(&lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>要检查的值，DOUBLE 或 FLOAT 类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>如果值是无穷大（正无穷或负无穷），则返回 1，否则返回 0。
+如果值为 NULL，则返回 NULL。</p>
+<h2>示例</h2>
+<pre><code>SELECT isinf(1);
+</code></pre>
+<pre><code>+----------+
+| isinf(1) |
++----------+
+|        0 |
++----------+
+</code></pre>
+<pre><code>SELECT cast('inf' as double),isinf(cast('inf' as double))
+</code></pre>
+<pre><code>+-----------------------+------------------------------+
+| cast('inf' as double) | isinf(cast('inf' as double)) |
++-----------------------+------------------------------+
+|              Infinity |                            1 |
++-----------------------+------------------------------+
+</code></pre>
+<pre><code>SELECT isinf(NULL)
+</code></pre>
+<pre><code>+-------------+
+| isinf(NULL) |
++-------------+
+|        NULL |
++-------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/isinf/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

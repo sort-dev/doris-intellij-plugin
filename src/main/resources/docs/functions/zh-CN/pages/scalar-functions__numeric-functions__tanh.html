@@ -1,0 +1,67 @@
+<div class="definition"><pre>TANH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 x 的双曲正切值。</p>
+<h2>语法</h2>
+<pre><code>TANH(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要被计算双曲正切值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数 x 的双曲正切值。</p>
+<h2>特殊情况</h2>
+<ul>
+<li>当 <code>x</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为正无穷，返回 <code>1</code></li>
+<li>当 <code>x</code> 为负无穷，返回 <code>-1</code></li>
+<li>当 <code>x</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select tanh(0),tanh(1);
+</code></pre>
+<pre><code>+-------------------------+-------------------------+
+| tanh(cast(0 as DOUBLE)) | tanh(cast(1 as DOUBLE)) |
++-------------------------+-------------------------+
+|                       0 |      0.7615941559557649 |
++-------------------------+-------------------------+
+</code></pre>
+<pre><code>select tanh(cast('nan' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| tanh(cast('nan' AS DOUBLE))|
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<pre><code>select tanh(cast('inf' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| tanh(cast('inf' AS DOUBLE))|
++----------------------------+
+| 1                          |
++----------------------------+
+</code></pre>
+<pre><code>select tanh(cast('-inf' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| tanh(cast('-inf' AS DOUBLE))|
++-----------------------------+
+| -1                          |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/tanh/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

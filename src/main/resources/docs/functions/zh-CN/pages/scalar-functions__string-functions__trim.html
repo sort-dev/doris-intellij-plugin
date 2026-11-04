@@ -1,0 +1,152 @@
+<div class="definition"><pre>TRIM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TRIM 函数用于删除字符串两端的空格或指定字符。如果不指定删除字符，默认删除空格。</p>
+<h2>语法</h2>
+<pre><code>TRIM(&lt;str&gt;[, &lt;rhs&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要处理的原字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;rhs&gt;</code></td>
+<td>可选参数，指定要删除的字符。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为删除两端指定字符后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果不指定 <code>&lt;rhs&gt;</code>，默认删除两端的空格</li>
+<li>如果指定 <code>&lt;rhs&gt;</code>，删除两端连续出现的该字符</li>
+<li>只删除字符串两端的字符，不影响中间部分</li>
+<li>如果任意参数为 NULL，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：删除空格</li>
+</ol>
+<pre><code>SELECT trim('   hello   ');
+</code></pre>
+<pre><code>+---------------------+
+| trim('   hello   ') |
++---------------------+
+| hello               |
++---------------------+
+</code></pre>
+<ol>
+<li>删除指定字符</li>
+</ol>
+<pre><code>SELECT trim('xxxhelloxxx', 'x');
+</code></pre>
+<pre><code>+------------------------------+
+| trim('xxxhelloxxx', 'x')     |
++------------------------------+
+| hello                        |
++------------------------------+
+</code></pre>
+<ol>
+<li>中间的字符不受影响</li>
+</ol>
+<pre><code>SELECT trim('   ab d   ');
+</code></pre>
+<pre><code>+--------------------+
+| trim('   ab d   ') |
++--------------------+
+| ab d               |
++--------------------+
+</code></pre>
+<ol>
+<li>删除多字符模式</li>
+</ol>
+<pre><code>SELECT trim('ababccaab', 'ab');
+</code></pre>
+<pre><code>+-------------------------+
+| trim('ababccaab', 'ab') |
++-------------------------+
+| cca                     |
++-------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT trim('ṭṛì ḍḍumai+++', 'ṭṛì');
+</code></pre>
+<pre><code>+--------------------------------------------+
+| trim('ṭṛì ḍḍumai+++', 'ṭṛì')               |
++--------------------------------------------+
+|  ḍḍumai+++                                 |
++--------------------------------------------+
+</code></pre>
+<ol>
+<li>输入 NULL</li>
+</ol>
+<pre><code>SELECT trim(NULL);
+</code></pre>
+<pre><code>+------------+
+| trim(NULL) |
++------------+
+| NULL       |
++------------+
+</code></pre>
+<ol>
+<li>空字符</li>
+</ol>
+<pre><code>SELECT trim('xxxhelloxxx', ''), trim('', 'x');
+</code></pre>
+<pre><code>+-------------------------+---------------+
+| trim('xxxhelloxxx', '') | trim('', 'x') |
++-------------------------+---------------+
+| xxxhelloxxx             |               |
++-------------------------+---------------+
+</code></pre>
+<ol>
+<li>前后缀不匹配，原样返回</li>
+</ol>
+<pre><code>SELECT trim('Hello World', 'xyz');
+</code></pre>
+<pre><code>+----------------------------+
+| trim('Hello World', 'xyz') |
++----------------------------+
+| Hello World                |
++----------------------------+
+</code></pre>
+<ol>
+<li>重复模式：从两端反复剥除，直到两端都不再以 <code>&lt;rhs&gt;</code> 起止</li>
+</ol>
+<pre><code>SELECT trim('abcabcabc', 'abc');
+</code></pre>
+<pre><code>+--------------------------+
+| trim('abcabcabc', 'abc') |
++--------------------------+
+|                          |
++--------------------------+
+</code></pre>
+<ol>
+<li>两端对称剥除：当 <code>&lt;rhs&gt;</code> 同时出现在两端时一次性都去掉，中间保留</li>
+</ol>
+<pre><code>SELECT trim('abcHelloabc', 'abc');
+</code></pre>
+<pre><code>+----------------------------+
+| trim('abcHelloabc', 'abc') |
++----------------------------+
+| Hello                      |
++----------------------------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>TRIM
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/trim/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

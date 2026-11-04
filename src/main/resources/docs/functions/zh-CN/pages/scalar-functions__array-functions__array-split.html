@@ -1,0 +1,66 @@
+<div class="definition"><pre>ARRAY_SPLIT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p>按给定的布尔标记把输入的数组切分为多个子数组。</p>
+<ul>
+<li>切分规则（从前向后）：对 <code>arr=[a1,a2,...,an]</code> 与 <code>flags=[f1,f2,...,fn]</code>，在每个 <code>fi==true</code> 的位置，于 <code>ai</code> 与 <code>a(i-1)</code> 之间断开。
+<ul>
+<li>例如 <code>arr=[3, 4, 5]</code>,<code>flags=[false, true, false]</code>, <code>flags</code> 第二个为true，在第一个元素和第二元素之间断开，分成两个子数组 <code>[3]</code> 和 <code>[4,5]</code>。</li>
+</ul>
+</li>
+</ul>
+<h2>语法</h2>
+<ul>
+<li><code>ARRAY_SPLIT(arr, flags)</code></li>
+<li><code>ARRAY_SPLIT(lambda, arr0, ...)</code></li>
+<li><code>ARRAY_SPLIT(lambda, arr0, ...)</code> 相当于  <code>ARRAY_SPLIT(arr0, ARRAY_MAP(lambda, arr0, ...))</code></li>
+</ul>
+<h2>参数</h2>
+<ul>
+<li><code>arr</code>：<code>ARRAY&lt;T&gt;</code>。</li>
+<li><code>flags</code>：<code>ARRAY&lt;BOOLEAN&gt;</code>，长度需与 <code>arr</code> 的长度逐行一致。<code>true</code> 表示在当前位置与下一元素之间断开。</li>
+<li><code>arr0, ...</code> 一个或多个 <code>ARRAY&lt;T&gt;</code>。</li>
+<li><code>lambda</code>: <code>lambda</code> 表达式作用于 <code>arr0, ...</code> 产生<code>flags</code>，利用产生的 <code>flags</code> 进行分割。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回 <code>ARRAY&lt;ARRAY&lt;T&gt;&gt;</code>。内层数组元素与 <code>arr</code> 一致。</li>
+<li>若<code>arr</code> 与 <code>flags</code> 的元素个数不一致，将报错。</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>如果 <code>flags</code> 的某位置为 <code>NULL</code>，视为不切分（与 <code>false</code> 等价）。</li>
+<li><code>ARRAY_SPLIT</code> 的切分规则是：在每个 <code>fi==true</code> 的位置，于 <code>ai</code> 与 <code>a(i-1)</code> 之间断开。</li>
+<li><code>ARRAY_REVERSE_SPLIT</code> 的切分规则是：在每个 <code>fi==true</code> 的位置，于 <code>ai</code> 与 <code>a(i+1)</code> 之间断开。</li>
+</ul>
+<h2>示例</h2>
+<ul>
+<li>
+<p>基本切分: 在每个 <code>true</code> 的位置，与左侧元素断开。</p>
+<ul>
+<li><code>ARRAY_SPLIT([1,2,3,4,5], [false,true,false,true,false])</code> -&gt; <code>[[1], [2, 3], [4, 5]]</code></li>
+<li><code>ARRAY_SPLIT(['a','b','c'], [false,false,false])</code> -&gt; <code>[['a','b','c']]</code></li>
+</ul>
+</li>
+<li>
+<p><code>flags</code> 中包含 <code>NULL</code>， <code>NULL</code> 被认为和 <code>false</code> 一样，不切分。</p>
+<ul>
+<li><code>ARRAY_SPLIT([1,NULL,3], [false,null,false])</code> -&gt; <code>[[1, NULL, 3]]</code></li>
+</ul>
+</li>
+<li>
+<p><code>lambda= x -&gt; x-1</code> 作用于 <code>arr0=[1, 2, 3]</code> 产生 <code>flags=[0,1,2]</code>，相当于 <code>flags=[false,true,true]</code></p>
+<ul>
+<li><code>ARRAY_SPLIT(x-&gt;x-1, [1, 2, 3])</code> 相当于 <code>ARRAY_SPLIT([1, 2, 3], [false,true,true])</code> -&gt; <code>[[1], [2], [3]]</code></li>
+</ul>
+</li>
+<li>
+<p><code>lambda= (x,y) -&gt; x-y</code> 作用于 <code>arr0=[1, 2, 3]</code> 和 <code>arr1=[0,1,2]</code>, 产生 <code>flags=[true,true,true]</code></p>
+<ul>
+<li><code>ARRAY_SPLIT((x,y) -&gt; x-y, [1, 2, 3], [0, 1, 2])</code> 相当于 <code>ARRAY_SPLIT([1, 2, 3], [true,true,true])</code> -&gt; <code>[[1], [2], [3]]</code></li>
+</ul>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-split/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

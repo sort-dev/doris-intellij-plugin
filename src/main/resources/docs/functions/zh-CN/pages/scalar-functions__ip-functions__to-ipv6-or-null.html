@@ -1,0 +1,54 @@
+<div class="definition"><pre>TO_IPV6_OR_NULL</pre></div>
+<div class="content">
+<h2>to_ipv6_or_null</h2>
+<h2>描述</h2>
+<p>输入 IPv6 地址的字符串形式，并返回 IPv6 类型的值。对于无效输入或 NULL 输入，返回 NULL。</p>
+<h2>语法</h2>
+<pre><code>TO_IPV6_OR_NULL(&lt;ipv6_str&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv6_str&gt;</code>：字符串类型的 IPv6 地址</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：IPv6 (Nullable)</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 IPv6 类型值，其二进制形式等同于 <code>ipv6_string_to_num</code> 函数返回值的二进制形式</li>
+<li>输入 NULL 或非法 IPv6 地址时返回 NULL</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>等价于 <code>to_ipv6_or_null</code> → <code>IPv6</code> 类型，适合建表为 <code>IPv6</code> 列的场景</li>
+<li>对于无效输入不会抛出异常，而是返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<p>将 IPv6 文本 <code>2001:1b70:a1:610::b102:2</code> 转为 <code>IPv6</code> 类型。</p>
+<pre><code>SELECT to_ipv6_or_null('2001:1b70:a1:610::b102:2') as v6;
++-------------------------------+
+| v6                            |
++-------------------------------+
+| 2001:1b70:a1:610::b102:2      |
++-------------------------------+
+</code></pre>
+<p>输入 NULL 返回 NULL。</p>
+<pre><code>SELECT to_ipv6_or_null(NULL) as v6;
++------+
+| v6   |
++------+
+| NULL |
++------+
+</code></pre>
+<p>非法 IPv6 文本返回 NULL。</p>
+<pre><code>SELECT to_ipv6_or_null('not-an-ip') as v6;
++------+
+| v6   |
++------+
+| NULL |
++------+
+</code></pre>
+<h3>关键词</h3>
+<p>TO_IPV6_OR_NULL</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/to-ipv6-or-null/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

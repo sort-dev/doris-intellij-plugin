@@ -1,0 +1,75 @@
+<div class="definition"><pre>FOREACH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将表的聚合函数转换为聚合相应数组项并返回结果数组的数组的聚合函数。例如，<code>sum_foreach</code> 对于数组 [1, 2], [3, 4, 5]和[6, 7]返回结果 [10, 13, 5] 之后将相应的数组项添加在一起。</p>
+<h2>语法</h2>
+<p><code>AGGREGATE_FUNCTION_FOREACH(arg...)</code></p>
+<h2>举例</h2>
+<p>准备示例数据：</p>
+<pre><code>CREATE TABLE db (
+    id INT,
+    a  ARRAY&lt;INT&gt;,
+    s  ARRAY&lt;STRING&gt;
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO db VALUES
+    (1, [1, 2, 3], ["ab", "123"]),
+    (2, [20],      ["cd"]),
+    (3, [100],     ["efg"]),
+    (4, NULL,      NULL),
+    (5, [null, 2], [null, "c"]);
+</code></pre>
+<p>然后执行 FOREACH 组合器：</p>
+<pre><code>mysql [test]&gt;select a , s from db;
++-----------+---------------+
+| a         | s             |
++-----------+---------------+
+| [1, 2, 3] | ["ab", "123"] |
+| [20]      | ["cd"]        |
+| [100]     | ["efg"]       |
+| NULL      | NULL          |
+| [null, 2] | [null, "c"]   |
++-----------+---------------+
+
+mysql [test]&gt;select sum_foreach(a) from db;
++----------------+
+| sum_foreach(a) |
++----------------+
+| [121, 4, 3]    |
++----------------+
+
+mysql [test]&gt;select count_foreach(s) from db;
++------------------+
+| count_foreach(s) |
++------------------+
+| [3, 2]           |
++------------------+
+
+mysql [test]&gt;select array_agg_foreach(a) from db;
++-----------------------------------+
+| array_agg_foreach(a)              |
++-----------------------------------+
+| [[1, 20, 100, null], [2, 2], [3]] |
++-----------------------------------+
+
+mysql [test]&gt;select map_agg_foreach(a,a) from db;
++---------------------------------------+
+| map_agg_foreach(a, a)                 |
++---------------------------------------+
+| [{1:1, 20:20, 100:100}, {2:2}, {3:3}] |
++---------------------------------------+
+</code></pre>
+<h2>注意事项</h2>
+<ul>
+<li>每个参数都必须是 ARRAY，其元素类型需与被包裹聚合函数对应参数的类型一致；返回值是被包裹函数返回类型的 ARRAY，按下标逐位计算。</li>
+<li>当一次调用传入多个数组参数时，同一行内的各数组长度必须相同，否则查询会报错 <code>Arrays passed to &lt;function&gt; aggregate function have different sizes</code>。（不同行之间的数组长度可以不同。）</li>
+<li><code>percentile</code>、<code>percentile_array</code>、<code>percentile_approx</code>、<code>percentile_approx_weighted</code> 函数不支持与 <code>foreach</code> 组合器一起使用。</li>
+</ul>
+<h3>关键词</h3>
+<p>FOREACH</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/combinators/foreach/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

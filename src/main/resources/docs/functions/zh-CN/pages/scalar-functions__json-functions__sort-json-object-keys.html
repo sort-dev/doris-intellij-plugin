@@ -1,0 +1,64 @@
+<div class="definition"><pre>SORT_JSON_OBJECT_KEYS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>SORT_JSON_OBJECT_KEYS</code> 函数对 JSON 对象的键进行排序。该函数接受一个 JSON 对象作为输入，并返回一个新的 JSON 对象，其中键按字典顺序排序。</p>
+<p>需要注意的是，根据 JSON 标准，JSON 对象是无序的集合。然而，此函数可以在需要确保键顺序一致时使用，例如在比较两个 JSON 对象是否包含相同内容时。</p>
+<h2>语法</h2>
+<pre><code>SORT_JSON_OBJECT_KEYS(json_value)
+</code></pre>
+<h2>别名</h2>
+<p>SORT_JSONB_OBJECT_KEYS</p>
+<h2>参数</h2>
+<p><strong>json_value</strong> - 需要对键进行排序的 JSON 值。必须是 JSON 类型。</p>
+<h2>返回值</h2>
+<p>返回一个新的 JSON 对象，其中键按字典顺序排序。返回类型与输入的 JSON 类型相同。</p>
+<p>当输入为 NULL 时，函数返回 NULL。</p>
+<h2>示例</h2>
+<h3>基本键排序</h3>
+<pre><code>SELECT sort_json_object_keys(cast('{"b":123,"b":456,"a":789}' as json));
+</code></pre>
+<pre><code>+------------------------------------------------------------------+
+| sort_json_object_keys(cast('{"b":123,"b":456,"a":789}' as json)) |
++------------------------------------------------------------------+
+| {"a":789,"b":123}                                                |
++------------------------------------------------------------------+
+</code></pre>
+<h3>处理嵌套 JSON 数组</h3>
+<pre><code>SELECT sort_json_object_keys(cast('[{"b":123,"b":456,"a":789},{"b":123},{"b":456},{"a":789}]' as json));
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------------------------------+
+| sort_json_object_keys(cast('[{"b":123,"b":456,"a":789} ,{"b":123},{"b":456},{"a":789} ]' as json)) |
++----------------------------------------------------------------------------------------------------+
+| [{"a":789,"b":123},{"b":123},{"b":456},{"a":789}]                                                  |
++----------------------------------------------------------------------------------------------------+
+</code></pre>
+<h3>处理 NULL 值</h3>
+<pre><code>SELECT sort_json_object_keys(null);
+</code></pre>
+<pre><code>+-----------------------------+
+| sort_json_object_keys(null) |
++-----------------------------+
+| NULL                        |
++-----------------------------+
+</code></pre>
+<h2>注意事项</h2>
+<ol>
+<li>
+<p><code>SORT_JSON_OBJECT_KEYS</code> 函数有一个别名 <code>SORT_JSONB_OBJECT_KEYS</code>，两者功能完全相同。</p>
+</li>
+<li>
+<p>此函数仅排序对象的键，而不会修改键对应的值。</p>
+</li>
+<li>
+<p>只会排序对象而不会排序数组，因为标准规定数组是一个有序的集合。</p>
+</li>
+<li>
+<p>JSON 对象中的重复键会在转换为 Doris 的 JSON 类型时进行合并，仅保留第一个键值对。</p>
+</li>
+<li>
+<p>此函数主要用于确保 JSON 对象的键以一致的顺序呈现，便于比较或调试，因为默认情况下 Doris 的 JSON 类型不保证键的顺序。</p>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/sort-json-object-keys/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

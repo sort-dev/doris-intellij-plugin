@@ -1,0 +1,91 @@
+<div class="definition"><pre>ARRAY_UNION</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>ARRAY_UNION</code> 用于返回多个数组的并集，即合并所有数组中出现的元素，去重后组成一个新的数组。</p>
+<h2>语法</h2>
+<pre><code>ARRAY_UNION(arr1, arr2， ..., arrN)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>arr1, arr2, ..., arrN</code>：任意数量的数组输入，类型均为 <code>ARRAY&lt;T&gt;</code>。
+<ul>
+<li>所有数组的元素类型 <code>T</code> 必须一致，或可隐式转换为统一类型。</li>
+<li>两个数组的元素类型 <code>T</code> 可以是数值类型、字符串类型、时间类型、IP类型。</li>
+</ul>
+</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回一个 ARRAY&lt;T&gt; 类型的新数组, 包含所有输入数组中的唯一元素，即去重后的并集。
+<ul>
+<li>如果某一个参数是 <code>NULL</code>，返回 <code>NULL</code> （见示例）。</li>
+</ul>
+</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>元素的去重依赖等值比较（= 运算符）。</li>
+<li>数组结果中的 <code>NULL</code> 只会保留一个（见示例）。</li>
+<li>输入的数组本身包含多个相同元素，结果中只保留一个（见示例）。</li>
+<li>数组结果的顺序是不确定的。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>
+<p>简单实例</p>
+<pre><code>SELECT ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', 'world')); 
++---------------------------------------------------------------+
+| ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', 'world')) |
++---------------------------------------------------------------+
+| ["world", "hello"]                                            |
++---------------------------------------------------------------+
+
+SELECT ARRAY_UNION(ARRAY(1, 2, 3), ARRAY(3, 5, 6));
++---------------------------------------------+
+| ARRAY_UNION(ARRAY(1, 2, 3), ARRAY(3, 5, 6)) |
++---------------------------------------------+
+| [1, 5, 2, 6, 3]                             |
++---------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>输入的数组是 <code>NULL</code>, 返回<code>NULL</code></p>
+<pre><code>SELECT ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', 'world'), NULL); 
++---------------------------------------------------------------------+
+| ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', 'world'), NULL) |
++---------------------------------------------------------------------+
+| NULL                                                                |
++---------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>输入的数组里面包含 <code>NULL</code>, 输出的数组里面仅包含一个 <code>NULL</code></p>
+<pre><code>SELECT ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', NULL)); 
++---------------------------------------------------------------------+
+| ARRAY_UNION(ARRAY('hello', 'world', 'hello'), ARRAY('hello', NULL)) |
++---------------------------------------------------------------------+
+| [null, "world", "hello"]                                            |
++---------------------------------------------------------------------+
+
+SELECT ARRAY_UNION(ARRAY(NULL, 'world'), ARRAY('hello', NULL)); 
++---------------------------------------------------------+
+| ARRAY_UNION(ARRAY(NULL, 'world'), ARRAY('hello', NULL)) |
++---------------------------------------------------------+
+| [null, "world", "hello"]                                |
++---------------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>数组本身包含重复元素, 只会返回一个</p>
+<pre><code>SELECT ARRAY_UNION(ARRAY('hello', 'world', 'hello'), ARRAY('hello', NULL)); 
++------------------------------------------------------------+
+| ARRAY_UNION(ARRAY('hello', 'world'), ARRAY('hello', NULL)) |
++------------------------------------------------------------+
+| [null, "world", "hello"]                                   |
++------------------------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-union/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,50 @@
+<div class="definition"><pre>BITMAP_HASH64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>对任意类型的输入计算 64 位的哈希值，返回包含该哈希值的 Bitmap。</p>
+<h2>语法</h2>
+<pre><code>bitmap_hash64(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>任何值或字段表达式</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>包含参数 <code>&lt;expr&gt;</code> 的 64 位 hash 值的 Bitmap。</p>
+<ul>
+<li>当参数存在NULL时，返回 Empty Bitmap</li>
+</ul>
+<h2>示例</h2>
+<p>计算一个值的 64 位哈希值，你可以使用：</p>
+<pre><code>select bitmap_to_string(bitmap_hash64('hello'));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------------------------------------------+
+| bitmap_to_string(bitmap_hash64('hello')) |
++------------------------------------------+
+| 15231136565543391023                     |
++------------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_hash64(NULL));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+---------------------------------------+
+| bitmap_to_string(bitmap_hash64(NULL)) |
++---------------------------------------+
+|                                       |
++---------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-hash64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

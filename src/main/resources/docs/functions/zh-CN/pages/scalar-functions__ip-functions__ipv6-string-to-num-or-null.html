@@ -1,0 +1,45 @@
+<div class="definition"><pre>IPV6_STRING_TO_NUM_OR_NULL | Ip Functions</pre></div>
+<div class="content">
+<h1>IPV6_STRING_TO_NUM_OR_NULL</h1>
+<h2>描述</h2>
+<p>IPv6NumToString 的反向函数，它接受一个 IP 地址字符串并返回二进制格式的 IPv6 地址。</p>
+<h2>别名</h2>
+<ul>
+<li>INET6_ATON</li>
+</ul>
+<h2>语法</h2>
+<pre><code>IPV6_STRING_TO_NUM_OR_NULL(&lt;ipv6_string&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;ipv6_string&gt;</code></td>
+<td>字符串类型的 ipv6 地址</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回二进制格式的 IPv6 地址</p>
+<ul>
+<li>如果输入非法的 IP 地址，会返回 <code>NULL</code></li>
+<li>如果输入字符串包含有效的 IPv4 地址，则返回其等效的 IPv6 地址</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select hex(ipv6_string_to_num_or_null('1111::ffff')) as r1, hex(ipv6_string_to_num_or_null('192.168.0.1')) as r2, hex(ipv6_string_to_num_or_null('notaaddress')) as r3;
+</code></pre>
+<pre><code>+----------------------------------+----------------------------------+------+
+| r1                               | r2                               | r3   |
++----------------------------------+----------------------------------+------+
+| 1111000000000000000000000000FFFF | 00000000000000000000FFFFC0A80001 | NULL |
++----------------------------------+----------------------------------+------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv6-string-to-num-or-null/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

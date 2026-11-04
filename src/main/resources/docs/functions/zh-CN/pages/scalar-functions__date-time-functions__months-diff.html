@@ -1,0 +1,110 @@
+<div class="definition"><pre>MONTHS_DIFF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MONTHS_DIFF 函数用于计算两个日期时间值之间的整数月份差值，返回结果为 <code>&lt;enddate&gt;</code> 减去 <code>&lt;startdate&gt;</code> 后的月份数。该函数支持处理 DATE、DATETIME 类型，仅基于日期部分（年、月、日）计算，忽略时间部分（时、分、秒）。</p>
+<h2>语法</h2>
+<pre><code>MONTHS_DIFF(`&lt;date_or_time_expr1&gt;`, `&lt;date_or_time_expr2&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr1&gt;</code></td>
+<td>结束日期，支持输入 date/datetime 类型,具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a>。</td>
+</tr>
+<tr>
+<td><code>&lt;date_or_time_expr2&gt;</code></td>
+<td>开始日期，支持输入 date/datetime 类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>&lt;date_or_time_expr1&gt;</code> 减去 <code>&lt;date_or_time_expr2&gt;</code> 所得月份数，类型为 BIGINT.</p>
+<p>基础差值 =（结束年份 - 开始年份）× 12 +（结束月份 - 开始月份）；
+若结束日期的「日部分」&lt; 开始日期的「日部分」，则最终结果 = 基础差值 - 1；
+其他情况，最终结果 = 基础差值。</p>
+<ul>
+<li>若 <code>&lt;date_or_time_expr1&gt;</code> 早于 <code>&lt;date_or_time_expr2&gt;</code>，返回负值（计算逻辑同上，仅符号相反）；</li>
+<li>若任一参数为 NULL，返回 NULL；</li>
+<li>会考虑实际是否相差 一个月(包括天，时 等部分)</li>
+</ul>
+<h2>举例</h2>
+<pre><code>--- 年月差为1，且结束日 &lt; 开始日（结果减1）
+SELECT MONTHS_DIFF('2020-03-28', '2020-02-29') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+--- 年月差为1，且结束日 = 开始日
+SELECT MONTHS_DIFF('2020-03-29', '2020-02-29') AS result;
++--------+
+| result |
++--------+
+|      1 |
++--------+
+
+--- 年月差为1，且结束日 &gt; 开始日
+SELECT MONTHS_DIFF('2020-03-30', '2020-02-29') AS result;
++--------+
+| result |
++--------+
+|      1 |
++--------+
+
+--- 结束日期早于开始日期（负值逻辑同理）
+SELECT MONTHS_DIFF('2020-02-29', '2020-03-28') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+SELECT MONTHS_DIFF('2020-02-29', '2020-03-29') AS result;
++--------+
+| result |
++--------+
+|     -1 |
++--------+
+
+--- 同一月份（结果为0）
+SELECT MONTHS_DIFF('2023-07-15', '2023-07-30') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+--会考虑月以下的单位
+mysql&gt; SELECT MONTHS_DIFF('2020-03-28', '2020-01-29') AS result;
++--------+
+| result |
++--------+
+|      1 |
++--------+
+
+mysql&gt; SELECT MONTHS_DIFF('2020-03-28 22:22:22', '2020-02-29 23:12:12') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+--- 输入为NULL（返回NULL）
+SELECT MONTHS_DIFF(NULL, '2023-01-01') AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/months-diff/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,51 @@
+<div class="definition"><pre>L2_DISTANCE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算欧几里得空间中两点（向量值为坐标）之间的距离</p>
+<h2>语法</h2>
+<pre><code>L2_DISTANCE(&lt;array1&gt;, &lt;array2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;array1&gt;</code></td>
+<td>第一个向量（向量值为坐标），输入数组的子类型支持：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE，元素数量需与 array2 保持一致</td>
+</tr>
+<tr>
+<td><code>&lt;array2&gt;</code></td>
+<td>第二个向量（向量值为坐标），输入数组的子类型支持：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE，元素数量需与 array1 保持一致</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回欧几里得空间中两点（向量值为坐标）之间的距离，返回类型为 <code>FLOAT</code>。</p>
+<p>如果任一输入数组为 <code>NULL</code>，或包含 <code>NULL</code> 元素，函数会报错。</p>
+<h2>举例</h2>
+<pre><code>SELECT L2_DISTANCE([4, 5], [6, 8]),L2_DISTANCE([3, 6], [4, 5]);
+</code></pre>
+<pre><code>+-----------------------------+-----------------------------+
+| l2_distance([4, 5], [6, 8]) | l2_distance([3, 6], [4, 5]) |
++-----------------------------+-----------------------------+
+|                    3.605551 |                    1.414214 |
++-----------------------------+-----------------------------+
+</code></pre>
+<p>如果输入数组为 <code>NULL</code>，函数会报错：</p>
+<pre><code>SELECT L2_DISTANCE(NULL, [1, 2]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]First argument for function l2_distance cannot be null
+</code></pre>
+<p>如果输入数组包含 <code>NULL</code> 元素，函数会报错：</p>
+<pre><code>SELECT L2_DISTANCE([1, NULL], [1, 2]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]First argument for function l2_distance cannot have null
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/distance-functions/l2-distance/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

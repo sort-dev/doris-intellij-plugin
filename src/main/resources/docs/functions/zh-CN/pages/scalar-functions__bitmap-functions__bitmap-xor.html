@@ -1,0 +1,93 @@
+<div class="definition"><pre>BITMAP_XOR</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个及以上输入 Bitmap 的差集，返回新的 Bitmap。</p>
+<h2>语法</h2>
+<pre><code>bitmap_xor(&lt;bitmap1&gt;, &lt;bitmap2&gt;, ..., &lt;bitmapN&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap1&gt;</code></td>
+<td>第一个 Bitmap</td>
+</tr>
+<tr>
+<td><code>&lt;bitmap2&gt;</code></td>
+<td>第二个 Bitmap</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td><code>&lt;bitmapN&gt;</code></td>
+<td>第 N 个 Bitmap</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>多个 Bitmap 差集的 Bitmap。</p>
+<ul>
+<li>当参数存在NULL时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<p>计算两个 Bitmap 的对称差集：</p>
+<pre><code>select bitmap_count(bitmap_xor(bitmap_from_string('2,3'), bitmap_from_string('1,2,3,4'))) cnt;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| cnt  |
++------+
+|    2 |
++------+
+</code></pre>
+<p>将两个 Bitmap 的对称差集转换为字符串：</p>
+<pre><code>select bitmap_to_string(bitmap_xor(bitmap_from_string('2,3'), bitmap_from_string('1,2,3,4'))) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+| 1,4  |
++------+
+</code></pre>
+<p>计算三个 Bitmap 的对称差集：</p>
+<pre><code>select bitmap_to_string(bitmap_xor(bitmap_from_string('2,3'), bitmap_from_string('1,2,3,4'), bitmap_from_string('3,4,5'))) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| res   |
++-------+
+| 1,3,5 |
++-------+
+</code></pre>
+<p>计算多个 Bitmap（包括一个空 Bitmap）的对称差集：</p>
+<pre><code>select bitmap_to_string(bitmap_xor(bitmap_from_string('2,3'), bitmap_from_string('1,2,3,4'), bitmap_from_string('3,4,5'), bitmap_empty())) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| res   |
++-------+
+| 1,3,5 |
++-------+
+</code></pre>
+<p>计算多个 Bitmap（包括一个 <code>NULL</code> 值）的对称差集：</p>
+<pre><code>select bitmap_to_string(bitmap_xor(bitmap_from_string('2,3'), bitmap_from_string('1,2,3,4'), bitmap_from_string('3,4,5'), NULL)) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+| NULL |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-xor/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

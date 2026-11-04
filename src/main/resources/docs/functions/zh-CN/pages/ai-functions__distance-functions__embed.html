@@ -1,0 +1,287 @@
+<div class="definition"><pre>EMBED</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>根据文本或多模态输入生成嵌入向量，可用于相似度计算、检索等场景。</p>
+<p>多模态 Embedding 自 Apache Doris 4.1.4 版本起支持。</p>
+<p>生成多模态嵌入向量时，需要传入描述图像、视频或音频文件的 JSON 对象。使用某种媒体类型前，请确认配置的 AI Provider 和模型支持该类型。</p>
+<h3>支持多模态 Embedding 的 Provider</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>支持的媒体类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>voyageai</code></td>
+<td>图像（<code>image/</code>）、视频（<code>video/</code>）</td>
+</tr>
+<tr>
+<td><code>qwen</code></td>
+<td>图像（<code>image/</code>）、视频（<code>video/</code>）</td>
+</tr>
+<tr>
+<td><code>jina</code></td>
+<td>图像（<code>image/</code>）、视频（<code>video/</code>）</td>
+</tr>
+<tr>
+<td><code>gemini</code></td>
+<td>图像（<code>image/</code>）、视频（<code>video/</code>）、音频（<code>audio/</code>）</td>
+</tr>
+</tbody>
+</table>
+<p>其他 Provider 调用多模态 Embedding 会报错 <code>&lt;provider&gt; does not support multimodal Embed feature.</code>；传入 Provider 不支持的媒体类型会报错 <code>&lt;provider&gt; only supports &lt;types&gt; multimodal embed, got &lt;type&gt;</code>。</p>
+<h2>语法</h2>
+<p>自 4.1.5 版本起，AI Resource 支持为文本和多模态 Embedding 分别配置 <code>ai.embed.*</code> 与 <code>ai.embed.mm.*</code> 模型组。文本输入依次选择文本 Embedding 组、通用组；JSON 多模态输入依次选择多模态 Embedding 组、文本 Embedding 组、通用组。配置要求见 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/overview/#embedding-%E4%B8%93%E7%94%A8%E6%A8%A1%E5%9E%8B%E9%85%8D%E7%BD%AE415-%E8%B5%B7">AI 资源配置</a>。</p>
+<pre><code>EMBED([&lt;resource_name&gt;], &lt;input&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;resource_name&gt;</code></td>
+<td>可选。用于生成嵌入向量的 AI Resource 名称。省略时，Doris 使用会话变量 <code>default_ai_resource</code> 指定的资源。</td>
+</tr>
+<tr>
+<td><code>&lt;input&gt;</code></td>
+<td>需要生成嵌入向量的内容。文本嵌入传入字符串，多模态嵌入传入 JSON 对象。</td>
+</tr>
+</tbody>
+</table>
+<p>多模态 JSON 对象包含以下字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>是否必需</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uri</code></td>
+<td>是</td>
+<td><code>http://</code> 或 <code>https://</code> URL，或者格式为 <code>s3://&lt;bucket&gt;/&lt;key&gt;</code> 的 S3 兼容存储 URI。</td>
+</tr>
+<tr>
+<td><code>content_type</code></td>
+<td>是</td>
+<td>媒体的 MIME 类型。以 <code>image/</code>、<code>video/</code> 或 <code>audio/</code> 开头的值会被识别，且 AI Provider 和模型必须支持对应的媒体类型。</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>使用 S3 兼容存储 URI 时必需</td>
+<td>S3 兼容存储的 Endpoint。</td>
+</tr>
+<tr>
+<td><code>region</code></td>
+<td>使用 S3 兼容存储 URI 时必需</td>
+<td>对象存储所在的 Region。</td>
+</tr>
+<tr>
+<td><code>ak</code></td>
+<td>否</td>
+<td>使用 AK/SK 鉴权时的 Access Key。</td>
+</tr>
+<tr>
+<td><code>sk</code></td>
+<td>否</td>
+<td>使用 AK/SK 鉴权时的 Secret Key。</td>
+</tr>
+<tr>
+<td><code>role_arn</code></td>
+<td>否</td>
+<td>使用 IAM Role 鉴权时的 Role ARN。</td>
+</tr>
+<tr>
+<td><code>external_id</code></td>
+<td>否</td>
+<td>Assume Role 时使用的 External ID。</td>
+</tr>
+</tbody>
+</table>
+<p>使用 HTTP 或 HTTPS URL 时，只需提供 <code>uri</code> 和 <code>content_type</code>。使用 S3 兼容存储 URI 时，Doris 会根据对象存储凭证生成预签名 URL，支持 AK/SK 和 IAM Role 两种鉴权方式。</p>
+<p>预签名 URL 的有效期由会话变量 <code>file_presigned_url_ttl_seconds</code> 控制，单位为秒，默认 <code>3600</code>（1 小时）。如果媒体文件较大、Provider 拉取耗时较长，可以适当调大：</p>
+<pre><code>SET file_presigned_url_ttl_seconds = 7200;
+</code></pre>
+<p><strong>Since 4.1.5。</strong> 文本输入的 <code>EMBED</code> 优先使用资源中完整的 <code>ai.embed.*</code> 连接配置组，未配置时使用通用 <code>ai.*</code>。JSON 多模态输入依次选择 <code>ai.embed.mm.*</code>、<code>ai.embed.*</code>、通用 <code>ai.*</code>。每组包含 <code>endpoint</code>、<code>provider_type</code>、<code>model_name</code> 和 <code>api_key</code>（<code>LOCAL</code> 可以省略）。选择以完整配置组为单位，选中的 provider 和模型需要支持输入类型。仅包含 embedding 配置的资源可以用于对应的 <code>EMBED</code> 调用。更早版本使用通用配置组。参见 <a href="https://doris.apache.org/zh-CN/docs/4.x/ai/ai-function-overview/#embedding-%E4%B8%93%E7%94%A8%E9%85%8D%E7%BD%AE">Embedding 专用配置</a>。</p>
+<h2>返回值</h2>
+<p>返回类型为 <code>ARRAY&lt;FLOAT&gt;</code>，表示生成的嵌入向量。</p>
+<p>当输入值为 NULL 时返回 NULL。</p>
+<p>向量的维度和值由 AI Provider 和模型决定。</p>
+<h2>多模态示例</h2>
+<p>以下示例为可通过 HTTPS URL 访问的图像生成嵌入向量：</p>
+<pre><code>SELECT ARRAY_SIZE(
+    EMBED(
+        'multimodal_embed_resource',
+        CAST('{
+            "uri": "https://example.com/images/product.png",
+            "content_type": "image/png"
+        }' AS JSON)
+    )
+) AS image_embedding_dimension;
+</code></pre>
+<pre><code>+---------------------------+
+| image_embedding_dimension |
++---------------------------+
+|                      2560 |
++---------------------------+
+</code></pre>
+<p>以下示例使用 AK/SK 鉴权，从 S3 兼容对象存储读取视频并生成嵌入向量：</p>
+<pre><code>SELECT ARRAY_SIZE(
+    EMBED(
+        'multimodal_embed_resource',
+        CAST('{
+            "uri": "s3://example-bucket/videos/demo.mp4",
+            "content_type": "video/mp4",
+            "endpoint": "s3.us-east-1.amazonaws.com",
+            "region": "us-east-1",
+            "ak": "&lt;access_key&gt;",
+            "sk": "&lt;secret_key&gt;"
+        }' AS JSON)
+    )
+) AS video_embedding_dimension;
+</code></pre>
+<pre><code>+---------------------------+
+| video_embedding_dimension |
++---------------------------+
+|                      2560 |
++---------------------------+
+</code></pre>
+<p>也可以使用 IAM Role 代替 AK/SK 进行鉴权。以下示例生成图像嵌入向量：</p>
+<pre><code>SELECT ARRAY_SIZE(
+    EMBED(
+        'multimodal_embed_resource',
+        CAST('{
+            "uri": "s3://example-bucket/images/product.png",
+            "content_type": "image/png",
+            "endpoint": "s3.us-east-1.amazonaws.com",
+            "region": "us-east-1",
+            "role_arn": "arn:aws:iam::&lt;account_id&gt;:role/&lt;role_name&gt;",
+            "external_id": "&lt;external_id&gt;"
+        }' AS JSON)
+    )
+) AS image_embedding_dimension;
+</code></pre>
+<pre><code>+---------------------------+
+| image_embedding_dimension |
++---------------------------+
+|                      3072 |
++---------------------------+
+</code></pre>
+<p>以上结果仅供参考，实际的嵌入向量维度取决于配置的 Provider 和模型。</p>
+<h2>文本示例</h2>
+<p>下表模拟某公司的行为手册</p>
+<pre><code>CREATE TABLE knowledge_base (
+    id BIGINT,
+    title STRING,
+    content STRING,
+    embedding ARRAY&lt;FLOAT&gt; COMMENT '由 EMBED 函数生成的嵌入向量'
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 4
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+SET default_ai_resource = 'embed_resource_name';
+
+-- `embedding` 是函数 EMBED 根据 content 对应的标签所生成的嵌入向量
+INSERT INTO knowledge_base (id, title, content, embedding) VALUES
+(1, "Travel Reimbursement Policy",
+    "Employees must submit a reimbursement request within 7 days after the business trip, with invoices and travel approval attached.",
+    EMBED("travel reimbursement policy")),
+(2, "Leave Policy",
+    "Employees must apply for leave in the system in advance. If the leave is longer than three days, approval from the direct manager is required.",
+    EMBED("leave request policy")),
+(3, "VPN User Guide",
+    "To access the internal network, employees must use VPN. For the first login, download and install the client and configure the certificate.",
+    EMBED("VPN guide intranet access")),
+(4, "Meeting Room Reservation",
+    "Meeting rooms can be reserved in advance through the OA system, with time and number of participants specified.",
+    EMBED("meeting room booking reservation")),
+(5, "Procurement Request Process",
+    "Departments must fill out a procurement request form for purchasing items. If the amount exceeds $5000, financial approval is required.",
+    EMBED("procurement request process finance"));
+</code></pre>
+<p>通过对文本的向量化处理，可以进行类似下列操作：</p>
+<ol>
+<li>问答检索(结合 <code>COSINE_DISTANCE</code>)</li>
+</ol>
+<pre><code>SELECT 
+    id, title, content,
+    COSINE_DISTANCE(embedding, EMBED("How to apply for travel reimbursement?")) AS score
+FROM knowledge_base
+ORDER BY score ASC
+LIMIT 2;
+</code></pre>
+<pre><code>+------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| id   | title                       | content                                                                                                                                 | score              |
++------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+|    1 | Travel Reimbursement Policy | Employees must submit a reimbursement request within 7 days after the business trip, with invoices and travel approval attached.        | 0.4463210454563673 |
+|    5 | Procurement Request Process | Departments must fill out a procurement request form for purchasing items. If the amount exceeds $5000, financial approval is required. | 0.5726841578491431 |
++------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+</code></pre>
+<ol>
+<li>问题分析匹配(结合 <code>L2_DISTANCE</code>)</li>
+</ol>
+<pre><code>SELECT 
+    id, title, content,
+    L2_DISTANCE(embedding, EMBED("How to access the company intranet")) AS distance
+FROM knowledge_base
+ORDER BY distance ASC
+LIMIT 2;
+</code></pre>
+<pre><code>+------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| id   | title                       | content                                                                                                                                     | distance           |
++------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+|    3 | VPN User Guide              | To access the internal network, employees must use VPN. For the first login, download and install the client and configure the certificate. | 0.5838271122253775 |
+|    1 | Travel Reimbursement Policy | Employees must submit a reimbursement request within 7 days after the business trip, with invoices and travel approval attached.            |  1.272394695975331 |
++------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+</code></pre>
+<ol>
+<li>根据文章内容进行文本相关度匹配并推荐(结合<code>INNER PRODUCT</code>)</li>
+</ol>
+<pre><code>SELECT 
+    id, title, content,
+    INNER_PRODUCT(embedding, EMBED("Leave system request leader approval")) AS score
+FROM knowledge_base
+WHERE id != 2
+ORDER BY score DESC
+LIMIT 2;
+</code></pre>
+<pre><code>+------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+---------------------+
+| id   | title                       | content                                                                                                                                 | score               |
++------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+---------------------+
+|    5 | Procurement Request Process | Departments must fill out a procurement request form for purchasing items. If the amount exceeds $5000, financial approval is required. |    0.33268885332504 |
+|    4 | Meeting Room Reservation    | Meeting rooms can be reserved in advance through the OA system, with time and number of participants specified.                         | 0.29224032230852487 |
++------+-----------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+---------------------+
+</code></pre>
+<ol>
+<li>寻找差异较小的内容(结合<code>L1_DISTANCE</code>)</li>
+</ol>
+<pre><code>SELECT 
+    id, title, content,
+    L1_DISTANCE(embedding, EMBED("Procurement application process")) AS distance
+FROM knowledge_base
+ORDER BY distance ASC
+LIMIT 3;
+</code></pre>
+<pre><code>+------+-----------------------------+------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| id   | title                       | content                                                                                                                                        | distance           |
++------+-----------------------------+------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+|    5 | Procurement Request Process | Departments must fill out a procurement request form for purchasing items. If the amount exceeds $5000, financial approval is required.        |  18.66882028897362 |
+|    4 | Meeting Room Reservation    | Meeting rooms can be reserved in advance through the OA system, with time and number of participants specified.                                |  30.90449328294426 |
+|    2 | Leave Policy                | Employees must apply for leave in the system in advance. If the leave is longer than three days, approval from the direct manager is required. | 31.060405636536416 |
++------+-----------------------------+------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/distance-functions/embed/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

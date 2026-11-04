@@ -1,0 +1,91 @@
+<div class="definition"><pre>POW</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于计算 <code>a</code> 的 <code>b</code> 次方。</p>
+<h2>别名</h2>
+<ul>
+<li>POWER</li>
+<li>FPOW</li>
+<li>DPOW</li>
+</ul>
+<h2>语法</h2>
+<pre><code>POW(&lt;a&gt;, &lt;b&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>基数</td>
+</tr>
+<tr>
+<td><code>&lt;b&gt;</code></td>
+<td>指数</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回参数 <code>a</code> 的 <code>b</code> 次方。</p>
+<p>特殊情况：</p>
+<ul>
+<li>当 <code>a</code> 或 <code>b</code> 为 <code>NULL</code> 时，返回 <code>NULL</code>。</li>
+<li>当 <code>b = 0</code> 且 <code>a</code> 不为 <code>NULL</code> 时，永远返回 <code>1</code>。</li>
+</ul>
+<h2>示例</h2>
+<pre><code>select pow(2, 0);
+</code></pre>
+<pre><code>+-------------------------------------------+
+| pow(cast(2 as DOUBLE), cast(0 as DOUBLE)) |
++-------------------------------------------+
+|                                         1 |
++-------------------------------------------+
+</code></pre>
+<pre><code>select pow(2, 10);
+</code></pre>
+<pre><code>+--------------------------------------------+
+| pow(cast(2 as DOUBLE), cast(10 as DOUBLE)) |
++--------------------------------------------+
+|                                       1024 |
++--------------------------------------------+
+</code></pre>
+<pre><code>select pow(1.2, 2);
+</code></pre>
+<pre><code>+---------------------------------------------+
+| pow(cast(1.2 as DOUBLE), cast(2 as DOUBLE)) |
++---------------------------------------------+
+|                                        1.44 |
++---------------------------------------------+
+</code></pre>
+<pre><code>select pow(1.2, 2.1);
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| pow(cast(1.2 as DOUBLE), cast(2.1 as DOUBLE)) |
++-----------------------------------------------+
+|                            1.4664951016517147 |
++-----------------------------------------------+
+</code></pre>
+<pre><code>select pow(2, null);
+</code></pre>
+<pre><code>+------------------------------+
+| pow(cast(2 as DOUBLE), NULL) |
++------------------------------+
+|                         NULL |
++------------------------------+
+</code></pre>
+<pre><code>select pow(null, 2);
+</code></pre>
+<pre><code>+------------------------------+
+| pow(NULL, cast(2 as DOUBLE)) |
++------------------------------+
+|                         NULL |
++------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/pow/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

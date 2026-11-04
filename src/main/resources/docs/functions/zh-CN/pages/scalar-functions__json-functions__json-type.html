@@ -1,0 +1,121 @@
+<div class="definition"><pre>JSON_TYPE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用来判断 JSON 对象中 <code>&lt;json_path&gt;</code> 指定的字段的类型，如果字段不存在返回 NULL，如果存在返回下面的类型之一：</p>
+<ul>
+<li>object</li>
+<li>array</li>
+<li>null</li>
+<li>bool</li>
+<li>int</li>
+<li>bigint</li>
+<li>largeint</li>
+<li>double</li>
+<li>string</li>
+</ul>
+<h2>语法</h2>
+<pre><code>JSON_TYPE(&lt;json_object&gt;, &lt;json_path&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code>: <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/JSON/">JSON 类型</a> 的表达式。</li>
+<li><code>&lt;json_path&gt;</code>: String 类型，比如 <code>"$.key"</code>。</li>
+</ul>
+<h2>返回值</h2>
+<p><code>Nullable&lt;String&gt;</code>: 返回对应字段的类型。</p>
+<h2>使用说明</h2>
+<ul>
+<li>如果 <code>&lt;json_object&gt;</code> 或者 <code>&lt;json_path&gt;</code> 是 NULL，返回 NULL。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 不是一个合法路径，函数报错。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 指定的字段不存在，返回 NULL。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>
+<p>string 类型</p>
+<pre><code>SELECT JSON_TYPE('{"name": "John", "age": 30}', '$.name');
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| JSON_TYPE('{"name": "John", "age": 30}', '$.name') |
++----------------------------------------------------+
+| string                                             |
++----------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>int 类型</p>
+<pre><code>SELECT JSON_TYPE('{"name": "John", "age": 30}', '$.age');
+</code></pre>
+<pre><code>+---------------------------------------------------+
+| JSON_TYPE('{"name": "John", "age": 30}', '$.age') |
++---------------------------------------------------+
+| int                                               |
++---------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>double 类型</p>
+<pre><code>select json_type('{"key1": 1234.44}', '$.key1');
+</code></pre>
+<pre><code>+------------------------------------------+
+| json_type('{"key1": 1234.44}', '$.key1') |
++------------------------------------------+
+| double                                   |
++------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>bool 类型</p>
+<pre><code>select json_type('{"key1": true}', '$.key1');
+</code></pre>
+<pre><code>+---------------------------------------+
+| json_type('{"key1": true}', '$.key1') |
++---------------------------------------+
+| bool                                  |
++---------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>select json_type(NULL, '$.key1');
+</code></pre>
+<pre><code>+---------------------------+
+| json_type(NULL, '$.key1') |
++---------------------------+
+| NULL                      |
++---------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数 2</p>
+<pre><code>select json_type('{"key1": true}', NULL);
+</code></pre>
+<pre><code>+-----------------------------------+
+| json_type('{"key1": true}', NULL) |
++-----------------------------------+
+| NULL                              |
++-----------------------------------+
+</code></pre>
+</li>
+<li>
+<p><code>json_path</code> 参数指定的字段不存在</p>
+<pre><code>select json_type('{"key1": true}', '$.key2');
+</code></pre>
+<pre><code>+---------------------------------------+
+| json_type('{"key1": true}', '$.key2') |
++---------------------------------------+
+| NULL                                  |
++---------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>错误的 <code>json_path</code> 参数</p>
+<pre><code>select json_type('{"key1": true}', '$.');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = [INVALID_ARGUMENT]Json path error: Invalid Json Path for value: $.
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-type/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

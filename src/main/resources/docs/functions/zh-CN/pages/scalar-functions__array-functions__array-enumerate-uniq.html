@@ -1,0 +1,120 @@
+<div class="definition"><pre>ARRAY_ENUMERATE_UNIQ</pre></div>
+<div class="content">
+<h2>array_enumerate_uniq</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>返回数组中每个元素在数组中的唯一出现次数编号。函数会为数组中的每个元素生成一个编号，表示该元素在数组中第几次出现。</p>
+<h2>语法</h2>
+<pre><code>array_enumerate_uniq(ARRAY&lt;T&gt; arr1, [ARRAY&lt;T&gt; arr2, ...])
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr1, arr2, ...</code>：ARRAY&lt;T&gt; 类型，要生成唯一编号的数组。支持一个或多个数组参数。</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;BIGINT&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个与输入数组等长的新数组，每个位置的值为对应元素在数组中的唯一出现次数编号</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会为数组中的每个元素生成唯一编号，从1开始递增</li>
+<li>对于重复出现的元素，每次出现都会获得递增的编号</li>
+<li>当有多个数组参数时，所有数组的长度必须一致，不一致会报错，多个数组的对应位置进行组合生成元素对，从而生成编号</li>
+<li>空数组返回空数组，NULL 数组返回 NULL</li>
+<li>对数组元素中的 null 值：null 元素也会生成对应的编号</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>为数组生成唯一编号，对于重复出现的元素，每次出现都会获得递增的编号：</p>
+<pre><code>SELECT array_enumerate_uniq([1, 2, 1, 3, 2, 1]);
++------------------------------------------+
+| array_enumerate_uniq([1, 2, 1, 3, 2, 1]) |
++------------------------------------------+
+| [1, 1, 2, 1, 2, 3]                       |
++------------------------------------------+
+</code></pre>
+<p>空数组返回空数组：</p>
+<pre><code>SELECT array_enumerate_uniq([]);
++----------------------+
+| array_enumerate_uniq([]) |
++----------------------+
+| []                   |
++----------------------+
+</code></pre>
+<p>NULL 数组返回 NULL（单参数和多参数形式均如此）：</p>
+<pre><code>SELECT array_enumerate_uniq(NULL), array_enumerate_uniq(NULL, NULL);
+</code></pre>
+<pre><code>+----------------------------+----------------------------------+
+| array_enumerate_uniq(NULL) | array_enumerate_uniq(NULL, NULL) |
++----------------------------+----------------------------------+
+| NULL                       | NULL                             |
++----------------------------+----------------------------------+
+</code></pre>
+<p>包含 null 的数组，null 元素也会生成编号：</p>
+<pre><code>SELECT array_enumerate_uniq([1, null, 1, null, 1]);
++--------------------------------------------+
+| array_enumerate_uniq([1, null, 1, null, 1]) |
++--------------------------------------------+
+| [1, 1, 2, 2, 3]                            |
++--------------------------------------------+
+</code></pre>
+<p>多数组参数示例，基于多个数组的组合生成编号：</p>
+<pre><code>SELECT array_enumerate_uniq([1, 2, 1], [10, 20, 10]);
++----------------------------------------------+
+| array_enumerate_uniq([1, 2, 1], [10, 20, 10]) |
++----------------------------------------------+
+| [1, 1, 2]                                    |
++----------------------------------------------+
+</code></pre>
+<p>数组长度不一致会报错：</p>
+<pre><code>SELECT array_enumerate_uniq([1,2,3], [4,5]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lengths of all arrays of function array_enumerate_uniq must be equal.
+</code></pre>
+<p>IP 类型支持的例子</p>
+<pre><code>SELECT array_enumerate_uniq(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.1'] AS ARRAY&lt;IPV4&gt;));
++------------------------------------------------------------------------------------------+
+| array_enumerate_uniq(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.1'] AS ARRAY&lt;IPV4&gt;)) |
++------------------------------------------------------------------------------------------+
+| [1, 1, 2]                                                                                |
++------------------------------------------------------------------------------------------+
+
+mysql&gt; SELECT array_enumerate_uniq(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::1'] AS ARRAY&lt;IPV6&gt;));
++------------------------------------------------------------------------------------------+
+| array_enumerate_uniq(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::1'] AS ARRAY&lt;IPV6&gt;)) |
++------------------------------------------------------------------------------------------+
+| [1, 1, 2]                                                                                |
++------------------------------------------------------------------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组类型不支持，报错：</p>
+<pre><code>SELECT array_enumerate_uniq([[1,2],[3,4],[5,6]]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_enumerate_uniq does not support type ARRAY&lt;ARRAY&lt;TINYINT&gt;&gt;, expression is array_enumerate_uniq([[1, 2], [3, 4], [5, 6]])
+</code></pre>
+<p>map 类型不支持，报错：</p>
+<pre><code>SELECT array_enumerate_uniq([{'k':1},{'k':2},{'k':3}]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_enumerate_uniq does not support type ARRAY&lt;MAP&lt;VARCHAR(1),TINYINT&gt;&gt;, expression is array_enumerate_uniq([map('k', 1), map('k', 2), map('k', 3)])
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_enumerate_uniq();
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_enumerate_uniq' which has 0 arity. Candidate functions are: [array_enumerate_uniq(Expression, Expression...)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_enumerate_uniq('not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_enumerate_uniq(VARCHAR(12))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, ENUMERATE, UNIQ, ARRAY_ENUMERATE_UNIQ</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-enumerate-uniq/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

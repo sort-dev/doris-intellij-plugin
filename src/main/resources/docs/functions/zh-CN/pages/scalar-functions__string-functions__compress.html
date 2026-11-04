@@ -1,0 +1,77 @@
+<div class="definition"><pre>COMPRESS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>COMPRESS 函数用于将字符串压缩成二进制数据。使用 zlib 压缩算法，压缩后的数据可通过 UNCOMPRESS 函数解压还原。</p>
+<h2>语法</h2>
+<pre><code>COMPRESS(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要压缩的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为压缩后的二进制数据（不可读）。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果输入为空字符串 <code>''</code>，返回空字符串 <code>''</code></li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：压缩和解压</li>
+</ol>
+<pre><code>SELECT uncompress(compress('hello'));
+</code></pre>
+<pre><code>+-------------------------------+
+| uncompress(compress('hello')) |
++-------------------------------+
+| hello                         |
++-------------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT compress('');
+</code></pre>
+<pre><code>+--------------+
+| compress('') |
++--------------+
+|              |
++--------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT compress(NULL);
+</code></pre>
+<pre><code>+----------------+
+| compress(NULL) |
++----------------+
+| NULL           |
++----------------+
+</code></pre>
+<ol>
+<li>utf-8 字符测试</li>
+</ol>
+<pre><code>SELECT uncompress(compress('ṭṛì'));
+</code></pre>
+<pre><code>+----------------------------------+
+| uncompress(compress('ṭṛì'))      |
++----------------------------------+
+| ṭṛì                              |
++----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/compress/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

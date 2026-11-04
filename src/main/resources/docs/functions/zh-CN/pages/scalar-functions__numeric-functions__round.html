@@ -1,0 +1,112 @@
+<div class="definition"><pre>ROUND</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将数字 <code>x</code> 四舍五入后保留 <code>d</code> 位小数。</p>
+<ul>
+<li>如果没有指定 <code>d</code>，则将 <code>x</code> 四舍五入到最近的整数。</li>
+<li>如果 <code>d</code> 为负数，则结果小数点左边 <code>d</code> 位为 0。</li>
+<li>如果 <code>x</code> 或 <code>d</code> 为 <code>null</code> ，返回 <code>null</code>。</li>
+<li>如果 <code>d</code> 为一个列，并且第一个参数为 <code>Decimal</code> 类型，那么结果 <code>Decimal</code> 会跟入参 <code>Decimal</code> 具有相同的小数部分长度。</li>
+</ul>
+<h2>别名</h2>
+<ul>
+<li><code>DROUND</code></li>
+</ul>
+<h2>语法</h2>
+<pre><code>ROUND(&lt;x&gt; [ , &lt;d&gt; ])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要四舍五入的数值</td>
+</tr>
+<tr>
+<td><code>&lt;d&gt;</code></td>
+<td>可选，四舍五入需要保留的小数位数</td>
+</tr>
+</tbody>
+</table>
+<h2>举例</h2>
+<pre><code>select round(2.4);
+</code></pre>
+<pre><code>+------------+
+| round(2.4) |
++------------+
+|          2 |
++------------+
+</code></pre>
+<pre><code>select round(2.5);
+</code></pre>
+<pre><code>+------------+
+| round(2.5) |
++------------+
+|          3 |
++------------+
+</code></pre>
+<pre><code>select round(-3.4);
+</code></pre>
+<pre><code>+-------------+
+| round(-3.4) |
++-------------+
+|          -3 |
++-------------+
+</code></pre>
+<pre><code>select round(-3.5);
+</code></pre>
+<pre><code>+-------------+
+| round(-3.5) |
++-------------+
+|          -4 |
++-------------+
+</code></pre>
+<pre><code>select round(1667.2725, 2);
+</code></pre>
+<pre><code>+---------------------+
+| round(1667.2725, 2) |
++---------------------+
+|             1667.27 |
++---------------------+
+</code></pre>
+<pre><code>select round(1667.2725, -2);
+</code></pre>
+<pre><code>+----------------------+
+| round(1667.2725, -2) |
++----------------------+
+|                 1700 |
++----------------------+
+</code></pre>
+<pre><code>CREATE TABLE test_enhanced_round (
+    rid int, flo float, dou double,
+    dec90 decimal(9, 0), dec91 decimal(9, 1), dec99 decimal(9, 9),
+    dec100 decimal(10,0), dec109 decimal(10,9), dec1010 decimal(10,10),
+    number int DEFAULT 1)
+DISTRIBUTED BY HASH(rid)
+PROPERTIES("replication_num" = "1" );
+
+INSERT INTO test_enhanced_round
+VALUES
+(1, 12345.123, 123456789.123456789,
+    123456789, 12345678.1, 0.123456789,
+    123456789.1, 1.123456789, 0.123456789, 1);
+
+SELECT number, dec90, round(dec90, number), dec91, round(dec91, number), dec99, round(dec99, number) FROM test_enhanced_round order by rid;
+</code></pre>
+<pre><code>+--------+-----------+----------------------+------------+----------------------+-------------+----------------------+
+| number | dec90     | round(dec90, number) | dec91      | round(dec91, number) | dec99       | round(dec99, number) |
++--------+-----------+----------------------+------------+----------------------+-------------+----------------------+
+|      1 | 123456789 |            123456789 | 12345678.1 |           12345678.1 | 0.123456789 |          0.100000000 |
++--------+-----------+----------------------+------------+----------------------+-------------+----------------------+
+</code></pre>
+<h2>注意事项</h2>
+<p>2.5 会舍入到 3，如果想要舍入到 2 的算法，请使用 <code>round_bankers</code> 函数。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/round/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

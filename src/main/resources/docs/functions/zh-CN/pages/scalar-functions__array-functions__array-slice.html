@@ -1,0 +1,68 @@
+<div class="definition"><pre>ARRAY_SLICE</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p>返回数组的子片段，支持起始偏移与长度。</p>
+<h2>语法</h2>
+<ul>
+<li><code>ARRAY_SLICE(arr, offset)</code></li>
+<li><code>ARRAY_SLICE(arr, offset, length)</code></li>
+</ul>
+<h2>参数</h2>
+<ul>
+<li><code>arr</code>：<code>ARRAY&lt;T&gt;</code>。</li>
+<li><code>offset</code>：表示起点。正数从头部计数（<code>1</code> 表示第一个元素），负数从尾部计数（<code>-1</code> 表示最后一个元素）。</li>
+<li><code>length</code>：表示长度。为正表示取 <code>length</code> 个元素；为负表示长度为 0。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回与输入同类型的 <code>ARRAY&lt;T&gt;</code>。</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>越界安全：起点与终点会被裁剪到数组边界以内，若无重叠则返回空数组。</li>
+</ul>
+<h2>示例</h2>
+<ul>
+<li>
+<p>指定正数起点：从起点直到左侧末尾</p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], 2)</code> -&gt; <code>[2,3,4,5,6]</code></li>
+</ul>
+</li>
+<li>
+<p>指定负数起点：从起点直到左侧末尾</p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], -3)</code> -&gt; <code>[4,5,6]</code></li>
+</ul>
+</li>
+<li>
+<p>指定正数长度，从起点向右取</p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], 2, 3)</code> -&gt; <code>[2,3,4]</code></li>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], -4, 2)</code> -&gt; <code>[3,4]</code></li>
+</ul>
+</li>
+<li>
+<p>指定负数长度，认为长度为 0</p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], 2, -2)</code> -&gt; <code>[]</code></li>
+</ul>
+</li>
+<li>
+<p>参数越界，返回空数组</p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3,4,5,6], 10, 3)</code> -&gt; <code>[]</code></li>
+</ul>
+</li>
+<li>
+<p>参数为 <code>NULL</code>，返回 <code>NULL</code></p>
+<ul>
+<li><code>ARRAY_SLICE([1,2,3], NULL, 2)</code> -&gt; <code>NULL</code></li>
+<li><code>ARRAY_SLICE([1,2,3], 2, NULL)</code> -&gt; <code>NULL</code></li>
+<li><code>ARRAY_SLICE(NULL, 2, 3)</code> -&gt; <code>NULL</code></li>
+</ul>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-slice/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

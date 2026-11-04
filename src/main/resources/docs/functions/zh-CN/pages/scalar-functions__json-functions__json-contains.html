@@ -1,0 +1,82 @@
+<div class="definition"><pre>JSON_CONTAINS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于判断一个 JSON 文档是否包含指定的 JSON 元素。如果指定的元素存在于 JSON 文档中，则返回 1，否则返回 0。如果 JSON 文档或查询的元素无效，则返回 <code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>JSON_CONTAINS(&lt;json_object&gt;, &lt;candidate&gt;[, &lt;json_path&gt;])
+</code></pre>
+<h2>参数</h2>
+<h3>必选参数</h3>
+<ul>
+<li><code>&lt;json_object&gt;</code> JSON 类型，检查其中是否存在 <code>&lt;candidate&gt;</code>。</li>
+<li><code>&lt;candidate&gt;</code> JSON 类型，要判断的候选值。</li>
+</ul>
+<h3>可选参数</h3>
+<ul>
+<li><code>&lt;json_path&gt;</code> String 类型，搜索起始路径，如果不提供默认从 root 开始。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>Null 如果三个参数任意一个为 NULL，返回 NULL</li>
+<li>True 如果<code>&lt;json_object&gt;</code> 存在 <code>&lt;candidate&gt;</code>，返回 True。</li>
+<li>False 如果<code>&lt;json_object&gt;</code> 不存在 <code>&lt;candidate&gt;</code>，返回 False。</li>
+<li>如果 <code>&lt;json_object&gt;</code> 或 <code>&lt;candidate&gt;</code> 不是 JSON 类型，报错。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>SET @j = '{"a": 1, "b": 2, "c": {"d": 4}}';
+SET @j2 = '1';
+SELECT JSON_CONTAINS(@j, @j2, '$.a');
+</code></pre>
+<pre><code>+-------------------------------+
+| JSON_CONTAINS(@j, @j2, '$.a') |
++-------------------------------+
+|                             1 |
++-------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_CONTAINS(@j, @j2, '$.b');
+</code></pre>
+<pre><code>+-------------------------------+
+| JSON_CONTAINS(@j, @j2, '$.b') |
++-------------------------------+
+|                             0 |
++-------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_CONTAINS(@j, '{"a": 1}');
+</code></pre>
+<pre><code>+-------------------------------+
+| JSON_CONTAINS(@j, '{"a": 1}') |
++-------------------------------+
+|                             1 |
++-------------------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>SELECT JSON_CONTAINS(NULL, '{"a": 1}');
+</code></pre>
+<pre><code>+---------------------------------+
+| JSON_CONTAINS(NULL, '{"a": 1}') |
++---------------------------------+
+|                            NULL |
++---------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_CONTAINS('{"a": 1}', NULL);
+</code></pre>
+<pre><code>+---------------------------------+
+| JSON_CONTAINS('{"a": 1}', NULL) |
++---------------------------------+
+|                            NULL |
++---------------------------------+
+</code></pre>
+<pre><code>SELECT JSON_CONTAINS('{"a": 1}', '{"a": 1}', NULL);
+</code></pre>
+<pre><code>+---------------------------------------------+
+| JSON_CONTAINS('{"a": 1}', '{"a": 1}', NULL) |
++---------------------------------------------+
+|                                        NULL |
++---------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-contains/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

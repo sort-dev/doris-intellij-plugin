@@ -1,0 +1,72 @@
+<div class="definition"><pre>BITMAP_FROM_STRING</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个字符串转化为一个 BITMAP，字符串是由逗号分隔的一组 unsigned bigint 数字组成。(数字取值在:0 ~ 18446744073709551615)
+比如"0, 1, 2"字符串会转化为一个 Bitmap，其中的第 0, 1, 2 位被设置。当输入字段不合法时，返回 NULL</p>
+<h2>语法</h2>
+<pre><code> BITMAP_FROM_STRING(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>数组字符串，比如"0, 1, 2"字符串会转化为一个 Bitmap，其中的第 0, 1, 2 位被设置</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BITMAP</p>
+<ul>
+<li>当输入字段不合法时，结果返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select bitmap_to_string(bitmap_from_string("0, 1, 2")) bts;
+</code></pre>
+<pre><code>+-------+
+| bts   |
++-------+
+| 0,1,2 |
++-------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_string("-1, 0, 1, 2")) bfs;
+</code></pre>
+<pre><code>+------+
+| bfs  |
++------+
+| NULL |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_string(NULL)) bfs;
+</code></pre>
+<pre><code>+------+
+| bfs  |
++------+
+| NULL |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_string("18446744073709551616, 1")) bfs;
+</code></pre>
+<pre><code>+------+
+| bfs  |
++------+
+| NULL |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_string("0, 1, 18446744073709551615")) bts;
+</code></pre>
+<pre><code>+--------------------------+
+| bts                      |
++--------------------------+
+| 0,1,18446744073709551615 |
++--------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-from-string/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

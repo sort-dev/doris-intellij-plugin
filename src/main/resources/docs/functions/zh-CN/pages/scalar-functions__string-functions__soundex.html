@@ -1,0 +1,128 @@
+<div class="definition"><pre>SOUNDEX</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SOUNDEX 函数用于计算字符串的 <a href="https://zh.wikipedia.org/zh-cn/Soundex">Soundex 编码</a>。Soundex 是一种语音算法，用于将英文单词编码为表示其发音的代码，相似发音的单词会有相同的编码。</p>
+<p>编码规则：返回由一个大写字母和三位数字组成的4字符代码（如 S530）。</p>
+<h2>语法</h2>
+<pre><code>SOUNDEX(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要计算 Soundex 编码的字符串（仅支持 ASCII 字符）。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR(4) 类型，为字符串的 Soundex 编码。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果字符串为空或不含字母，返回空字符串</li>
+<li>仅处理 ASCII 字母，忽略其他字符</li>
+<li>非 ASCII 字符会导致函数报错</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：单词编码</li>
+</ol>
+<pre><code>SELECT soundex('Doris');
+</code></pre>
+<pre><code>+------------------+
+| soundex('Doris') |
++------------------+
+| D620             |
++------------------+
+</code></pre>
+<ol>
+<li>相似发音的单词有相同编码</li>
+</ol>
+<pre><code>SELECT soundex('Smith'), soundex('Smyth');
+</code></pre>
+<pre><code>+------------------+------------------+
+| soundex('Smith') | soundex('Smyth') |
++------------------+------------------+
+| S530             | S530             |
++------------------+------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT soundex('');
+</code></pre>
+<pre><code>+-------------+
+| soundex('') |
++-------------+
+|             |
++-------------+
+</code></pre>
+<ol>
+<li>处理 NULL 值</li>
+</ol>
+<pre><code>SELECT soundex(NULL);
+</code></pre>
+<pre><code>+---------------+
+| soundex(NULL) |
++---------------+
+| NULL          |
++---------------+
+</code></pre>
+<ol>
+<li>空字符串返回空字符串</li>
+</ol>
+<pre><code>SELECT soundex('');
+</code></pre>
+<pre><code>+-------------+
+| soundex('') |
++-------------+
+|             |
++-------------+
+</code></pre>
+<ol>
+<li>仅包含非字母字符返回空字符串</li>
+</ol>
+<pre><code>SELECT soundex('123@*%');
+</code></pre>
+<pre><code>+-------------------+
+| soundex('123@*%') |
++-------------------+
+|                   |
++-------------------+
+</code></pre>
+<ol>
+<li>忽略非字母字符</li>
+</ol>
+<pre><code>SELECT soundex('R@b-e123rt'), soundex('Robert');
+</code></pre>
+<pre><code>+-----------------------+-------------------+
+| soundex('R@b-e123rt') | soundex('Robert') |
++-----------------------+-------------------+
+| R163                  | R163              |
++-----------------------+-------------------+
+</code></pre>
+<ol>
+<li>仅包含非 ASCII 字符报错示例</li>
+</ol>
+<pre><code>SELECT soundex('你好');  
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Not Supported: Not Supported: soundex only supports ASCII, but got: 你
+</code></pre>
+<pre><code>SELECT soundex('Apache Doris 你好');
+</code></pre>
+<pre><code>+--------------------------------+
+| soundex('Apache Doris 你好')   |
++--------------------------------+
+| A123                           |
++--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/soundex/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

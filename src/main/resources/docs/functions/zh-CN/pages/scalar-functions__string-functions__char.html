@@ -1,0 +1,79 @@
+<div class="definition"><pre>CHAR | String Functions</pre></div>
+<div class="content">
+<h1>CHAR</h1>
+<h2>描述</h2>
+<p>CHAR 函数将每个参数解释为整数，并返回一个由这些整数代码值组成字符的字符串。</p>
+<h2>语法</h2>
+<pre><code>CHAR(&lt;expr&gt;[, &lt;expr&gt; ...] [USING &lt;charset_name&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要转换为字符的整数代码值。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为由参数整数代码值对应字符组成的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回空字符串</li>
+<li>如果结果字符串对于给定字符集是非法的，返回 NULL</li>
+<li>大于 255 的参数会被转换为多字节字符。例如 <code>CHAR(15049882)</code> 等价于 <code>CHAR(229, 164, 154)</code></li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：ASCII 字符生成</li>
+</ol>
+<pre><code>SELECT CHAR(68, 111, 114, 105, 115);
+</code></pre>
+<pre><code>+--------------------------------------+
+| char('utf8', 68, 111, 114, 105, 115) |
++--------------------------------------+
+| Doris                                |
++--------------------------------------+
+</code></pre>
+<ol>
+<li>多字节 UTF-8 字符（中文）</li>
+</ol>
+<pre><code>SELECT CHAR(15049882, 15179199, 14989469);
+</code></pre>
+<pre><code>+--------------------------------------------+
+| char('utf8', 15049882, 15179199, 14989469) |
++--------------------------------------------+
+| 多睿丝                                     |
++--------------------------------------------+
+</code></pre>
+<ol>
+<li>非法字符返回 NULL</li>
+</ol>
+<pre><code>SELECT CHAR(255);
+</code></pre>
+<pre><code>+-------------------+
+| char('utf8', 255) |
++-------------------+
+| NULL              |
++-------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT CHAR(NULL);
+</code></pre>
+<pre><code>+------------+
+| CHAR(NULL) |
++------------+
+|            |
++------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/char/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

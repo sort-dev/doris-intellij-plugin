@@ -1,0 +1,131 @@
+<div class="definition"><pre>YEARWEEK</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>YEARWEEK 函数用于返回指定日期对应的 “年份 + 周数” 组合（格式为 YYYYWW，如 202301 表示 2023 年第 1 周）。该函数通过可选参数 mode 灵活定义一周的起始日和 “第一周” 的判断标准，默认使用 mode=0。</p>
+<p>周数范围为 1-53，具体取决于 mode 的配置。</p>
+<p>参数 mode 的作用参见下面的表格：</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>星期的第一天</th>
+<th>星期数的范围</th>
+<th>第一个星期的定义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年中的第一个星期日所在的星期</td>
+</tr>
+<tr>
+<td>1</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>2</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年中的第一个星期日所在的星期</td>
+</tr>
+<tr>
+<td>3</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>4</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>5</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年中的第一个星期一所在的星期</td>
+</tr>
+<tr>
+<td>6</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>7</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年中的第一个星期一所在的星期</td>
+</tr>
+</tbody>
+</table>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_yearweek">yearweek 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>YEARWEEK(&lt;date_or_time_expr&gt;[, mode])
+</code></pre>
+<h2>返回值</h2>
+<p>返回 INT 类型的整数，格式为 YYYYWW（前 4 位为年份，后 2 位为周数），例如 202305 表示 2023 年第 5 周，202052 表示 2020 年第 52 周。</p>
+<ul>
+<li>若日期所在周属于上一年，返回上一年的年份和周数（如 2021 年 1 月 1 日可能返回 202052）。</li>
+<li>若日期所在周属于下一年，返回下一年的年份和第 1 周（如 2024 年 12 月 30 日可能返回 202501）。</li>
+<li>若输入为NULL，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- 默认mode=0（星期日起始，第一周含第一个星期日）
+-- 2021-01-01是星期五，所在周的第一个星期日为2020-12-27，故属于2020年第52周
+SELECT YEARWEEK('2021-01-01') AS yearweek_mode0;
++----------------+
+| yearweek_mode0 |
++----------------+
+|         202052 |
++----------------+
+
+-- mode=1（星期一起始，4天规则，与WEEKOFYEAR一致）
+SELECT YEARWEEK('2020-07-01', 1) AS yearweek_mode1;
++----------------+
+| yearweek_mode1 |
++----------------+
+|         202027 |
++----------------+
+
+-- mode=1，跨年周（2024-12-30是星期一，所在周2025年日期占比≥4天，属于2025年第1周）
+SELECT YEARWEEK('2024-12-30', 1) AS cross_year_mode1;
++-------------------+
+| cross_year_mode1  |
++-------------------+
+|            202501 |
++-------------------+
+
+-- mode=5（星期一起始，第一周含第一个星期一）
+-- 2023-01-02是星期一（当年第一个星期一），所在周为2023年第1周
+SELECT YEARWEEK('2023-01-02', 5) AS yearweek_mode5;
++----------------+
+| yearweek_mode5 |
++----------------+
+|         202301 |
++----------------+
+
+-- 输入为DATE类型
+SELECT YEARWEEK('2023-12-25', 1) AS date_type_mode1;
++-------------------+
+| date_type_mode1   |
++-------------------+
+|            202352 |  
++-------------------+
+
+-- 输入为NULL（返回NULL）
+SELECT YEARWEEK(null);
++----------------+
+| YEARWEEK(null) |
++----------------+
+|           NULL |
++----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/yearweek/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

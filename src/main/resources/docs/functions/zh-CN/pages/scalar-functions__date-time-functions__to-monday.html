@@ -1,0 +1,80 @@
+<div class="definition"><pre>TO_MONDAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将日期或带时间的日期向下舍入到最近的星期一。作为一种特殊情况，日期参数 1970-01-01、1970-01-02、1970-01-03 和 1970-01-04 返回日期 1970-01-01</p>
+<h2>语法</h2>
+<pre><code>to_monday(`&lt;date_or_time_expr&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime_or_date&gt;</code></td>
+<td>输入的日期时间值，支持输入 date/datetime 类型，具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回类型为 DATE（格式 YYYY-MM-DD），表示输入日期所在周的星期一。</p>
+<ul>
+<li>若输入为 1970-01-01、1970-01-02、1970-01-03、1970-01-04 中的任一日期，固定返回 1970-01-01；</li>
+<li>若输入为 NULL，返回 NULL；</li>
+</ul>
+<h2>举例</h2>
+<pre><code>--2022-09-10是星期六，返回所在周的星期一（2022-09-05）
+SELECT TO_MONDAY('2022-09-10') AS result;
++------------+
+| result     |
++------------+
+| 2022-09-05 |
++------------+
+
+-- 输入为 datetime 类型
+SELECT TO_MONDAY('2022-09-10 12:22:15') AS result;
++------------+
+| result     |
++------------+
+| 2022-09-05 |
++------------+
+
+---返回 1970 之前的日期所在的一周中的周一
+SELECT TO_MONDAY('1022-09-10') AS result;
++------------+
+| result     |
++------------+
+| 1022-09-09 |
++------------+
+
+--星期一当天的日期：返回自身
+SELECT TO_MONDAY('2023-10-09') AS result;  -- 2023-10-09是星期一
++------------+
+| result     |
++------------+
+| 2023-10-09 |
++------------+
+
+---特殊日期
+SELECT TO_MONDAY('1970-01-02'),TO_MONDAY('1970-01-01'),TO_MONDAY('1970-01-03'),TO_MONDAY('1970-01-04');
++-------------------------+-------------------------+-------------------------+-------------------------+
+| TO_MONDAY('1970-01-02') | TO_MONDAY('1970-01-01') | TO_MONDAY('1970-01-03') | TO_MONDAY('1970-01-04') |
++-------------------------+-------------------------+-------------------------+-------------------------+
+| 1970-01-01              | 1970-01-01              | 1970-01-01              | 1970-01-01              |
++-------------------------+-------------------------+-------------------------+-------------------------+
+
+---输入 NULL，返回 NULL
+SELECT TO_MONDAY(NULL) AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/to-monday/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

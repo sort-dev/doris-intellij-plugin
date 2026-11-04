@@ -1,0 +1,54 @@
+<div class="definition"><pre>NTILE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>NTILE() 是一个窗口函数，用于将有序数据集平均分配到指定数量的桶中。桶的编号从 1 开始顺序编号，直到指定的桶数。当数据无法平均分配时，优先将多出的记录分配给编号较小的桶，使得各个桶中的行数最多相差 1。
+如果未显示指定窗口，会隐式生成<code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code> 类型，且当前仅支持此类。</p>
+<h2>语法</h2>
+<pre><code>NTILE( &lt;constant_value&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>constant_value</td>
+<td>必需。指定要分配的桶数量，必须是正整数</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 BIGINT 类型的桶编号，范围从 1 到指定的桶数。</p>
+<h2>使用说明</h2>
+<p>如果语句中同时包含 NTILE 函数的 ORDER BY 子句和输出结果的 ORDER BY 子句，这两个排序是独立的：</p>
+<ul>
+<li>NTILE 函数的 ORDER BY 决定了行被分配到哪个桶中</li>
+<li>输出的 ORDER BY 决定了结果的显示顺序</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT 
+    name,
+    score,
+    NTILE(4) OVER (ORDER BY score DESC) as quarter
+FROM student_scores;
+</code></pre>
+<pre><code>+----------+-------+---------+
+| name     | score | quarter |
++----------+-------+---------+
+| Alice    | 98    | 1       |  -- 前 25% 的成绩
+| Bob      | 95    | 1       |
+| Charlie  | 90    | 2       |  -- 前 25-50% 的成绩
+| David    | 85    | 2       |
+| Eve      | 82    | 3       |  -- 前 50-75% 的成绩
+| Frank    | 78    | 3       |
+| Grace    | 75    | 4       |  -- 后 25% 的成绩
+| Henry    | 70    | 4       |
++----------+-------+---------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/window-functions/ntile/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

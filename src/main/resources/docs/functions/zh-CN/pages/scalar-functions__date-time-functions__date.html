@@ -1,0 +1,59 @@
+<div class="definition"><pre>DATE | Date Time Functions</pre></div>
+<div class="content">
+<h1>DATE</h1>
+<h2>描述</h2>
+<p>DATE 函数用于从日期时间值(包含日期和时间)中提取出纯日期部分，忽略时间信息。该函数可将 DATETIME 类型转换为 DATE 类型，仅保留年、月、日信息。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_date">date 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>DATE(&lt;date_or_time_part&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_part&gt;</code></td>
+<td>合法的日期表达式,支持的类型为 datetime ，具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>若输入有效，返回 DATE 类型的纯日期值（格式为 YYYY-MM-DD），不含时间部分。</p>
+<p>特殊情况：</p>
+<ul>
+<li>输入为 NULL 时，返回 NULL；</li>
+</ul>
+<h2>举例</h2>
+<pre><code>---提取日期时间中的日期部分
+mysql&gt; select date(cast('2010-12-02 19:28:30' as datetime));
++-----------------------------------------------+
+| date(cast('2010-12-02 19:28:30' as datetime)) |
++-----------------------------------------------+
+| 2010-12-02                                    |
++-----------------------------------------------+
+
+--- 提取日期中的日期部分
+mysql&gt; select date(cast('2015-11-02' as date));
++----------------------------------+
+| date(cast('2015-11-02' as date)) |
++----------------------------------+
+| 2015-11-02                       |
++----------------------------------+
+
+---输入为NULL
+mysql&gt; select date(NULL);
++------------+
+| date(NULL) |
++------------+
+| NULL       |
++------------+
+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/date/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

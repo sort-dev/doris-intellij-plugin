@@ -1,0 +1,147 @@
+<div class="definition"><pre>UNHEX</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>UNHEX 函数用于将十六进制字符串转换为原始字符串，是 HEX 函数的逆操作。该函数将每两个十六进制字符（0-9, A-F, a-f）转换为一个字节。UNHEX_NULL 函数功能相同，在遇到无效输入时也返回 NULL。这两个函数在处理二进制数据、加密数据或需要十六进制表示的数据时非常有用。</p>
+<p>该函数自 3.0.6 版本开始支持</p>
+<h2>语法</h2>
+<pre><code>UNHEX(&lt;str&gt;)
+UNHEX_NULL(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要解码的十六进制字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示十六进制解码后的原始字符串。</p>
+<p>解码规则：</p>
+<ul>
+<li>接受字符范围：0-9, a-f, A-F</li>
+<li>每两个十六进制字符转换为一个字节</li>
+<li>结果可能包含不可打印字符</li>
+</ul>
+<p>特殊情况（UNHEX）：</p>
+<ul>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>如果字符串长度为 0 或奇数，返回空字符串</li>
+<li>如果包含非十六进制字符，返回空字符串</li>
+</ul>
+<p>特殊情况（UNHEX_NULL）：</p>
+<ul>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>如果字符串长度为 0 或奇数，返回 NULL</li>
+<li>如果包含非十六进制字符，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本十六进制解码</li>
+</ol>
+<pre><code>SELECT UNHEX('41'), UNHEX('61');
+</code></pre>
+<pre><code>+-------------+-------------+
+| UNHEX('41') | UNHEX('61') |
++-------------+-------------+
+| A           | a           |
++-------------+-------------+
+</code></pre>
+<ol>
+<li>多字符解码</li>
+</ol>
+<pre><code>SELECT UNHEX('4142'), UNHEX('48656C6C6F');
+</code></pre>
+<pre><code>+---------------+----------------------+
+| UNHEX('4142') | UNHEX('48656C6C6F')  |
++---------------+----------------------+
+| AB            | Hello                |
++---------------+----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理（两个函数对比）</li>
+</ol>
+<pre><code>SELECT UNHEX(NULL), UNHEX_NULL(NULL);
+</code></pre>
+<pre><code>+-------------+-----------------+
+| UNHEX(NULL) | UNHEX_NULL(NULL) |
++-------------+-----------------+
+| NULL        | NULL            |
++-------------+-----------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT UNHEX(''), UNHEX_NULL('');
+</code></pre>
+<pre><code>+-----------+-----------------+
+| UNHEX('') | UNHEX_NULL('')  |
++-----------+-----------------+
+|           | NULL            |
++-----------+-----------------+
+</code></pre>
+<ol>
+<li>非法字符处理</li>
+</ol>
+<pre><code>SELECT UNHEX('@'), UNHEX_NULL('@');
+</code></pre>
+<pre><code>+------------+-----------------+
+| UNHEX('@') | UNHEX_NULL('@') |
++------------+-----------------+
+|            | NULL            |
++------------+-----------------+
+</code></pre>
+<ol>
+<li>奇数长度字符串</li>
+</ol>
+<pre><code>SELECT UNHEX('123'), UNHEX_NULL('123');
+</code></pre>
+<pre><code>+--------------+-------------------+
+| UNHEX('123') | UNHEX_NULL('123') |
++--------------+-------------------+
+|              | NULL              |
++--------------+-------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符解码</li>
+</ol>
+<pre><code>SELECT UNHEX('E4B8AD'), UNHEX('E69687');
+</code></pre>
+<pre><code>+-----------------+-----------------+
+| UNHEX('E4B8AD') | UNHEX('E69687') |
++-----------------+-----------------+
+| 中              | 文              |
++-----------------+-----------------+
+</code></pre>
+<ol>
+<li>数字编码解码</li>
+</ol>
+<pre><code>SELECT UNHEX('313233'), UNHEX('393837');
+</code></pre>
+<pre><code>+------------------+------------------+
+| UNHEX('313233')  | UNHEX('393837')  |
++------------------+------------------+
+| 123              | 987              |
++------------------+------------------+
+</code></pre>
+<ol>
+<li>十六进制编码解码循环验证</li>
+</ol>
+<pre><code>SELECT UNHEX(HEX('Hello')), UNHEX(HEX('Test123'));
+</code></pre>
+<pre><code>+---------------------+------------------------+
+| UNHEX(HEX('Hello')) | UNHEX(HEX('Test123'))  |
++---------------------+------------------------+
+| Hello               | Test123                |
++---------------------+------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/unhex/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

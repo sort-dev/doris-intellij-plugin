@@ -1,0 +1,85 @@
+<div class="definition"><pre>NUMBERS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>表函数，生成一张只含有一列的临时表，列名为<code>number</code>，如果指定了<code>const_value</code>，则所有元素值均为<code>const_value</code>，否则为[0,<code>number</code>) 递增。</p>
+<h2>语法</h2>
+<pre><code>NUMBERS(
+    "number" = "&lt;number&gt;"
+    [, "const_value" = "&lt;const_value&gt;" ]
+  );
+</code></pre>
+<h2>必填参数</h2>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>number</strong></td>
+<td>行数</td>
+</tr>
+</tbody>
+</table>
+<h2>选填参数</h2>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>const_value</strong></td>
+<td>常量值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>number</strong></td>
+<td>BIGINT</td>
+<td>指定每行返回的值</td>
+</tr>
+</tbody>
+</table>
+<h2>举例</h2>
+<pre><code>select * from numbers("number" = "5");
+</code></pre>
+<pre><code>+--------+
+| number |
++--------+
+|      0 |
+|      1 |
+|      2 |
+|      3 |
+|      4 |
++--------+
+</code></pre>
+<pre><code>select * from numbers("number" = "5", "const_value" = "-123");
+</code></pre>
+<pre><code>+--------+
+| number |
++--------+
+|   -123 |
+|   -123 |
+|   -123 |
+|   -123 |
+|   -123 |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/numbers/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

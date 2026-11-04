@@ -1,0 +1,125 @@
+<div class="definition"><pre>ARRAY_LAST_INDEX</pre></div>
+<div class="content">
+<h2>array_last_index</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>查找数组中满足 lambda 表达式的最后一个元素的位置索引（从1开始）。找到最后一个满足条件的元素并返回其位置索引。</p>
+<h2>语法</h2>
+<pre><code>array_last_index(lambda, ARRAY&lt;T&gt; arr1, [ARRAY&lt;T&gt; arr2, ...])
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>lambda</code>：lambda 表达式，用于定义查找条件</li>
+<li><code>arr1, arr2, ...</code>：ARRAY&lt;T&gt; 类型，要查找的数组。支持一个或多个数组参数。</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BIGINT</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回数组中最后一个满足 lambda 表达式的元素的位置索引，返回值从 1 开始，而不是从 0 开始。如果找到满足条件的元素与数组中的第一个元素匹配，则此函数返回 1，而不是 0</li>
+<li>0：如果输入数组为 NULL且无lambda 表达式，或数组为空，或没有元素满足条件</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>lambda 表达式中参数个数需与数组参数个数一致</li>
+<li>空数组返回 0，输入参数是 NULL 数组且无lambda表达式，返回 0，如果输入参数是 NULL 数组有lambda表达式，会报错</li>
+<li>当有多个数组参数时，所有数组的长度必须一致</li>
+<li>lambda 可以用任意标量表达式，不能用聚合函数</li>
+<li>lambda 表达式可以调用其他高阶函数，但需要返回类型兼容</li>
+<li>对数组元素中的 null 值：null 元素会传递给 lambda 表达式处理，lambda 可以判断 null 值</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>查找浮点数数组中最后一个大于等于 3 的元素的位置索引：</p>
+<pre><code>SELECT array_last_index(x -&gt; x &gt;= 3, [1.1, 2.2, 3.3, 4.4, 5.5]);
++----------------------------------------------------------+
+| array_last_index(x -&gt; x &gt;= 3, [1.1, 2.2, 3.3, 4.4, 5.5]) |
++----------------------------------------------------------+
+|                                                        5 |
++----------------------------------------------------------+
+</code></pre>
+<p>查找字符串数组中最后一个长度大于 2 的元素的位置索引：</p>
+<pre><code>SELECT array_last_index(x -&gt; length(x) &gt; 2, ['a', 'bb', 'ccc', 'dddd', 'eeeee']);
++---------------------------------------------------------------------------+
+| array_last_index(x -&gt; length(x) &gt; 2, ['a', 'bb', 'ccc', 'dddd', 'eeeee']) |
++---------------------------------------------------------------------------+
+|                                                                         5 |
++---------------------------------------------------------------------------+
+</code></pre>
+<p>空数组返回 0：</p>
+<pre><code>SELECT array_last_index(x -&gt; x &gt; 0, []);
++----------------------------------------+
+| array_last_index(x -&gt; x &gt; 0, [])     |
++----------------------------------------+
+| 0                                      |
++----------------------------------------+
+</code></pre>
+<p>NULL 数组和lambda 表达式组合，参数中有lambda 表达式结合NULL 会报错，无lambda 表达式则返回 0：</p>
+<pre><code>SELECT array_last_index(NULL);
++-------------------------+
+| array_last_index(NULL) |
++-------------------------+
+|                       0 |
++-------------------------+
+
+SELECT array_last_index(x -&gt; x &gt; 2, NULL);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda argument must be array but is NULL
+</code></pre>
+<p>包含 null 的数组，lambda 可判断 null：</p>
+<pre><code>SELECT array_last_index(x -&gt; x is not null, [null, 1, null, 3, null, 5]);
++-------------------------------------------------------------------+
+| array_last_index(x -&gt; x is not null, [null, 1, null, 3, null, 5]) |
++-------------------------------------------------------------------+
+|                                                                 6 |
++-------------------------------------------------------------------+
+</code></pre>
+<p>多数组查找，查找第一个数组大于第二个数组的最后一个元素的位置索引：</p>
+<pre><code>SELECT array_last_index((x, y) -&gt; x &gt; y, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5]);
++-------------------------------------------------------------------------------+
+| array_last_index((x, y) -&gt; x &gt; y, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5]) |
++-------------------------------------------------------------------------------+
+|                                                                             0 |
++-------------------------------------------------------------------------------+
+</code></pre>
+<p>嵌套数组查找，查找每个子数组长度大于 2 的最后一个元素的位置索引：</p>
+<pre><code>SELECT array_last_index(x -&gt; size(x) &gt; 2, [[1,2],[3,4,5],[6],[7,8,9,10]]);
++--------------------------------------------------------------------+
+| array_last_index(x -&gt; size(x) &gt; 2, [[1,2],[3,4,5],[6],[7,8,9,10]]) |
++--------------------------------------------------------------------+
+|                                                                  4 |
++--------------------------------------------------------------------+
+</code></pre>
+<p>map 类型查找，查找最后一个 key 为 'a' 的 value 大于 10 的元素的位置索引：</p>
+<pre><code>SELECT array_last_index(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]);
++-------------------------------------------------------------------+
+| array_last_index(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]) |
++-------------------------------------------------------------------+
+|                                                                 3 |
++-------------------------------------------------------------------+
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_last_index();
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_last_index' which has 0 arity. Candidate functions are: [array_last_index(Expression, Expression...)]
+</code></pre>
+<p>lambda 表达式中参数个数和数组参数个数不一致报错：</p>
+<pre><code>SELECT array_last_index(x -&gt; x &gt; 0, [1,2,3], [4,5,6], [7,8,9]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda x -&gt; (x &gt; 0) arguments' size is not equal parameters' size
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_last_index(x -&gt; x &gt; 0, 'not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_last_index(Expression, VARCHAR(12))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, LAST, INDEX, ARRAY_LAST_INDEX</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-last-index/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

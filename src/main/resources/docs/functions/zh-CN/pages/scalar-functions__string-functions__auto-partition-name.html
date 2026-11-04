@@ -1,0 +1,117 @@
+<div class="definition"><pre>AUTO_PARTITION_NAME</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>AUTO_PARTITION_NAME 函数用于生成自动分区的分区名称。支持两种模式：RANGE 模式按时间单位生成分区名，LIST 模式根据字符串生成分区名。</p>
+<p>自 Apache Doris 2.1.6 版本开始支持。</p>
+<h2>语法</h2>
+<pre><code>AUTO_PARTITION_NAME('RANGE', &lt;unit&gt;, &lt;datetime&gt;)
+AUTO_PARTITION_NAME('LIST', &lt;value&gt;[, &lt;value&gt; ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'RANGE'</code></td>
+<td>RANGE 分区模式，根据时间生成分区名</td>
+</tr>
+<tr>
+<td><code>'LIST'</code></td>
+<td>LIST 分区模式，根据字符串值生成分区名</td>
+</tr>
+<tr>
+<td><code>&lt;unit&gt;</code></td>
+<td>RANGE 模式的时间单位：<code>year</code>、<code>month</code>、<code>day</code>、<code>hour</code>、<code>minute</code>、<code>second</code>。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;datetime&gt;</code></td>
+<td>RANGE 模式的日期时间值。类型：DATETIME</td>
+</tr>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>LIST 模式的分区值（可多个）。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为生成的分区名称。</p>
+<p>特殊情况：</p>
+<ul>
+<li>RANGE 模式：分区名格式为 <code>pYYYYMMDDHHMMSS</code>，根据 unit 截断到对应精度</li>
+<li>LIST 模式：分区名格式为 <code>p&lt;value&gt;&lt;length&gt;</code>，多个值用长度分隔</li>
+<li>如果参数无效，返回错误</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：RANGE 按天分区</li>
+</ol>
+<pre><code>SELECT auto_partition_name('range', 'day', '2022-12-12 19:20:30');
+</code></pre>
+<pre><code>+------------------------------------------------------------+
+| auto_partition_name('range', 'day', '2022-12-12 19:20:30') |
++------------------------------------------------------------+
+| p20221212000000                                            |
++------------------------------------------------------------+
+</code></pre>
+<ol>
+<li>RANGE 按月分区</li>
+</ol>
+<pre><code>SELECT auto_partition_name('range', 'month', '2022-12-12 19:20:30');
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| auto_partition_name('range', 'month', '2022-12-12 19:20:30') |
++--------------------------------------------------------------+
+| p20221201000000                                              |
++--------------------------------------------------------------+
+</code></pre>
+<ol>
+<li>LIST 单个值</li>
+</ol>
+<pre><code>SELECT auto_partition_name('list', 'helloworld');
+</code></pre>
+<pre><code>+-------------------------------------------+
+| auto_partition_name('list', 'helloworld') |
++-------------------------------------------+
+| phelloworld10                             |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>LIST 多个值</li>
+</ol>
+<pre><code>SELECT auto_partition_name('list', 'hello', 'world');
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| auto_partition_name('list', 'hello', 'world') |
++-----------------------------------------------+
+| phello5world5                                 |
++-----------------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持：LIST 模式</li>
+</ol>
+<pre><code>SELECT auto_partition_name('list', 'ṭṛì', 'ḍḍumai');
+</code></pre>
+<pre><code>+-------------------------------------------------------+
+| auto_partition_name('list', 'ṭṛì', 'ḍḍumai')          |
++-------------------------------------------------------+
+| p1e6d1e5bec31e0d1e0dumai6                             |
++-------------------------------------------------------+
+</code></pre>
+<ol>
+<li>无效的 unit 参数</li>
+</ol>
+<pre><code>SELECT auto_partition_name('range', 'years', '2022-12-12');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = range auto_partition_name must accept year|month|day|hour|minute|second for 2nd argument
+</code></pre>
+<h3>关键词</h3>
+<pre><code>AUTO_PARTITION_NAME,AUTO,PARTITION,NAME
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/auto-partition-name/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

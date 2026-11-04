@@ -1,0 +1,55 @@
+<div class="definition"><pre>TO_BASE64_BINARY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TO_BASE64_BINARY 函数用于将输入的二进制串转换为 Base64 编码格式。Base64 编码可以将任意二进制数据转换成由 64 个字符组成的字符串。</p>
+<h2>语法</h2>
+<pre><code>TO_BASE64_BINARY(&lt;bin&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bin&gt;</code></td>
+<td>需要进行 Base64 编码的二进制串。类型：VARBINARY</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示 Base64 编码后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>如果输入为空字符串，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>单字符编码</li>
+</ol>
+<pre><code>SELECT to_base64_binary(x'12');
+</code></pre>
+<pre><code>+-------------------------+
+| to_base64_binary(x'12') |
++-------------------------+
+| Eg==                    |
++-------------------------+
+</code></pre>
+<ol>
+<li>多字符编码</li>
+</ol>
+<pre><code>SELECT to_base64_binary(x'234AAA');
+</code></pre>
+<pre><code>+-----------------------------+
+| to_base64_binary(x'234AAA') |
++-----------------------------+
+| I0qq                        |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/binary-functions/to-base64-binary/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

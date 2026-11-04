@@ -1,0 +1,68 @@
+<div class="definition"><pre>COVAR_SAMP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个变量之间的样本协方差，如果输入变量存在 NULL，则该行不计入统计数据。</p>
+<h2>语法</h2>
+<pre><code>COVAR_SAMP(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr1&gt;</code></td>
+<td>用于计算的表达式之一，支持类型为 Double 。</td>
+</tr>
+<tr>
+<td><code>&lt;expr2&gt;</code></td>
+<td>用于计算的表达式之一，支持类型为 Double 。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 expr1 和 expr2 的样本协方差，返回类型为 Double。
+如果组内没有有效数据，返回 NULL 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+create table baseall(
+    id int,
+    x double,
+    y double
+) distributed by hash(id) buckets 1
+properties ("replication_num"="1");
+
+insert into baseall values
+    (1, 1.0, 2.0),
+    (2, 2.0, 3.0),
+    (3, 3.0, 4.0),
+    (4, 4.0, NULL),
+    (5, NULL, 5.0);
+</code></pre>
+<pre><code>select covar_samp(x,y) from baseall;
+</code></pre>
+<pre><code>+-----------------+
+| covar_samp(x,y) |
++-----------------+
+|               1 |
++-----------------+
+</code></pre>
+<pre><code>select id, covar_samp(x, y) from baseall group by id;
+</code></pre>
+<pre><code>+------+------------------+
+| id   | covar_samp(x, y) |
++------+------------------+
+|    1 |                0 |
+|    2 |                0 |
+|    3 |                0 |
+|    4 |             NULL |
+|    5 |             NULL |
++------+------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/covar-samp/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

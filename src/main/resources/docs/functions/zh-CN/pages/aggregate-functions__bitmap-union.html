@@ -1,0 +1,58 @@
+<div class="definition"><pre>BITMAP_UNION</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算输入 Bitmap 的并集，返回新的 bitmap。</p>
+<h2>语法</h2>
+<pre><code>BITMAP_UNION(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>支持 Bitmap 的数据类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回值的数据类型为 Bitmap。
+当组内没有合法数据时，返回空 Bitmap。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE pv_bitmap (
+  dt INT,
+  page INT,
+  user_id BITMAP
+) DISTRIBUTED BY HASH(dt) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO pv_bitmap VALUES
+  (1, 100, to_bitmap(100)),
+  (1, 100, to_bitmap(200)),
+  (1, 100, to_bitmap(300)),
+  (2, 200, to_bitmap(300));
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_union(user_id)) from pv_bitmap;
+</code></pre>
+<pre><code>+-----------------------------------------+
+| bitmap_to_string(bitmap_union(user_id)) |
++-----------------------------------------+
+| 100,200,300                             |
++-----------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_union(user_id)) from pv_bitmap where user_id is null;
+</code></pre>
+<pre><code>+-----------------------------------------+
+| bitmap_to_string(bitmap_union(user_id)) |
++-----------------------------------------+
+|                                         |
++-----------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/bitmap-union/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

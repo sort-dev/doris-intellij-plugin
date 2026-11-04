@@ -1,0 +1,73 @@
+<div class="definition"><pre>DEGREES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>输入一个 double 类型的浮点数，由弧度转换为角度。</p>
+<ul>
+<li>当参数为 NULL 时，返回 NULL</li>
+</ul>
+<h2>语法</h2>
+<pre><code>DEGREES(&lt;a&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>需要由弧度转换为角度的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数 a 的角度</p>
+<ul>
+<li>当参数为 NULL 时，返回 NULL</li>
+</ul>
+<h2>特殊情况</h2>
+<ul>
+<li>当 <code>a</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>a</code> 为正无穷（<code>Infinity</code>），返回 <code>Infinity</code></li>
+<li>当 <code>a</code> 为负无穷（<code>-Infinity</code>），返回 <code>-Infinity</code></li>
+<li>当 <code>a</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select degrees(3.14),degrees(1),degrees(-1),degrees(NULL)
+</code></pre>
+<pre><code>+-------------------------------+----------------------------+-----------------------------+---------------+
+| degrees(cast(3.14 as DOUBLE)) | degrees(cast(1 as DOUBLE)) | degrees(cast(-1 as DOUBLE)) | degrees(NULL) |
++-------------------------------+----------------------------+-----------------------------+---------------+
+|             179.9087476710785 |          57.29577951308232 |          -57.29577951308232 |          NULL |
++-------------------------------+----------------------------+-----------------------------+---------------+
+</code></pre>
+<pre><code>select degrees(cast('nan' as double));
+</code></pre>
+<pre><code>+-------------------------------+
+| degrees(cast('nan' AS DOUBLE))|
++-------------------------------+
+| NaN                           |
++-------------------------------+
+</code></pre>
+<pre><code>select degrees(cast('inf' as double));
+</code></pre>
+<pre><code>+-------------------------------+
+| degrees(cast('inf' AS DOUBLE))|
++-------------------------------+
+| Infinity                      |
++-------------------------------+
+</code></pre>
+<pre><code>select degrees(cast('-inf' as double));
+</code></pre>
+<pre><code>+--------------------------------+
+| degrees(cast('-inf' AS DOUBLE))|
++--------------------------------+
+| -Infinity                      |
++--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/degrees/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

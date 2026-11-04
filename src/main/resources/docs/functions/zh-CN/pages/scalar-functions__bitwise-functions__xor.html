@@ -1,0 +1,38 @@
+<div class="definition"><pre>XOR</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于对两个 BOOLEAN 值进行按位异或操作。</p>
+<h2>语法</h2>
+<pre><code> &lt;lhs&gt; XOR &lt;rhs&gt;
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;lhs&gt;</code> 参与按位与运算的第一个 BOOLEAN 值。</li>
+<li><code>&lt;rhs&gt;</code> 参与按位与运算的第二个 BOOLEAN 值。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回两个 BOOLEAN 值的异或值。</p>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>select true XOR false,true XOR true;
+</code></pre>
+<pre><code>+----------------+---------------+
+| true XOR false | true XOR true |
++----------------+---------------+
+|              1 |             0 |
++----------------+---------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select true XOR NULL, NULL XOR true, false XOR NULL, NULL XOR false, NULL XOR NULL;
+</code></pre>
+<pre><code>+---------------+---------------+----------------+----------------+---------------+
+| true XOR NULL | NULL XOR true | false XOR NULL | NULL XOR false | NULL XOR NULL |
++---------------+---------------+----------------+----------------+---------------+
+|          NULL |          NULL |           NULL |           NULL |          NULL |
++---------------+---------------+----------------+----------------+---------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/xor/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>
