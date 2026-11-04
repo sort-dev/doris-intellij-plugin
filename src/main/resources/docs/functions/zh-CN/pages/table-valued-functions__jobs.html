@@ -1,0 +1,257 @@
+<div class="definition"><pre>JOBS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>表函数，生成任务临时表，可以查看某个任务类型中的 job 信息。</p>
+<h2>语法</h2>
+<pre><code>JOBS(
+    "type"="&lt;type&gt;"
+)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>&lt;type&gt;</code></strong></td>
+<td>任务的类型：<br> <code>insert</code>：insert into 类型的任务。 <br> <code>mv</code>：物化视图类型的任务。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>该表函数返回 0 行或多行结果。函数本身不返回 NULL；当对应元数据不可用时，部分字段可能为空或 <code>NULL</code>。</p>
+<ul>
+<li>
+<p><strong><code>jobs("type"="insert")</code></strong> insert 类型的 job 返回值</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Id</td>
+<td>job id</td>
+</tr>
+<tr>
+<td>Name</td>
+<td>job 名称</td>
+</tr>
+<tr>
+<td>Definer</td>
+<td>job 定义者</td>
+</tr>
+<tr>
+<td>ExecuteType</td>
+<td>执行类型</td>
+</tr>
+<tr>
+<td>RecurringStrategy</td>
+<td>循环策略</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>job 状态</td>
+</tr>
+<tr>
+<td>ExecuteSql</td>
+<td>执行 SQL</td>
+</tr>
+<tr>
+<td>CreateTime</td>
+<td>job 创建时间</td>
+</tr>
+<tr>
+<td>SucceedTaskCount</td>
+<td>成功任务数量</td>
+</tr>
+<tr>
+<td>FailedTaskCount</td>
+<td>失败任务数量</td>
+</tr>
+<tr>
+<td>CanceledTaskCount</td>
+<td>取消任务数量</td>
+</tr>
+<tr>
+<td>Comment</td>
+<td>job 注释</td>
+</tr>
+<tr>
+<td>Properties</td>
+<td>job 属性。仅 <code>ExecuteType = STREAMING</code> 的作业有值</td>
+</tr>
+<tr>
+<td>CurrentOffset</td>
+<td>作业当前已处理完成的 Offset。仅 <code>ExecuteType = STREAMING</code> 的作业有值</td>
+</tr>
+<tr>
+<td>EndOffset</td>
+<td>作业从数据源端获取到的最大 Offset。仅 <code>ExecuteType = STREAMING</code> 的作业有值</td>
+</tr>
+<tr>
+<td>LoadStatistic</td>
+<td>作业的导入统计信息</td>
+</tr>
+<tr>
+<td>ErrorMsg</td>
+<td>作业执行的错误信息</td>
+</tr>
+<tr>
+<td>JobRuntimeMsg</td>
+<td>作业运行时的提示信息</td>
+</tr>
+<tr>
+<td>LagBytes</td>
+<td>数据源端日志（如 MySQL Binlog、PostgreSQL WAL）的积压字节数，<code>-1</code> 表示当前不可用（例如 S3 数据源或全量快照阶段）。<br><strong>自 4.1.4 版本起</strong>，该列由原来的 <code>Lag</code>（单位：秒）改名为 <code>LagBytes</code>（单位：字节）</td>
+</tr>
+<tr>
+<td>LastSourceEventTimestamp</td>
+<td>作业已提交 Offset 中记录的数据源端最新事件时间戳（Unix 秒），为空表示不可用。<strong>自 4.1.4 版本起新增</strong></td>
+</tr>
+<tr>
+<td>LastTaskSuccessTime</td>
+<td>最近一次任务成功完成的时间</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p><strong><code>jobs("type"="mv")</code></strong> MV 类型的 job 返回值</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Id</td>
+<td>job ID。对于 MV job，该字段对应 <code>tasks("type"="mv").JobId</code>。</td>
+</tr>
+<tr>
+<td>Name</td>
+<td>job 名称。对于 MV job，该字段对应 <code>mv_infos("database"="...").JobName</code> 和 <code>tasks("type"="mv").JobName</code>。</td>
+</tr>
+<tr>
+<td>MvId</td>
+<td>该 job 维护的物化视图 ID。</td>
+</tr>
+<tr>
+<td>MvName</td>
+<td>该 job 维护的物化视图名称。</td>
+</tr>
+<tr>
+<td>MvDatabaseId</td>
+<td>物化视图所属数据库 ID。</td>
+</tr>
+<tr>
+<td>MvDatabaseName</td>
+<td>物化视图所属数据库名称。</td>
+</tr>
+<tr>
+<td>ExecuteType</td>
+<td>job 执行类型。MV job 可取值为 <code>MANUAL</code> 和 <code>RECURRING</code>。<code>MANUAL</code> 表示刷新 task 由手动刷新、提交触发或系统内部事件触发；<code>RECURRING</code> 表示按周期调度刷新。</td>
+</tr>
+<tr>
+<td>RecurringStrategy</td>
+<td>根据 <code>ExecuteType</code> 生成的调度描述。<code>MANUAL TRIGGER</code> 表示该 job 不按定时器自动运行；<code>EVERY ... STARTS ... [ENDS ...]</code> 表示周期调度。</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>job 状态。可取值：<code>PENDING</code> 表示等待调度；<code>RUNNING</code> 表示 job 可生成 task；<code>PAUSED</code> 表示 job 已暂停且可恢复；<code>STOPPED</code> 表示 job 已停止且不可恢复；<code>FINISHED</code> 表示 job 已结束。</td>
+</tr>
+<tr>
+<td>CreateTime</td>
+<td>job 创建时间。</td>
+</tr>
+</tbody>
+</table>
+</li>
+</ul>
+<h3>MV job 枚举字段说明</h3>
+<p>查看物化视图刷新 job 时，下面这些枚举字段最常用：</p>
+<ul>
+<li><code>ExecuteType</code>：job 创建刷新 task 的方式。
+<ul>
+<li><code>MANUAL</code>：job 不按自己的定时器运行。只有手动刷新、提交触发刷新或系统触发刷新时，才会创建 task。</li>
+<li><code>RECURRING</code>：job 按调度周期运行，会周期性创建刷新 task。</li>
+</ul>
+</li>
+<li><code>RecurringStrategy</code>：根据 <code>ExecuteType</code> 生成的可读调度规则。
+<ul>
+<li><code>MANUAL TRIGGER</code>：job 不按周期调度。<code>ExecuteType</code> 为 <code>MANUAL</code> 时通常显示这个值。</li>
+<li><code>EVERY &lt;interval&gt; &lt;unit&gt; STARTS &lt;time&gt; [ENDS &lt;time&gt;]</code>：job 按周期调度。例如 <code>EVERY 10 MINUTE STARTS 2025-01-17 14:42:53</code>。</li>
+</ul>
+</li>
+<li><code>Status</code>：job 自身当前状态。
+<ul>
+<li><code>PENDING</code>：job 正在等待调度。</li>
+<li><code>RUNNING</code>：job 处于运行状态，可以创建刷新 task。</li>
+<li><code>PAUSED</code>：job 已暂停。恢复前不会创建新的刷新 task。</li>
+<li><code>STOPPED</code>：job 已停止，不能恢复。</li>
+<li><code>FINISHED</code>：job 已结束。对于长期存在的物化视图刷新 job 不常见，但通用 job 框架中可能出现。</li>
+</ul>
+</li>
+</ul>
+<p>对于物化视图，一个物化视图对应一个刷新 job，一个刷新 job 可以创建多个刷新 task。可以用 <code>jobs("type"="mv").Name</code> 关联 <code>mv_infos("database"="...").JobName</code> 和 <code>tasks("type"="mv").JobName</code>。</p>
+<h2>示例</h2>
+<p>查看某个物化视图的刷新 job。</p>
+<pre><code>select *
+from jobs("type"="mv")
+where MvDatabaseName = "test" and MvName = "mv1"\G
+</code></pre>
+<pre><code>*************************** 1. row ***************************
+               Id: 19508
+             Name: inner_mtmv_19494
+             MvId: 19494
+           MvName: mv1
+     MvDatabaseId: 16016
+   MvDatabaseName: test
+      ExecuteType: MANUAL
+RecurringStrategy: MANUAL TRIGGER
+           Status: RUNNING
+       CreateTime: 2025-01-07 22:13:31
+</code></pre>
+<p>该结果中：</p>
+<ul>
+<li><code>Id</code> 是物化视图刷新 job ID，与 <code>tasks("type"="mv")</code> 中的 <code>JobId</code> 相同。</li>
+<li><code>Name</code> 是物化视图刷新 job 名称，与 <code>mv_infos("database"="test")</code> 和 <code>tasks("type"="mv")</code> 中的 <code>JobName</code> 相同。</li>
+<li><code>MvId</code> 和 <code>MvName</code> 标识该 job 维护的物化视图。</li>
+<li><code>MvDatabaseId</code> 和 <code>MvDatabaseName</code> 标识物化视图所属数据库。</li>
+<li><code>ExecuteType</code> 为 <code>MANUAL</code>，表示该 job 不按自身定时器运行。当物化视图被手动刷新、提交触发刷新或系统触发刷新时，才会生成刷新 task。</li>
+<li><code>RecurringStrategy</code> 为 <code>MANUAL TRIGGER</code>，与 <code>ExecuteType = MANUAL</code> 对应。如果是定时刷新的物化视图，该字段会显示为 <code>EVERY ... STARTS ...</code>。</li>
+<li><code>Status</code> 为 <code>RUNNING</code>，表示该 job 可以生成刷新 task。如果为 <code>PAUSED</code>，需要先恢复物化视图 job，才会继续产生新 task。</li>
+<li><code>CreateTime</code> 表示该物化视图刷新 job 的创建时间。</li>
+</ul>
+<p>查看该 job 生成的刷新 task：</p>
+<pre><code>select TaskId, JobName, MvName, Status, CreateTime, FinishTime
+from tasks("type"="mv")
+where JobName = "inner_mtmv_19494"
+order by CreateTime desc;
+</code></pre>
+<pre><code>+-----------------+------------------+--------+---------+---------------------+---------------------+
+| TaskId          | JobName          | MvName | Status  | CreateTime          | FinishTime          |
++-----------------+------------------+--------+---------+---------------------+---------------------+
+| 437156301250803 | inner_mtmv_19494 | mv1    | SUCCESS | 2025-01-07 22:13:48 | 2025-01-07 22:17:45 |
++-----------------+------------------+--------+---------+---------------------+---------------------+
+</code></pre>
+<p>查看所有 insert 任务的 job</p>
+<pre><code>select * from jobs("type"="insert");
+</code></pre>
+<pre><code>+----------------+----------------+---------+-------------+--------------------------------------------+---------+--------------------------------------------------------------+---------------------+------------------+-----------------+-------------------+---------+
+| Id             | Name           | Definer | ExecuteType | RecurringStrategy                          | Status  | ExecuteSql                                                   | CreateTime          | SucceedTaskCount | FailedTaskCount | CanceledTaskCount | Comment |
++----------------+----------------+---------+-------------+--------------------------------------------+---------+--------------------------------------------------------------+---------------------+------------------+-----------------+-------------------+---------+
+| 78533940810334 | insert_tab_job | root    | RECURRING   | EVERY 10 MINUTE STARTS 2025-01-17 14:42:53 | RUNNING | INSERT INTO test.insert_tab SELECT * FROM test.example_table | 2025-01-17 14:32:53 | 0                | 0               | 0                 |         |
++----------------+----------------+---------+-------------+--------------------------------------------+---------+--------------------------------------------------------------+---------------------+------------------+-----------------+-------------------+---------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/jobs/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

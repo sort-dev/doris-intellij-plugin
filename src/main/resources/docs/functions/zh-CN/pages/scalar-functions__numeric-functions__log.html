@@ -1,0 +1,101 @@
+<div class="definition"><pre>LOG</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回基于底数<code>b</code>的<code>x</code>的对数。</p>
+<h2>语法</h2>
+<pre><code>LOG(&lt;b&gt;[, &lt;x&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;b&gt;</code></td>
+<td>底数 必须大于 0 且不等于 1</td>
+</tr>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>可选，真数必须大于 0，默认为自然数 e</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个浮点数。特殊情况：</p>
+<ul>
+<li>当 b 为 NULL 或 x 为 NULL 时，返回<code>NULL</code></li>
+<li>当 任意一个参数 NaN 时，返回 NaN</li>
+<li>当 参数不满足输入限制时，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select log(5,1);
+</code></pre>
+<pre><code>+---------------+
+| log(5.0, 1.0) |
++---------------+
+|             0 |
++---------------+
+</code></pre>
+<pre><code>select log(3),ln(3);
+</code></pre>
+<pre><code>+--------------------+--------------------+
+| log(3)             | ln(3)              |
++--------------------+--------------------+
+| 1.0986122886681098 | 1.0986122886681098 |
++--------------------+--------------------+
+</code></pre>
+<pre><code>select log(3,20);
+</code></pre>
+<pre><code>+--------------------+
+| log(3.0, 20.0)     |
++--------------------+
+| 2.7268330278608417 |
++--------------------+
+</code></pre>
+<pre><code>select log(2,65536);
+</code></pre>
+<pre><code>+-------------------+
+| log(2.0, 65536.0) |
++-------------------+
+|                16 |
++-------------------+
+</code></pre>
+<pre><code>select log(5,NULL);
+</code></pre>
+<pre><code>+------------------------------+
+| log(cast(5 as DOUBLE), NULL) |
++------------------------------+
+|                         NULL |
++------------------------------+
+</code></pre>
+<pre><code>select log(NULL,3);
+</code></pre>
+<pre><code>+------------------------------+
+| log(NULL, cast(3 as DOUBLE)) |
++------------------------------+
+|                         NULL |
++------------------------------+
+</code></pre>
+<pre><code>select log(2 ,cast('nan' as double));
+</code></pre>
+<pre><code>+-------------------------------+
+| log(2 ,cast('nan' as double)) |
++-------------------------------+
+|                           NaN |
++-------------------------------+
+</code></pre>
+<pre><code>select log(2 ,-1);
+</code></pre>
+<pre><code>+------------+
+| log(2 ,-1) |
++------------+
+|       NULL |
++------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/log/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,150 @@
+<div class="definition"><pre>SUBSTRING_INDEX</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SUBSTRING_INDEX 函数用于根据指定的分隔符截取字符串的部分内容。通过指定分隔符的出现次数，可以从左侧或右侧进行截取。</p>
+<h2>语法</h2>
+<pre><code>SUBSTRING_INDEX(&lt;content&gt;, &lt;delimiter&gt;, &lt;field&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;content&gt;</code></td>
+<td>需要截取的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;delimiter&gt;</code></td>
+<td>分隔符字符串，大小写敏感且支持多字节字符。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;field&gt;</code></td>
+<td>分隔符出现的次数。正数从左计数，负数从右计数，0 返回空字符串。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示截取后的子字符串。</p>
+<p>截取规则：</p>
+<ul>
+<li>当 field &gt; 0：返回从左边起第 field 个分隔符之前的内容</li>
+<li>当 field &lt; 0：返回从右边起第 |field| 个分隔符之后的内容</li>
+<li>当 field = 0：返回空字符串（content 为 NULL 时返回 NULL）</li>
+<li>大小写敏感的精确匹配分隔符</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果分隔符在字符串中不存在，返回原字符串</li>
+<li>如果指定的次数超出实际分隔符数量，返回能截取到的最大部分</li>
+<li>如果分隔符为空字符串，返回空字符串</li>
+<li>源字符串为空,返回空字符串。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本的左侧截取</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('hello world', ' ', 1), SUBSTRING_INDEX('one,two,three', ',', 2);
+</code></pre>
+<pre><code>+----------------------------------------+------------------------------------------+
+| SUBSTRING_INDEX('hello world', ' ', 1) | SUBSTRING_INDEX('one,two,three', ',', 2) |
++----------------------------------------+------------------------------------------+
+| hello                                  | one,two                                  |
++----------------------------------------+------------------------------------------+
+</code></pre>
+<ol>
+<li>右侧截取（负数计数）</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('hello world', ' ', -1), SUBSTRING_INDEX('one,two,three', ',', -1);
+</code></pre>
+<pre><code>+-----------------------------------------+-------------------------------------------+
+| SUBSTRING_INDEX('hello world', ' ', -1) | SUBSTRING_INDEX('one,two,three', ',', -1) |
++-----------------------------------------+-------------------------------------------+
+| world                                   | three                                     |
++-----------------------------------------+-------------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX(NULL, ',', 1), SUBSTRING_INDEX('test', NULL, 1);
+</code></pre>
+<pre><code>+--------------------------------+------------------------------------+
+| SUBSTRING_INDEX(NULL, ',', 1)  | SUBSTRING_INDEX('test', NULL, 1)   |
++--------------------------------+------------------------------------+
+| NULL                           | NULL                               |
++--------------------------------+------------------------------------+
+</code></pre>
+<ol>
+<li>零次数处理</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('hello world', ' ', 0), SUBSTRING_INDEX('a,b,c', ',', 0);
+</code></pre>
+<pre><code>+----------------------------------------+----------------------------------+
+| SUBSTRING_INDEX('hello world', ' ', 0) | SUBSTRING_INDEX('a,b,c', ',', 0) |
++----------------------------------------+----------------------------------+
+|                                        |                                  |
++----------------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>分隔符不存在的情况</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('hello world', ',', 1), SUBSTRING_INDEX('no-delimiter', '|', -1);
+</code></pre>
+<pre><code>+----------------------------------------+------------------------------------------+
+| SUBSTRING_INDEX('hello world', ',', 1) | SUBSTRING_INDEX('no-delimiter', '|', -1) |
++----------------------------------------+------------------------------------------+
+| hello world                            | no-delimiter                             |
++----------------------------------------+------------------------------------------+
+</code></pre>
+<ol>
+<li>超出分隔符数量</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('a,b,c', ',', 5), SUBSTRING_INDEX('a,b,c', ',', -5);
+</code></pre>
+<pre><code>+----------------------------------+-----------------------------------+
+| SUBSTRING_INDEX('a,b,c', ',', 5) | SUBSTRING_INDEX('a,b,c', ',', -5) |
++----------------------------------+-----------------------------------+
+| a,b,c                            | a,b,c                             |
++----------------------------------+-----------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符分隔符</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('ṭṛì→ḍḍumai→hello', '→', 1), SUBSTRING_INDEX('ṭṛì→ḍḍumai→hello', '→', -1);
+</code></pre>
+<pre><code>+-----------------------------------------------+------------------------------------------------+
+| SUBSTRING_INDEX('ṭṛì→ḍḍumai→hello', '→', 1)   | SUBSTRING_INDEX('ṭṛì→ḍḍumai→hello', '→', -1)  |
++-----------------------------------------------+------------------------------------------------+
+| ṭṛì                                           | hello                                          |
++-----------------------------------------------+------------------------------------------------+
+</code></pre>
+<ol>
+<li>多字符分隔符</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('data::field::value', '::', 2), SUBSTRING_INDEX('data::field::value', '::', -1);
+</code></pre>
+<pre><code>+---------------------------------------------+----------------------------------------------+
+| SUBSTRING_INDEX('data::field::value', '::', 2) | SUBSTRING_INDEX('data::field::value', '::', -1) |
++---------------------------------------------+----------------------------------------------+
+| data::field                                 | value                                        |
++---------------------------------------------+----------------------------------------------+
+</code></pre>
+<ol>
+<li>源字符串为空</li>
+</ol>
+<pre><code>SELECT SUBSTRING_INDEX('', ' ', 1);
+</code></pre>
+<pre><code>+-----------------------------+
+| SUBSTRING_INDEX('', ' ', 1) |
++-----------------------------+
+|                             |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/substring-index/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

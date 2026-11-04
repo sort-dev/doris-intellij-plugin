@@ -1,0 +1,82 @@
+<div class="definition"><pre>COS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算参数的余弦值</p>
+<h2>语法</h2>
+<pre><code>COS(&lt;a&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>浮点数，要计算参数的弧度值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数 <code>&lt;a&gt;</code> 的余弦值，弧度制表示。</p>
+<h2>特殊情况</h2>
+<ul>
+<li>当 <code>a</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>a</code> 为正无穷或负无穷（<code>±Infinity</code>），返回 <code>NaN</code></li>
+<li>当 <code>a</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select cos(1);
+</code></pre>
+<pre><code>+---------------------+
+| cos(1.0)            |
++---------------------+
+| 0.54030230586813977 |
++---------------------+
+</code></pre>
+<pre><code>select cos(0);
+</code></pre>
+<pre><code>+------------------------+
+| cos(cast(0 as DOUBLE)) |
++------------------------+
+|                    1.0 |
++------------------------+
+</code></pre>
+<pre><code>select cos(Pi());
+</code></pre>
+<pre><code>+-----------+
+| cos(pi()) |
++-----------+
+|        -1 |
++-----------+
+</code></pre>
+<pre><code>select cos(cast('nan' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| cos(cast('nan' AS DOUBLE)) |
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<pre><code>select cos(cast('inf' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| cos(cast('inf' AS DOUBLE)) |
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<pre><code>select cos(cast('-inf' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| cos(cast('-inf' AS DOUBLE)) |
++-----------------------------+
+| NaN                         |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/cos/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

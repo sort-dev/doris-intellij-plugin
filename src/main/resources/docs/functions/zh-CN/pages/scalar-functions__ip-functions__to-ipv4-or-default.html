@@ -1,0 +1,54 @@
+<div class="definition"><pre>TO_IPV4_OR_DEFAULT</pre></div>
+<div class="content">
+<h2>to_ipv4_or_default</h2>
+<h2>描述</h2>
+<p>输入 IPv4 地址的字符串形式，并返回 IPv4 类型的值。对于无效输入或 NULL 输入，返回默认值 <code>0.0.0.0</code>。</p>
+<h2>语法</h2>
+<pre><code>TO_IPV4_OR_DEFAULT(&lt;ipv4_str&gt;)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>&lt;ipv4_str&gt;</code>：字符串类型的 IPv4 地址</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：IPv4</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 IPv4 类型值，其二进制形式等同于 <code>ipv4_string_to_num</code> 的返回值</li>
+<li>输入 NULL 或非法 IPv4 地址时返回 <code>0.0.0.0</code></li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>等价于 <code>to_ipv4_or_default</code> → <code>IPv4</code> 类型，适合建表为 <code>IPv4</code> 列的场景</li>
+<li>对于无效输入不会抛出异常，而是返回默认值 <code>0.0.0.0</code></li>
+</ul>
+<h2>举例</h2>
+<p>将 IPv4 文本 <code>255.255.255.255</code> 转为 <code>IPv4</code> 类型。</p>
+<pre><code>SELECT to_ipv4_or_default('255.255.255.255') as v4;
++-----------------+
+| v4              |
++-----------------+
+| 255.255.255.255 |
++-----------------+
+</code></pre>
+<p>输入 NULL 返回默认值 <code>0.0.0.0</code>。</p>
+<pre><code>SELECT to_ipv4_or_default(NULL) as v4;
++---------+
+| v4      |
++---------+
+| 0.0.0.0 |
++---------+
+</code></pre>
+<p>非法 IPv4 文本返回默认值 <code>0.0.0.0</code>。</p>
+<pre><code>SELECT to_ipv4_or_default('256.1.1.1') as v4;
++---------+
+| v4      |
++---------+
+| 0.0.0.0 |
++---------+
+</code></pre>
+<h3>关键词</h3>
+<p>TO_IPV4_OR_DEFAULT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/to-ipv4-or-default/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

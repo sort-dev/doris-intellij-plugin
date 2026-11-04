@@ -1,0 +1,134 @@
+<div class="definition"><pre>ASCII</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回字符串第一个字符对应的 ASCII 码值。该函数仅处理字符串的第一个字符，对于多字符字符串只返回首字符的 ASCII 值。</p>
+<h2>语法</h2>
+<pre><code>ASCII(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要获取第一个字符 ASCII 码的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示字符串第一个字符的 ASCII 码值。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果字符串为空，返回 0</li>
+<li>如果第一个字符不是 ASCII 字符（码值大于 127），返回对应的字节值</li>
+<li>对于多字节 UTF-8 字符，返回第一个字节的值</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本数字字符</li>
+</ol>
+<pre><code>SELECT ASCII('1'), ASCII('234');
+</code></pre>
+<pre><code>+------------+--------------+
+| ASCII('1') | ASCII('234') |
++------------+--------------+
+|         49 |           50 |
++------------+--------------+
+</code></pre>
+<ol>
+<li>字母字符</li>
+</ol>
+<pre><code>SELECT ASCII('A'), ASCII('a'), ASCII('Z');
+</code></pre>
+<pre><code>+------------+------------+------------+
+| ASCII('A') | ASCII('a') | ASCII('Z') |
++------------+------------+------------+
+|         65 |         97 |         90 |
++------------+------------+------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT ASCII('');
+</code></pre>
+<pre><code>+----------+
+| ASCII('') |
++----------+
+|        0 |
++----------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT ASCII(NULL);
+</code></pre>
+<pre><code>+-------------+
+| ASCII(NULL) |
++-------------+
+|        NULL |
++-------------+
+</code></pre>
+<ol>
+<li>特殊符号</li>
+</ol>
+<pre><code>SELECT ASCII(' '), ASCII('!'), ASCII('@');
+</code></pre>
+<pre><code>+------------+------------+------------+
+| ASCII(' ') | ASCII('!') | ASCII('@') |
++------------+------------+------------+
+|         32 |         33 |         64 |
++------------+------------+------------+
+</code></pre>
+<ol>
+<li>控制字符</li>
+</ol>
+<pre><code>SELECT ASCII('\t'), ASCII('\n'), ASCII('\r');
+</code></pre>
+<pre><code>+-------------+-------------+-------------+
+| ASCII('\t') | ASCII('\n') | ASCII('\r') |
++-------------+-------------+-------------+
+|           9 |          10 |          13 |
++-------------+-------------+-------------+
+</code></pre>
+<ol>
+<li>多字符字符串（只返回第一个字符）</li>
+</ol>
+<pre><code>SELECT ASCII('Hello'), ASCII('World123');
+</code></pre>
+<pre><code>+----------------+------------------+
+| ASCII('Hello') | ASCII('World123') |
++----------------+------------------+
+|             72 |               87 |
++----------------+------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT ASCII('ṭṛì'), ASCII('ḍḍumai');
+</code></pre>
+<pre><code>+---------------+------------------+
+| ASCII('ṭṛì')  | ASCII('ḍḍumai') |
++---------------+------------------+
+|           225 |              225 |
++---------------+------------------+
+</code></pre>
+<ol>
+<li>数字与字符混合</li>
+</ol>
+<pre><code>SELECT ASCII('9abc'), ASCII('0xyz');
+</code></pre>
+<pre><code>+---------------+---------------+
+| ASCII('9abc') | ASCII('0xyz') |
++---------------+---------------+
+|            57 |            48 |
++---------------+---------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/ascii/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,81 @@
+<div class="definition"><pre>MAP_FROM_ENTRIES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>根据元素为二字段 <code>STRUCT</code> 的数组构造 <code>MAP&lt;K, V&gt;</code>。STRUCT 的第一个字段作为键，第二个字段作为值。</p>
+<p>自 Apache Doris 4.2 起支持该函数。</p>
+<h2>语法</h2>
+<pre><code>MAP_FROM_ENTRIES(&lt;entries&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;entries&gt;</code></td>
+<td><code>ARRAY&lt;STRUCT&lt;K, V&gt;&gt;</code> 类型。每个 STRUCT 必须恰好包含两个字段。数组本身可以为 <code>NULL</code>，STRUCT 内的两个字段也可以为 <code>NULL</code>，但 STRUCT 数组元素本身不能为 <code>NULL</code>。<code>K</code> 必须是 MAP 键支持的类型。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>MAP&lt;K, V&gt;</code>。</p>
+<ul>
+<li><code>&lt;entries&gt;</code> 为 <code>NULL</code> 时，返回 <code>NULL</code>。</li>
+<li>非 <code>NULL</code> STRUCT 内的 <code>NULL</code> 字段会作为 <code>NULL</code> 键或值保留在结果中。</li>
+<li>STRUCT 数组元素本身为 <code>NULL</code> 时，在运行阶段报错。</li>
+<li>输入不是 STRUCT 数组，或 STRUCT 少于或多于两个字段时，在分析阶段报错。</li>
+<li><code>K</code> 不是 MAP 键支持的类型时，在分析阶段报错。</li>
+<li>同一个键出现多次时，保留最后一次出现的值。</li>
+</ul>
+<h2>示例</h2>
+<pre><code>SELECT map_from_entries(array(struct(1, 10), struct(2, 20))) AS result;
+</code></pre>
+<pre><code>+--------------+
+| result       |
++--------------+
+| {1:10, 2:20} |
++--------------+
+</code></pre>
+<pre><code>SELECT map_from_entries(array(struct(1, 10), struct(1, 20))) AS result;
+</code></pre>
+<pre><code>+--------+
+| result |
++--------+
+| {1:20} |
++--------+
+</code></pre>
+<pre><code>SELECT map_from_entries(CAST(NULL AS ARRAY&lt;STRUCT&lt;k:INT,v:INT&gt;&gt;));
+</code></pre>
+<pre><code>+------------------------------------------------------------+
+| map_from_entries(CAST(NULL AS ARRAY&lt;STRUCT&lt;k:INT,v:INT&gt;&gt;)) |
++------------------------------------------------------------+
+| NULL                                                       |
++------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT map_from_entries(array(
+    struct(CAST(NULL AS INT), 10),
+    struct(2, CAST(NULL AS INT)))) AS result;
+</code></pre>
+<pre><code>+-------------------+
+| result            |
++-------------------+
+| {null:10, 2:null} |
++-------------------+
+</code></pre>
+<p>以下示例因为数组中包含 <code>NULL</code> STRUCT 元素而报错：</p>
+<pre><code>SELECT map_from_entries(array(CAST(NULL AS STRUCT&lt;k:INT,v:INT&gt;)));
+</code></pre>
+<pre><code>ERROR 1105 (HY000): Map entry of function map_from_entries cannot be null
+</code></pre>
+<p>以下示例因为 STRUCT 包含三个字段而在分析阶段报错：</p>
+<pre><code>SELECT map_from_entries(array(struct(1, 2, 3)));
+</code></pre>
+<pre><code>ERROR 1105 (HY000): map_from_entries requires an array of structs with exactly two fields
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-from-entries/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

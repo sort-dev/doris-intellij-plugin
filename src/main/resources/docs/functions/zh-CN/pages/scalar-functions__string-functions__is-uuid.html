@@ -1,0 +1,77 @@
+<div class="definition"><pre>IS_UUID</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>如果参数是一个有效的uuid，返回1。如果是一个无效的uuid，返回0。参数为NULL，则返回NULL。</p>
+<p>一个uuid被称为有效，即其长度正确且仅包含允许的字符（任意大小写的十六进制数字，以及可选的连字符和花括号）。可概括为以下三种格式之一：</p>
+<pre><code>aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+aaaaaaaabbbbccccddddeeeeeeeeeeee
+{aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}
+</code></pre>
+<h2>语法</h2>
+<pre><code>IS_UUID ( &lt;str&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>一个字符串</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p><code>&lt;str&gt;</code> 为有效的uuid，返回1，否则返回0。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<pre><code>select is_uuid("88a06b4a-732c-48bd-9984-fecb81285cc1");
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| is_uuid("88a06b4a-732c-48bd-9984-fecb81285cc1") |
++-------------------------------------------------+
+|                                               1 |
++-------------------------------------------------+
+</code></pre>
+<pre><code>select is_uuid("{88a06b4a-732c-48bd-9984-fecb81285cc1}");
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| is_uuid("88a06b4a-732c-48bd-9984-fecb81285cc1") |
++-------------------------------------------------+
+|                                               1 |
++-------------------------------------------------+
+</code></pre>
+<pre><code>select is_uuid("88a06b4a732c48bd9984fecb81285cc1");
+</code></pre>
+<pre><code>+---------------------------------------------+
+| is_uuid("88a06b4a732c48bd9984fecb81285cc1") |
++---------------------------------------------+
+|                                           1 |
++---------------------------------------------+
+</code></pre>
+<pre><code>select is_uuid("{88a06b4a732c48bd9984fecb81285cc1}");
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| is_uuid("{88a06b4a732c48bd9984fecb81285cc1}") |
++-----------------------------------------------+
+|                                             0 |
++-----------------------------------------------+
+</code></pre>
+<pre><code>select is_uuid(NULL);
+</code></pre>
+<pre><code>+---------------+
+| is_uuid(NULL) |
++---------------+
+|          NULL |
++---------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/is-uuid/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

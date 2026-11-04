@@ -1,0 +1,38 @@
+<div class="definition"><pre>TIME | Date Time Functions</pre></div>
+<div class="content">
+<h1>TIME</h1>
+<h2>描述</h2>
+<p><code>TIME</code> 函数可以获取一个<code>DateTime</code>值的 <code>time</code> 部分.</p>
+<h2>语法</h2>
+<pre><code>TIME(&lt;datetime&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime&gt;</code></td>
+<td>一个datetime值.</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回<code>TIME</code>类型的值</p>
+<h2>举例</h2>
+<pre><code>SELECT TIME('2025-1-1 12:12:12');
+</code></pre>
+<pre><code>mysql&gt; 
++---------------------------+
+| time('2025-1-1 12:12:12') |
++---------------------------+
+| 12:12:12                  |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/time/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

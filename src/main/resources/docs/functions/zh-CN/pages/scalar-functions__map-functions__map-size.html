@@ -1,0 +1,46 @@
+<div class="definition"><pre>MAP_SIZE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算 Map 中元素的个数</p>
+<h2>语法</h2>
+<pre><code>MAP_SIZE(&lt;map&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;map&gt;</code> <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/MAP/"><code>MAP</code></a> 类型，输入的 map 内容。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回 Map 中元素的个数</p>
+<h2>使用说明</h2>
+<ol>
+<li>无论 key 或者 value 是 NULL 都会被计数。</li>
+<li>对于 NULL 参数，返回 NULL。</li>
+</ol>
+<h2>举例</h2>
+<ol>
+<li>
+<p>常规参数</p>
+<pre><code>select map_size(map()), map_size(map(1, "100", 0.1, 2, null, null));
+</code></pre>
+<pre><code>+-----------------+---------------------------------------------+
+| map_size(map()) | map_size(map(1, "100", 0.1, 2, null, null)) |
++-----------------+---------------------------------------------+
+|               0 |                                           3 |
++-----------------+---------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>select map_size(NULL);
+</code></pre>
+<pre><code>+----------------+
+| map_size(NULL) |
++----------------+
+|           NULL |
++----------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-size/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

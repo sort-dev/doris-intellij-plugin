@@ -1,0 +1,66 @@
+<div class="definition"><pre>FROM_SECOND</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FROM_SECOND 函数用于将 Unix 时间戳（以秒为单位） 转换为 DATETIME 类型的日期时间值。Unix 时间戳的基准时间为 1970-01-01 00:00:00 UTC，该函数会将输入的秒数转换为该基准时间之后对应的具体日期和时间（精确到秒）。</p>
+<h2>语法</h2>
+<pre><code>FROM_SECOND(&lt;unix_timestamp&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;unix_timestamp&gt;</code></td>
+<td>输入的 Unix 时间戳，类型为整数（BIGINT），表示从 1970-01-01 00:00:00 UTC 开始计算的秒数。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<ul>
+<li>返回一个 DATETIME 类型的值，表示输入的 UTC 时区下的 unix 时间戳，转换为当前时区的时间的结果</li>
+<li>如果 &lt;unix_timestamp&gt; 为 NULL，函数返回 NULL。</li>
+<li>如果 &lt;unix_timestamp&gt; 超出有效范围( 结果日期时间超过了 9999-12-31 23:59:59 ) ，函数返回错误。</li>
+<li>输入秒数为负数，函数返回错误</li>
+</ul>
+<h2>举例</h2>
+<pre><code>
+----因为当前机器所在时区为东八区，所以返回的时间相较于 UTC 会加八个小时
+ SELECT FROM_SECOND(0);
++---------------------+
+| FROM_SECOND(0)      |
++---------------------+
+| 1970-01-01 08:00:00 |
++---------------------+
+
+---将 1700000000 秒转换为日期时间
+SELECT FROM_SECOND(1700000000);
++-------------------------+
+| from_second(1700000000) |
++-------------------------+
+| 2023-11-15 06:13:20     |
++-------------------------+
+
+---结果超过了最大日期范围，返回错误
+select from_second(999999999999999);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.3)[INTERNAL_ERROR]The function from_second Argument value is out of DateTime range
+
+---输入参数为 NULL, 返回 NULL
+select from_second(NULL);
++-------------------+
+| from_second(NULL) |
++-------------------+
+| NULL              |
++-------------------+
+
+--输入参数为负数，结果返回错误
+ select from_second(-1);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.3)[E-218]Operation from_second of -1 out of range
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/from-second/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

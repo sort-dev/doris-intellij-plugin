@@ -1,0 +1,117 @@
+<div class="definition"><pre>HISTOGRAM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>HISTOGRAM（直方图）函数用于描述数据分布情况，它使用“等高”的分桶策略，并按照数据的值大小进行分桶，并用一些简单的数据来描述每个桶，比如落在桶里的值的个数。仅统计非 NULL 的数据。</p>
+<h2>别名</h2>
+<p>HIST</p>
+<h2>语法</h2>
+<pre><code>HISTOGRAM(&lt;expr&gt;[, &lt;num_buckets&gt;])
+HIST(&lt;expr&gt;[, &lt;num_buckets&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expr</code></td>
+<td>需要获取第一个值的表达式，支持的类型为 TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal ，String。</td>
+</tr>
+<tr>
+<td><code>num_buckets</code></td>
+<td>可选。用于限制直方图桶（bucket）的数量，默认值 128，支持的类型为 Integer。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回直方图估算后的 JSON 格式的值，类型为 String 。
+组内没有有效数据时，返回 num_buckets 为0的结果。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE histogram_test (
+    c_int INT,
+    c_float FLOAT,
+    c_string VARCHAR(20)
+) DISTRIBUTED BY HASH(c_int) BUCKETS 1
+PROPERTIES ("replication_num"="1");
+
+INSERT INTO histogram_test VALUES
+    (1, 0.1, 'str1'),
+    (2, 0.2, 'str2'),
+    (3, 0.8, 'str3'),
+    (4, 0.9, 'str4'),
+    (5, 1.0, 'str5'),
+    (6, 1.0, 'str6'),
+    (NULL, NULL, 'str7');
+</code></pre>
+<pre><code>SELECT histogram(c_float) FROM histogram_test;
+</code></pre>
+<pre><code>+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| histogram(c_float)                                                                                                                                                                                                                                                                                                                    |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| {"num_buckets":5,"buckets":[{"lower":"0.1","upper":"0.1","ndv":1,"count":1,"pre_sum":0},{"lower":"0.2","upper":"0.2","ndv":1,"count":1,"pre_sum":1},{"lower":"0.8","upper":"0.8","ndv":1,"count":1,"pre_sum":2},{"lower":"0.9","upper":"0.9","ndv":1,"count":1,"pre_sum":3},{"lower":"1","upper":"1","ndv":1,"count":2,"pre_sum":4}]} |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT histogram(c_string, 2) FROM histogram_test;
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| histogram(c_string, 2)                                                                                                                                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| {"num_buckets":2,"buckets":[{"lower":"str1","upper":"str4","ndv":4,"count":4,"pre_sum":0},{"lower":"str5","upper":"str7","ndv":3,"count":3,"pre_sum":4}]} |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>-- NULL 处理相关 case
+SELECT histogram(c_float) FROM histogram_test WHERE c_float IS NULL;
+</code></pre>
+<pre><code>+--------------------------------+
+| histogram(c_float)             |
++--------------------------------+
+| {"num_buckets":0,"buckets":[]} |
++--------------------------------+
+</code></pre>
+<h2>查询结果说明：</h2>
+<pre><code>{
+    "num_buckets": 3, 
+    "buckets": [
+        {
+            "lower": "0.1", 
+            "upper": "0.2", 
+            "count": 2, 
+            "pre_sum": 0, 
+            "ndv": 2
+        }, 
+        {
+            "lower": "0.8", 
+            "upper": "0.9", 
+            "count": 2, 
+            "pre_sum": 2, 
+            "ndv": 2
+        }, 
+        {
+            "lower": "1.0", 
+            "upper": "1.0", 
+            "count": 2, 
+            "pre_sum": 4, 
+            "ndv": 1
+        }
+    ]
+}
+</code></pre>
+<pre><code>字段说明：
+- num_buckets：桶的数量
+- buckets：直方图所包含的桶
+  - lower：桶的上界
+  - upper：桶的下界
+  - count：桶内包含的元素数量
+  - pre_sum：前面桶的元素总量
+  - ndv：桶内不同值的个数
+
+&gt; 直方图总的元素数量 = 最后一个桶的元素数量（count）+ 前面桶的元素总量（pre_sum）。
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/histogram/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

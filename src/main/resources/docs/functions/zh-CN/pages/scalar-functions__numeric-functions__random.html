@@ -1,0 +1,81 @@
+<div class="definition"><pre>RANDOM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 0-1 之间的随机数，或者根据参数返回需要的随机数。</p>
+<ul>
+<li>注意：所有参数必须为常量。</li>
+</ul>
+<h2>别名</h2>
+<ul>
+<li>RAND</li>
+</ul>
+<h2>语法</h2>
+<pre><code>RANDOM() --生成 0-1 之间的随机数
+
+RANDOM(&lt;seed&gt;) --根据 seed 种子值，生成一个 0-1 之间的固定随机数序列
+
+RANDOM(&lt;a&gt; , &lt;b&gt;) --生成 a-b 之间的随机数
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;seed&gt;</code></td>
+<td>随机数生成器的种子值 根据种子值返回一个 0-1 之间的固定随机数序列</td>
+</tr>
+<tr>
+<td><code>&lt;a&gt;</code></td>
+<td>随机数的下限</td>
+</tr>
+<tr>
+<td><code>&lt;b&gt;</code></td>
+<td>随机数的上限，必须大于下限</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<ul>
+<li>
+<p>不传参时：返回 0-1 之间的随机数。</p>
+</li>
+<li>
+<p>传入单个参数<code>seed</code>时：根据传入的种子值<code>seed</code>，返回一个 0-1 之间的固定随机数序列。</p>
+</li>
+<li>
+<p>传入两个参数<code>a</code>和<code>b</code>时：返回 a-b 之间的随机整数。</p>
+</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select random();
+</code></pre>
+<pre><code>+--------------------+
+| random()           |
++--------------------+
+| 0.8047437125910604 |
++--------------------+
+</code></pre>
+<pre><code>select rand(1.2);
+</code></pre>
+<pre><code>+---------------------+
+| rand(1)             |
++---------------------+
+| 0.13387664401253274 |
++---------------------+
+</code></pre>
+<pre><code>select rand(-20, -10);
+</code></pre>
+<pre><code>+------------------+
+| random(-20, -10) |
++------------------+
+|              -10 |
++------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/random/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,71 @@
+<div class="definition"><pre>DAYOFYEAR</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>DAYOFYEAR 函数用于计算日期或时间表达式对应的当年中天数，即该日期是当年的第几天。返回值为整数，范围从 1（1 月 1 日）到 366（闰年 12 月 31 日）。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_dayofyear">dayofyear 函数</a> 行为一致</p>
+<h2>别名</h2>
+<ul>
+<li>DOY</li>
+</ul>
+<h2>语法</h2>
+<pre><code>DAYOFYEAR(&lt;date_or_time_expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>参数是合法的日期表达式，支持输入 date/datetime 类型,具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整数，表示日期在当年中的天数（1-366）,类型为 SMALLINT。</p>
+<p>特殊情况：</p>
+<ul>
+<li>若 &lt;date_or_time_expr&gt; 为 NULL，返回 NULL；</li>
+<li>对于闰年的 2 月 29 日，会正确计算为当年的第 60 天。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>
+---提取 datetime 类型中的一年中的天数
+select dayofyear('2007-02-03 00:00:00');
++----------------------------------+
+| dayofyear('2007-02-03 00:00:00') |
++----------------------------------+
+|                               34 |
++----------------------------------+
+
+---提取 date 类型中的天数
+select dayofyear('2023-12-31');
++-------------------------+
+| dayofyear('2023-12-31') |
++-------------------------+
+|                     365 |
++-------------------------+
+
+---计算闰年中的天数
+select dayofyear('2024-12-31');
++-------------------------+
+| dayofyear('2024-12-31') |
++-------------------------+
+|                     366 |
++-------------------------+
+
+---输入为 NULL ,返回 NULL
+select dayofyear(NULL);
++-----------------+
+| dayofyear(NULL) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/dayofyear/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

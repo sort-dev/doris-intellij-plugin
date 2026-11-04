@@ -1,0 +1,86 @@
+<div class="definition"><pre>TOPN_WEIGHTED</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TOPN_WEIGHTED 函数返回指定列中出现频率最高的 N 个值，并且可以为每个值指定权重。与普通的 TOPN 函数不同，TOPN_WEIGHTED 允许通过权重来调整值的重要性。</p>
+<h2>语法</h2>
+<pre><code>TOPN_WEIGHTED(&lt;expr&gt;, &lt;weight&gt;, &lt;top_num&gt; [, &lt;space_expand_rate&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>要统计的列或表达式，支持类型为 Boolean（Doris 4.1 系列自 4.1.5 起）、TinyInt，SmallInt，Integer，BigInt，LargeInt，Float，Double，Decimal，Date，Datetime，IPV4，IPV6，String。</td>
+</tr>
+<tr>
+<td><code>&lt;weight&gt;</code></td>
+<td>用于调整权重的列或表达式，类型为 BIGINT。</td>
+</tr>
+<tr>
+<td><code>&lt;top_num&gt;</code></td>
+<td>要返回的最高频率值的数量，必须是 INT 类型的正整数常量。</td>
+</tr>
+<tr>
+<td><code>&lt;space_expand_rate&gt;</code></td>
+<td>可选，INT 类型常量，默认值为 50。正数时，中间状态序列化最多保留 <code>top_num * space_expand_rate</code> 个候选，值越大通常越准确；该值不是本地聚合内存的硬上限。Doris 4.1 系列自 4.1.5 起，设置为 0 或负数会保留全部中间候选值，最终结果仍最多返回 <code>top_num</code> 个值；此模式可能占用更多内存，仍受查询内存限制。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个数组，包含加权计数最高的 N 个值。
+如果组内没有合法数据，返回 NULL。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/topn-weighted/"></a></p>
+<h2>示例</h2>
+<pre><code>-- setup
+CREATE TABLE product_sales (
+    product_id INT,
+    sale_amount DECIMAL(10,2),
+    sale_date DATE
+) DISTRIBUTED BY HASH(product_id)
+PROPERTIES (
+    "replication_num" = "1"
+);
+INSERT INTO product_sales VALUES
+(1, 100.00, '2024-01-01'),
+(2, 50.00, '2024-01-01'),
+(1, 150.00, '2024-01-01'),
+(3, 75.00, '2024-01-01'),
+(1, 200.00, '2024-01-01'),
+(2, 80.00, '2024-01-01'),
+(1, 120.00, '2024-01-01'),
+(4, 90.00, '2024-01-01');
+</code></pre>
+<pre><code>SELECT TOPN_WEIGHTED(product_id, sale_amount, 3) as top_products
+FROM product_sales;
+</code></pre>
+<p>查找销售额最高的前 3 个产品（按销售金额加权）</p>
+<pre><code>+--------------+
+| top_products |
++--------------+
+| [1, 2, 4]    |
++--------------+
+</code></pre>
+<pre><code>SELECT TOPN_WEIGHTED(product_id, sale_amount, 3) as top_products
+FROM product_sales where product_id is null;
+</code></pre>
+<p>查找销售额最高的前 3 个产品（按销售金额加权）</p>
+<pre><code>+--------------+
+| top_products |
++--------------+
+| NULL         |
++--------------+
+</code></pre>
+<p>BOOLEAN 输入示例（Doris 4.1 系列自 4.1.5 起）：</p>
+<pre><code>SELECT TOPN_WEIGHTED(TRUE, 1, 2), TOPN_WEIGHTED(CAST(NULL AS BOOLEAN), 1, 2);
+</code></pre>
+<pre><code>[1]    NULL
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/topn-weighted/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

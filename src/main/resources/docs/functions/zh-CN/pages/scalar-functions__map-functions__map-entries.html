@@ -1,0 +1,39 @@
+<div class="definition"><pre>MAP_ENTRIES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将给定的 <code>map</code> 转换为 <code>ARRAY&lt;STRUCT&lt;key, value&gt;&gt;</code></p>
+<p>返回数组中的每个元素都是一个 struct, 其中包含两个命名字段 <code>key</code> 与 <code>value</code>。两个字段均可为空。<code>key</code> 与 <code>value</code> 字段的类型分别与 map 的键类型和值类型相同。</p>
+<h2>语法</h2>
+<pre><code>MAP_ENTRIES(&lt;map&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;map&gt;</code></td>
+<td>输入的 map 内容</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回表示该 map 条目的 struct 数组。若 <code>&lt;map&gt;</code> 为 <code>NULL</code>，返回 <code>NULL</code>。</p>
+<h2>举例</h2>
+<pre><code>select 
+  map_entries(map()),
+  map_entries(map(1, '100', 0.1, '2'));
+</code></pre>
+<pre><code>+--------------------+--------------------------------------------------------+
+| map_entries(map()) | map_entries(map(1, '100', 0.1, '2'))                   |
++--------------------+--------------------------------------------------------+
+| []                 | [{"key":1.0, "value":"100"}, {"key":0.1, "value":"2"}] |
++--------------------+--------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-entries/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

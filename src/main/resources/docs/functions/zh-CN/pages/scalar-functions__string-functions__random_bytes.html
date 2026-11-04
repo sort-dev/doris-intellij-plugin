@@ -1,0 +1,88 @@
+<div class="definition"><pre>RANDOM_BYTES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>RANDOM_BYTES 函数用于生成指定长度的随机字节序列。返回的字节序列以十六进制字符串形式表示。</p>
+<h2>语法</h2>
+<pre><code>RANDOM_BYTES(&lt;len&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;len&gt;</code></td>
+<td>需要生成的随机字节数。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为十六进制编码的随机字节序列（以 <code>0x</code> 开头）。</p>
+<p>特殊情况：</p>
+<ul>
+<li><code>&lt;len&gt;</code> 必须大于 0，否则返回错误</li>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>每次调用生成的结果都是随机的</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：生成 8 字节随机序列</li>
+</ol>
+<pre><code>SELECT random_bytes(8);
+</code></pre>
+<pre><code>+--------------------+
+| random_bytes(8)    |
++--------------------+
+| 0x1a2b3c4d5e6f7089 |
++--------------------+
+</code></pre>
+<ol>
+<li>生成短序列</li>
+</ol>
+<pre><code>SELECT random_bytes(4);
+</code></pre>
+<pre><code>+----------------+
+| random_bytes(4) |
++----------------+
+| 0xab12cd34     |
++----------------+
+</code></pre>
+<ol>
+<li>非法参数：负数</li>
+</ol>
+<pre><code>SELECT random_bytes(-1);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.3)[INVALID_ARGUMENT]argument -1 of function random_bytes at row 0 was invalid.
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT random_bytes(NULL);
+</code></pre>
+<pre><code>+--------------------+
+| random_bytes(NULL) |
++--------------------+
+| NULL               |
++--------------------+
+</code></pre>
+<ol>
+<li>生成较长序列（16 字节）</li>
+</ol>
+<pre><code>SELECT random_bytes(16);
+</code></pre>
+<pre><code>+------------------------------------+
+| random_bytes(16)                   |
++------------------------------------+
+| 0x1a2b3c4d5e6f708192a3b4c5d6e7f809 |
++------------------------------------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>RANDOM_BYTES
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/random_bytes/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

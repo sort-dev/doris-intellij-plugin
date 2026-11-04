@@ -1,0 +1,134 @@
+<div class="definition"><pre>JSON_HASH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_HASH</code> 函数用于计算一个 JSON 对象的哈希值。该函数接受一个 JSON 类型的参数，并返回一个 BIGINT 类型的哈希值。</p>
+<p>在计算 JSON 对象的哈希值时，函数会对 JSON 对象的键进行排序后再计算哈希值，这样可以确保相同内容但键顺序不同的 JSON 对象会产生相同的哈希值。</p>
+<h2>语法</h2>
+<pre><code>JSON_HASH(json_value)
+</code></pre>
+<h2>别名</h2>
+<p><code>JSONB_HASH</code></p>
+<h2>参数</h2>
+<p><strong>json_value</strong> - 需要计算哈希值的 JSON 值。必须是 JSON 类型。</p>
+<h2>返回值</h2>
+<p>返回一个 BIGINT 类型的哈希值。</p>
+<p>当输入为 NULL 时，函数返回 NULL。</p>
+<h2>用途</h2>
+<p>由于 JSON 标准规定 JSON 对象的键值对是无序的，为了确保不同系统间传递 JSON 值时能够一致地识别相同内容的 JSON 对象，<code>JSON_HASH</code> 函数会在计算哈希值前对 JSON 对象的键值对进行排序，类似于调用 <code>SORT_JSON_OBJECT_KEYS</code> 函数。</p>
+<p>此外，对于 JSON 对象中的重复键，尽管 Doris 允许这种情况存在，但计算哈希值时会只考虑第一个出现的键值对，与实际应用场景更加匹配。</p>
+<h2>示例</h2>
+<ol>
+<li>基本哈希值计算</li>
+</ol>
+<pre><code>SELECT json_hash(cast('123' as json));
+</code></pre>
+<pre><code>+--------------------------------+
+| json_hash(cast('123' as json)) |
++--------------------------------+
+|            5279066513252500087 |
++--------------------------------+
+</code></pre>
+<ol>
+<li>验证别名函数</li>
+</ol>
+<pre><code>SELECT json_hash(cast('123' as json)), jsonb_hash(cast('123' as json));
+</code></pre>
+<pre><code>+--------------------------------+---------------------------------+
+| json_hash(cast('123' as json)) | jsonb_hash(cast('123' as json)) |
++--------------------------------+---------------------------------+
+|            5279066513252500087 |             5279066513252500087 |
++--------------------------------+---------------------------------+
+</code></pre>
+<p>可以看到 <code>json_hash</code> 和 <code>jsonb_hash</code> 两个函数对相同输入产生相同的哈希值，它们是完全等价的别名函数。</p>
+<ol>
+<li>键排序验证</li>
+</ol>
+<pre><code>SELECT 
+    json_hash(cast('{"a":123, "b":456}' as json)), 
+    json_hash(cast('{"b":456, "a":123}' as json));
+</code></pre>
+<pre><code>+-----------------------------------------------+-----------------------------------------------+
+| json_hash(cast('{"a":123, "b":456}' as json)) | json_hash(cast('{"b":456, "a":123}' as json)) |
++-----------------------------------------------+-----------------------------------------------+
+|                             82454694884268544 |                             82454694884268544 |
++-----------------------------------------------+-----------------------------------------------+
+</code></pre>
+<p><code>json_hash</code> 函数都会生成相同的哈希值。这是因为函数在计算哈希值前会先对键进行排序。</p>
+<ol>
+<li>处理重复键</li>
+</ol>
+<pre><code>SELECT 
+    json_hash(cast('{"a":123}' as json)), 
+    json_hash(cast('{"a":456}' as json)), 
+    json_hash(cast('{"a":123, "a":456}' as json));
+</code></pre>
+<pre><code>+--------------------------------------+--------------------------------------+-----------------------------------------------+
+| json_hash(cast('{"a":123}' as json)) | json_hash(cast('{"a":456}' as json)) | json_hash(cast('{"a":123, "a":456}' as json)) |
++--------------------------------------+--------------------------------------+-----------------------------------------------+
+|                 -7416836614234106918 |                 -3126362109586887012 |                          -7416836614234106918 |
++--------------------------------------+--------------------------------------+-----------------------------------------------+
+</code></pre>
+<p>当 JSON 对象包含重复键时（<code>{"a":123, "a":456}</code>），<code>json_hash</code> 函数只考虑第一个出现的键值对进行哈希计算。可以看到含重复键的 JSON 对象的哈希值与只包含第一个键值对 <code>{"a":123}</code> 的哈希值相同。</p>
+<ol>
+<li>不同数值类型的处理</li>
+</ol>
+<pre><code>SELECT 
+    json_hash(to_json(cast('123' as int))), 
+    json_hash(to_json(cast('123' as tinyint)));
+</code></pre>
+<pre><code>+----------------------------------------+--------------------------------------------+
+| json_hash(to_json(cast('123' as int))) | json_hash(to_json(cast('123' as tinyint))) |
++----------------------------------------+--------------------------------------------+
+|                    7882559133986259892 |                        5279066513252500087 |
++----------------------------------------+--------------------------------------------+
+</code></pre>
+<p>相同的数值 123，当以不同类型（int 和 tinyint）存储在 JSON 中时，会产生不同的哈希值。这是因为 Doris 的 JSON 实现保留了数据类型信息，而哈希计算会考虑这些类型差异。</p>
+<ol>
+<li>使用 normalize_json_numbers_to_double 统一数值类型</li>
+</ol>
+<pre><code>SELECT 
+    json_hash(normalize_json_numbers_to_double(to_json(cast('123' as int)))), 
+    json_hash(normalize_json_numbers_to_double(to_json(cast('123' as tinyint))));
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------+------------------------------------------------------------------------------+
+| json_hash(normalize_json_numbers_to_double(to_json(cast('123' as int)))) | json_hash(normalize_json_numbers_to_double(to_json(cast('123' as tinyint)))) |
++--------------------------------------------------------------------------+------------------------------------------------------------------------------+
+|                                                      4028523408277343359 |                                                          4028523408277343359 |
++--------------------------------------------------------------------------+------------------------------------------------------------------------------+
+</code></pre>
+<p>这个例子演示了如何解决上述问题：使用 <code>normalize_json_numbers_to_double</code> 函数先将所有数值转换为双精度浮点数类型，然后再计算哈希值。这样，不管原始数值是什么类型，转换后都会得到相同的哈希值，确保了一致性。</p>
+<ol>
+<li>处理 NULL 值</li>
+</ol>
+<pre><code>SELECT json_hash(null);
+</code></pre>
+<pre><code>+-----------------+
+| json_hash(null) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+<h2>注意事项</h2>
+<ol>
+<li>
+<p><code>JSON_HASH</code> 函数有一个别名 <code>JSONB_HASH</code>，两者功能完全相同。</p>
+</li>
+<li>
+<p>此函数在计算哈希值前会对 JSON 对象的键进行排序，类似于调用 <code>SORT_JSON_OBJECT_KEYS</code> 函数。</p>
+</li>
+<li>
+<p>对于 JSON 对象中的重复键，函数只会考虑第一个出现的键值对进行哈希值计算。</p>
+</li>
+<li>
+<p>由于 Doris 的 JSON 中的数值可能以不同的存储类型（如 int、tinyint、bigint、float、double、decimal）存在，相同数值但不同类型可能会产生不同的哈希值。如果需要确保一致性，可以使用 <code>NORMALIZE_JSON_NUMBERS_TO_DOUBLE</code> 函数将所有数值转换为统一类型后再计算哈希值。</p>
+</li>
+<li>
+<p>当通过文本解析方式（如使用 <code>CAST</code> 将字符串转为 JSON）创建 JSON 对象时，Doris 会自动选择合适的数值类型存储，通常情况下不需要担心数值类型不一致的问题。</p>
+</li>
+<li>
+<p>需要注意的是，如果不是手动通过 <code>cast/to_json</code> 的方式转换成 JSON 对象，而是使用文本转换（从字符串解析 JSON 对象），那么 Doris 只会把 "123" 存储为一个 tinyint 类型的 JSON 对象，不会出现 "123" 既存储为 int 类型，又存储为 tinyint 类型的情况。</p>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-hash/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

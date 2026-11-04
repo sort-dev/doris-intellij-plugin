@@ -1,0 +1,51 @@
+<div class="definition"><pre>MAP_CONTAINS_VALUE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断给定 <code>map</code> 中是否包含特定的值 <code>value</code></p>
+<h2>语法</h2>
+<pre><code>MAP_CONTAINS_VALUE(&lt;map&gt;, &lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;map&gt;</code> <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/MAP/"><code>MAP</code></a> 类型，输入的 map 内容。</li>
+<li><code>&lt;value&gt;</code> 支持多种类型，需要检索的 value。</li>
+</ul>
+<h2>返回值</h2>
+<p>判断给定 <code>map</code> 中是否包含特定的值 <code>value</code>,存在返回 1 ,不存在返回 0。</p>
+<h2>使用说明</h2>
+<ol>
+<li>如果参数 <code>&lt;map&gt;</code> 为 NULL，返回 NULL。</li>
+<li><code>&lt;value&gt;</code> 可以是 NULL，这里对 NULL 的比较为 <code>null-safe-equal</code> 即认为 NULL 和 NULL 是相等的。</li>
+</ol>
+<h2>举例</h2>
+<ol>
+<li>普通参数<pre><code>select map_contains_value(map(1, "100", 0.1, 2), 100), map_contains_value(map(1, "100", 0.1, 2), 101);
+</code></pre>
+<pre><code>+------------------------------------------------+------------------------------------------------+
+| map_contains_value(map(1, "100", 0.1, 2), 100) | map_contains_value(map(1, "100", 0.1, 2), 101) |
++------------------------------------------------+------------------------------------------------+
+|                                              1 |                                              0 |
++------------------------------------------------+------------------------------------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select map_contains_value(NULL, 100);
+</code></pre>
+<pre><code>+-------------------------------+
+| map_contains_value(NULL, 100) |
++-------------------------------+
+|                          NULL |
++-------------------------------+
+</code></pre>
+<pre><code>select map_contains_value(map(null, null), null), map_contains_value(map(null, 100), null);
+</code></pre>
+<pre><code>+-------------------------------------------+------------------------------------------+
+| map_contains_value(map(null, null), null) | map_contains_value(map(null, 100), null) |
++-------------------------------------------+------------------------------------------+
+|                                         1 |                                        0 |
++-------------------------------------------+------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-contains-value/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

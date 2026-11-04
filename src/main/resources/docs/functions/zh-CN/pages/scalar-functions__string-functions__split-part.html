@@ -1,0 +1,160 @@
+<div class="definition"><pre>SPLIT_PART</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SPLIT_PART 函数将字符串按照指定的分隔符拆分成多个部分，然后返回指定索引位置的部分。该函数常用于从分隔符分隔的数据中提取特定字段。</p>
+<h2>语法</h2>
+<pre><code>SPLIT_PART(&lt;str&gt;, &lt;separator&gt;, &lt;part_index&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要分割的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;separator&gt;</code></td>
+<td>用于分割的分隔符字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;part_index&gt;</code></td>
+<td>要返回的部分的索引位置（从 1 开始计数）。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示按分隔符拆分后指定位置的字符串部分。</p>
+<p>索引规则：</p>
+<ul>
+<li>part_index 从 1 开始计数</li>
+<li>如果 part_index 超出分割后数组的范围，返回 NULL</li>
+<li>负数索引表示从末尾开始计数（-1 表示最后一个，-2 表示倒数第二个，依此类推）</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 part_index 为 0，返回 NULL</li>
+<li>如果 str 为空字符串，返回 NULL</li>
+<li>如果 separator 为空字符串，返回空字符串</li>
+<li>如果 separator 在 str 中不存在，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符串分割</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('hello world', ' ', 1);
+</code></pre>
+<pre><code>+----------------------------------+
+| SPLIT_PART('hello world', ' ', 1) |
++----------------------------------+
+| hello                            |
++----------------------------------+
+</code></pre>
+<ol>
+<li>获取第二个部分</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('apple,banana,cherry', ',', 2);
+</code></pre>
+<pre><code>+-------------------------------------------+
+| SPLIT_PART('apple,banana,cherry', ',', 2) |
++-------------------------------------------+
+| banana                                    |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>索引为 0（返回 NULL）</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('apple,banana,cherry', ',', 0);
+</code></pre>
+<pre><code>+-------------------------------------------+
+| SPLIT_PART('apple,banana,cherry', ',', 0) |
++-------------------------------------------+
+| NULL                                      |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>负数索引（从末尾计数）</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('apple,banana,cherry', ',', -1), SPLIT_PART('apple,banana,cherry', ',', -2);
+</code></pre>
+<pre><code>+--------------------------------------------+--------------------------------------------+
+| SPLIT_PART('apple,banana,cherry', ',', -1) | SPLIT_PART('apple,banana,cherry', ',', -2) |
++--------------------------------------------+--------------------------------------------+
+| cherry                                     | banana                                     |
++--------------------------------------------+--------------------------------------------+
+</code></pre>
+<ol>
+<li>索引超出范围</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('apple,banana', ',', 5), SPLIT_PART('apple,banana', ',', -5);
+</code></pre>
+<pre><code>+------------------------------------+-------------------------------------+
+| SPLIT_PART('apple,banana', ',', 5) | SPLIT_PART('apple,banana', ',', -5) |
++------------------------------------+-------------------------------------+
+| NULL                               | NULL                                |
++------------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT SPLIT_PART(NULL, ',', 1), SPLIT_PART('test', NULL, 1), SPLIT_PART('test', ',', NULL);
+</code></pre>
+<pre><code>+---------------------------+-----------------------------+-------------------------------+
+| SPLIT_PART(NULL, ',', 1)  | SPLIT_PART('test', NULL, 1) | SPLIT_PART('test', ',', NULL) |
++---------------------------+-----------------------------+-------------------------------+
+| NULL                      | NULL                        | NULL                          |
++---------------------------+-----------------------------+-------------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('', ',', 1), SPLIT_PART('test', '', 2);
+</code></pre>
+<pre><code>+------------------------+---------------------------+
+| SPLIT_PART('', ',', 1) | SPLIT_PART('test', '', 2) |
++------------------------+---------------------------+
+| NULL                   |                           |
++------------------------+---------------------------+
+</code></pre>
+<ol>
+<li>分隔符不存在</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('hello world', '|', 1), SPLIT_PART('hello world', '|', 2);
+</code></pre>
+<pre><code>+-----------------------------------+-----------------------------------+
+| SPLIT_PART('hello world', '|', 1) | SPLIT_PART('hello world', '|', 2) |
++-----------------------------------+-----------------------------------+
+| NULL                              | NULL                              |
++-----------------------------------+-----------------------------------+
+</code></pre>
+<ol>
+<li>连续分隔符</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('a,,c', ',', 1), SPLIT_PART('a,,c', ',', 2), SPLIT_PART('a,,c', ',', 3);
+</code></pre>
+<pre><code>+----------------------------+----------------------------+----------------------------+
+| SPLIT_PART('a,,c', ',', 1) | SPLIT_PART('a,,c', ',', 2) | SPLIT_PART('a,,c', ',', 3) |
++----------------------------+----------------------------+----------------------------+
+| a                          |                            | c                          |
++----------------------------+----------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符处理</li>
+</ol>
+<pre><code>SELECT SPLIT_PART('ṭṛì ḍḍumai ṭṛì', ' ', 2);
+</code></pre>
+<pre><code>+--------------------------------------+
+| SPLIT_PART('ṭṛì ḍḍumai ṭṛì', ' ', 2) |
++--------------------------------------+
+| ḍḍumai                               |
++--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/split-part/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

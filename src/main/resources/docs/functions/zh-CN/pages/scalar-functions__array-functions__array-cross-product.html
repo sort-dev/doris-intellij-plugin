@@ -1,0 +1,74 @@
+<div class="definition"><pre>ARRAY_CROSS_PRODUCT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个三维数值数组的叉积。</p>
+<p>对于 <code>lhs = [x1, x2, x3]</code> 和 <code>rhs = [y1, y2, y3]</code>，返回结果为：</p>
+<p><code>lhs x rhs = [x2 * y3 - x3 * y2, x3 * y1 - x1 * y3, x1 * y2 - x2 * y1]</code></p>
+<p>Since 4.1.2</p>
+<h2>别名</h2>
+<ul>
+<li><code>cross_product</code></li>
+</ul>
+<h2>语法</h2>
+<pre><code>array_cross_product(ARRAY&lt;T&gt; lhs, ARRAY&lt;T&gt; rhs)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs</code></td>
+<td>第一个三维数值数组</td>
+</tr>
+<tr>
+<td><code>rhs</code></td>
+<td>第二个三维数值数组</td>
+</tr>
+</tbody>
+</table>
+<p><code>T</code> 支持 <code>FLOAT</code>，以及元素类型为 <code>TINYINT</code>、<code>SMALLINT</code>、<code>INT</code>、<code>BIGINT</code>、<code>LARGEINT</code> 的整数数组。</p>
+<h2>返回值</h2>
+<p>返回 <code>ARRAY&lt;FLOAT&gt;</code>。</p>
+<ul>
+<li>如果任一输入数组为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+<li>如果输入数组内部存在 <code>NULL</code> 元素，返回错误。</li>
+<li>如果任一输入数组的元素个数不是 3，返回错误。</li>
+</ul>
+<h2>示例</h2>
+<pre><code>SELECT array_cross_product([2.5, -3.0, 4.25], [-7.5, 0.5, 1.25]);
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| array_cross_product([2.5, -3.0, 4.25], [-7.5, 0.5, 1.25])    |
++--------------------------------------------------------------+
+| [-5.875, -35, -21.25]                                        |
++--------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT array_cross_product(CAST([-128, 0, 127] AS ARRAY&lt;TINYINT&gt;),
+                           CAST([3, -5, 7] AS ARRAY&lt;TINYINT&gt;));
+</code></pre>
+<pre><code>+---------------------------------------------------------------------------------------------------+
+| array_cross_product(CAST([-128, 0, 127] AS ARRAY&lt;TINYINT&gt;), CAST([3, -5, 7] AS ARRAY&lt;TINYINT&gt;)) |
++---------------------------------------------------------------------------------------------------+
+| [635, 1277, 640]                                                                                  |
++---------------------------------------------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT array_cross_product(CAST(NULL AS ARRAY&lt;FLOAT&gt;), [4.0, 5.0, 6.0]);
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------+
+| array_cross_product(CAST(NULL AS ARRAY&lt;FLOAT&gt;), [4.0, 5.0, 6.0])         |
++--------------------------------------------------------------------------+
+| NULL                                                                     |
++--------------------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT array_cross_product([-11, NULL, 13], [17, -19, 23]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = function array_cross_product cannot have null
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-cross-product/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

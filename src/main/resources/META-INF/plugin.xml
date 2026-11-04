@@ -508,6 +508,7 @@
 
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisAutoIntrospectService"/>
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisNamespaceListing"/>
+        <lang.documentationProvider language="DorisSQL" order="first" implementationClass="dev.sort.doris.sql.DorisFunctionDocumentationProvider"/>
         <lang.documentationProvider language="DorisSQL" order="first" implementationClass="dev.brikk.house.sql.intellij.docs.SqlEngineDocumentationProvider"/>
         <projectService serviceImplementation="dev.sort.doris.catalog.DorisExecutionObserver"/>
         <projectService serviceImplementation="dev.sort.doris.plan.DorisTextExplainService"/>

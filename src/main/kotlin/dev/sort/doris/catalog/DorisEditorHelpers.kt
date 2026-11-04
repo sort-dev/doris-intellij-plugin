@@ -111,7 +111,11 @@ private class RefusingDorisCatalogScriptGenerator(dbms: Dbms) : ScriptGenerator 
     private val formatting = MysqlBaseScriptGenerator(dbms)
 
     override fun makeScript(project: Project, task: ScriptingTask): ScriptingResult {
-        if (task.category == ScriptCategory.CREATE_DEFINITION) return EmptyDorisCatalogDefinition
+        if (task.category == ScriptCategory.CREATE_DEFINITION) {
+            val elements = (task as? com.intellij.database.script.generator.ScriptingSingleModelTask)?.elements.orEmpty()
+            val definitions = elements.mapNotNull { project.getService(DorisOriginalDefinitions::class.java).get(it) }
+            return if (definitions.isEmpty()) EmptyDorisCatalogDefinition else OriginalDorisCatalogDefinition(definitions)
+        }
         throw UnsupportedOperationException(
             "Doris catalog-mode ${task.category.displayName} script generation is disabled: " +
                 "the introspected model cannot preserve Doris DDL semantics",
@@ -126,6 +130,16 @@ private class RefusingDorisCatalogScriptGenerator(dbms: Dbms) : ScriptGenerator 
     override fun prettyPrint(dt: DataType): String = formatting.prettyPrint(dt)
     override fun isIndexExplicitFor(index: BasicIndex, key: BasicKey) = false
     override fun isDefaultSize(dt: DataType, version: Version) = formatting.isDefaultSize(dt, version)
+}
+
+/** Read-only presentation of server text, never reconstructed from the Ms model. */
+private class OriginalDorisCatalogDefinition(definitions: List<String>) : ScriptingResult {
+    private val statements = definitions.map { SimpleCompositeText(it, CompositeText.Kind.FIXED_TEXT) }
+    private val text = definitions.joinToString("\n\n")
+    override fun getScriptStatements(): List<CompositeText> = statements
+    override fun getScriptStatementsTexts(): Array<String> = statements.map { it.text.toString() }.toTypedArray()
+    override fun getScriptText(): String = text
+    override fun getScript(): CompositeText = SimpleCompositeText(text, CompositeText.Kind.FIXED_TEXT)
 }
 
 private object EmptyDorisCatalogDefinition : ScriptingResult {

@@ -1,0 +1,78 @@
+<div class="definition"><pre>MAP_FROM_ARRAYS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>根据键数组和值数组构造 <code>MAP&lt;K, V&gt;</code>。两个数组中相同位置的元素组成一个键值对。</p>
+<p>自 Apache Doris 4.2 起支持该函数。</p>
+<h2>语法</h2>
+<pre><code>MAP_FROM_ARRAYS(&lt;keys&gt;, &lt;values&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;keys&gt;</code></td>
+<td><code>ARRAY&lt;K&gt;</code> 类型。<code>K</code> 必须是 MAP 键支持的类型。数组本身及数组元素都可以为 <code>NULL</code>。</td>
+</tr>
+<tr>
+<td><code>&lt;values&gt;</code></td>
+<td><code>ARRAY&lt;V&gt;</code> 类型。数组本身及数组元素都可以为 <code>NULL</code>。两个数组均非 <code>NULL</code> 时，元素数量必须与 <code>&lt;keys&gt;</code> 相同。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>MAP&lt;K, V&gt;</code>。</p>
+<ul>
+<li>任一输入数组为 <code>NULL</code> 时，返回 <code>NULL</code>。</li>
+<li>数组中的 <code>NULL</code> 元素会作为 <code>NULL</code> 键或值保留在结果中。</li>
+<li>两个数组均非 <code>NULL</code> 且长度不同时，报错；任一数组为 <code>NULL</code> 时，不校验另一个数组的长度。</li>
+<li>同一个键出现多次时，保留最后一次出现的值。</li>
+<li>参数不是数组，或 <code>K</code> 不是 MAP 键支持的类型时，在分析阶段报错。</li>
+</ul>
+<h2>示例</h2>
+<pre><code>SELECT map_from_arrays([1, 2], [10, 20]) AS result;
+</code></pre>
+<pre><code>+--------------+
+| result       |
++--------------+
+| {1:10, 2:20} |
++--------------+
+</code></pre>
+<pre><code>SELECT map_from_arrays([1, 1], [10, 20]) AS result;
+</code></pre>
+<pre><code>+--------+
+| result |
++--------+
+| {1:20} |
++--------+
+</code></pre>
+<pre><code>SELECT map_from_arrays(CAST(NULL AS ARRAY&lt;INT&gt;), [10]);
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| map_from_arrays(CAST(NULL AS ARRAY&lt;INT&gt;), [10]) |
++-------------------------------------------------+
+| NULL                                            |
++-------------------------------------------------+
+</code></pre>
+<pre><code>SELECT map_from_arrays(
+    array(CAST(NULL AS INT), 2),
+    array(10, CAST(NULL AS INT))) AS result;
+</code></pre>
+<pre><code>+-------------------+
+| result            |
++-------------------+
+| {null:10, 2:null} |
++-------------------+
+</code></pre>
+<pre><code>SELECT map_from_arrays([1, 2], [10]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): The key and value array offsets of function map_from_arrays must be identical
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-from-arrays/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

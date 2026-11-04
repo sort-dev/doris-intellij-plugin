@@ -1,0 +1,41 @@
+<div class="definition"><pre>BIT_LENGTH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回字符串或二进制值的位数。</p>
+<h2>语法</h2>
+<pre><code>BIT_LENGTH( &lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;str&gt;</code> 需要计算位数的字符串值。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回 <code>&lt;str&gt;</code> 的二进制表示所占的位数，包括其中的所有 0 和 1。</p>
+<h2>示例</h2>
+<ol>
+<li>
+<p>示例 1</p>
+<pre><code>select BIT_LENGTH("abc"), BIT_LENGTH("中国"), BIT_LENGTH(123);
+</code></pre>
+<pre><code>+-------------------+----------------------+-----------------+
+| BIT_LENGTH("abc") | BIT_LENGTH("中国")   | BIT_LENGTH(123) |
++-------------------+----------------------+-----------------+
+|                24 |                   48 |              24 |
++-------------------+----------------------+-----------------+
+</code></pre>
+</li>
+<li>
+<p>NULL 参数</p>
+<pre><code>select BIT_LENGTH(NULL);
+</code></pre>
+<pre><code>+------------------+
+| BIT_LENGTH(NULL) |
++------------------+
+|             NULL |
++------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/bit-length/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

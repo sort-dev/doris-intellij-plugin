@@ -1,0 +1,63 @@
+<div class="definition"><pre>POSITIVE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回数值本身。</p>
+<h2>语法</h2>
+<pre><code>POSITIVE(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要返回的数值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整型或者浮点数。特殊情况：</p>
+<ul>
+<li>当 x is NULL 时，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT positive(-10);
+</code></pre>
+<pre><code>+---------------+
+| positive(-10) |
++---------------+
+|           -10 |
++---------------+
+</code></pre>
+<pre><code>SELECT positive(10.111);
+</code></pre>
+<pre><code>+------------------+
+| positive(10.111) |
++------------------+
+|           10.111 |
++------------------+
+</code></pre>
+<pre><code>SELECT positive(12);
+</code></pre>
+<pre><code>+--------------+
+| positive(12) |
++--------------+
+|           12 |
++--------------+
+</code></pre>
+<pre><code>SELECT positive(null);
+</code></pre>
+<pre><code>+----------------+
+| positive(NULL) |
++----------------+
+|           NULL |
++----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/positive/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

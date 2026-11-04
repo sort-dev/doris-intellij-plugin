@@ -1,0 +1,43 @@
+<div class="definition"><pre>UUID</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>UUID 函数用于生成一个随机的通用唯一标识符（Universally Unique Identifier）。生成的 UUID 符合 RFC 4122 标准，格式为 8-4-4-4-12 的36个字符（包含连字符）。</p>
+<h2>语法</h2>
+<pre><code>UUID()
+</code></pre>
+<h2>参数</h2>
+<p>无参数。</p>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为随机生成的 UUID 字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>每次调用都会生成不同的 UUID</li>
+<li>UUID 格式为：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</li>
+<li>生成的 UUID 全局唯一</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：生成单个 UUID</li>
+</ol>
+<pre><code>SELECT UUID();
+</code></pre>
+<pre><code>+--------------------------------------+
+| UUID()                               |
++--------------------------------------+
+| 29077778-fc5e-4603-8368-6b5f8fd55c24 |
++--------------------------------------+
+</code></pre>
+<ol>
+<li>多次调用生成不同 UUID</li>
+</ol>
+<pre><code>SELECT UUID(), UUID();
+</code></pre>
+<pre><code>+--------------------------------------+--------------------------------------+
+| UUID()                               | UUID()                               |
++--------------------------------------+--------------------------------------+
+| a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6 | f7e8d9c0-b1a2-4938-8756-c4d3e2f1a0b9 |
++--------------------------------------+--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/uuid/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

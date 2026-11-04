@@ -1,0 +1,82 @@
+<div class="definition"><pre>EXPLODE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>explode</code> 函数接受一个或者多个数组，会将每个数组中的每个元素映射为单独的行。需要与 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 配合使用，以将嵌套数据结构展开为标准的平面表格式。 <code>explode</code> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-outer/"><code>explode_outer</code></a> 区别主要在于空值处理。</p>
+<h2>语法</h2>
+<pre><code>EXPLODE(&lt;array&gt;[, ...])
+</code></pre>
+<h2>可变参数</h2>
+<ul>
+<li><code>&lt;array&gt;</code> 数组类型。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回由 <code>&lt;array&gt;</code> 所有元素组成的单列多行数据。</li>
+<li>如果 <code>&lt;array&gt;</code> 为 NULL 或者为空数组（元素个数为 0），返回 0 行数据。</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>如果 <code>&lt;array&gt;</code> 参数的类型不是 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/ARRAY/"><code>Array</code></a> 会报错。</li>
+<li>如果有多个数组参数，展开的行数由数组展开后最多的行数决定，行数不足的用 NULL 补齐。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>准备数据<pre><code>    create table example(
+        k1 int
+    ) properties(
+        "replication_num" = "1"
+    );
+
+    insert into example values(1);
+</code></pre>
+</li>
+<li>常规参数<pre><code>select  * from example lateral view explode([1, 2, null, 4, 5]) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 |    1 |
+|    1 |    2 |
+|    1 | NULL |
+|    1 |    4 |
+|    1 |    5 |
++------+------+
+</code></pre>
+</li>
+<li>多个参数<pre><code>select  * from example lateral view explode([], [1, 2, null, 4, 5], ["ab", "cd", "ef"], [null, null, 1, 2, 3, 4, 5]) t2 as c0, c1, c2, c3;
+</code></pre>
+<pre><code>+------+------+------+------+------+
+| k1   | c0   | c1   | c2   | c3   |
++------+------+------+------+------+
+|    1 | NULL |    1 | ab   | NULL |
+|    1 | NULL |    2 | cd   | NULL |
+|    1 | NULL | NULL | ef   |    1 |
+|    1 | NULL |    4 | NULL |    2 |
+|    1 | NULL |    5 | NULL |    3 |
+|    1 | NULL | NULL | NULL |    4 |
+|    1 | NULL | NULL | NULL |    5 |
++------+------+------+------+------+
+</code></pre>
+<blockquote>
+<p>展开后行数最多的数组是 <code>[null, null, 1, 2, 3, 4, 5]</code>（c3）, 一共有 7 行数据，所以最终展开得到 7 行，其余三个数组（c0、c1、c2）不足的行用 NULL 补齐。</p>
+</blockquote>
+</li>
+<li>空数组<pre><code>select  * from example lateral view explode([]) t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select  * from example lateral view explode(NULL) t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+<li>非数组参数<pre><code>select  * from example lateral view explode('abc') t2 as c;
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: explode(VARCHAR(3))
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

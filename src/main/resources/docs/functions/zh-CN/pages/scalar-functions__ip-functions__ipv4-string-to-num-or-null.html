@@ -1,0 +1,54 @@
+<div class="definition"><pre>IPV4_STRING_TO_NUM_OR_NULL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>获取包含 IPv4 地址的字符串，格式为 A.B.C.D（点分隔的十进制数字）。返回一个 BIGINT 数字，表示相应的大端 IPv4 地址。</p>
+<h2>别名</h2>
+<ul>
+<li>INET_ATON</li>
+</ul>
+<h2>语法</h2>
+<pre><code>IPV4_STRING_TO_NUM_OR_NULL(&lt;ipv4_string&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;ipv4_string&gt;</code></td>
+<td>字符串类型的 ipv4 地址，例如 'A.B.C.D'</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BIGINT 数字，表示相应的大端 IPv4 地址</p>
+<ul>
+<li>如果输入字符串不是有效的 IPv4 地址，将返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select ipv4_string_to_num_or_null('192.168.0.1'); 
+</code></pre>
+<pre><code>+-------------------------------------------+ 
+| ipv4_string_to_num_or_null('192.168.0.1') | 
++-------------------------------------------+ 
+| 3232235521                                | 
++-------------------------------------------+ 
+</code></pre>
+<pre><code>select str, ipv4_string_to_num_or_null(str) from ipv4_str; 
+</code></pre>
+<pre><code>+-----------------+---------------------------------+ 
+|str              | ipv4_string_to_num_or_null(str) | 
++-----------------+---------------------------------+ 
+| 0.0.0.0         | 0                               | 
+| 127.0.0.1       | 2130706433                      | 
+| 255.255.255.255 | 4294967295                      | 
+| invalid         | NULL                            | 
++-----------------+---------------------------------+ 
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv4-string-to-num-or-null/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

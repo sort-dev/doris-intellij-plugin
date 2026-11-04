@@ -1,0 +1,83 @@
+<div class="definition"><pre>ST_CIRCLE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 WKT（Well Known Text）转化为地球球面上的一个圆。</p>
+<h2>语法</h2>
+<pre><code>ST_CIRCLE( &lt;center_lng&gt;, &lt;center_lat&gt;, &lt;radius&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;center_lng&gt;</code></td>
+<td>圆心的经度，类型为 DOUBLE，取值范围为 [-180, 180]</td>
+</tr>
+<tr>
+<td><code>&lt;center_lat&gt;</code></td>
+<td>圆心的纬度，类型为 DOUBLE，取值范围为 [-180, 180]</td>
+</tr>
+<tr>
+<td><code>&lt;radius&gt;</code></td>
+<td>圆的半径，类型为 DOUBLE，单位为 米</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回地球球面上的圆，类型为 GeoCircle。其 WKT 表示形式为 CIRCLE ((&lt;center_lng&gt; &lt;center_lat&gt;), &lt;radius&gt;)，其中包含圆心坐标和半径信息。</p>
+<p>ST_CIRCLE 存在以下边缘情况：</p>
+<ul>
+<li>若任何输入参数为 NULL，返回 NULL。</li>
+<li>若 &lt;center_lng&gt; 超出 [-180, 180] 或 &lt;center_lat&gt; 超出 [-90, 90]，返回 NULL。</li>
+<li>若 &lt;radius&gt; 为 0，返回以圆心为唯一点的特殊圆（WKT 表示为 CIRCLE ((&lt;center_lng&gt; &lt;center_lat&gt;), 0)）。</li>
+</ul>
+<h2>举例</h2>
+<p>基本用法（正常圆）</p>
+<pre><code>SELECT ST_AsText(ST_Circle(111, 64, 10000));
+</code></pre>
+<pre><code>+--------------------------------------------+
+| st_astext(st_circle(111.0, 64.0, 10000.0)) |
++--------------------------------------------+
+| CIRCLE ((111 64), 10000)                   |
++--------------------------------------------+
+</code></pre>
+<p>赤道上的圆（纬度 0°）</p>
+<pre><code>mysql&gt; SELECT ST_AsText(ST_Circle(0, 0, 5000));
++----------------------------------+
+| ST_AsText(ST_Circle(0, 0, 5000)) |
++----------------------------------+
+| CIRCLE ((0 0), 5000)             |
++----------------------------------+
+</code></pre>
+<p>半径为 0 的圆（退化为点）</p>
+<pre><code>mysql&gt; SELECT ST_AsText(ST_Circle(120, 30, 0));
++----------------------------------+
+| ST_AsText(ST_Circle(120, 30, 0)) |
++----------------------------------+
+| CIRCLE ((120 30), 0)             |
++----------------------------------+
+</code></pre>
+<p>无效参数（经度超出范围）</p>
+<pre><code>mysql&gt; SELECT ST_AsText(ST_Circle(190, 30, 1000));
++-------------------------------------+
+| ST_AsText(ST_Circle(190, 30, 1000)) |
++-------------------------------------+
+| NULL                                |
++-------------------------------------+
+</code></pre>
+<p>参数为 NULL</p>
+<pre><code>mysql&gt; SELECT ST_AsText(ST_Circle(NULL, 30, 1000));
++--------------------------------------+
+| ST_AsText(ST_Circle(NULL, 30, 1000)) |
++--------------------------------------+
+| NULL                                 |
++--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-circle/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

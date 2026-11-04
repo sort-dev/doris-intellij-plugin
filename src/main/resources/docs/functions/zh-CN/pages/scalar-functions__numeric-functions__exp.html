@@ -1,0 +1,64 @@
+<div class="definition"><pre>EXP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回以<code>e</code>为底的<code>x</code>的幂。</p>
+<h2>别名</h2>
+<ul>
+<li>DEXP</li>
+</ul>
+<h2>语法</h2>
+<pre><code>EXP(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>自变量</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 double。特殊情况：</p>
+<ul>
+<li>
+<p>当参数为<code>NULL</code>时，返回 NULL</p>
+</li>
+<li>
+<p>当参数为比较大的时候，返回 Infinity</p>
+</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select exp(2);
+</code></pre>
+<pre><code>+------------------+
+| exp(2.0)         |
++------------------+
+| 7.38905609893065 |
++------------------+
+</code></pre>
+<pre><code>select exp(3.4);
+</code></pre>
+<pre><code>+--------------------+
+| exp(3.4)           |
++--------------------+
+| 29.964100047397011 |
++--------------------+
+</code></pre>
+<pre><code>select exp(1000000);
+</code></pre>
+<pre><code>+--------------+
+| EXP(1000000) |
++--------------+
+|     Infinity |
++--------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/exp/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

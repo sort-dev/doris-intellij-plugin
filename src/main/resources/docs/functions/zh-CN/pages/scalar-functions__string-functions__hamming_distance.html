@@ -1,0 +1,84 @@
+<div class="definition"><pre>HAMMING_DISTANCE</pre></div>
+<div class="content">
+<p>Since 4.1.2</p>
+<h2>描述</h2>
+<p><code>HAMMING_DISTANCE</code> 函数用于返回两个字符串在对应位置上不同字符的个数。</p>
+<p>该函数按 UTF-8 字符而不是字节进行比较。两个输入字符串必须具有相同的 UTF-8 字符数。比较过程区分大小写。</p>
+<h2>语法</h2>
+<pre><code>HAMMING_DISTANCE(&lt;str1&gt;, &lt;str2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str1&gt;</code></td>
+<td>要比较的第一个字符串。</td>
+</tr>
+<tr>
+<td><code>&lt;str2&gt;</code></td>
+<td>要比较的第二个字符串。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 BIGINT，表示两个字符串在相同位置上不同字符的数量。</p>
+<p>特殊情况：</p>
+<ul>
+<li>任意参数为 NULL 时，返回 NULL。</li>
+<li>两个参数都为空字符串时，返回 0。</li>
+<li>两个字符串的 UTF-8 字符数不一致时，返回错误。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>比较两个长度相同的 ASCII 字符串。</li>
+</ol>
+<pre><code>SELECT hamming_distance('karolin', 'kathrin') AS distance;
+</code></pre>
+<pre><code>+----------+
+| distance |
++----------+
+|        3 |
++----------+
+</code></pre>
+<ol>
+<li>比较两个 UTF-8 字符串。两个字符串的字符数相同，只有一个字符不同。</li>
+</ol>
+<pre><code>SELECT hamming_distance('数据库', '数据仓') AS distance;
+</code></pre>
+<pre><code>+----------+
+| distance |
++----------+
+|        1 |
++----------+
+</code></pre>
+<ol>
+<li>比较仅大小写不同的字符串。</li>
+</ol>
+<pre><code>SELECT hamming_distance('Doris', 'doris') AS distance;
+</code></pre>
+<pre><code>+----------+
+| distance |
++----------+
+|        1 |
++----------+
+</code></pre>
+<ol>
+<li>输入 NULL 时返回 NULL。</li>
+</ol>
+<pre><code>SELECT hamming_distance(NULL, 'abc') AS distance;
+</code></pre>
+<pre><code>+----------+
+| distance |
++----------+
+|     NULL |
++----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/hamming_distance/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

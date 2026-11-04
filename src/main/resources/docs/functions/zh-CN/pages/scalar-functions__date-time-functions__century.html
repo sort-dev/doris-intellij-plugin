@@ -1,0 +1,64 @@
+<div class="definition"><pre>CENTURY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>CENTURY 函数用于提取指定日期或时间值中的世纪部分，返回整数形式的世纪。支持处理 DATE、DATETIME 类型。</p>
+<h2>语法</h2>
+<pre><code>CENTURY(`&lt;date_or_time_expr&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>要提取世纪的日期或时间值，支持输入 DATE 或 DATETIME 类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 date/datetime 类型的 year 部分，INT 类型</p>
+<ul>
+<li>若输入的参数为 NULL，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- 提取DATE类型的世纪
+SELECT CENTURY('2024-01-01') AS century_date;
++-----------------+
+| century_date    |
++-----------------+
+| 21              |
++-----------------+
+
+-- 提取DATETIME类型的世纪（忽略时分秒）
+SELECT CENTURY('2024-05-20 14:30:25') AS century_datetime;
++----------------------+
+| century_datetime     |
++----------------------+
+| 21                   |
++----------------------+
+
+-- 输入为NULL（返回NULL）
+SELECT CENTURY(NULL) AS null_input;
++----------------+
+| null_input     |
++----------------+
+| NULL           |
++----------------+
+
+-- 输入无效日期（返回NULL）
+SELECT CENTURY('10000-01-01') AS invalid_date;
++-------------------+
+| invalid_date      |
++-------------------+
+| NULL              |
++-------------------+
+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/century/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

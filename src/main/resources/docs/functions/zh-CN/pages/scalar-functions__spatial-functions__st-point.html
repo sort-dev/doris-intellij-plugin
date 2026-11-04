@@ -1,0 +1,78 @@
+<div class="definition"><pre>ST_POINT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>通过给定的 X 坐标值，Y 坐标值返回对应的 Point。</p>
+<p>当前这个值只是在球面集合上有意义，X/Y 对应的是经度/纬度 (longitude/latitude);</p>
+<h2>语法</h2>
+<pre><code>ST_POINT( &lt;x&gt;, &lt;y&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>点的 X 坐标值（经度），取值范围：-180.0 至 180.0（单位：度）</td>
+</tr>
+<tr>
+<td><code>&lt;y&gt;</code></td>
+<td>点的 Y 坐标值（纬度），取值范围：-90.0 至 90.0（单位：度）</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 Point 类型的几何对象，表示一个二维坐标点。</p>
+<ul>
+<li>若 &lt;x&gt; 或 &lt;y&gt; 超出有效经纬度范围，函数可能返回 NULL 或生成无效点（取决于 Doris 版本）。</li>
+<li>若任一参数为 NULL，则返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<p>正常经纬度点</p>
+<pre><code>SELECT ST_AsText(ST_Point(24.7, 56.7));
+</code></pre>
+<pre><code>+---------------------------------+
+| st_astext(st_point(24.7, 56.7)) |
++---------------------------------+
+| POINT (24.7 56.7)               |
++---------------------------------+
+</code></pre>
+<p>无效经度（超出范围）</p>
+<pre><code>mysql&gt; SELECT ST_Point(200, 50);
++-------------------+
+| ST_Point(200, 50) |
++-------------------+
+| NULL              |
++-------------------+
+</code></pre>
+<p>无效纬度（超出范围）</p>
+<pre><code>mysql&gt; SELECT ST_Point(116, -100);
++---------------------+
+| ST_Point(116, -100) |
++---------------------+
+| NULL                |
++---------------------+
+</code></pre>
+<p>任一参数为 NULL</p>
+<pre><code>mysql&gt; SELECT ST_Point(NULL, 50);
++--------------------+
+| ST_Point(NULL, 50) |
++--------------------+
+| NULL               |
++--------------------+
+</code></pre>
+<pre><code>mysql&gt; SELECT ST_Point(50, NULL);
++--------------------+
+| ST_Point(50, NULL) |
++--------------------+
+| NULL               |
++--------------------+
+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-point/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

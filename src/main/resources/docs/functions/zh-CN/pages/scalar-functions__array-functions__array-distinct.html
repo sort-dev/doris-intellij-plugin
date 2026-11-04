@@ -1,0 +1,127 @@
+<div class="definition"><pre>ARRAY_DISTINCT</pre></div>
+<div class="content">
+<h2>array_distinct</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>去除数组中的重复元素，返回一个包含唯一元素的新数组。函数会保持元素的原始顺序，只保留每个元素的第一次出现。</p>
+<h2>语法</h2>
+<pre><code>array_distinct(ARRAY&lt;T&gt; arr)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要去重的数组。支持列名或常量值。</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;T&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>去重后的数组，包含原数组中的所有唯一元素</li>
+<li>保持元素的原始顺序</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数从左到右遍历数组，保留每个元素的第一次出现，移除后续的重复元素</li>
+<li>空数组返回空数组，NULL 数组返回 NULL</li>
+<li>去重操作保持原始数组中元素的相对顺序，不重新排序</li>
+<li>对数组元素中的 null 值：null 元素会被去重，多个 null 只保留一个</li>
+</ul>
+<h3>示例</h3>
+<p><strong>查询示例：</strong></p>
+<p>整数数组去重，原数组 [1, 2, 3, 4, 5] 中没有重复元素，所以去重后结果与原数组相同。</p>
+<pre><code>SELECT array_distinct([1, 2, 3, 4, 5]);
++---------------------------------+
+| array_distinct([1, 2, 3, 4, 5]) |
++---------------------------------+
+| [1, 2, 3, 4, 5]                 |
++---------------------------------+
+</code></pre>
+<p>字符串数组去重：去除重复的字符串元素。原数组 ['a', 'b', 'a', 'c', 'b', 'd'] 中，'a' 出现两次（保留第一次），'b' 出现两次（保留第一次），去重后为 ["a", "b", "c", "d"]。</p>
+<pre><code>SELECT array_distinct(['a', 'b', 'a', 'c', 'b', 'd']);
++------------------------------------------------+
+| array_distinct(['a', 'b', 'a', 'c', 'b', 'd']) |
++------------------------------------------------+
+| ["a", "b", "c", "d"]                           |
++------------------------------------------------+
+</code></pre>
+<p>包含 null 值的数组：null 元素也会被去重，多个 null 只保留一个。原数组 [1, null, 2, null, 3, null] 中，null 出现三次，去重后只保留第一个 null，结果为 [1, null, 2, 3]。</p>
+<pre><code>SELECT array_distinct([1, null, 2, null, 3, null]);
++---------------------------------------------+
+| array_distinct([1, null, 2, null, 3, null]) |
++---------------------------------------------+
+| [1, null, 2, 3]                             |
++---------------------------------------------+
+</code></pre>
+<p>IP 类型数组去重：IPv4 地址数组的去重。原数组 ['192.168.1.1', '192.168.1.2', '192.168.1.1'] 中，'192.168.1.1' 出现两次，去重后只保留第一次出现的地址，结果为 [192.168.1.1, 192.168.1.2]。</p>
+<pre><code>SELECT array_distinct(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.1'] AS ARRAY&lt;IPV4&gt;));
++------------------------------------------------------------------------------------+
+| array_distinct(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.1'] AS ARRAY&lt;IPV4&gt;)) |
++------------------------------------------------------------------------------------+
+| ["192.168.1.1", "192.168.1.2"]                                                     |
++------------------------------------------------------------------------------------+
+</code></pre>
+<p>IPv6 类型数组去重：IPv6 地址数组的去重。原数组 ['2001:db8::1', '2001:db8::2', '2001:db8::1'] 中，'2001:db8::1' 出现两次，去重后只保留第一次出现的地址，结果为 [2001:db8::1, 2001:db8::2]。</p>
+<pre><code>SELECT array_distinct(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::1'] AS ARRAY&lt;IPV6&gt;));
++------------------------------------------------------------------------------------+
+| array_distinct(CAST(['2001:db8::1', '2001:db8::2', '2001:db8::1'] AS ARRAY&lt;IPV6&gt;)) |
++------------------------------------------------------------------------------------+
+| ["2001:db8::1", "2001:db8::2"]                                                     |
++------------------------------------------------------------------------------------+
+</code></pre>
+<p>空数组返回空数组：空数组没有元素需要去重，直接返回空数组。</p>
+<pre><code>+--------------------+
+| array_distinct([]) |
++--------------------+
+| []                 |
++--------------------+
+</code></pre>
+<p>NULL 数组返回 NULL：当输入数组为 NULL 时返回 NULL，不会抛出错误。</p>
+<pre><code>+----------------------+
+| array_distinct(NULL) |
++----------------------+
+| NULL                 |
++----------------------+
+</code></pre>
+<p>单个元素数组返回原数组：只有一个元素的数组没有重复元素，去重后结果与原数组相同。</p>
+<pre><code>SELECT array_distinct([42]);
++----------------------+
+| array_distinct([42]) |
++----------------------+
+| [42]                 |
++----------------------+
+</code></pre>
+<p>复杂类型不支持：</p>
+<p>嵌套数组类型不支持，报错。</p>
+<pre><code>SELECT array_distinct([[1,2,3], [4,5,6], [1,2,3]]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.6)[RUNTIME_ERROR]execute failed or unsupported types for function array_distinct(Array(Nullable(Array(Nullable(TINYINT)))))
+</code></pre>
+<p>map 类型不支持，报错。</p>
+<pre><code>SELECT array_distinct([{'a':1}, {'b':2}, {'a':1}]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.6)[RUNTIME_ERROR]execute failed or unsupported types for function array_distinct(Array(Nullable(Map(Nullable(String), Nullable(TINYINT)))))
+</code></pre>
+<p>struct 类型不支持，报错。</p>
+<pre><code>SELECT array_distinct(array(named_struct('name','Alice','age',20), named_struct('name','Bob','age',30), named_struct('name','Alice','age',20)));
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.6)[RUNTIME_ERROR]execute failed or unsupported types for function array_distinct(Array(Nullable(Struct(name:Nullable(String), age:Nullable(TINYINT)))))
+</code></pre>
+<p>参数数量错误会报错：array_distinct 函数只接受一个数组参数，传入多个参数会报错。</p>
+<pre><code>SELECT array_distinct([1, 2, 3], [4, 5, 6]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_distinct' which has 2 arity. Candidate functions are: [array_distinct(Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：array_distinct 函数只接受数组类型参数，传入字符串等非数组类型会报错。</p>
+<pre><code>SELECT array_distinct('not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_distinct(VARCHAR(12))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, DISTINCT, ARRAY_DISTINCT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-distinct/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

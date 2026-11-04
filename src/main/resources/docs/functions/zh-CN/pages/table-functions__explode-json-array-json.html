@@ -1,0 +1,60 @@
+<div class="definition"><pre>EXPLODE_JSON_ARRAY_JSON</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>explode_json_array_json</code> 表函数，接受一个 JSON 数组，其实现逻辑是将 JSON 数组转换为数组类型然后再调用 <code>explode</code> 函数处理，行为等价于：<code>explode(cast(&lt;json_array&gt; as Array&lt;JSON&gt;))</code>
+。需配合 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 使用。</p>
+<h2>语法</h2>
+<pre><code>EXPLODE_JSON_ARRAY_JSON(&lt;json&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json&gt;</code> JSON 类型，其内容应该是数组。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回由 <code>&lt;json&gt;</code> 所有元素组成的单列多行数据，列类型为 <code>Nullable&lt;JSON&gt;</code>。</li>
+<li>如果 <code>&lt;json&gt;</code> 为 NULL 或者为空数组（元素个数为 0），返回 0 行数据。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>准备数据<pre><code>    create table example(
+        k1 int
+    ) properties(
+        "replication_num" = "1"
+    );
+
+    insert into example values(1);
+</code></pre>
+</li>
+<li>常规参数<pre><code>select * from example lateral view explode_json_array_json('[4, "abc", {"key": "value"}, 5.23, null]') t2 as c;
+</code></pre>
+<pre><code>+------+-----------------+
+| k1   | c               |
++------+-----------------+
+|    1 | 4               |
+|    1 | NULL            |
+|    1 | {"key":"value"} |
+|    1 | 5.23            |
+|    1 | NULL            |
++------+-----------------+
+</code></pre>
+</li>
+<li>空数组<pre><code>select * from example lateral view explode_json_array_json('[]') t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select * from example lateral view explode_json_array_json(NULL) t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+<li>非数组参数<pre><code>select * from example lateral view explode_json_array_json('{}') t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-json-array-json/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

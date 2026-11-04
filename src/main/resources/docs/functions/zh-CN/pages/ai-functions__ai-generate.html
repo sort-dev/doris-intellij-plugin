@@ -1,0 +1,51 @@
+<div class="definition"><pre>AI_GENERATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>基于输入的提示文本生成响应内容</p>
+<h2>语法</h2>
+<pre><code>AI_GENERATE([&lt;resource_name&gt;], &lt;prompt&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;resource_name&gt;</code></td>
+<td>指定的资源名称，可空</td>
+</tr>
+<tr>
+<td><code>&lt;prompt&gt;</code></td>
+<td>提示文本，用于指导大语言模型生成内容</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回基于提示生成的文本内容</p>
+<p>当输入有值为 NULL 时返回 NULL</p>
+<p>结果为大模型生成，所以返回内容并不固定</p>
+<h2>示例</h2>
+<pre><code>SET default_ai_resource = 'resource_name';
+SELECT AI_GENERATE('Describe Apache Doris in a few words') AS Result;
+</code></pre>
+<pre><code>+---------------------------------------------------------+
+| Result                                                  |
++---------------------------------------------------------+
+| "Apache Doris is a fast, real-time analytics database." |
++---------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT AI_GENERATE('resource_name', 'What is the fouding time of Apache Doris? Return only the date.') AS Result;
+</code></pre>
+<pre><code>+--------+
+| Result |
++--------+
+| 2017   |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/ai-generate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

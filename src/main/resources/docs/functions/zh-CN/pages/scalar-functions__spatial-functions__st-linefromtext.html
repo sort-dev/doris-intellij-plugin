@@ -1,0 +1,85 @@
+<div class="definition"><pre>ST_LINEFROMTEXT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 WKT（Well Known Text）转化为一个 Line 形式的内存表现形式</p>
+<h2>别名</h2>
+<ul>
+<li>ST_LINESTRINGFROMTEXT</li>
+</ul>
+<h2>语法</h2>
+<pre><code>ST_LINEFROMTEXT( &lt;wkt&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;wkt&gt;</code></td>
+<td>符合 LINE 类型的 WKT 字符串，格式为：</td>
+</tr>
+<tr>
+<td>"LINE (x1 y1, x2 y2)"</td>
+<td></td>
+</tr>
+<tr>
+<td>其中，(x1 y1), (x2 y2) 是线段的顶点坐标，坐标值为数值（整数或小数）。</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 Line 类型的几何对象，该对象在内存中以 Doris 内部的空间数据格式存储，可直接作为参数传入其他空间函数（如 ST_LENGTH、ST_INTERSECTS 等）进行计算。</p>
+<ul>
+<li>若输入的 WKT 字符串格式无效（如顶点数量不足 2 个、语法错误、坐标非数值等），返回 NULL。</li>
+<li>若输入 &lt;wkt&gt; 为 NULL 或空字符串，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<p>正常LINE类型</p>
+<pre><code>mysql&gt; SELECT ST_AsText(ST_LineFromText("LINESTRING (1 1, 2 2)"));
++-----------------------------------------------------+
+| ST_AsText(ST_LineFromText("LINESTRING (1 1, 2 2)")) |
++-----------------------------------------------------+
+| LINESTRING (1 1, 2 2)                               |
++-----------------------------------------------------+
+</code></pre>
+<p>无效 WKT（顶点数量不足）</p>
+<pre><code>mysql&gt; SELECT ST_LineFromText("LINESTRING (1 1)");
++-------------------------------------+
+| ST_LineFromText("LINESTRING (1 1)") |
++-------------------------------------+
+| NULL                                |
++-------------------------------------+
+</code></pre>
+<p>无效 WKT（语法错误）</p>
+<pre><code>mysql&gt; SELECT ST_LineFromText("LINESTRING (1 1, 2 2");
++-----------------------------------------+
+| ST_LineFromText("LINESTRING (1 1, 2 2") |
++-----------------------------------------+
+| NULL                                    |
++-----------------------------------------+
+</code></pre>
+<p>无效WKT(顶点数量太多)</p>
+<pre><code>mysql&gt; SELECT ST_LineFromText("LINESTRING (1 1,2 2,3 3)");
++---------------------------------------------------------------------------------+
+| ST_LineFromText("LINESTRING (1 1,2 2,3 3)")                                     |
++---------------------------------------------------------------------------------+
+|     ��_&lt;���?'���Xޑ?݉+
+                       ߑ?�����?(Qjm�ۡ?'���Xޡ?�3|ʏ��?lW&lt;�`ª?��H�˪?       |
++---------------------------------------------------------------------------------+
+</code></pre>
+<p>输入 NULL</p>
+<pre><code>mysql&gt; SELECT ST_LineFromText(NULL);
++-----------------------+
+| ST_LineFromText(NULL) |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-linefromtext/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

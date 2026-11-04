@@ -1,0 +1,80 @@
+<div class="definition"><pre>AES_DECRYPT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>AES 解密函数。该函数与 MySQL 中的 <code>AES_DECRYPT</code> 函数行为一致。默认采用 <code>AES_128_ECB</code> 算法，padding 模式为 <code>PKCS7</code>。</p>
+<h2>语法</h2>
+<pre><code>AES_DECRYPT( &lt;str&gt;, &lt;key_str&gt;[, &lt;init_vector&gt;][, &lt;encryption_mode&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>为待解密文本</td>
+</tr>
+<tr>
+<td><code>&lt;key_str&gt;</code></td>
+<td>为密钥。注意此密钥并非 16 进制编码，而是编码后的字符串表示。例如对于 128 位密钥加密，<code>key_str</code> 长度应为 16。如果密钥长度不足，使用<strong>零填充</strong>补齐。如果长度超出，使用循环异或的方式求出最终密钥。例如算法使用的 128 位密钥为 <code>key</code>，则 <code>key[i] = key_str[i] ^ key_str[i+128] ^ key_str[i+256] ^ ...</code></td>
+</tr>
+<tr>
+<td><code>&lt;init_vector&gt;</code></td>
+<td>为算法中使用到的初始向量，仅在特定算法下生效，如不指定，则 Doris 使用内置向量</td>
+</tr>
+<tr>
+<td><code>&lt;encryption_mode&gt;</code></td>
+<td>为加密算法，可选值见于变量</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>如果解密成功：返回解密后的数据，通常是明文的二进制表示。</p>
+<p>如果解密失败：返回 NULL。</p>
+<h2>示例</h2>
+<h3>解密成功</h3>
+<p>使用默认算法</p>
+<pre><code>set block_encryption_mode='';
+select aes_decrypt(from_base64('wr2JEDVXzL9+2XtRhgIloA=='),'F3229A0B371ED2D9441B830D21A390C3');
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------------+
+| aes_decrypt(from_base64('wr2JEDVXzL9+2XtRhgIloA=='), '***', '', 'AES_128_ECB') |
++--------------------------------------------------------------------------------+
+| text                                                                           |
++--------------------------------------------------------------------------------+
+</code></pre>
+<p>使用 AES_256_CBC 算法</p>
+<pre><code>set block_encryption_mode="AES_256_CBC";
+select aes_decrypt(from_base64('3dym0E7/+1zbrLIaBVNHSw=='),'F3229A0B371ED2D9441B830D21A390C3');
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------------+
+| aes_decrypt(from_base64('3dym0E7/+1zbrLIaBVNHSw=='), '***', '', 'AES_256_CBC') |
++--------------------------------------------------------------------------------+
+| text                                                                           |
++--------------------------------------------------------------------------------+
+</code></pre>
+<p>使用 AES_256_CBC 算法并设置初始向量</p>
+<pre><code>select AES_DECRYPT(FROM_BASE64('tsmK1HzbpnEdR2//WhO+MA=='),'F3229A0B371ED2D9441B830D21A390C3', '0123456789');
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------------+
+| aes_decrypt(from_base64('tsmK1HzbpnEdR2//WhO+MA=='), '***', '0123456789', 'AES_256_CBC') |
++------------------------------------------------------------------------------------------+
+| text                                                                                     |
++------------------------------------------------------------------------------------------+
+</code></pre>
+<h3>解密失败</h3>
+<pre><code>select AES_DECRYPT(FROM_BASE64('tsmK1H3zbpnEdR2//WhO+MA=='),'F3229A0B371ED2D9441B830D21A390C3', '0123456789');
+</code></pre>
+<pre><code>+-------------------------------------------------------------------------------------------+
+| aes_decrypt(from_base64('tsmK1H3zbpnEdR2//WhO+MA=='), '***', '0123456789', 'AES_256_CBC') |
++-------------------------------------------------------------------------------------------+
+| NULL                                                                                      |
++-------------------------------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/aes-decrypt/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

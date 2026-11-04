@@ -1,0 +1,92 @@
+<div class="definition"><pre>STRUCT_ELEMENT</pre></div>
+<div class="content">
+<p>因业界其他数据库和查询引擎均无此函数，<code>STRUCT_ELEMENT</code> 自 4.1.3 版本起已移除，请改用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/element-at/"><code>ELEMENT_AT</code></a> 函数（或等价的下标 <code>s[k]</code> / <code>s['field_name']</code>、点运算符 <code>s.field_name</code> 语法）。</p>
+<h2>描述</h2>
+<p>返回 struct 数据列内的某一字段。函数支持通过字段位置（索引）或字段名来访问结构体中的字段。</p>
+<h2>语法</h2>
+<pre><code>STRUCT_ELEMENT( &lt;struct&gt;, &lt;field_location_or_name&gt; )
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;struct&gt;</code>：输入的 struct 列</li>
+<li><code>&lt;field_location_or_name&gt;</code>：字段的位置（从1开始）或字段的名字，仅支持常量</li>
+</ul>
+<h2>返回值</h2>
+<p>返回类型：struct 支持的字段值类型</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回指定的字段值</li>
+<li>如果输入的 struct 为 null，返回 null</li>
+<li>如果指定的字段不存在，会报错</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>支持通过字段位置（索引）访问，索引从1开始</li>
+<li>支持通过字段名访问，字段名按<strong>大小写不敏感</strong>匹配</li>
+<li>第二个参数必须是常量（不能是列）</li>
+<li>函数标记为 AlwaysNullable，返回值可能为 null</li>
+<li>自 4.1.3 版本起 <code>STRUCT_ELEMENT</code> 已被删除，请改用 <code>ELEMENT_AT(&lt;struct&gt;, ...)</code>、下标运算符 <code>&lt;struct&gt;[&lt;index&gt;]</code> / <code>&lt;struct&gt;['&lt;field_name&gt;']</code> 或点运算符 <code>&lt;struct_col&gt;.&lt;field_name&gt;</code> —— 它们都是访问 struct 字段的等价写法。</li>
+</ul>
+<h2>举例</h2>
+<p><strong>查询示例：</strong></p>
+<p>按位置访问：</p>
+<pre><code>select struct_element(named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing'), 1);
++--------------------------------------------------------------------------------+
+| struct_element(named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing'), 1) |
++--------------------------------------------------------------------------------+
+| Alice                                                                          |
++--------------------------------------------------------------------------------+
+</code></pre>
+<p>按字段名访问：</p>
+<pre><code>select struct_element(named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing'), 'age');
++------------------------------------------------------------------------------------+
+| struct_element(named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing'), 'age') |
++------------------------------------------------------------------------------------+
+|                                                                                 25 |
++------------------------------------------------------------------------------------+
+</code></pre>
+<p>使用下标运算符访问（等价于上述调用）：</p>
+<pre><code>select named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing')[1] as by_index,
+       named_struct('name', 'Alice', 'age', 25, 'city', 'Beijing')['age'] as by_name;
++----------+---------+
+| by_index | by_name |
++----------+---------+
+| Alice    |      25 |
++----------+---------+
+</code></pre>
+<p>访问包含有复杂类型的struct：</p>
+<pre><code>select struct_element(named_struct('array', [1,2,3], 'map', {'key':'value'}), 'array');
++---------------------------------------------------------------------------------+
+| struct_element(named_struct('array', [1,2,3], 'map', {'key':'value'}), 'array') |
++---------------------------------------------------------------------------------+
+| [1, 2, 3]                                                                       |
++---------------------------------------------------------------------------------+
+</code></pre>
+<p>访问字段值有 null 的结果：</p>
+<pre><code>select struct_element(named_struct('name', null, 'age', 25), 'name');
++---------------------------------------------------------------+
+| struct_element(named_struct('name', null, 'age', 25), 'name') |
++---------------------------------------------------------------+
+| NULL                                                          |
++---------------------------------------------------------------+
+</code></pre>
+<p>错误示例
+访问的字段名不存在：</p>
+<pre><code>select struct_element(named_struct('name', 'Alice', 'age', 25), 'nonexistent');
+ERROR 1105 (HY000): errCode = 2, detailMessage = the specified field name nonexistent was not found: struct_element(named_struct('name', 'Alice', 'age', 25), 'nonexistent')
+</code></pre>
+<p>访问的索引越界：</p>
+<pre><code>select struct_element(named_struct('name', 'Alice', 'age', 25), 5);
+ERROR 1105 (HY000): errCode = 2, detailMessage = the specified field index out of bound: struct_element(named_struct('name', 'Alice', 'age', 25), 5)
+</code></pre>
+<p>访问的第二个参数不是常量：</p>
+<pre><code>select struct_element(named_struct('name', 'Alice', 'age', 25), inv) from var_with_index where k = 4;
+ERROR 1105 (HY000): errCode = 2, detailMessage = element_at over a struct only allows a constant int or string second parameter: element_at(named_struct('name', 'Alice', 'age', 25), inv)
+</code></pre>
+<p>输入的struct 为NULL，会报错：</p>
+<pre><code>select struct_element(NULL, 5);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: struct_element(NULL, TINYINT)
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/struct-functions/struct-element/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

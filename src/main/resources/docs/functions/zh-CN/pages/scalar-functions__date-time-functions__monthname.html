@@ -1,0 +1,531 @@
+<div class="definition"><pre>MONTHNAME</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MONTHNAME 函数用于返回日期时间值对应的英文月份名称。该函数支持处理 DATE、DATETIME 类型，返回值为完整的英文月份名称（1月 至 12月）。</p>
+<p>可以通过会话变量 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/monthname/#%E9%99%84%E8%A1%A8lc_time_names-%E6%94%AF%E6%8C%81%E7%9A%84%E8%AF%AD%E8%A8%80%E5%9C%B0%E5%8C%BA%E4%BB%A3%E7%A0%81%E4%B8%8D%E5%8C%BA%E5%88%86%E5%A4%A7%E5%B0%8F%E5%86%99">lc_time_names</a> 设置输出结果的语言，该变量默认为 <code>en_US</code>，即输出英文。</p>
+<p>该函数与 mysql 的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_monthname">monthname 函数</a> 使用 MINUTE 为单位的行为一致。</p>
+<h2>语法</h2>
+<pre><code>MONTHNAME(`&lt;date_or_time_expr&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>输入的日期时间值，支持输入 date/datetime 类型,具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回类型为 VARCHAR，表示月份的英文名称：</p>
+<ul>
+<li>返回值范围：January, February, March, April, May, June, July, August, September, October, November, December</li>
+<li>如果输入为 NULL，返回 NULL</li>
+<li>返回值首字母大写，其余字母小写</li>
+</ul>
+<h2>举例</h2>
+<pre><code>--- 从 DATE 类型中获取英文月份名称
+SELECT MONTHNAME('2008-02-03') AS result;
++----------+
+| result   |
++----------+
+| February |
++----------+
+
+--- 从 DATETIME 类型中获取英文月份名称
+SELECT MONTHNAME('2023-07-13 22:28:18') AS result;
++---------+
+| result  |
++---------+
+| July    |
++---------+
+
+--- 输入为 NULL 时返回 NULL
+SELECT MONTHNAME(NULL) AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+---通过设置 `lc_time_namse` 控制输出语言
+SET lc_time_names='zh_CN';
+SELECT MONTHNAME('2023-07-13 22:28:18') AS result;
++--------+
+| result |
++--------+
+| 七月   |
++--------+
+
+SET lc_time_names='AR_sa';
+SELECT MONTHNAME('2023-07-13 22:28:18') AS result;
++------------+
+| result     |
++------------+
+| يوليو      |
++------------+
+</code></pre>
+<h2>附表：lc_time_names 支持的语言地区代码(不区分大小写)</h2>
+<table>
+<thead>
+<tr>
+<th>Locale Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ar_AE</td>
+<td>Arabic - United Arab Emirates</td>
+</tr>
+<tr>
+<td>ar_BH</td>
+<td>Arabic - Bahrain</td>
+</tr>
+<tr>
+<td>ar_DZ</td>
+<td>Arabic - Algeria</td>
+</tr>
+<tr>
+<td>ar_EG</td>
+<td>Arabic - Egypt</td>
+</tr>
+<tr>
+<td>ar_IN</td>
+<td>Arabic - India</td>
+</tr>
+<tr>
+<td>ar_IQ</td>
+<td>Arabic - Iraq</td>
+</tr>
+<tr>
+<td>ar_JO</td>
+<td>Arabic - Jordan</td>
+</tr>
+<tr>
+<td>ar_KW</td>
+<td>Arabic - Kuwait</td>
+</tr>
+<tr>
+<td>ar_LB</td>
+<td>Arabic - Lebanon</td>
+</tr>
+<tr>
+<td>ar_LY</td>
+<td>Arabic - Libya</td>
+</tr>
+<tr>
+<td>ar_MA</td>
+<td>Arabic - Morocco</td>
+</tr>
+<tr>
+<td>ar_OM</td>
+<td>Arabic - Oman</td>
+</tr>
+<tr>
+<td>ar_QA</td>
+<td>Arabic - Qatar</td>
+</tr>
+<tr>
+<td>ar_SA</td>
+<td>Arabic - Saudi Arabia</td>
+</tr>
+<tr>
+<td>ar_SD</td>
+<td>Arabic - Sudan</td>
+</tr>
+<tr>
+<td>ar_SY</td>
+<td>Arabic - Syria</td>
+</tr>
+<tr>
+<td>ar_TN</td>
+<td>Arabic - Tunisia</td>
+</tr>
+<tr>
+<td>ar_YE</td>
+<td>Arabic - Yemen</td>
+</tr>
+<tr>
+<td>be_BY</td>
+<td>Belarusian - Belarus</td>
+</tr>
+<tr>
+<td>bg_BG</td>
+<td>Bulgarian - Bulgaria</td>
+</tr>
+<tr>
+<td>ca_ES</td>
+<td>Catalan - Spain</td>
+</tr>
+<tr>
+<td>cs_CZ</td>
+<td>Czech - Czech Republic</td>
+</tr>
+<tr>
+<td>da_DK</td>
+<td>Danish - Denmark</td>
+</tr>
+<tr>
+<td>de_AT</td>
+<td>German - Austria</td>
+</tr>
+<tr>
+<td>de_BE</td>
+<td>German - Belgium</td>
+</tr>
+<tr>
+<td>de_CH</td>
+<td>German - Switzerland</td>
+</tr>
+<tr>
+<td>de_DE</td>
+<td>German - Germany</td>
+</tr>
+<tr>
+<td>de_LU</td>
+<td>German - Luxembourg</td>
+</tr>
+<tr>
+<td>el_GR</td>
+<td>Greek - Greece</td>
+</tr>
+<tr>
+<td>en_AU</td>
+<td>English - Australia</td>
+</tr>
+<tr>
+<td>en_CA</td>
+<td>English - Canada</td>
+</tr>
+<tr>
+<td>en_GB</td>
+<td>English - United Kingdom</td>
+</tr>
+<tr>
+<td>en_IN</td>
+<td>English - India</td>
+</tr>
+<tr>
+<td>en_NZ</td>
+<td>English - New Zealand</td>
+</tr>
+<tr>
+<td>en_PH</td>
+<td>English - Philippines</td>
+</tr>
+<tr>
+<td>en_US</td>
+<td>English - United States</td>
+</tr>
+<tr>
+<td>en_ZA</td>
+<td>English - South Africa</td>
+</tr>
+<tr>
+<td>en_ZW</td>
+<td>English - Zimbabwe</td>
+</tr>
+<tr>
+<td>es_AR</td>
+<td>Spanish - Argentina</td>
+</tr>
+<tr>
+<td>es_BO</td>
+<td>Spanish - Bolivia</td>
+</tr>
+<tr>
+<td>es_CL</td>
+<td>Spanish - Chile</td>
+</tr>
+<tr>
+<td>es_CO</td>
+<td>Spanish - Colombia</td>
+</tr>
+<tr>
+<td>es_CR</td>
+<td>Spanish - Costa Rica</td>
+</tr>
+<tr>
+<td>es_DO</td>
+<td>Spanish - Dominican Republic</td>
+</tr>
+<tr>
+<td>es_EC</td>
+<td>Spanish - Ecuador</td>
+</tr>
+<tr>
+<td>es_ES</td>
+<td>Spanish - Spain</td>
+</tr>
+<tr>
+<td>es_GT</td>
+<td>Spanish - Guatemala</td>
+</tr>
+<tr>
+<td>es_HN</td>
+<td>Spanish - Honduras</td>
+</tr>
+<tr>
+<td>es_MX</td>
+<td>Spanish - Mexico</td>
+</tr>
+<tr>
+<td>es_NI</td>
+<td>Spanish - Nicaragua</td>
+</tr>
+<tr>
+<td>es_PA</td>
+<td>Spanish - Panama</td>
+</tr>
+<tr>
+<td>es_PE</td>
+<td>Spanish - Peru</td>
+</tr>
+<tr>
+<td>es_PR</td>
+<td>Spanish - Puerto Rico</td>
+</tr>
+<tr>
+<td>es_PY</td>
+<td>Spanish - Paraguay</td>
+</tr>
+<tr>
+<td>es_SV</td>
+<td>Spanish - El Salvador</td>
+</tr>
+<tr>
+<td>es_US</td>
+<td>Spanish - United States</td>
+</tr>
+<tr>
+<td>es_UY</td>
+<td>Spanish - Uruguay</td>
+</tr>
+<tr>
+<td>es_VE</td>
+<td>Spanish - Venezuela</td>
+</tr>
+<tr>
+<td>et_EE</td>
+<td>Estonian - Estonia</td>
+</tr>
+<tr>
+<td>eu_ES</td>
+<td>Basque - Spain</td>
+</tr>
+<tr>
+<td>fi_FI</td>
+<td>Finnish - Finland</td>
+</tr>
+<tr>
+<td>fo_FO</td>
+<td>Faroese - Faroe Islands</td>
+</tr>
+<tr>
+<td>fr_BE</td>
+<td>French - Belgium</td>
+</tr>
+<tr>
+<td>fr_CA</td>
+<td>French - Canada</td>
+</tr>
+<tr>
+<td>fr_CH</td>
+<td>French - Switzerland</td>
+</tr>
+<tr>
+<td>fr_FR</td>
+<td>French - France</td>
+</tr>
+<tr>
+<td>fr_LU</td>
+<td>French - Luxembourg</td>
+</tr>
+<tr>
+<td>gl_ES</td>
+<td>Galician - Spain</td>
+</tr>
+<tr>
+<td>gu_IN</td>
+<td>Gujarati - India</td>
+</tr>
+<tr>
+<td>he_IL</td>
+<td>Hebrew - Israel</td>
+</tr>
+<tr>
+<td>hi_IN</td>
+<td>Hindi - India</td>
+</tr>
+<tr>
+<td>hr_HR</td>
+<td>Croatian - Croatia</td>
+</tr>
+<tr>
+<td>hu_HU</td>
+<td>Hungarian - Hungary</td>
+</tr>
+<tr>
+<td>id_ID</td>
+<td>Indonesian - Indonesia</td>
+</tr>
+<tr>
+<td>is_IS</td>
+<td>Icelandic - Iceland</td>
+</tr>
+<tr>
+<td>it_CH</td>
+<td>Italian - Switzerland</td>
+</tr>
+<tr>
+<td>it_IT</td>
+<td>Italian - Italy</td>
+</tr>
+<tr>
+<td>ja_JP</td>
+<td>Japanese - Japan</td>
+</tr>
+<tr>
+<td>ko_KR</td>
+<td>Korean - Republic of Korea</td>
+</tr>
+<tr>
+<td>lt_LT</td>
+<td>Lithuanian - Lithuania</td>
+</tr>
+<tr>
+<td>lv_LV</td>
+<td>Latvian - Latvia</td>
+</tr>
+<tr>
+<td>mk_MK</td>
+<td>Macedonian - North Macedonia</td>
+</tr>
+<tr>
+<td>mn_MN</td>
+<td>Mongolia - Mongolian</td>
+</tr>
+<tr>
+<td>ms_MY</td>
+<td>Malay - Malaysia</td>
+</tr>
+<tr>
+<td>nb_NO</td>
+<td>Norwegian(Bokmål) - Norway</td>
+</tr>
+<tr>
+<td>nl_BE</td>
+<td>Dutch - Belgium</td>
+</tr>
+<tr>
+<td>nl_NL</td>
+<td>Dutch - The Netherlands</td>
+</tr>
+<tr>
+<td>no_NO</td>
+<td>Norwegian - Norway</td>
+</tr>
+<tr>
+<td>pl_PL</td>
+<td>Polish - Poland</td>
+</tr>
+<tr>
+<td>pt_BR</td>
+<td>Portugese - Brazil</td>
+</tr>
+<tr>
+<td>pt_PT</td>
+<td>Portugese - Portugal</td>
+</tr>
+<tr>
+<td>rm_CH</td>
+<td>Romansh - Switzerland</td>
+</tr>
+<tr>
+<td>ro_RO</td>
+<td>Romanian - Romania</td>
+</tr>
+<tr>
+<td>ru_RU</td>
+<td>Russian - Russia</td>
+</tr>
+<tr>
+<td>ru_UA</td>
+<td>Russian - Ukraine</td>
+</tr>
+<tr>
+<td>sk_SK</td>
+<td>Slovak - Slovakia</td>
+</tr>
+<tr>
+<td>sl_SI</td>
+<td>Slovenian - Slovenia</td>
+</tr>
+<tr>
+<td>sq_AL</td>
+<td>Albanian - Albania</td>
+</tr>
+<tr>
+<td>sr_RS</td>
+<td>Serbian - Serbia</td>
+</tr>
+<tr>
+<td>sv_FI</td>
+<td>Swedish - Finland</td>
+</tr>
+<tr>
+<td>sv_SE</td>
+<td>Swedish - Sweden</td>
+</tr>
+<tr>
+<td>ta_IN</td>
+<td>Tamil - India</td>
+</tr>
+<tr>
+<td>te_IN</td>
+<td>Telugu - India</td>
+</tr>
+<tr>
+<td>th_TH</td>
+<td>Thai - Thailand</td>
+</tr>
+<tr>
+<td>tr_TR</td>
+<td>Turkish - Turkey</td>
+</tr>
+<tr>
+<td>uk_UA</td>
+<td>Ukrainian - Ukraine</td>
+</tr>
+<tr>
+<td>ur_PK</td>
+<td>Urdu - Pakistan</td>
+</tr>
+<tr>
+<td>vi_VN</td>
+<td>Vietnamese - Vietnam</td>
+</tr>
+<tr>
+<td>zh_CN</td>
+<td>Chinese - China</td>
+</tr>
+<tr>
+<td>zh_HK</td>
+<td>Chinese - Hong Kong</td>
+</tr>
+<tr>
+<td>zh_TW</td>
+<td>Chinese - Taiwan</td>
+</tr>
+</tbody>
+</table>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/monthname/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

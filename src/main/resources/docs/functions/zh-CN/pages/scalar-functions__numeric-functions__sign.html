@@ -1,0 +1,83 @@
+<div class="definition"><pre>SIGN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回<code>x</code>的符号。负数，零或正数分别对应 -1，0 或 1。</p>
+<h2>语法</h2>
+<pre><code>SIGN(x)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>自变量</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整型：</p>
+<ul>
+<li>
+<p>当 x &gt; 0 时，返回 1，代表整数。</p>
+</li>
+<li>
+<p>当 x = 0 时，返回 0，代表零。</p>
+</li>
+<li>
+<p>当 x &lt; 0 时，返回 -1，代表负数。</p>
+</li>
+<li>
+<p>当 x is NULL 时，返回 NULL。</p>
+</li>
+</ul>
+<p>注意，对于浮点数的正负零，在这里全部返回 0，如果想要区分浮点数的正负零，可以使用 <code>&lt;signbit&gt;</code> 函数</p>
+<h2>举例</h2>
+<pre><code>select sign(3);
+</code></pre>
+<pre><code>+-------------------------+
+| sign(cast(3 as DOUBLE)) |
++-------------------------+
+|                       1 |
++-------------------------+
+</code></pre>
+<pre><code>select sign(0);
+</code></pre>
+<pre><code>+-------------------------+
+| sign(cast(0 as DOUBLE)) |
++-------------------------+
+|                       0 |
++-------------------------+
+</code></pre>
+<pre><code>select sign(-10.0);
+</code></pre>
+<pre><code>+-----------------------------+
+| sign(cast(-10.0 as DOUBLE)) |
++-----------------------------+
+|                          -1 |
++-----------------------------+
+</code></pre>
+<pre><code>select sign(null);
+</code></pre>
+<pre><code>+------------+
+| sign(NULL) |
++------------+
+|       NULL |
++------------+
+</code></pre>
+<pre><code>select sign(cast('+0.0' as double)) , sign(cast('-0.0' as double));
+</code></pre>
+<pre><code>+------------------------------+------------------------------+
+| sign(cast('+0.0' as double)) | sign(cast('-0.0' as double)) |
++------------------------------+------------------------------+
+|                            0 |                            0 |
++------------------------------+------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/sign/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

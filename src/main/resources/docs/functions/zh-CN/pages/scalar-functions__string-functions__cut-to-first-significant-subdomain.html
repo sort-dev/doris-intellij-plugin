@@ -1,0 +1,66 @@
+<div class="definition"><pre>CUT_TO_FIRST_SIGNIFICANT_SUBDOMAIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>CUT_TO_FIRST_SIGNIFICANT_SUBDOMAIN 函数用于从 URL 中提取域名的有效部分，包含顶级域名直至"第一个有效子域"。如果输入的 URL 不合法，则返回空字符串。</p>
+<h2>语法</h2>
+<pre><code>CUT_TO_FIRST_SIGNIFICANT_SUBDOMAIN(&lt;url&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;url&gt;</code></td>
+<td>需要处理的 URL 字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示提取出的域名部分。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 url 为 NULL，返回 NULL</li>
+<li>如果 url 不是有效的域名格式，返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本域名处理</li>
+</ol>
+<pre><code>SELECT cut_to_first_significant_subdomain('www.baidu.com');
+</code></pre>
+<pre><code>+-----------------------------------------------------+
+| cut_to_first_significant_subdomain('www.baidu.com')  |
++-----------------------------------------------------+
+| baidu.com                                            |
++-----------------------------------------------------+
+</code></pre>
+<ol>
+<li>多级域名处理</li>
+</ol>
+<pre><code>SELECT cut_to_first_significant_subdomain('www.google.com.cn');
+</code></pre>
+<pre><code>+---------------------------------------------------------+
+| cut_to_first_significant_subdomain('www.google.com.cn')   |
++---------------------------------------------------------+
+| google.com.cn                                             |
++---------------------------------------------------------+
+</code></pre>
+<ol>
+<li>无效域名处理</li>
+</ol>
+<pre><code>SELECT cut_to_first_significant_subdomain('wwwwwwww');
+</code></pre>
+<pre><code>+------------------------------------------------+
+| cut_to_first_significant_subdomain('wwwwwwww')  |
++------------------------------------------------+
+|                                                 |
++------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/cut-to-first-significant-subdomain/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

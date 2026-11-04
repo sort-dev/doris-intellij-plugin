@@ -1,0 +1,65 @@
+<div class="definition"><pre>NEGATIVE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回传参 x 的负值</p>
+<h2>语法</h2>
+<pre><code>NEGATIVE(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>自变量 支持类型<code>BIGINT DOUBLE DECIMAL</code></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回整型或者浮点数。特殊情况：</p>
+<ul>
+<li>当参数为 NULL 时，返回 NULL</li>
+<li>当参数为 0 时，返回 0</li>
+</ul>
+<p>注意对于整数，负数的绝对值范围大于正数的绝对值范围，Doris 不会处理这种特殊情况。</p>
+<h2>举例</h2>
+<pre><code>SELECT negative(-10);
+</code></pre>
+<pre><code>+---------------+
+| negative(-10) |
++---------------+
+|            10 |
++---------------+
+</code></pre>
+<pre><code>SELECT negative(12);
+</code></pre>
+<pre><code>+--------------+
+| negative(12) |
++--------------+
+|          -12 |
++--------------+
+</code></pre>
+<pre><code>SELECT negative(0);
+</code></pre>
+<pre><code>+-------------+
+| negative(0) |
++-------------+
+|           0 |
++-------------+
+</code></pre>
+<pre><code>SELECT negative(null);
+</code></pre>
+<pre><code>+----------------+
+| negative(NULL) |
++----------------+
+|           NULL |
++----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/negative/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

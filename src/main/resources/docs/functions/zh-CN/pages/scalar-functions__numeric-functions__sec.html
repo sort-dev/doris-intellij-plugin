@@ -1,0 +1,75 @@
+<div class="definition"><pre>SEC</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 x 的正割值，x 为弧度值，仅支持输入输出为double。输入null值时会返回null。</p>
+<h2>语法</h2>
+<pre><code>SEC(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要被计算正割值的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 Double 类型的值表示 x 的正割值。</p>
+<h2>特殊情况</h2>
+<ul>
+<li>当 <code>x</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为正无穷或负无穷（<code>±Infinity</code>），返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select sec(1),sec(2),sec(1000);
+</code></pre>
+<pre><code>+--------------------+--------------------+--------------------+
+| sec(1)             | sec(2)             | sec(1000)          |
++--------------------+--------------------+--------------------+
+| 1.8508157176809255 | -2.402997961722381 | 1.7781600385912715 |
++--------------------+--------------------+--------------------+
+</code></pre>
+<p>输入null值。</p>
+<pre><code>select sec(null);
+</code></pre>
+<pre><code>+--------------------+
+| sec(null)          |
++--------------------+
+|      NULL          |
++--------------------+
+</code></pre>
+<pre><code>select sec(cast('nan' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| sec(cast('nan' AS DOUBLE))|
++---------------------------+
+| NaN                       |
++---------------------------+
+</code></pre>
+<pre><code>select sec(cast('inf' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| sec(cast('inf' AS DOUBLE))|
++---------------------------+
+| NaN                       |
++---------------------------+
+</code></pre>
+<pre><code>select sec(cast('-inf' as double));
+</code></pre>
+<pre><code>+----------------------------+
+| sec(cast('-inf' AS DOUBLE))|
++----------------------------+
+| NaN                        |
++----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/sec/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,165 @@
+<div class="definition"><pre>MASK</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MASK 函数用于对数据进行屏蔽以保护敏感信息。默认行为是将大写字母转换为 <code>X</code>，小写字母转换为 <code>x</code>，数字转换为 <code>n</code>。</p>
+<h2>语法</h2>
+<pre><code>MASK(&lt;str&gt;[, &lt;upper&gt;[, &lt;lower&gt;[, &lt;number&gt;]]])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被脱敏的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;upper&gt;</code></td>
+<td>替换大写字母的字符，默认为 <code>X</code>（可选）。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;lower&gt;</code></td>
+<td>替换小写字母的字符，默认为 <code>x</code>（可选）。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;number&gt;</code></td>
+<td>替换数字的字符，默认为 <code>n</code>（可选）。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为字母和数字被替换后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>任意参数中有一个为 NULL，则返回 NULL</li>
+<li>非字母和数字会原样返回</li>
+<li>替换字符参数如果包含多个字符，只取第一个字符</li>
+<li>仅支持ASCII字母的替换，非ASCII字母（如带重音的拉丁字母）会原样保留</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：默认替换规则</li>
+</ol>
+<pre><code>SELECT mask('abc123XYZ');
+</code></pre>
+<pre><code>+-------------------+
+| mask('abc123XYZ') |
++-------------------+
+| xxxnnnXXX         |
++-------------------+
+</code></pre>
+<ol>
+<li>自定义替换字符</li>
+</ol>
+<pre><code>SELECT mask('abc123XYZ', '*', '#', '$');
+</code></pre>
+<pre><code>+----------------------------------+
+| mask('abc123XYZ', '*', '#', '$') |
++----------------------------------+
+| ###$$$***                        |
++----------------------------------+
+</code></pre>
+<ol>
+<li>特殊字符保持不变</li>
+</ol>
+<pre><code>SELECT mask('Hello-123!');
+</code></pre>
+<pre><code>+--------------------+
+| mask('Hello-123!') |
++--------------------+
+| Xxxxx-nnn!         |
++--------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT mask(NULL);
+</code></pre>
+<pre><code>+------------+
+| mask(NULL) |
++------------+
+| NULL       |
++------------+
+</code></pre>
+<ol>
+<li>仅包含数字的字符串</li>
+</ol>
+<pre><code>SELECT mask('1234567890');
+</code></pre>
+<pre><code>+--------------------+
+| mask('1234567890') |
++--------------------+
+| nnnnnnnnnn         |
++--------------------+
+</code></pre>
+<ol>
+<li>仅包含字母的字符串</li>
+</ol>
+<pre><code>SELECT mask('AbCdEfGh');
+</code></pre>
+<pre><code>+------------------+
+| mask('AbCdEfGh') |
++------------------+
+| XxXxXxXx         |
++------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT mask('');
+</code></pre>
+<pre><code>+----------+
+| mask('') |
++----------+
+|          |
++----------+
+</code></pre>
+<ol>
+<li>使用单字符替换符（多字符时取第一个）</li>
+</ol>
+<pre><code>SELECT mask('Test123', 'ABC', 'xyz', '999');
+</code></pre>
+<pre><code>+--------------------------------------+
+| mask('Test123', 'ABC', 'xyz', '999') |
++--------------------------------------+
+| Axxx999                              |
++--------------------------------------+
+</code></pre>
+<ol>
+<li>脱敏信用卡号</li>
+</ol>
+<pre><code>SELECT mask('1234-5678-9012-3456');
+</code></pre>
+<pre><code>+-----------------------------+
+| mask('1234-5678-9012-3456') |
++-----------------------------+
+| nnnn-nnnn-nnnn-nnnn         |
++-----------------------------+
+</code></pre>
+<ol>
+<li>脱敏邮箱地址</li>
+</ol>
+<pre><code>SELECT mask('user@example.com');
+</code></pre>
+<pre><code>+--------------------------+
+| mask('user@example.com') |
++--------------------------+
+| xxxx@xxxxxxx.xxx         |
++--------------------------+
+</code></pre>
+<pre><code>select mask('eeeéèêëìí1234');
+</code></pre>
+<pre><code>+-----------------------------+
+| mask('eeeéèêëìí1234')       |
++-----------------------------+
+| xxxéèêëìínnnn               |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/mask/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

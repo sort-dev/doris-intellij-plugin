@@ -1,0 +1,51 @@
+<div class="definition"><pre>MOD</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>求整数类型，a / b 的余数，浮点类型请使用 fmod 函数。</p>
+<h2>语法</h2>
+<pre><code>MOD(&lt;col_a&gt; , &lt;col_b&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;col_a&gt;</code></td>
+<td>被除数</td>
+</tr>
+<tr>
+<td><code>&lt;col_b&gt;</code></td>
+<td>除  数 不能为 0</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整型。特殊情况：</p>
+<ul>
+<li>当 col_a 为 <code>NULL</code> 或 col_b 为 <code>NULL</code>时，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select mod(10, 3);
+</code></pre>
+<pre><code>+----------+
+| (10 % 3) |
++----------+
+|        1 |
++----------+
+</code></pre>
+<pre><code>select mod(10, 0);
+</code></pre>
+<pre><code>+----------+
+| (10 % 0) |
++----------+
+|     NULL |
++----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/mod/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

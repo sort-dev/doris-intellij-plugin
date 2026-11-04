@@ -1,0 +1,60 @@
+<div class="definition"><pre>TO_HEX</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将输入的字符串按十六进制转换成对应的字节序列</p>
+<h2>别名</h2>
+<p>TO_BINARY</p>
+<h2>语法</h2>
+<pre><code>TO_HEX(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>待转换的字符串数据</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回解码后的 VARBINARY（以 0x 前缀的十六进制形式展示）。
+出现以下任一情况返回 NULL：</p>
+<p>输入为 NULL；
+输入长度为 0；
+输入长度为奇数；
+含有非 [0-9a-fA-F] 的字符；
+解码结果长度为 0（解码失败）。</p>
+<h2>举例</h2>
+<pre><code>select to_hex(NULL),to_hex('a');
+</code></pre>
+<pre><code>+----------------------------+--------------------------+
+| to_hex(NULL)               | to_hex('a')              |
++----------------------------+--------------------------+
+| NULL                       | NULL                     |
++----------------------------+--------------------------+
+</code></pre>
+<pre><code>select to_hex('ab');
+</code></pre>
+<pre><code>+----------------------------+
+| to_hex('ab')               |
++----------------------------+
+| 0xAB                       |
++----------------------------+
+</code></pre>
+<pre><code>select to_hex('000A');
+</code></pre>
+<pre><code>+--------------------------------+
+| to_hex('000A')                 |
++--------------------------------+
+| 0x000A                         |
++--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/binary-functions/to_hex/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

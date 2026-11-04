@@ -1,0 +1,56 @@
+<div class="definition"><pre>AI_MASK</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于掩盖（mask）文本中与指定标签相关的敏感信息</p>
+<h2>语法</h2>
+<pre><code>AI_MASK([&lt;resource_name&gt;], &lt;text&gt;, &lt;labels&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;resource_name&gt;</code></td>
+<td>指定的资源名称</td>
+</tr>
+<tr>
+<td><code>&lt;text&gt;</code></td>
+<td>包含可能敏感信息的文本</td>
+</tr>
+<tr>
+<td><code>&lt;labels&gt;</code></td>
+<td>需要掩盖的信息标签数组，例如 <code>ARRAY('name', 'phone', 'email')</code></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回掩盖了敏感信息的文本，被掩盖的部分用 "[MASKED]" 替代</p>
+<p>当输入有值为 NULL 时返回 NULL</p>
+<p>结果为大模型生成，所以返回内容并不固定</p>
+<h2>示例</h2>
+<pre><code>SET default_ai_resource = 'resource_name';
+SELECT AI_MASK('Wccccat is a 20-year-old Doris community contributor.', ['name', 'age']) AS Result;
+</code></pre>
+<pre><code>+-----------------------------------------------------+
+| Result                                              |
++-----------------------------------------------------+
+| [MASKED] is a [MASKED] Doris community contributor. |
++-----------------------------------------------------+
+</code></pre>
+<pre><code>SELECT AI_MASK('resource_name', 'My email is rarity@example.com and my phone is 123-456-7890',
+                ['email', 'phone_num']) AS RESULT
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| RESULT                                        |
++-----------------------------------------------+
+| My email is [MASKED] and my phone is [MASKED] |
++-----------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/ai-mask/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

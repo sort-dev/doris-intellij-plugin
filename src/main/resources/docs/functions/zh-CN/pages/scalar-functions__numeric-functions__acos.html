@@ -1,0 +1,94 @@
+<div class="definition"><pre>ACOS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算 <code>x</code> 的反余弦值。若参数 <code>x</code> 不在 <code>-1</code> 到 <code>1</code> 的范围之内，则返回 <code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>ACOS(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>要计算反余弦值的数值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>x</code> 的反余弦值，结果以弧度表示。</p>
+<h2>特殊情况处理</h2>
+<ul>
+<li>当 <code>x</code> 等于 1 时，返回 0</li>
+<li>当 <code>x</code> 等于 0 时，返回 π/2</li>
+<li>当 <code>x</code> 等于 -1 时，返回 π</li>
+<li>当 <code>x</code> 不在 [-1, 1] 范围内时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NaN 时，返回 NaN</li>
+<li>当 <code>x</code> 为正无穷大或负无穷大时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NULL 时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<pre><code>select acos(1);
+</code></pre>
+<pre><code>+-----------+
+| acos(1.0) |
++-----------+
+|         0 |
++-----------+
+</code></pre>
+<pre><code>select acos(0);
+</code></pre>
+<pre><code>+--------------------+
+| acos(0.0)          |
++--------------------+
+| 1.5707963267948966 |
++--------------------+
+</code></pre>
+<pre><code>select acos(-1);
+</code></pre>
+<pre><code>+--------------------+
+| acos(-1.0)         |
++--------------------+
+| 3.141592653589793  |
++--------------------+
+</code></pre>
+<pre><code>select acos(-2);
+</code></pre>
+<pre><code>+------------+
+| acos(-2.0) |
++------------+
+|       NULL |
++------------+
+</code></pre>
+<pre><code>select acos(1.0000001);
+</code></pre>
+<pre><code>+-----------------+
+| acos(1.0000001) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+<pre><code>select acos(cast('nan' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| acos(cast('nan' AS DOUBLE)) |
++---------------------------+
+| NaN                       |
++---------------------------+
+</code></pre>
+<pre><code>select acos(cast('inf' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| acos(cast('inf' AS DOUBLE)) |
++---------------------------+
+| NULL                      |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/acos/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

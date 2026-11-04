@@ -1,0 +1,73 @@
+<div class="definition"><pre>BITMAP_AGG</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将输入的表达式聚合的非 NULL 值聚合为一个 Bitmap 。
+如果某个值小于 0 或者大于 18446744073709551615，该值会被忽略，不会合并到 Bitmap 中。</p>
+<h2>语法</h2>
+<pre><code>BITMAP_AGG(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>待合并数值的列或表达式，支持类型为 TinyInt，SmallInt，Integer，BigInt。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 Bitmap 类型的值。如果组内没有合法数据，则返回空 Bitmap 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE test_bitmap_agg (
+	id INT,
+	k0 INT,
+	k1 INT,
+	k2 INT,
+	k3 INT,
+	k4 BIGINT,
+	k5 BIGINT
+) DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO test_bitmap_agg VALUES
+	(1, 10, 110, 11, 300, 10000000000, 0),
+	(2, 20, 120, 21, 400, 20000000000, 200000000000000),
+	(3, 30, 130, 31, 350, 30000000000, 300000000000000),
+	(4, 40, 140, 41, 500, 40000000000, 18446744073709551616),
+	(5, 50, 150, 51, 250, 50000000000, 18446744073709551615),
+	(6, 60, 160, 61, 600, 60000000000, -1),
+	(7, 60, 160, 120, 600, 60000000000, NULL);
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_agg(k0)) from test_bitmap_agg;
+</code></pre>
+<pre><code>+----------------------------------+
+| bitmap_to_string(bitmap_agg(k0)) |
++----------------------------------+
+| 10,20,30,40,50,60                |
++----------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_agg(k5)) from test_bitmap_agg;
+</code></pre>
+<pre><code>+--------------------------------------------------------+
+| bitmap_to_string(bitmap_agg(k5))                       |
++--------------------------------------------------------+
+| 0,200000000000000,300000000000000,18446744073709551615 |
++--------------------------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_agg(k5)) from test_bitmap_agg where k5 is null;
+</code></pre>
+<pre><code>+----------------------------------+
+| bitmap_to_string(bitmap_agg(k5)) |
++----------------------------------+
+|                                  |
++----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/bitmap-agg/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,71 @@
+<div class="definition"><pre>BITMAP_TO_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 Bitmap 转化成一个 Base64 编码后的字符串。</p>
+<h2>语法</h2>
+<pre><code>bitmap_to_base64(&lt;bitmap&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 类型列或表达式</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>Bitmap 基于 Base64 编码后的字符串。<br>
+若 Bitmap 为 <code>NULL</code> 时，返回值为 <code>NULL</code>。</p>
+<p>BE 配置项 <code>enable_set_in_bitmap_value</code> 会改变 bitmap 值在内存中的具体格式，因此会影响此函数的结果。<br>
+由于不能保证 bitmap 中元素的顺序，因此不能保证相同内容的 bitmap 生成的 base64 结果始终相同，但可以保证 bitmap_from_base64 解码后的 bitmap 相同。</p>
+<h2>示例</h2>
+<p>将 <code>NULL</code> Bitmap 转换为 Base64 字符串：</p>
+<pre><code>select bitmap_to_base64(null);
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------------------------+
+| bitmap_to_base64(NULL) |
++------------------------+
+| NULL                   |
++------------------------+
+</code></pre>
+<p>将空 Bitmap 转换为 Base64 字符串：</p>
+<pre><code>select bitmap_to_base64(bitmap_empty());
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+----------------------------------+
+| bitmap_to_base64(bitmap_empty()) |
++----------------------------------+
+| AA==                             |
++----------------------------------+
+</code></pre>
+<p>将包含单个元素的 Bitmap 转换为 Base64 字符串：</p>
+<pre><code>select bitmap_to_base64(to_bitmap(1));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+--------------------------------+
+| bitmap_to_base64(to_bitmap(1)) |
++--------------------------------+
+| BQEBAAAAAAAAAA==               |
++--------------------------------+
+</code></pre>
+<p>将包含多个元素的 Bitmap 转换为 Base64 字符串：</p>
+<pre><code>select bitmap_to_base64(bitmap_from_string("1,9999999"));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+---------------------------------------------------------+
+| bitmap_to_base64(bitmap_from_string("1,9999999"))       |
++---------------------------------------------------------+
+| BQIBAAAAAAAAAH+WmAAAAAAA                          |
++---------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-to-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

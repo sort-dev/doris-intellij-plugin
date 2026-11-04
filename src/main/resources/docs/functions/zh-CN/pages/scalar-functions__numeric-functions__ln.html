@@ -1,0 +1,78 @@
+<div class="definition"><pre>LN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回以<code>e</code>为底的<code>x</code>的自然对数。</p>
+<h2>别名</h2>
+<ul>
+<li>DLOG1</li>
+</ul>
+<h2>语法</h2>
+<pre><code>LN(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>真数 必须大于 0</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个浮点数。特殊情况：</p>
+<ul>
+<li>当 <code>x</code> 为 NULL 时，返回<code>NULL</code></li>
+<li>当 <code>x</code> 为 NaN 时，返回 NaN</li>
+<li>当 <code>x</code> 为正无穷大或负无穷大时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NULL 时，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select ln(1);
+</code></pre>
+<pre><code>+-----------------------+
+| ln(cast(1 as DOUBLE)) |
++-----------------------+
+|                   0.0 |
++-----------------------+
+</code></pre>
+<pre><code>select ln(e());
+</code></pre>
+<pre><code>+---------+
+| ln(e()) |
++---------+
+|     1.0 |
++---------+
+</code></pre>
+<pre><code>select ln(10);
+</code></pre>
+<pre><code>+------------------------+
+| ln(cast(10 as DOUBLE)) |
++------------------------+
+|      2.302585092994046 |
++------------------------+
+</code></pre>
+<pre><code>select ln(cast('inf' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| ln(cast('inf' as double)) |
++---------------------------+
+|                  Infinity |
++---------------------------+
+</code></pre>
+<pre><code>select ln(cast('nan' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| ln(cast('nan' as double)) |
++---------------------------+
+|                       NaN |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/ln/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

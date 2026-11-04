@@ -1,0 +1,101 @@
+<div class="definition"><pre>CAST 表达式</pre></div>
+<div class="content">
+<h2>介绍</h2>
+<p>CAST 表达式用于将一种数据类型的值转换为另一种数据类型。而 TRY_CAST 是一种安全的类型转换方式，它在转换可能发生错误时不会抛出异常，而是返回 SQL NULL 值。</p>
+<h2>语法</h2>
+<pre><code>CAST( &lt;source_expr&gt; AS &lt;target_data_type&gt; )
+TRY_CAST( &lt;source_expr&gt; AS &lt;target_data_type&gt; )
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li>source_expr
+<ul>
+<li>任意受支持的数据类型表达式，作为待转换的源值。</li>
+</ul>
+</li>
+<li>target_data_type
+<ul>
+<li>目标数据类型。如果该类型支持额外属性（例如 DECIMAL(p, s) 的精度与小数位数），可以一并指定。</li>
+</ul>
+</li>
+</ul>
+<h2>严格模式</h2>
+<p>在 Doris 4.0 之前，Doris 的 CAST 行为参考了 MySQL 等数据库系统，会尽可能避免 CAST 操作报错。例如，在 MySQL 中执行以下 SQL：</p>
+<pre><code>select cast('abc' as signed);
+</code></pre>
+<p>会得到结果：</p>
+<pre><code>0
+</code></pre>
+<p>从 Doris 4.0 开始，我们采用了更严谨的方式，参考 PostgreSQL 的做法：当遇到不合法的转换时，直接报错而不是生成可能令人困惑的结果。</p>
+<p>Doris 4.0 引入了新变量 <code>enable_strict_cast</code>，可以通过以下命令开启严格模式的 CAST：</p>
+<pre><code>set enable_strict_cast = true;
+</code></pre>
+<p>在严格模式下，非法的 CAST 会直接报错：</p>
+<pre><code>mysql&gt; select cast('abc' as int);
+ERROR 1105 (HY000): errCode = 2, detailMessage = abc can't cast to INT in strict mode.
+</code></pre>
+<p>严格模式的优势在于：</p>
+<ol>
+<li>避免用户在 CAST 时产生非预期的值</li>
+<li>系统可以假设所有数据都能顺利完成类型转换（不合法的数据会直接报错），从而在计算时实现更好的优化</li>
+</ol>
+<h2>示例</h2>
+<h3>正常的 CAST 转换</h3>
+<pre><code>select cast('123' as int);
+</code></pre>
+<pre><code>+--------------------+
+| cast('123' as int) |
++--------------------+
+|                123 |
++--------------------+
+</code></pre>
+<h3>使用 TRY_CAST 处理可能失败的转换</h3>
+<p>自 4.1.5 版本起，数据转换中的算术溢出也会按行返回 NULL，不再使整个 TRY_CAST 查询失败。内部执行错误或不支持的类型转换仍可能报错，TRY_CAST 不会吞掉所有错误。</p>
+<p>当转换可能失败时，使用 TRY_CAST 可以避免查询报错，而是返回 NULL：</p>
+<pre><code>select try_cast('abc' as int);
+</code></pre>
+<pre><code>+------------------------+
+| try_cast('abc' as int) |
++------------------------+
+|                   NULL |
++------------------------+
+</code></pre>
+<h2>行为说明</h2>
+<p>下面按照目标数据类型（target_data_type）对 CAST 的行为进行详细分类：</p>
+<ul>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/array-conversion/">转换为 ARRAY</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/boolean-conversion/">转换为 BOOLEAN</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion/">转换为 DATE</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/time-conversion/">转换为 TIME</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion/">转换为 DATETIME</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/timestamptz-conversion/">转换为 TIMESTAMPTZ</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/int-conversion/">转换为整数（INT 等）</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/float-double-conversion/">转换为浮点（FLOAT/DOUBLE）</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/decimal-conversion/">转换为 DECIMAL</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/json-conversion/">转换为 JSON / 从 JSON 转换到其他类型</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/map-conversion/">转换为 MAP</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/struct-conversion/">转换为 STRUCT</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/ip-conversion/">转换为 IP</a></li>
+</ul>
+<h2>隐式 CAST</h2>
+<p>某些函数可能会触发隐式 CAST（类型转换），这在特定情况下可能导致非预期的行为。您可以通过 EXPLAIN 语句来检查是否发生了隐式 CAST：</p>
+<pre><code>explain select length(123);
+</code></pre>
+<pre><code>...
+length(CAST(123 AS varchar(65533)))
+...
+</code></pre>
+<p>从上述执行计划可以看到，系统自动将整数 123 转换为字符串类型，这就是一个隐式 CAST 的例子。</p>
+<p>算术溢出与 NULL 输入示例：</p>
+<pre><code>SELECT TRY_CAST(CAST(1000 AS DECIMAL(9, 0)) AS DECIMAL(3, 0)) AS overflow_value,
+       TRY_CAST(NULL AS INT) AS null_value;
+</code></pre>
+<pre><code>+----------------+------------+
+| overflow_value | null_value |
++----------------+------------+
+| NULL           | NULL       |
++----------------+------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/cast-expr/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

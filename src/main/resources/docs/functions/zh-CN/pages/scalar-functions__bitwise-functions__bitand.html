@@ -1,0 +1,39 @@
+<div class="definition"><pre>BITAND</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于执行 按位与（bitwise AND）运算。按位与运算会对两个整数的每一位进行比较，当两个对应的二进制位都为 1 时，结果才为 1，否则为 0。</p>
+<p>整数范围：TINYINT、SMALLINT、INT、BIGINT、LARGEINT</p>
+<h2>语法</h2>
+<pre><code>BITAND( &lt;lhs&gt;, &lt;rhs&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;lhs&gt;</code> 参与按位与运算的第一个数。</li>
+<li><code>&lt;rhs&gt;</code> 参与按位与运算的第二个数。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回两个整数与运算的结果。</p>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>select BITAND(3,5), BITAND(5, 10), BITAND(7, 10);
+</code></pre>
+<pre><code>+-------------+---------------+---------------+
+| BITAND(3,5) | BITAND(5, 10) | BITAND(7, 10) |
++-------------+---------------+---------------+
+|           1 |             0 |             2 |
++-------------+---------------+---------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select BITAND(1, null), BITAND(null, 1), BITAND(null, null);
+</code></pre>
+<pre><code>+-----------------+-----------------+--------------------+
+| BITAND(1, null) | BITAND(null, 1) | BITAND(null, null) |
++-----------------+-----------------+--------------------+
+|            NULL |            NULL |               NULL |
++-----------------+-----------------+--------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/bitand/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

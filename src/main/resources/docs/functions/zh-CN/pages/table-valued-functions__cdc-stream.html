@@ -1,0 +1,169 @@
+<div class="definition"><pre>CDC_STREAM | Table Valued Functions</pre></div>
+<div class="content">
+<h1>CDC_STREAM</h1>
+<h2>描述</h2>
+<p>CDC Stream 表函数（table-valued-function, tvf）可以让用户通过 CDC 方式读取关系型数据库（如 MySQL、PostgreSQL）的增量变更数据。通过集成 <a href="https://github.com/apache/flink-cdc">Flink CDC</a> 的读取能力，持续读取数据库的变更日志（Binlog/WAL）并写入 Doris。</p>
+<p>通常与 <code>CREATE JOB ON STREAMING</code> 配合使用，实现持续的单表 SQL 映射增量同步。详细使用方式请参考 <a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/import-way/streaming-job/continuous-load-mysql-table/">MySQL CDC SQL 映射同步</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/import-way/streaming-job/continuous-load-postgresql-table/">PostgreSQL CDC SQL 映射同步</a>。</p>
+<p>CDC Stream TVF 单独使用时仅支持增量数据同步，不支持全量快照读取。配合 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-statements/job/CREATE-STREAMING-JOB/">CREATE STREAMING JOB</a> 使用时支持全量 + 增量同步。</p>
+<h2>语法</h2>
+<pre><code>cdc_stream(
+    "type" = "&lt;source_type&gt;",
+    "jdbc_url" = "&lt;jdbc_url&gt;",
+    "driver_url" = "&lt;driver_url&gt;",
+    "driver_class" = "&lt;driver_class&gt;",
+    "user" = "&lt;user&gt;",
+    "password" = "&lt;password&gt;",
+    "database" = "&lt;database&gt;",
+    "table" = "&lt;table&gt;"
+    [, "&lt;optional_property_key&gt;" = "&lt;optional_property_value&gt;" [, ...] ]
+)
+</code></pre>
+<h2>必选参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>数据源类型，目前支持 <code>mysql</code> 和 <code>postgres</code></td>
+</tr>
+<tr>
+<td><code>jdbc_url</code></td>
+<td>JDBC 连接串，如 <code>jdbc:mysql://127.0.0.1:3306</code> 或 <code>jdbc:postgresql://127.0.0.1:5432/postgres</code></td>
+</tr>
+<tr>
+<td><code>driver_url</code></td>
+<td>JDBC 驱动 jar 包路径</td>
+</tr>
+<tr>
+<td><code>driver_class</code></td>
+<td>JDBC 驱动类名，MySQL 为 <code>com.mysql.cj.jdbc.Driver</code>，PostgreSQL 为 <code>org.postgresql.Driver</code></td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>数据库用户名</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>数据库密码</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>数据库名</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td>需要同步的表名</td>
+</tr>
+</tbody>
+</table>
+<h2>可选参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema</code></td>
+<td>-</td>
+<td>Schema 名称，PostgreSQL 必填</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>latest</td>
+<td><code>latest</code>：仅增量；<code>initial</code>：全量 + 增量；另支持 <code>snapshot</code>、<code>earliest</code>（仅 MySQL）、或一个 JSON 形式的 binlog/LSN 位点</td>
+</tr>
+<tr>
+<td><code>snapshot_split_size</code></td>
+<td>40960（4.1.4 之前为 8096）</td>
+<td>split 的大小（行数），全量同步时表会被切分成多个 split</td>
+</tr>
+<tr>
+<td><code>snapshot_parallelism</code></td>
+<td>1</td>
+<td>全量阶段的并行度，即单次 Task 最多调度的 split 数量</td>
+</tr>
+</tbody>
+</table>
+<h2>注意事项</h2>
+<ol>
+<li>CDC Stream TVF 单独使用时仅支持增量数据同步；配合 <code>CREATE JOB ON STREAMING</code> 使用时支持全量 + 增量同步。</li>
+<li>通常需要配合 <code>CREATE JOB ON STREAMING</code> 使用，不建议直接在普通查询中使用。</li>
+<li>使用 MySQL 类型时，需要在 MySQL 端开启 Binlog（<code>binlog_format=ROW</code>）。</li>
+<li>使用 PostgreSQL 类型时，需要开启逻辑复制（<code>wal_level=logical</code>）。</li>
+<li>支持 exactly-once 语义。</li>
+</ol>
+<p>自 4.1.5 版本起，配合 Streaming Job 使用时，CDC 操作以作业创建者身份检查 Doris 权限，且失败任务不会走普通任务的自动重试流程。详见<a href="https://doris.apache.org/zh-CN/docs/4.x/data-operate/import/import-way/streaming-job/continuous-load-overview/#cdc-%E4%BB%BB%E5%8A%A1%E8%BA%AB%E4%BB%BD%E4%B8%8E%E5%A4%B1%E8%B4%A5%E5%A4%84%E7%90%86415-%E8%B5%B7">持续导入的身份与失败处理</a>。</p>
+<h2>示例</h2>
+<ul>
+<li>
+<p>从 MySQL 持续同步单表数据</p>
+<pre><code>CREATE JOB mysql_cdc_job
+ON STREAMING
+DO
+INSERT INTO db1.target_table
+SELECT * FROM cdc_stream(
+    "type" = "mysql",
+    "jdbc_url" = "jdbc:mysql://127.0.0.1:3306",
+    "driver_url" = "mysql-connector-java-8.0.25.jar",
+    "driver_class" = "com.mysql.cj.jdbc.Driver",
+    "user" = "root",
+    "password" = "123456",
+    "database" = "source_db",
+    "table" = "source_table",
+    "offset" = "initial"
+)
+</code></pre>
+</li>
+<li>
+<p>从 PostgreSQL 持续同步单表数据</p>
+<pre><code>CREATE JOB pg_cdc_job
+ON STREAMING
+DO
+INSERT INTO db1.target_table
+SELECT * FROM cdc_stream(
+    "type" = "postgres",
+    "jdbc_url" = "jdbc:postgresql://127.0.0.1:5432/postgres",
+    "driver_url" = "postgresql-42.5.1.jar",
+    "driver_class" = "org.postgresql.Driver",
+    "user" = "postgres",
+    "password" = "postgres",
+    "database" = "postgres",
+    "schema" = "public",
+    "table" = "source_table",
+    "offset" = "initial"
+)
+</code></pre>
+</li>
+<li>
+<p>指定列映射和数据转换</p>
+<pre><code>CREATE JOB mysql_cdc_transform_job
+ON STREAMING
+DO
+INSERT INTO db1.target_table (id, name, age)
+SELECT id, name, cast(age as INT) as age
+FROM cdc_stream(
+    "type" = "mysql",
+    "jdbc_url" = "jdbc:mysql://127.0.0.1:3306",
+    "driver_url" = "mysql-connector-java-8.0.25.jar",
+    "driver_class" = "com.mysql.cj.jdbc.Driver",
+    "user" = "root",
+    "password" = "123456",
+    "database" = "source_db",
+    "table" = "source_table",
+    "offset" = "initial"
+)
+</code></pre>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/cdc-stream/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

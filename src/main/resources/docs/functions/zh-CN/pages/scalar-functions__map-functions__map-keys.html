@@ -1,0 +1,37 @@
+<div class="definition"><pre>MAP_KEYS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将给定 <code>map</code> 的键提取成一个对应类型的 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/ARRAY/"><code>ARRAY</code></a>。</p>
+<h2>语法</h2>
+<pre><code>MAP_KEYS(&lt;map&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;map&gt;</code> <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/MAP/"><code>MAP</code></a> 类型，输入的 map 内容。</li>
+</ul>
+<h2>返回值</h2>
+<p>将给定 <code>map</code> 的键提取成一个对应类型的 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/ARRAY/"><code>ARRAY</code></a>。</p>
+<h2>举例</h2>
+<ol>
+<li>常规参数<pre><code>select map_keys(map()),map_keys(map(1, "100", 0.1, 2, null, null));
+</code></pre>
+<pre><code>+-----------------+---------------------------------------------+
+| map_keys(map()) | map_keys(map(1, "100", 0.1, 2, null, null)) |
++-----------------+---------------------------------------------+
+| []              | [1.0, 0.1, null]                            |
++-----------------+---------------------------------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select map_keys(NULL);
+</code></pre>
+<pre><code>+----------------+
+| map_keys(NULL) |
++----------------+
+| NULL           |
++----------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-keys/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

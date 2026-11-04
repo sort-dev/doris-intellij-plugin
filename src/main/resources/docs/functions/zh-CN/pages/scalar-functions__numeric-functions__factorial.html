@@ -1,0 +1,74 @@
+<div class="definition"><pre>FACTORIAL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回<code>x</code>的阶乘值。如果<code>x</code>不在<code>0</code>到<code>20</code>之间 (包括<code>0</code>和<code>20</code>)，则返回<code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>FACTORIAL(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要计算阶乘值的数值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数<code>x</code>的阶乘值。</p>
+<h2>特殊情况处理</h2>
+<ul>
+<li>当 <code>x</code> 等于 0 时，返回 1</li>
+<li>当 <code>x</code> 超出 [0, 20] 范围时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NULL 时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<pre><code>select factorial(0);
+</code></pre>
+<pre><code>+--------------+
+| factorial(0) |
++--------------+
+|            1 |
++--------------+
+</code></pre>
+<pre><code>select factorial(-1);
+</code></pre>
+<pre><code>+---------------+
+| factorial(-1) |
++---------------+
+|          NULL |
++---------------+
+</code></pre>
+<pre><code>select factorial(21);
+</code></pre>
+<pre><code>+---------------+
+| factorial(21) |
++---------------+
+|          NULL |
++---------------+
+</code></pre>
+<pre><code>select factorial(20);
+</code></pre>
+<pre><code>+---------------------+
+| factorial(20)       |
++---------------------+
+| 2432902008176640000 |
++---------------------+
+</code></pre>
+<pre><code>select factorial(NULL);
+</code></pre>
+<pre><code>+-----------------+
+| factorial(NULL) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/factorial/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

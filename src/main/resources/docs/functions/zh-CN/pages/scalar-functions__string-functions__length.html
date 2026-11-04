@@ -1,0 +1,144 @@
+<div class="definition"><pre>LENGTH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>LENGTH 函数返回字符串的字节长度（以字节为单位）。该函数计算的是字符串在 UTF-8 编码下占用的字节数，而不是字符数。</p>
+<p><strong>注意与 CHAR_LENGTH 的区别：</strong></p>
+<ul>
+<li><code>LENGTH()</code> 返回字节数</li>
+<li><code>CHAR_LENGTH()</code> 和 <code>CHARACTER_LENGTH()</code> 返回字符数</li>
+<li>对于 ASCII 字符，字节数和字符数相同</li>
+<li>对于多字节字符（如中文、emoji），字节数通常大于字符数</li>
+</ul>
+<h2>别名</h2>
+<ul>
+<li><code>OCTET_LENGTH()</code></li>
+</ul>
+<h2>语法</h2>
+<pre><code>LENGTH(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要计算字节长度的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示字符串的字节长度。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>空字符串返回 0</li>
+<li>计算结果是 UTF-8 编码的字节数</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>ASCII 字符（字节数=字符数）</li>
+</ol>
+<pre><code>SELECT LENGTH('abc'), CHAR_LENGTH('abc');
+</code></pre>
+<pre><code>+---------------+--------------------+
+| LENGTH('abc') | CHAR_LENGTH('abc') |
++---------------+--------------------+
+|             3 |                  3 |
++---------------+--------------------+
+</code></pre>
+<ol>
+<li>中文字符（字节数&gt;字符数）</li>
+</ol>
+<pre><code>SELECT LENGTH('中国'), CHAR_LENGTH('中国');
+</code></pre>
+<pre><code>+------------------+---------------------+
+| LENGTH('中国')   | CHAR_LENGTH('中国') |
++------------------+---------------------+
+|                6 |                   2 |
++------------------+---------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT LENGTH(NULL);
+</code></pre>
+<pre><code>+--------------+
+| LENGTH(NULL) |
++--------------+
+|         NULL |
++--------------+
+</code></pre>
+<ol>
+<li>空字符串</li>
+</ol>
+<pre><code>SELECT LENGTH('');
+</code></pre>
+<pre><code>+------------+
+| LENGTH('') |
++------------+
+|          0 |
++------------+
+</code></pre>
+<ol>
+<li>混合字符类型</li>
+</ol>
+<pre><code>SELECT LENGTH('Hello世界'), CHAR_LENGTH('Hello世界');
+</code></pre>
+<pre><code>+---------------------+--------------------------+
+| LENGTH('Hello世界') | CHAR_LENGTH('Hello世界') |
++---------------------+--------------------------+
+|                  11 |                        7 |
++---------------------+--------------------------+
+</code></pre>
+<ol>
+<li>特殊字符</li>
+</ol>
+<pre><code>SELECT LENGTH('\t\n\r'), LENGTH('  ');
+</code></pre>
+<pre><code>+------------------+-------------+
+| LENGTH('\t\n\r') | LENGTH('  ') |
++------------------+-------------+
+|                3 |           2 |
++------------------+-------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符对比</li>
+</ol>
+<pre><code>SELECT LENGTH('ṭṛì'), CHAR_LENGTH('ṭṛì');
+</code></pre>
+<pre><code>+--------------------+-------------------------+
+| LENGTH('ṭṛì')      | CHAR_LENGTH('ṭṛì')      |
++--------------------+-------------------------+
+|                  8 |                       3 |
++--------------------+-------------------------+
+</code></pre>
+<ol>
+<li>Emoji 字符（每个emoji通常占4字节）</li>
+</ol>
+<pre><code>SELECT LENGTH('😀😁'), CHAR_LENGTH('😀😁');
+</code></pre>
+<pre><code>+-------------------+------------------------+
+| LENGTH('😀😁')    | CHAR_LENGTH('😀😁')   |
++-------------------+------------------------+
+|                 8 |                      2 |
++-------------------+------------------------+
+</code></pre>
+<ol>
+<li>数字字符串</li>
+</ol>
+<pre><code>SELECT LENGTH('12345'), CHAR_LENGTH('12345');
+</code></pre>
+<pre><code>+-----------------+----------------------+
+| LENGTH('12345') | CHAR_LENGTH('12345') |
++-----------------+----------------------+
+|               5 |                    5 |
++-----------------+----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/length/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

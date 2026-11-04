@@ -1,0 +1,72 @@
+<div class="definition"><pre>MINUTE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MINUTE 函数用于从输入的日期时间值中提取分钟部分的值，返回范围为 0 到 59 的整数。该函数支持处理 DATE、DATETIME、TIME 类型。</p>
+<p>该函数与 mysql 的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_minute">minute 函数</a> 行为一致。</p>
+<h2>语法</h2>
+<pre><code>MINUTE(`&lt;date_or_time_expr&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>输入的日期时间值，类型可以是 DATE、DATETIME,TIME，具体 datetime/date/time 请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a>, <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a>,<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/time-conversion">time 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型的整数，表示输入日期时间中的分钟值，取值范围为 0-59。</p>
+<ul>
+<li>若输入为 DATE 类型（仅包含年月日），默认时间部分为 00:00:00，因此返回 0。</li>
+<li>若输入为 NULL，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>--- 从 DATETIME 中提取分钟
+SELECT MINUTE('2018-12-31 23:59:59') AS result;
++--------+
+| result |
++--------+
+|     59 |
++--------+
+
+--- 从含微秒的 DATETIME 中提取分钟（忽略微秒）
+SELECT MINUTE('2023-05-01 10:05:30.123456') AS result;
++--------+
+| result |
++--------+
+|      5 |
++--------+
+
+SELECT MINUTE('14:25:45') AS result;
++--------+
+| result |
++--------+
+|     25 |
++--------+
+
+--- 从 DATE 类型中提取分钟（默认时间 00:00:00）
+SELECT MINUTE('2023-07-13') AS result;
++--------+
+| result |
++--------+
+|      0 |
++--------+
+
+--- 输入为 NULL，返回 NULL
+SELECT MINUTE(NULL) AS result;
++-------------+
+| minute(NULL) |
++-------------+
+|        NULL |
++-------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/minute/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,110 @@
+<div class="definition"><pre>MAKE_SET</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MAKE_SET 函数根据位掩码（bit）从多个字符串中选择组合。返回一个由逗号分隔的字符串集合，集合中包含所有对应位为 1 的字符串。</p>
+<p>行为与 MySQL 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/string-functions.html#function_make-set">MAKE_SET</a> 一致。</p>
+<h2>语法</h2>
+<pre><code>MAKE_SET(&lt;bit&gt;, &lt;str1&gt;[, &lt;str2&gt;, ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bit&gt;</code></td>
+<td>位掩码值，用二进制位表示选择哪些字符串。类型：BIGINT</td>
+</tr>
+<tr>
+<td><code>&lt;str1&gt;</code>, <code>&lt;str2&gt;</code>, ...</td>
+<td>待组合的字符串参数（可变参数）。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为由逗号分隔的字符串集合。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 <code>&lt;bit&gt;</code> 为 NULL，返回 NULL</li>
+<li>如果对应位为 1 的字符串为 NULL，跳过该字符串</li>
+<li>如果对应位超出参数范围，忽略该位</li>
+<li>二进制位从右到左计数，第 0 位对应第一个字符串参数</li>
+<li><code>&lt;bit&gt;</code> 为 0 时返回空字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：bit = 3（二进制 011，选择第 0 位和第 1 位）</li>
+</ol>
+<pre><code>SELECT make_set(3, 'dog', 'cat', 'bird');
+</code></pre>
+<pre><code>+-----------------------------------+
+| make_set(3, 'dog', 'cat', 'bird') |
++-----------------------------------+
+| dog,cat                           |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>跳过 NULL 值：bit = 5（二进制 101，选择第 0 位和第 2 位）</li>
+</ol>
+<pre><code>SELECT make_set(5, NULL, 'warm', 'hot');
+</code></pre>
+<pre><code>+---------------------------------+
+| make_set(5, NULL, 'warm', 'hot') |
++---------------------------------+
+| hot                             |
++---------------------------------+
+</code></pre>
+<ol>
+<li>bit 为 0：不选择任何字符串</li>
+</ol>
+<pre><code>SELECT make_set(0, 'hello', 'world');
+</code></pre>
+<pre><code>+--------------------------------+
+| make_set(0, 'hello', 'world')  |
++--------------------------------+
+|                                |
++--------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT make_set(NULL, 'a', 'b', 'c');
+</code></pre>
+<pre><code>+-------------------------------+
+| make_set(NULL, 'a', 'b', 'c') |
++-------------------------------+
+| NULL                          |
++-------------------------------+
+</code></pre>
+<ol>
+<li>位超出参数范围：bit = 15（二进制 1111，选择 4 位，但只有 2 个参数）</li>
+</ol>
+<pre><code>SELECT make_set(15, 'first', 'second');
+</code></pre>
+<pre><code>+-------------------------------------+
+| make_set(15, 'first', 'second')     |
++-------------------------------------+
+| first,second                        |
++-------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT make_set(7, 'ṭṛì', 'ḍḍumai', 'test');
+</code></pre>
+<pre><code>+------------------------------------------+
+| make_set(7, 'ṭṛì', 'ḍḍumai', 'test')    |
++------------------------------------------+
+| ṭṛì,ḍḍumai,test                          |
++------------------------------------------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>MAKE_SET
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/make-set/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

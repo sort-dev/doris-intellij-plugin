@@ -1,0 +1,90 @@
+<div class="definition"><pre>BITMAP_OR_COUNT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个及以上输入 Bitmap 的并集，返回并集的元素个数。</p>
+<h2>语法</h2>
+<pre><code>bitmap_or_count(&lt;bitmap1&gt;, &lt;bitmap2&gt;, ..., &lt;bitmapN&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap1&gt;</code></td>
+<td>第一个 Bitmap</td>
+</tr>
+<tr>
+<td><code>&lt;bitmap2&gt;</code></td>
+<td>第二个 Bitmap</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td><code>&lt;bitmapN&gt;</code></td>
+<td>第 N 个 Bitmap</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>多个 Bitmap 并集的元素个数。</p>
+<h2>示例</h2>
+<p>计算一个非空 Bitmap 和一个空 Bitmap 的并集中的元素数量：</p>
+<pre><code>select bitmap_or_count(bitmap_from_string('1,2,3'), bitmap_empty()) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    3 |
++------+
+</code></pre>
+<p>计算两个相同 Bitmap 的并集中的元素数量：</p>
+<pre><code>select bitmap_or_count(bitmap_from_string('1,2,3'), bitmap_from_string('1,2,3')) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    3 |
++------+
+</code></pre>
+<p>计算两个不同 Bitmap 的并集中的元素数量：</p>
+<pre><code>select bitmap_or_count(bitmap_from_string('1,2,3'), bitmap_from_string('3,4,5')) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    5 |
++------+
+</code></pre>
+<p>计算多个 Bitmap（包括一个空 Bitmap）的并集中的元素数量：</p>
+<pre><code>select bitmap_or_count(bitmap_from_string('1,2,3'), bitmap_from_string('3,4,5'), to_bitmap(100), bitmap_empty()) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    6 |
++------+
+</code></pre>
+<p>计算多个 Bitmap（包括一个 <code>NULL</code> 值）的并集中的元素数量：</p>
+<pre><code>select bitmap_or_count(bitmap_from_string('1,2,3'), bitmap_from_string('3,4,5'), to_bitmap(100), NULL) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    6 |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-or-count/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

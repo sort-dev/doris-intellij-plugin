@@ -1,0 +1,69 @@
+<div class="definition"><pre>BITMAP_TO_ARRAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 Bitmap 转化成一个 Array 数组。</p>
+<h2>语法</h2>
+<pre><code>bitmap_to_array(&lt;bitmap&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 类型列或表达式</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>Bitmap 所有 Bit 位构成的的数组。<br>
+若 Bitmap 为 <code>NULL</code> 则返回 <code>NULL</code>。</p>
+<h2>示例</h2>
+<p>将 <code>NULL</code> Bitmap 转换为数组：</p>
+<pre><code>select bitmap_to_array(null);
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------------------------+
+| bitmap_to_array(NULL)  |
++------------------------+
+| NULL                   |
++------------------------+
+</code></pre>
+<p>将空 Bitmap 转换为数组：</p>
+<pre><code>select bitmap_to_array(bitmap_empty());
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+---------------------------------+
+| bitmap_to_array(bitmap_empty()) |
++---------------------------------+
+| []                              |
++---------------------------------+
+</code></pre>
+<p>将包含单个元素的 Bitmap 转换为数组：</p>
+<pre><code>select bitmap_to_array(to_bitmap(1));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------------------------------+
+| bitmap_to_array(to_bitmap(1)) |
++-------------------------------+
+| [1]                           |
++-------------------------------+
+</code></pre>
+<p>将包含多个元素的 Bitmap 转换为数组：</p>
+<pre><code>select bitmap_to_array(bitmap_from_string('1,2,3,4,5'));
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+--------------------------------------------------+
+| bitmap_to_array(bitmap_from_string('1,2,3,4,5')) |
++--------------------------------------------------+
+| [1, 2, 3, 4, 5]                                  |
++--------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-to-array/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

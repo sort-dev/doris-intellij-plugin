@@ -1,0 +1,70 @@
+<div class="definition"><pre>QUANTILE_STATE_TO_BASE64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 QUANTILE_STATE 类型转换为一个 base64 编码的字符串。</p>
+<h2>语法</h2>
+<pre><code>QUANTILE_STATE_TO_BASE64(&lt;quantile_state_input&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;quantile_state_input&gt;</code></td>
+<td>QUANTILE_STATE 类型数据。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>QUANTILE_STATE 基于 Base64 编码后的字符串。<br>
+若 QUANTILE_STATE 为 <code>NULL</code> 时，返回值为 <code>NULL</code>。</p>
+<p>由于不能保证 QUANTILE_STATE 中元素的顺序，因此不能保证相同内容的 QUANTILE_STATE 生成的 base64 结果始终相同，但可以保证 quantile_state_from_base64 解码后的 QUANTILE_STATE 相同。</p>
+<h2>示例</h2>
+<pre><code>select quantile_state_to_base64(quantile_state_empty());
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| quantile_state_to_base64(quantile_state_empty()) |
++--------------------------------------------------+
+| AAAARQA=                                         |
++--------------------------------------------------+
+</code></pre>
+<pre><code>select quantile_state_to_base64(to_quantile_state(1, 2048));
+</code></pre>
+<pre><code>+------------------------------------------------------+
+| quantile_state_to_base64(to_quantile_state(1, 2048)) |
++------------------------------------------------------+
+| AAAARQEAAAAAAADwPw==                                 |
++------------------------------------------------------+
+</code></pre>
+<pre><code>select
+  quantile_percent(
+    quantile_union(
+      quantile_state_from_base64(
+        quantile_state_to_base64(to_quantile_state(1, 2048))
+      )
+    ),
+    0.5
+  ) as nested_test;
+</code></pre>
+<pre><code>+-------------+
+| nested_test |
++-------------+
+|           1 |
++-------------+
+</code></pre>
+<pre><code>select quantile_state_to_base64(NULL);
+</code></pre>
+<pre><code>+--------------------------------+
+| quantile_state_to_base64(NULL) |
++--------------------------------+
+| NULL                           |
++--------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/quantile-functions/quantile-state-to-base64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

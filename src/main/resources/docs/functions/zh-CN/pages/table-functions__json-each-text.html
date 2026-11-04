@@ -1,0 +1,101 @@
+<div class="definition"><pre>JSON_EACH_TEXT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>json_each_text</code> 表函数将顶层 JSON 对象展开为一组键值对，每行包含一个键（<code>key</code>）和对应的值（<code>value</code>）。与 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/json-each/"><code>json_each</code></a> 不同，<code>value</code> 列的类型为 TEXT，字符串值在输出中<strong>不保留</strong> JSON 引号。</p>
+<p>该函数需配合 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 使用。</p>
+<p>该函数自4.1.0起支持</p>
+<h2>语法</h2>
+<pre><code>JSON_EACH_TEXT(&lt;json_str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;json_str&gt;</code></td>
+<td>需要展开的 JSON 字符串，内容应为 JSON 对象。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回多列多行数据，每行对应 JSON 对象中的一个键值对：</p>
+<table>
+<thead>
+<tr>
+<th>列名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key</code></td>
+<td>TEXT</td>
+<td>JSON 对象的键名</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>TEXT</td>
+<td>对应的值，以文本形式返回（字符串值不带引号，如 <code>foo</code>）</td>
+</tr>
+</tbody>
+</table>
+<p>特殊情况：</p>
+<ul>
+<li>如果 <code>&lt;json_str&gt;</code> 为 NULL，返回 0 行</li>
+<li>如果 <code>&lt;json_str&gt;</code> 为空对象（<code>{}</code>），返回 0 行</li>
+<li>JSON 值为 <code>null</code> 时，对应的 TEXT 值为 SQL <code>NULL</code></li>
+</ul>
+<h2>示例</h2>
+<p>基本用法：展开包含字符串值的 JSON 对象</p>
+<pre><code>SELECT k, v
+FROM (SELECT 1) dummy
+LATERAL VIEW json_each_text('{"a":"foo","b":"bar"}') t AS k, v;
+</code></pre>
+<pre><code>+---+-----+
+| k | v   |
++---+-----+
+| a | foo |
+| b | bar |
++---+-----+
+</code></pre>
+<blockquote>
+<p><code>value</code> 列类型为 TEXT，字符串值<strong>不保留</strong> JSON 引号（与 <code>json_each</code> 的区别）。</p>
+</blockquote>
+<p>包含多种类型值的 JSON 对象</p>
+<pre><code>SELECT k, v
+FROM (SELECT 1) dummy
+LATERAL VIEW json_each_text('{"str":"hello","num":42,"bool":true,"null_val":null}') t AS k, v;
+</code></pre>
+<pre><code>+----------+-------+
+| k        | v     |
++----------+-------+
+| str      | hello |
+| num      | 42    |
+| bool     | true  |
+| null_val | NULL  |
++----------+-------+
+</code></pre>
+<blockquote>
+<p>JSON 中的 <code>null</code> 值对应 SQL <code>NULL</code>。</p>
+</blockquote>
+<p>NULL 参数：返回 0 行</p>
+<pre><code>SELECT k, v
+FROM (SELECT 1) dummy
+LATERAL VIEW json_each_text(NULL) t AS k, v;
+-- Empty set
+</code></pre>
+<p>空对象：返回 0 行</p>
+<pre><code>SELECT k, v
+FROM (SELECT 1) dummy
+LATERAL VIEW json_each_text('{}') t AS k, v;
+-- Empty set
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/json-each-text/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

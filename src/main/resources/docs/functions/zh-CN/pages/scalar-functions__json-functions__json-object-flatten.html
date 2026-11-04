@@ -1,0 +1,100 @@
+<div class="definition"><pre>JSON_OBJECT_FLATTEN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_OBJECT_FLATTEN</code> 函数将嵌套的 JSON 对象展平为一个单层 JSON 对象，其键是指向每个叶子值的点（<code>.</code>）连接路径。该函数遵循 NiFi FlattenJson 的 "keep-arrays" 语义：仅递归展开对象，而数组、标量、<code>null</code> 以及空对象都会作为不透明的叶子值原样保留。</p>
+<p>如果顶层输入不是对象（例如标量、数组或 <code>null</code>），则原样返回。</p>
+<h2>语法</h2>
+<pre><code>JSON_OBJECT_FLATTEN(&lt;json_value&gt;)
+</code></pre>
+<h2>参数</h2>
+<p><strong><code>&lt;json_value&gt;</code></strong> - 需要展平的 JSON 值，必须是 JSON 类型。</p>
+<h2>返回值</h2>
+<p>返回一个 JSON 值：</p>
+<ul>
+<li>如果输入是嵌套的 JSON 对象，返回一个单层 JSON 对象，其键为指向每个叶子值的点连接路径。</li>
+<li>如果输入不是对象（标量、数组或 null），返回值与输入相同。</li>
+<li>如果输入为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+</ul>
+<h2>示例</h2>
+<h3>基本嵌套对象展平</h3>
+<pre><code>SELECT json_object_flatten('{"a":{"b":2}}');
+</code></pre>
+<pre><code>+--------------------------------------+
+| json_object_flatten('{"a":{"b":2}}') |
++--------------------------------------+
+| {"a.b":2}                            |
++--------------------------------------+
+</code></pre>
+<h3>多层嵌套对象</h3>
+<pre><code>SELECT json_object_flatten('{"a":{"b":{"c":3}}}');
+</code></pre>
+<pre><code>+--------------------------------------------+
+| json_object_flatten('{"a":{"b":{"c":3}}}') |
++--------------------------------------------+
+| {"a.b.c":3}                                |
++--------------------------------------------+
+</code></pre>
+<h3>已经是单层的对象</h3>
+<pre><code>SELECT json_object_flatten('{"a":1,"b":"hi"}');
+</code></pre>
+<pre><code>+-----------------------------------------+
+| json_object_flatten('{"a":1,"b":"hi"}') |
++-----------------------------------------+
+| {"a":1,"b":"hi"}                        |
++-----------------------------------------+
+</code></pre>
+<h3>数组作为不透明叶子值原样保留</h3>
+<pre><code>SELECT json_object_flatten('{"a":[{"b":1},{"b":2}]}');
+</code></pre>
+<pre><code>+------------------------------------------------+
+| json_object_flatten('{"a":[{"b":1},{"b":2}]}') |
++------------------------------------------------+
+| {"a":[{"b":1},{"b":2}]}                        |
++------------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_object_flatten('{"a":{"b":[1,2,3]}}');
+</code></pre>
+<pre><code>+--------------------------------------------+
+| json_object_flatten('{"a":{"b":[1,2,3]}}') |
++--------------------------------------------+
+| {"a.b":[1,2,3]}                            |
++--------------------------------------------+
+</code></pre>
+<h3>顶层为非对象时原样返回</h3>
+<pre><code>SELECT json_object_flatten('42');
+</code></pre>
+<pre><code>+---------------------------+
+| json_object_flatten('42') |
++---------------------------+
+| 42                        |
++---------------------------+
+</code></pre>
+<pre><code>SELECT json_object_flatten('[1,2,{"x":3}]');
+</code></pre>
+<pre><code>+--------------------------------------+
+| json_object_flatten('[1,2,{"x":3}]') |
++--------------------------------------+
+| [1,2,{"x":3}]                        |
++--------------------------------------+
+</code></pre>
+<h3>输入为 NULL</h3>
+<pre><code>SELECT json_object_flatten(NULL);
+</code></pre>
+<pre><code>+---------------------------+
+| json_object_flatten(NULL) |
++---------------------------+
+| NULL                      |
++---------------------------+
+</code></pre>
+<h3>同时包含标量、数组和子对象的嵌套对象</h3>
+<pre><code>SELECT json_object_flatten('{"x":{"s":1,"a":[1,2],"o":{"k":"v"}}}');
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| json_object_flatten('{"x":{"s":1,"a":[1,2],"o":{"k":"v"}}}') |
++--------------------------------------------------------------+
+| {"x.s":1,"x.a":[1,2],"x.o.k":"v"}                            |
++--------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-object-flatten/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

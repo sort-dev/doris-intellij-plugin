@@ -1,0 +1,124 @@
+<div class="definition"><pre>FORMAT_ROUND</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将数字格式化为类似于“#,###,###.##”的格式，四舍五入到指定位小数，并将结果作为字符串返回。</p>
+<p>该函数自 3.0.6 版本开始支持.</p>
+<h2>语法</h2>
+<pre><code>FORMAT_ROUND(&lt;number&gt;, &lt;D&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;number&gt;</code></td>
+<td>需要被格式化的数字</td>
+</tr>
+<tr>
+<td><code>&lt;D&gt;</code></td>
+<td>小数位数，范围 [0, 1024]</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 STRING 类型的格式化字符串。特殊情况：</p>
+<ul>
+<li>当参数为 NULL 时，返回 NULL</li>
+<li>如果 D 为 0，结果将没有小数点或小数部分。Doris 4.1 系列自 4.1.5 起，DECIMAL 输入在 D 为 0 时也会四舍五入；此前可能直接丢弃小数部分。</li>
+<li>如果 D 不在 [0, 1024] 范围内，将返回错误提示参数应在该范围内。</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/format-round/"></a></p>
+<h2>示例</h2>
+<pre><code>select format_round(17014116, 2);
+</code></pre>
+<pre><code>+---------------------------+
+| format_round(17014116, 2) |
++---------------------------+
+| 17,014,116.00             |
++---------------------------+
+</code></pre>
+<pre><code>select format_round(1123.456, 2);
+</code></pre>
+<pre><code>+---------------------------+
+| format_round(1123.456, 2) |
++---------------------------+
+| 1,123.46                  |
++---------------------------+
+</code></pre>
+<pre><code>select format_round(1123.4, 2);
+</code></pre>
+<pre><code>+-------------------------+
+| format_round(1123.4, 2) |
++-------------------------+
+| 1,123.40                |
++-------------------------+
+</code></pre>
+<pre><code>select format_round(123456, 0);
+</code></pre>
+<pre><code>+-------------------------+
+| format_round(123456, 0) |
++-------------------------+
+| 123,456                 |
++-------------------------+
+</code></pre>
+<pre><code>select format_round(123456, 3);
+</code></pre>
+<pre><code>+-------------------------+
+| format_round(123456, 3) |
++-------------------------+
+| 123,456.000             |
++-------------------------+
+</code></pre>
+<pre><code>select format_round(123456.123456, 0);
+</code></pre>
+<pre><code>+--------------------------------+
+| format_round(123456.123456, 0) |
++--------------------------------+
+| 123,456                        |
++--------------------------------+
+</code></pre>
+<pre><code>select format_round(123456.123456, 3);
+</code></pre>
+<pre><code>+--------------------------------+
+| format_round(123456.123456, 3) |
++--------------------------------+
+| 123,456.123                    |
++--------------------------------+
+</code></pre>
+<pre><code>select format_round(123456.123456, 6);
+</code></pre>
+<pre><code>+--------------------------------+
+| format_round(123456.123456, 6) |
++--------------------------------+
+| 123,456.123456                 |
++--------------------------------+
+</code></pre>
+<pre><code>SELECT format_round(-0.01, -1);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]The second argument is -1, it should be in range [0, 1024].
+</code></pre>
+<pre><code>SELECT format_round(-0.01, -1500);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]The second argument is -1500, it should be in range [0, 1024].
+</code></pre>
+<p>DECIMAL 输入舍入到 0 位小数：</p>
+<pre><code>SELECT FORMAT_ROUND(CAST(1.9 AS DECIMAL(9, 1)), 0),
+       FORMAT_ROUND(CAST(-1.9 AS DECIMAL(9, 1)), 0),
+       FORMAT_ROUND(CAST(1.4 AS DECIMAL(9, 1)), 0),
+       FORMAT_ROUND(CAST(-1.4 AS DECIMAL(9, 1)), 0);
+</code></pre>
+<pre><code>2    -2    1    -1
+</code></pre>
+<p>NULL 输入：</p>
+<pre><code>SELECT FORMAT_ROUND(NULL, 2);
+</code></pre>
+<pre><code>NULL
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/format-round/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

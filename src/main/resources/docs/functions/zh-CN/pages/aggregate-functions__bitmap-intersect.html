@@ -1,0 +1,65 @@
+<div class="definition"><pre>BITMAP_INTERSECT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于计算分组后的 Bitmap 交集。常见使用场景如：计算用户留存率。</p>
+<h2>语法</h2>
+<pre><code>BITMAP_INTERSECT(BITMAP &lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>支持 Bitmap 的数据类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回值的数据类型为 Bitmap。
+组内没有合法数据时，返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE user_tags (
+	tag VARCHAR(20),
+	date DATETIME,
+	user_id BITMAP bitmap_union
+) AGGREGATE KEY(tag, date) DISTRIBUTED BY HASH(tag) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO user_tags VALUES
+	('A', '2020-05-18', to_bitmap(1)),
+	('A', '2020-05-18', to_bitmap(2)),
+	('A', '2020-05-19', to_bitmap(2)),
+	('A', '2020-05-19', to_bitmap(3)),
+	('B', '2020-05-18', to_bitmap(4)),
+	('B', '2020-05-19', to_bitmap(4)),
+	('B', '2020-05-19', to_bitmap(5));
+</code></pre>
+<pre><code>select tag, bitmap_to_string(bitmap_intersect(user_id)) from (
+	select tag, date, bitmap_union(user_id) user_id from user_tags where date in ('2020-05-18', '2020-05-19') group by tag, date
+) a group by tag;
+</code></pre>
+<p>查询今天和昨天不同 tag 下的用户留存。</p>
+<pre><code>+------+---------------------------------------------+
+| tag  | bitmap_to_string(bitmap_intersect(user_id)) |
++------+---------------------------------------------+
+| A    | 2                                           |
+| B    | 4                                           |
++------+---------------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_intersect(user_id)) from user_tags where tag is null;
+</code></pre>
+<pre><code>+---------------------------------------------+
+| bitmap_to_string(bitmap_intersect(user_id)) |
++---------------------------------------------+
+|                                             |
++---------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/bitmap-intersect/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

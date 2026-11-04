@@ -1,0 +1,173 @@
+<div class="definition"><pre>ARRAY_EXCEPT</pre></div>
+<div class="content">
+<h2>array_except</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>返回第一个数组中存在但第二个数组中不存在的元素，去重后组成新数组，保持原始顺序。</p>
+<h2>语法</h2>
+<pre><code>array_except(ARRAY&lt;T&gt; arr1, ARRAY&lt;T&gt; arr2)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr1</code>：ARRAY&lt;T&gt; 类型，第一个数组。</li>
+<li><code>arr2</code>：ARRAY&lt;T&gt; 类型，第二个数组。</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;T&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个新数组，包含 arr1 中存在但 arr2 中不存在的所有唯一元素，顺序与 arr1 保持一致。</li>
+<li>NULL：如果任一输入数组为 NULL。</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>仅支持基础类型数组，不支持复杂类型（ARRAY、MAP、STRUCT）。</li>
+<li>空数组与任意数组做 except，结果为空数组。</li>
+<li>对数组元素中的 null 值：null 元素会被视为普通元素参与运算，null 与 null 被认为是相同的</li>
+</ul>
+<h3>示例</h3>
+<pre><code>CREATE TABLE array_except_test (
+    id INT,
+    arr1 ARRAY&lt;INT&gt;,
+    arr2 ARRAY&lt;INT&gt;,
+    str_arr1 ARRAY&lt;STRING&gt;,
+    str_arr2 ARRAY&lt;STRING&gt;
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 3
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+INSERT INTO array_except_test VALUES
+(1, [1, 2, 3, 4, 5], [2, 4]),
+(2, [10, 20, 30], [30, 40]),
+(3, [], [1, 2]),
+(4, NULL, [1, 2]),
+(5, [1, null, 2, null, 3], [null, 2]),
+(6, [1, 2, 3], NULL),
+(7, [1, 2, 3], []),
+(8, [], []),
+(9, [1, 2, 2, 3, 3, 3, 4, 5, 5], [2, 3, 5]),
+(10, [1], [1]);
+</code></pre>
+<p><strong>查询示例：</strong></p>
+<p>基础整数数组 except：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 1;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| [1, 3, 5]                   |
++-----------------------------+
+</code></pre>
+<p>部分元素重叠：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 2;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| [10, 20]                    |
++-----------------------------+
+</code></pre>
+<p>空数组与任意数组：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 3;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| []                          |
++-----------------------------+
+</code></pre>
+<p>NULL 数组：当任何一个输入数组为 NULL 时返回 NULL，不会抛出错误。</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 4;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| NULL                        |
++-----------------------------+
+</code></pre>
+<p>包含 null 的数组：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 5;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| [1, 3]                      |
++-----------------------------+
+</code></pre>
+<p>第二个数组为 NULL：当任何一个输入数组为 NULL 时返回 NULL，不会抛出错误。</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 6;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| NULL                        |
++-----------------------------+
+</code></pre>
+<p>第二个数组为空：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 7;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| [1, 2, 3]                   |
++-----------------------------+
+</code></pre>
+<p>两个数组都为空：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 8;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| []                          |
++-----------------------------+
+</code></pre>
+<p>去重示例：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 9;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| [1, 4]                      |
++-----------------------------+
+</code></pre>
+<p>所有元素都被 except 掉：</p>
+<pre><code>SELECT array_except(arr1, arr2) FROM array_except_test WHERE id = 10;
++-----------------------------+
+| array_except(arr1, arr2)    |
++-----------------------------+
+| []                          |
++-----------------------------+
+</code></pre>
+<p>字符串数组 except：</p>
+<pre><code>SELECT array_except(['a', 'b', 'c', 'd'], ['b', 'd']);
++----------------------------------+
+| array_except(['a','b','c','d'],['b','d']) |
++----------------------------------+
+| ["a", "c"]                      |
++----------------------------------+
+</code></pre>
+<h3>异常示例</h3>
+<p>参数数量错误：</p>
+<pre><code>SELECT array_except([1, 2, 3]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_except' which has 1 arity. Candidate functions are: [array_except(Expression, Expression)]
+</code></pre>
+<p>类型不兼容：</p>
+<pre><code>SELECT array_except([1, 2, 3], ['a', 'b']);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_except(ARRAY&lt;INT&gt;, ARRAY&lt;VARCHAR(1)&gt;)
+</code></pre>
+<p>传入非数组类型：</p>
+<pre><code>SELECT array_except('not_an_array', [1, 2, 3]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_except(VARCHAR(12), ARRAY&lt;INT&gt;)
+</code></pre>
+<p>复杂类型不支持：</p>
+<pre><code>SELECT array_except([[1,2],[3,4]], [[3,4]]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_except(ARRAY&lt;ARRAY&lt;INT&gt;&gt;, ARRAY&lt;ARRAY&lt;INT&gt;&gt;)
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, EXCEPT, ARRAY_EXCEPT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-except/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,55 @@
+<div class="definition"><pre>MONEY_FORMAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将数字按照货币格式输出，整数部分每隔 3 位用逗号分隔，小数部分保留 2 位</p>
+<h2>语法</h2>
+<pre><code>MONEY_FORMAT(&lt;number&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;number&gt;</code></td>
+<td>需要被格式化的数字</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回货币格式的字符串。特殊情况：</p>
+<ul>
+<li>当参数为 NULL 时，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select money_format(17014116);
+</code></pre>
+<pre><code>+------------------------+
+| money_format(17014116) |
++------------------------+
+| 17,014,116.00          |
++------------------------+
+</code></pre>
+<pre><code>select money_format(1123.456);
+</code></pre>
+<pre><code>+------------------------+
+| money_format(1123.456) |
++------------------------+
+| 1,123.46               |
++------------------------+
+</code></pre>
+<pre><code>select money_format(1123.4);
+</code></pre>
+<pre><code>+----------------------+
+| money_format(1123.4) |
++----------------------+
+| 1,123.40             |
++----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/money-format/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

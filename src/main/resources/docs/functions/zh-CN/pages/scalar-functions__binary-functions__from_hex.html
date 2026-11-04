@@ -1,0 +1,58 @@
+<div class="definition"><pre>FROM_HEX</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将输入的二进制数据转换成使用十六进制编码转换后的字符串</p>
+<h2>别名</h2>
+<p>FROM_BINARY</p>
+<h2>语法</h2>
+<pre><code>FROM_HEX ( &lt;varbinary&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;varbinary&gt;</code></td>
+<td>待转换的二进制数据</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>将输入的二进制数据使用十六进制编码转换成字符串。</p>
+<h2>举例</h2>
+<pre><code>SELECT FROM_HEX(NULL);
+</code></pre>
+<pre><code>+----------------+
+| FROM_HEX(NULL) |
++----------------+
+| NULL           |
++----------------+
+</code></pre>
+<pre><code>SELECT FROM_HEX(X'AB');
+</code></pre>
+<pre><code>+-----------------+
+| FROM_HEX(X'AB') |
++-----------------+
+| AB              |
++-----------------+
+</code></pre>
+<pre><code>select *, from_binary(varbinary_c) from mysql_all_type_test.test_varbinary_db.test_varbinary
+</code></pre>
+<pre><code>+------+----------------------------+--------------------------+
+| id   | varbinary_c                | from_binary(varbinary_c) |
++------+----------------------------+--------------------------+
+|    1 | 0x48656C6C6F20576F726C64   | 48656C6C6F20576F726C64   |
+|    2 | 0x48656C6C6F20576F726C6421 | 48656C6C6F20576F726C6421 |
+|    3 | 0x48656C6C6F20576F726C6421 | 48656C6C6F20576F726C6421 |
+|    4 | NULL                       | NULL                     |
+|    5 | 0xAB                       | AB                       |
++------+----------------------------+--------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/binary-functions/from_hex/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

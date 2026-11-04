@@ -1,0 +1,91 @@
+<div class="definition"><pre>EXPLODE_JSON_ARRAY_INT_OUTER</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>explode_json_array_int_outer</code> 表函数，接受一个 JSON 数组，其实现逻辑是将 JSON 数组转换为数组类型然后再调用 <code>explode_outer</code> 函数处理，行为等价于：<code>explode_outer(cast(&lt;json_array&gt; as Array&lt;BIGINT&gt;))</code>。
+需配合 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 使用。</p>
+<h2>语法</h2>
+<pre><code>EXPLODE_JSON_ARRAY_INT_OUTER(&lt;json&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json&gt;</code> JSON 类型，其内容应该是数组。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回由 <code>&lt;json&gt;</code> 所有元素组成的单列多行数据，列类型为 <code>Nullable&lt;BIGINT&gt;</code>。</li>
+<li>如果 <code>&lt;json&gt;</code> 为 NULL 或为空数组（元素个数为 0），则返回包含一行 NULL 的结果。</li>
+<li>如果 JSON 数组中的元素不是 INT 类型，函数会尝试将其转换为 INT；无法转换为 INT 的元素会被转换为 NULL。类型转换规则参见 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/json-conversion/">JSON 类型转换</a>。</li>
+</ul>
+<h2>举例</h2>
+<ol>
+<li>准备数据<pre><code>create table example(
+    k1 int
+) properties(
+    "replication_num" = "1"
+);
+
+insert into example values(1);
+</code></pre>
+</li>
+<li>常规参数<pre><code>select * from example lateral view explode_json_array_int_outer('[4, 5, 5.23, null]') t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 |    4 |
+|    1 |    5 |
+|    1 |    5 |
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+<li>非 INT 类型元素<pre><code>select * from example 
+    lateral view 
+    explode_json_array_int_outer('["abc", "123.4", 9223372036854775808.0, 9223372036854775295.999999]') t2 as c;
+</code></pre>
+<pre><code>+------+---------------------+
+| k1   | c                   |
++------+---------------------+
+|    1 |                NULL |
+|    1 |                 123 |
+|    1 |                NULL |
+|    1 | 9223372036854774784 |
++------+---------------------+
+</code></pre>
+<blockquote>
+<p><code>9223372036854775808.0</code> 超出 <code>BIGINT</code> 的有效范围，因此转换为 NULL。
+字符串 <code>"123.4"</code> 转换为 <code>123</code>。
+字符串 <code>"abc"</code> 无法转换为 INT，结果为 NULL。</p>
+</blockquote>
+</li>
+<li>空数组<pre><code>select * from example lateral view explode_json_array_int_outer('[]') t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select * from example lateral view explode_json_array_int_outer(NULL) t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+<li>非数组参数<pre><code>select * from example lateral view explode_json_array_int_outer('{}') t2 as c;
+</code></pre>
+<pre><code>+------+------+
+| k1   | c    |
++------+------+
+|    1 | NULL |
++------+------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-json-array-int-outer/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

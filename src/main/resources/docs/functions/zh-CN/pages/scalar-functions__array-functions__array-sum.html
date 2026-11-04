@@ -1,0 +1,70 @@
+<div class="definition"><pre>ARRAY_SUM</pre></div>
+<div class="content">
+<h3>功能</h3>
+<p><code>ARRAY_SUM</code> 函数用于对数组中的所有数值元素求和。</p>
+<h2>语法</h2>
+<pre><code>ARRAY_SUM(ARRAY&lt;T&gt;)
+</code></pre>
+<h2>参数</h2>
+<p><code>ARRAY&lt;T&gt;</code>：一个包含<strong>数值类型</strong>元素的数组。</p>
+<h2>返回值</h2>
+<ul>
+<li>
+<p>返回数组中所有非 <code>NULL</code> 元素的总和。</p>
+<ul>
+<li>如果全是 <code>NULL</code>，返回 <code>NULL</code>。</li>
+</ul>
+</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>
+<p>元素的求和使用 + 运算符。</p>
+</li>
+<li>
+<p>对于包含 <code>NULL</code> 的元素，会自动忽略这些元素。</p>
+</li>
+<li>
+<p>如果数组包含非数值类型元素（如字符串），将导致运行错误。</p>
+</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>
+<p>简单示例</p>
+<pre><code>SELECT ARRAY_SUM([1, 2, 3, 4]);
++-------------------------+
+| ARRAY_SUM([1, 2, 3, 4]) |
++-------------------------+
+|                      10 |
++-------------------------+
+</code></pre>
+</li>
+<li>
+<p>数组中的 <code>NULL</code> 处理</p>
+<pre><code>SELECT ARRAY_SUM([1, NULL, 3]); 
++-------------------------+
+| ARRAY_SUM([1, NULL, 3]) |
++-------------------------+
+|                       4 |
++-------------------------+
+
+SELECT ARRAY_SUM(NULL);
++-----------------+
+| ARRAY_SUM(NULL) |
++-----------------+
+|            NULL |
++-----------------+
+
+SELECT ARRAY_SUM([NULL, NULL]); 
++-------------------------+
+| ARRAY_SUM([NULL, NULL]) |
++-------------------------+
+|                    NULL |
++-------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-sum/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

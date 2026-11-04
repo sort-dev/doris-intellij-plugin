@@ -1,0 +1,66 @@
+<div class="definition"><pre>STRIP_NULL_VALUE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>STRIP_NULL_VALUE</code> 函数将 JSON 中的 NULL 值转换为 SQL 中的 NULL 值。所有其他变体值保持不变。</p>
+<h2>语法</h2>
+<pre><code>STRIP_NULL_VALUE( &lt;json_doc&gt; )
+</code></pre>
+<h2>必选参数</h2>
+<ul>
+<li><code>&lt;json_doc&gt;</code> JSON 类型，需要处理的 JSON 对象。</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>如果参数是 NULL 返回 NULL。</li>
+<li>如果参数是 json null 返回 NULL。</li>
+<li>对于不是 null 的 json 数据返回原始输入。</li>
+</ol>
+<h2>举例</h2>
+<ol>
+<li>准备数据</li>
+</ol>
+<pre><code>create table my_test(id INT, v json) properties('replication_num' = '1');
+insert into my_test values(0, 'null'), (1, null), (2, 123), (3, '{"key": 445}'), (4, '{"key": null}');
+
+select * from my_test;
+</code></pre>
+<ol>
+<li>
+<p>示例 1</p>
+<pre><code>select id, v, strip_null_value(v) from my_test order by id;
+</code></pre>
+<pre><code>+------+--------------+---------------------+
+| id   | v            | strip_null_value(v) |
++------+--------------+---------------------+
+|    0 | null         | NULL                |
+|    1 | NULL         | NULL                |
+|    2 | 123          | 123                 |
+|    3 | {"key":445}  | {"key":445}         |
+|    4 | {"key":null} | {"key":null}        |
++------+--------------+---------------------+
+5 rows in set (0.02 sec)
+</code></pre>
+</li>
+<li>
+<p>示例 2</p>
+<pre><code>select
+    id
+    , v
+    , strip_null_value(json_extract(v, '$.key')) 
+from my_test order by id;
+</code></pre>
+<pre><code>+------+--------------+--------------------------------------------+
+| id   | v            | strip_null_value(json_extract(v, '$.key')) |
++------+--------------+--------------------------------------------+
+|    0 | null         | NULL                                       |
+|    1 | NULL         | NULL                                       |
+|    2 | 123          | NULL                                       |
+|    3 | {"key":445}  | 445                                        |
+|    4 | {"key":null} | NULL                                       |
++------+--------------+--------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/strip-null-value/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,88 @@
+<div class="definition"><pre>PARSE_TO_VARIANT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>PARSE_TO_VARIANT</code> 将一个完整 JSON 值解析为 <code>VARIANT</code>，支持 JSON 对象、数组、字符串、数字、布尔值和 JSON 字面量 <code>null</code>。该函数自 Doris 4.1.4 起支持。</p>
+<h2>语法</h2>
+<pre><code>PARSE_TO_VARIANT(&lt;json_value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;json_value&gt;</code></td>
+<td>包含一个完整 JSON 值的 <code>CHAR</code>、<code>VARCHAR</code> 或 <code>STRING</code> 表达式，也可以是 <code>JSON</code>/<code>JSONB</code> 表达式。JSON/JSONB 输入会先转换为 JSON 文本，再解析为 VARIANT。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>VARIANT</code> 值。</p>
+<ul>
+<li>输入为 SQL <code>NULL</code> 时返回 SQL <code>NULL</code>。</li>
+<li>输入为 JSON 字面量 <code>null</code> 时返回 Variant/JSON <code>null</code>，它与 SQL <code>NULL</code> 不同。</li>
+<li>JSON 非法、对象 key 重复且当前校验设置不允许、嵌套深度超限或发生其他校验错误时，查询失败。</li>
+</ul>
+<h2>示例</h2>
+<p>解析 JSON 文本：</p>
+<pre><code>SELECT CAST(
+           PARSE_TO_VARIANT('{"id": 42, "tags": ["doris", "sql"]}')
+           AS STRING
+       ) AS value;
+</code></pre>
+<pre><code>+----------------------------------------+
+| value                                  |
++----------------------------------------+
+| {"id":42,"tags":["doris","sql"]}    |
++----------------------------------------+
+</code></pre>
+<p>解析 JSON/JSONB 表达式：</p>
+<pre><code>SELECT CAST(
+           PARSE_TO_VARIANT(CAST('{"id": 42}' AS JSON))
+           AS STRING
+       ) AS value;
+</code></pre>
+<pre><code>+-----------+
+| value     |
++-----------+
+| {"id":42} |
++-----------+
+</code></pre>
+<p>提取值并 CAST 为具体 SQL 类型：</p>
+<pre><code>SELECT CAST(
+           PARSE_TO_VARIANT('{"user": {"id": 42}}')['user']['id']
+           AS BIGINT
+       ) AS user_id;
+</code></pre>
+<pre><code>+---------+
+| user_id |
++---------+
+|      42 |
++---------+
+</code></pre>
+<p>SQL <code>NULL</code> 仍返回 SQL <code>NULL</code>：</p>
+<pre><code>SELECT PARSE_TO_VARIANT(NULL) IS NULL AS is_sql_null;
+</code></pre>
+<pre><code>+-------------+
+| is_sql_null |
++-------------+
+|           1 |
++-------------+
+</code></pre>
+<p>非法 JSON 会报错：</p>
+<pre><code>SELECT PARSE_TO_VARIANT('{"id":');
+</code></pre>
+<pre><code>ERROR: Parse json document failed
+</code></pre>
+<h2>使用说明</h2>
+<ul>
+<li>如果希望把非法输入转换为 SQL <code>NULL</code>，请使用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/try-parse-to-variant">TRY_PARSE_TO_VARIANT</a>。</li>
+<li><code>PARSE_TO_VARIANT</code> 会显式解析 JSON。相比之下，<code>CAST(string AS VARIANT)</code> 会把输入保留为 VARIANT 字符串，不解析 JSON，详见 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/VARIANT#%E6%94%AF%E6%8C%81%E7%9A%84%E8%BF%90%E7%AE%97%E4%B8%8E-cast-%E8%A7%84%E5%88%99">VARIANT CAST 规则</a>。</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/parse-to-variant/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

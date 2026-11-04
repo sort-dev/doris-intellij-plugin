@@ -1,0 +1,36 @@
+<div class="definition"><pre>FIRST_SIGNIFICANT_SUBDOMAIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>在 URL 中提取出“第一个有效子域”返回，若不合法则会返回空字符串。</p>
+<h2>语法</h2>
+<pre><code>FIRST_SIGNIFICANT_SUBDOMAIN ( &lt;url&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;url&gt;</code></td>
+<td>需要提取“第一个有效子域”的 URL</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p><code>&lt;url&gt;</code> 中第一个有效子域。</p>
+<h2>举例</h2>
+<pre><code>SELECT FIRST_SIGNIFICANT_SUBDOMAIN("www.baidu.com"),first_significant_subdomain("www.google.com.cn"),first_significant_subdomain("wwwwwwww")
+</code></pre>
+<pre><code>+----------------------------------------------+--------------------------------------------------+-----------------------------------------+
+| first_significant_subdomain('www.baidu.com') | first_significant_subdomain('www.google.com.cn') | first_significant_subdomain('wwwwwwww') |
++----------------------------------------------+--------------------------------------------------+-----------------------------------------+
+| baidu                                        | google                                           |                                         |
++----------------------------------------------+--------------------------------------------------+-----------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/first-significant-subdomain/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,55 @@
+<div class="definition"><pre>BITMAP_FROM_ARRAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个 TINYINT/SMALLINT/INT/BIGINT 类型的数组转化为一个 BITMAP，当输入字段不合法时，结果返回 NULL</p>
+<h2>语法</h2>
+<pre><code>BITMAP_FROM_ARRAY(&lt;arr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;arr&gt;</code></td>
+<td>整形数组</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BITMAP</p>
+<ul>
+<li>当输入字段不合法时，结果返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT bitmap_to_string(bitmap_from_array(array(1, 0, 1, 1, 0, 1, 0))) AS bs;
+</code></pre>
+<pre><code>+------+
+| bs   |
++------+
+| 0,1  |
++------+
+</code></pre>
+<pre><code>SELECT bitmap_to_string(bitmap_from_array(NULL)) AS bs;
+</code></pre>
+<pre><code>+------+
+| bs   |
++------+
+| NULL |
++------+
+</code></pre>
+<pre><code>select bitmap_to_string(bitmap_from_array([1,2,3,-1]));
+</code></pre>
+<pre><code>+-------------------------------------------------+
+| bitmap_to_string(bitmap_from_array([1,2,3,-1])) |
++-------------------------------------------------+
+| NULL                                            |
++-------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-from-array/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

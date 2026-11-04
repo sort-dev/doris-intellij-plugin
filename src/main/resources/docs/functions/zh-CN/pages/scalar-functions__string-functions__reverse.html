@@ -1,0 +1,149 @@
+<div class="definition"><pre>REVERSE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>REVERSE 函数用于将输入序列的顺序颠倒。对于字符串参数，返回字符顺序颠倒的字符串；对于数组参数，返回元素顺序颠倒的数组。该函数按字符进行反转，能够正确处理 UTF-8 多字节字符。</p>
+<h2>语法</h2>
+<pre><code>REVERSE(&lt;seq&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;seq&gt;</code></td>
+<td>需要反转顺序的字符串或数组。类型：VARCHAR 或 ARRAY</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回与输入类型相同的反转后序列：</p>
+<ul>
+<li>字符串输入：返回 VARCHAR 类型，字符顺序颠倒的字符串</li>
+<li>数组输入：返回 ARRAY 类型，元素顺序颠倒的数组</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>如果字符串为空，返回空字符串</li>
+<li>如果数组为空，返回空数组</li>
+<li>单字符字符串反转后仍为原字符串</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符串反转</li>
+</ol>
+<pre><code>SELECT REVERSE('hello');
+</code></pre>
+<pre><code>+------------------+
+| REVERSE('hello') |
++------------------+
+| olleh            |
++------------------+
+</code></pre>
+<ol>
+<li>数组元素反转</li>
+</ol>
+<pre><code>SELECT REVERSE(['hello', 'world']);
+</code></pre>
+<pre><code>+-----------------------------+
+| REVERSE(['hello', 'world']) |
++-----------------------------+
+| ["world", "hello"]          |
++-----------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT REVERSE(NULL);
+</code></pre>
+<pre><code>+---------------+
+| REVERSE(NULL) |
++---------------+
+| NULL          |
++---------------+
+</code></pre>
+<ol>
+<li>空字符串和空数组</li>
+</ol>
+<pre><code>SELECT REVERSE(''), REVERSE([]);
+</code></pre>
+<pre><code>+-------------+-------------+
+| REVERSE('') | REVERSE([]) |
++-------------+-------------+
+|             | []          |
++-------------+-------------+
+</code></pre>
+<ol>
+<li>单字符和单元素</li>
+</ol>
+<pre><code>SELECT REVERSE('A'), REVERSE(['single']);
+</code></pre>
+<pre><code>+--------------+--------------------+
+| REVERSE('A') | REVERSE(['single']) |
++--------------+--------------------+
+| A            | ["single"]         |
++--------------+--------------------+
+</code></pre>
+<ol>
+<li>数字和特殊字符</li>
+</ol>
+<pre><code>SELECT REVERSE('12345'), REVERSE('!@#$%');
+</code></pre>
+<pre><code>+------------------+------------------+
+| REVERSE('12345') | REVERSE('!@#$%') |
++------------------+------------------+
+| 54321            | %$#@!            |
++------------------+------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT REVERSE('ṭṛì ḍḍumai'), REVERSE('ḍḍumannàri');
+</code></pre>
+<pre><code>+--------------------------------+----------------------------+
+| REVERSE('ṭṛì ḍḍumai')          | REVERSE('ḍḍumannàri')      |
++--------------------------------+----------------------------+
+| iamuḍḍ ìṛṭ                     | irànnamuḍḍ                 |
++--------------------------------+----------------------------+
+</code></pre>
+<ol>
+<li>混合字符类型</li>
+</ol>
+<pre><code>SELECT REVERSE('Hello123'), REVERSE('test@email.com');
+</code></pre>
+<pre><code>+---------------------+--------------------------+
+| REVERSE('Hello123') | REVERSE('test@email.com') |
++---------------------+--------------------------+
+| 321olleH            | moc.liame@tset           |
++---------------------+--------------------------+
+</code></pre>
+<ol>
+<li>多元素数组</li>
+</ol>
+<pre><code>SELECT REVERSE([1, 2, 3, 4, 5]), REVERSE(['a', 'b', 'c']);
+</code></pre>
+<pre><code>+---------------------------+------------------------+
+| REVERSE([1, 2, 3, 4, 5])  | REVERSE(['a', 'b', 'c']) |
++---------------------------+------------------------+
+| [5, 4, 3, 2, 1]           | ["c", "b", "a"]        |
++---------------------------+------------------------+
+</code></pre>
+<ol>
+<li>回文测试</li>
+</ol>
+<pre><code>SELECT REVERSE('level'), REVERSE('12321');
+</code></pre>
+<pre><code>+------------------+-------------------+
+| REVERSE('level') | REVERSE('12321')  |
++------------------+-------------------+
+| level            | 12321             |
++------------------+-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/reverse/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,133 @@
+<div class="definition"><pre>ARRAY_JOIN</pre></div>
+<div class="content">
+<h2>array_join</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>将数组中的元素连接成一个字符串。函数会将数组中的所有元素转换为字符串，然后用指定的分隔符连接它们。</p>
+<h2>语法</h2>
+<pre><code>array_join(ARRAY&lt;T&gt; arr, STRING separator [, STRING null_replacement])
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要连接的数组</li>
+<li><code>separator</code>：STRING 类型，必需参数，用于分隔数组元素的分隔符</li>
+<li><code>null_replacement</code>：STRING 类型，可选参数，用于替换数组中 null 值的字符串。如果不提供此参数，null 值会被跳过</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂类型: ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：STRING</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个字符串，包含数组中所有元素，用分隔符连接</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会将数组中的每个元素转换为字符串，元素之间用指定的分隔符连接</li>
+<li>对数组元素中的 null 值：
+<ul>
+<li>如果提供了 <code>null_replacement</code> 参数，null 元素会被替换为该字符串</li>
+<li>如果没有提供 <code>null_replacement</code> 参数，null 元素会被跳过</li>
+</ul>
+</li>
+<li>空数组返回空字符串</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>使用分隔符连接数组：</p>
+<pre><code>SELECT array_join([1, 2, 3, 4, 5], ',');
++--------------------------------------+
+| array_join([1, 2, 3, 4, 5], ',')    |
++--------------------------------------+
+| 1,2,3,4,5                           |
++--------------------------------------+
+</code></pre>
+<p>使用空格分隔符连接字符串数组：</p>
+<pre><code>SELECT array_join(['hello', 'world', 'doris'], ' ');
++--------------------------------------------------+
+| array_join(['hello', 'world', 'doris'], ' ')    |
++--------------------------------------------------+
+| hello world doris                                |
++--------------------------------------------------+
+</code></pre>
+<p>连接包含 null 的数组（null 值被跳过）：</p>
+<pre><code>SELECT array_join([1, null, 3, null, 5], '-');
++--------------------------------------------+
+| array_join([1, null, 3, null, 5], '-')    |
++--------------------------------------------+
+| 1-3-5                                      |
++--------------------------------------------+
+</code></pre>
+<p>使用 null_replacement 参数替换 null 值：</p>
+<pre><code>SELECT array_join([1, null, 3, null, 5], '-', 'NULL');
++--------------------------------------------------+
+| array_join([1, null, 3, null, 5], '-', 'NULL')  |
++--------------------------------------------------+
+| 1-NULL-3-NULL-5                                 |
++--------------------------------------------------+
+</code></pre>
+<p>连接浮点数数组：</p>
+<pre><code>SELECT array_join([1.1, 2.2, 3.3], ' | ');
++------------------------------------------+
+| array_join([1.1, 2.2, 3.3], ' | ')      |
++------------------------------------------+
+| 1.1 | 2.2 | 3.3                         |
++------------------------------------------+
+</code></pre>
+<p>连接日期数组：</p>
+<pre><code>SELECT array_join(CAST(['2023-01-01', '2023-06-15', '2023-12-31'] AS ARRAY&lt;DATETIME&gt;), ' to ');
++-----------------------------------------------------------------------------------------+
+| array_join(CAST(['2023-01-01', '2023-06-15', '2023-12-31'] AS ARRAY&lt;DATETIME&gt;), ' to ') |
++-----------------------------------------------------------------------------------------+
+| 2023-01-01 00:00:00 to 2023-06-15 00:00:00 to 2023-12-31 00:00:00                       |
++-----------------------------------------------------------------------------------------+
+</code></pre>
+<p>连接 IP 地址数组：</p>
+<pre><code>SELECT array_join(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;), ' -&gt; ');
++----------------------------------------------------------------------------------+
+| array_join(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;), ' -&gt; ') |
++----------------------------------------------------------------------------------+
+| 192.168.1.1 -&gt; 192.168.1.2 -&gt; 192.168.1.3                                       |
++----------------------------------------------------------------------------------+
+</code></pre>
+<p>空数组返回空字符串：</p>
+<pre><code>SELECT array_join([], ',');
++----------------------+
+| array_join([], ',')  |
++----------------------+
+|                      |
++----------------------+
+</code></pre>
+<p>NULL 数组返回 NULL：</p>
+<pre><code>SELECT array_join(NULL, ',');
++----------------------+
+| array_join(NULL, ',') |
++----------------------+
+| NULL                 |
++----------------------+
+</code></pre>
+<p>传入复杂类型时会报错：</p>
+<pre><code>SELECT array_join([{'name':'Alice','age':20}, {'name':'Bob','age':30}], '; ');
+ERROR 1105 (HY000): errCode = 2, detailMessage = array_join([map('name', 'Alice', 'age','20'), map('name', 'Bob', 'age','30')], '; ') does not support type: MAP&lt;TEXT,TEXT&gt;
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_join([1,2,3], ',', 'extra', 'too_many');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_join' which has 4 arity. Candidate functions are: [array_join(Expression, Expression, Expression), array_join(Expression, Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_join('not_an_array', ',');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_join(VARCHAR(12), VARCHAR(1))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, JOIN, ARRAY_JOIN</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-join/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

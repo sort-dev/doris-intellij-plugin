@@ -1,0 +1,37 @@
+<div class="definition"><pre>BIT_COUNT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>用于返回一个整数值的二进制表示中 1 的位数。这个函数可以用于快速统计某个整数在二进制表示中“活跃”的位数，通常用于分析数据的分布或进行某些位运算</p>
+<h2>语法</h2>
+<pre><code>BIT_COUNT( &lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;x&gt;</code> 统计整型 x 的二进制表示中 1 的个数。整型可以是：TINYINT、SMALLINT、INT、BIGINT、LARGEINT。</li>
+</ul>
+<h2>返回值</h2>
+<p>返回 <code>&lt;x&gt;</code> 的二进制表示中 1 的个数</p>
+<h2>示例</h2>
+<ol>
+<li>示例 1<pre><code>select BIT_COUNT(0), BIT_COUNT(8), BIT_COUNT(-1);
+</code></pre>
+<pre><code>+--------------+--------------+---------------+
+| BIT_COUNT(0) | BIT_COUNT(8) | BIT_COUNT(-1) |
++--------------+--------------+---------------+
+|            0 |            1 |             8 |
++--------------+--------------+---------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select BIT_COUNT(NULL);
+</code></pre>
+<pre><code>+-----------------+
+| BIT_COUNT(NULL) |
++-----------------+
+|            NULL |
++-----------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/bitcount/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,73 @@
+<div class="definition"><pre>JSON_EXTRACT_DOUBLE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_EXTRACT_DOUBLE</code> 从 JSON 对象中提取 <code>&lt;json_path&gt;</code> 指定的字段，并将其转换为 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/numeric/FLOATING-POINT"><code>DOUBLE</code></a> 类型。</p>
+<h2>语法</h2>
+<pre><code>JSON_EXTRACT_DOUBLE(&lt;json_object&gt;, &lt;json_path&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code> JSON 类型，要提取的目标参数。</li>
+<li><code>&lt;json_path&gt;</code> String 类型，要从目标 JSON 中提取目标元素的 JSON 路径。</li>
+</ul>
+<h2>返回值</h2>
+<p><code>Nullable(DOUBLE)</code> 返回提取出的 DOUBLE 值，某些情况会得到 NULL</p>
+<h2>使用说明</h2>
+<ol>
+<li>如果 <code>&lt;json_object&gt;</code> 或则 <code>&lt;json_path&gt;</code> 为 NULL，返回 NULL。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 指定的元素不存在返回 NULL。</li>
+<li>如果 <code>&lt;json_path&gt;</code> 指定的元素无法转换为 DOUBLE 返回 NULL。</li>
+<li>其行为与 "cast + json_extract" 一致，即等价于：<pre><code>CAST(JSON_EXTRACT(&lt;json_object&gt;, &lt;json_path&gt;) as DOUBLE)
+</code></pre>
+</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>正常参数<pre><code>SELECT json_extract_double('{"id": 123.345, "name": "doris"}', '$.id');
+</code></pre>
+<pre><code>+-----------------------------------------------------------------+
+| json_extract_double('{"id": 123.345, "name": "doris"}', '$.id') |
++-----------------------------------------------------------------+
+|                                                         123.345 |
++-----------------------------------------------------------------+
+</code></pre>
+</li>
+<li>路径不存在的情况<pre><code>SELECT json_extract_double('{"id": 123.345, "name": "doris"}', '$.id2');
+</code></pre>
+<pre><code>+------------------------------------------------------------------+
+| json_extract_double('{"id": 123.345, "name": "doris"}', '$.id2') |
++------------------------------------------------------------------+
+|                                                             NULL |
++------------------------------------------------------------------+
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>SELECT json_extract_double('{"id": 123.345, "name": "doris"}', NULl);
+</code></pre>
+<pre><code>+---------------------------------------------------------------+
+| json_extract_double('{"id": 123.345, "name": "doris"}', NULl) |
++---------------------------------------------------------------+
+|                                                          NULL |
++---------------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT json_extract_double(NULL, '$.id2');
+</code></pre>
+<pre><code>+------------------------------------+
+| json_extract_double(NULL, '$.id2') |
++------------------------------------+
+|                               NULL |
++------------------------------------+
+</code></pre>
+</li>
+<li>无法转换为 DOUBLE 的情况<pre><code>SELECT json_extract_double('{"id": 123, "name": "doris"}','$.name');
+</code></pre>
+<pre><code>+--------------------------------------------------------------+
+| json_extract_double('{"id": 123, "name": "doris"}','$.name') |
++--------------------------------------------------------------+
+|                                                         NULL |
++--------------------------------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-extract-double/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

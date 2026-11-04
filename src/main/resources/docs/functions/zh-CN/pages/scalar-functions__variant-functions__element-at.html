@@ -1,0 +1,124 @@
+<div class="definition"><pre>ELEMENT_AT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>ELEMENT_AT</code> 函数用于从数组、map、struct 或 variant 中按指定的索引或键提取对应的元素值。</p>
+<ul>
+<li>当作用于 <strong>数组（ARRAY）</strong> 时，返回指定位置的元素；</li>
+<li>当作用于 <strong>MAP</strong> 时，返回指定键对应的值。</li>
+<li>当作用于 <strong>STRUCT</strong> 时，返回指定位置（从 1 开始）或指定字段名对应的子列，等价于 <code>STRUCT_ELEMENT</code>。</li>
+<li>当作用于 <strong>VARIANT</strong> 时，返回指定子列对应的值。</li>
+</ul>
+<h2>语法</h2>
+<pre><code>ELEMENT_AT(container, key_or_index)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>container</code>：可以是<code>ARRAY</code>, <code>MAP</code>, <code>STRUCT</code>, <code>VARIANT</code>。</li>
+<li><code>key_or_index</code>：
+<ul>
+<li>对于 <code>ARRAY</code>：为整数类型，索引从 <strong>1</strong> 开始；</li>
+<li>对于 <code>MAP</code>：为 <code>MAP</code> 中的键类型（<code>K</code>），可为任意支持的基础类型。</li>
+<li>对于 <code>STRUCT</code>：为常量整数（字段位置，从 <strong>1</strong> 开始）或常量字符串（字段名，按<strong>大小写不敏感</strong>匹配）。</li>
+<li>对于 <code>VARIANT</code>： 为字符串类型</li>
+</ul>
+</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>若为 <code>ARRAY</code>，返回数组中对应索引的元素（<code>T</code> 类型）；</li>
+<li>若为 <code>MAP</code>，返回对应键的值（<code>V</code> 类型）；</li>
+<li>若为 <code>STRUCT</code>，返回指定的子列值；</li>
+<li>若为 <code>VARIANT</code>， 返回 <code>VARIANT</code> 类型；</li>
+<li>如果索引或键不存在，返回 <code>NULL</code>（对于 <code>STRUCT</code>，位置越界或字段名不存在会报错）；</li>
+<li>如果参数为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li><strong>数组索引从 1 开始</strong>，不是从 0 开始；</li>
+<li>支持负数索引，<code>-1</code> 表示最后一个元素，<code>-2</code> 表示倒数第二个，以此类推；</li>
+<li><code>ELEMENT_AT(container, key_or_index)</code> 函数的功能与 <code>container[key_or_index]</code> 作用一致（详细见示例）。</li>
+</ol>
+<h2>示例</h2>
+<ol>
+<li>
+<p><code>ELEMENT_AT</code> 函数的功能与 <code>[]</code> 作用一致。</p>
+<pre><code>SELECT ELEMENT_AT([1, 2, 3], 2);
++--------------------------+
+| ELEMENT_AT([1, 2, 3], 2) |
++--------------------------+
+|                        2 |
++--------------------------+
+
+SELECT [1, 2, 3][2];
++--------------+
+| [1, 2, 3][2] |
++--------------+
+|            2 |
++--------------+
+</code></pre>
+</li>
+<li>
+<p>数组下标从 1 开始，越界会返回 <code>NULL</code>。</p>
+<pre><code>SELECT ELEMENT_AT([1, 2, 3], 0);
++--------------------------+
+| ELEMENT_AT([1, 2, 3], 0) |
++--------------------------+
+|                     NULL |
++--------------------------+
+
+SELECT ELEMENT_AT([1, 2, 3], 4);
++--------------------------+
+| ELEMENT_AT([1, 2, 3], 4) |
++--------------------------+
+|                     NULL |
++--------------------------+
+</code></pre>
+</li>
+<li>
+<p>访问 <code>MAP</code> 中不存在的 KEY，会返回 <code>NULL</code>。</p>
+<pre><code> SELECT ELEMENT_AT({"a": 1, "b": 2}, "c");
++-----------------------------------+
+| ELEMENT_AT({"a": 1, "b": 2}, "c") |
++-----------------------------------+
+|                              NULL |
++-----------------------------------+
+</code></pre>
+</li>
+<li>
+<p>按位置或字段名访问 <code>STRUCT</code> 的子列（等价于 <code>STRUCT_ELEMENT</code>）。</p>
+<pre><code>SELECT ELEMENT_AT(NAMED_STRUCT('name', 'Jack', 'id', 1728923), 1);
++------------------------------------------------------------+
+| ELEMENT_AT(NAMED_STRUCT('name', 'Jack', 'id', 1728923), 1) |
++------------------------------------------------------------+
+| Jack                                                       |
++------------------------------------------------------------+
+
+SELECT NAMED_STRUCT('name', 'Jack', 'id', 1728923)['id'];
++--------------------------------------------------+
+| NAMED_STRUCT('name', 'Jack', 'id', 1728923)['id'] |
++--------------------------------------------------+
+|                                          1728923 |
++--------------------------------------------------+
+</code></pre>
+</li>
+<li>
+<p>访问 <code>VARIANT</code> 的某个子列，如果 <code>VARIANT</code> 的值不是 OBJECT，返回空</p>
+<pre><code> SELECT ELEMENT_AT(CAST('{"a": 1, "b": 2}' AS VARIANT), "a");
++------------------------------------------------------+
+| ELEMENT_AT(CAST('{"a": 1, "b": 2}' AS VARIANT), "a") |
++------------------------------------------------------+
+| 1                                                    |
++------------------------------------------------------+
+
+SELECT ELEMENT_AT(CAST('123' AS VARIANT), "");
++----------------------------------------+
+| ELEMENT_AT(CAST('123' AS VARIANT), "") |
++----------------------------------------+
+|                                        |
++----------------------------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/element-at/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

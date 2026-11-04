@@ -1,0 +1,377 @@
+<div class="definition"><pre>PARQUET_META</pre></div>
+<div class="content">
+<p><code>parquet_meta</code> 表函数（table-valued-function，tvf）可以用于读取 Parquet 文件的 Footer 元数据，不会扫描数据页。它可以快速查看 Row Group 统计、Schema、文件级元数据、KV 元数据以及 Bloom Filter 探测结果。</p>
+<blockquote>
+<p>该功能为实验功能，自 4.1.0 版本支持。</p>
+</blockquote>
+<h2>语法</h2>
+<pre><code>PARQUET_META(
+    "uri" = "&lt;uri&gt;",
+    "mode" = "&lt;mode&gt;",
+    {OptionalParameters},
+    {ConnectionParameters}
+  );
+</code></pre>
+<ul>
+<li>
+<p><code>uri</code></p>
+<p>文件路径。</p>
+</li>
+<li>
+<p><code>mode</code></p>
+<p>元数据查询模式。可选，默认为 <code>parquet_metadata</code>。取值见"支持的模式"章节。</p>
+</li>
+<li>
+<p><code>{OptionalParameters}</code></p>
+<ul>
+<li><code>column</code>：当模式为 <code>parquet_bloom_probe</code> 时必填，表示要探测的列名。</li>
+<li><code>value</code>：当模式为 <code>parquet_bloom_probe</code> 时必填，表示要探测的字面值。</li>
+</ul>
+</li>
+<li>
+<p><code>{ConnectionParameters}</code></p>
+<p>访问文件所在的存储系统所需的参数，具体可参阅：</p>
+<ul>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/hdfs/">HDFS</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/s3/">AWS S3</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/gcs/">Google Cloud Storage</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/azure-blob/">Azure Blob</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/aliyun-oss/">阿里云 OSS</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/tencent-cos/">腾讯云 COS</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/huawei-obs/">华为云 OBS</a></li>
+<li><a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/storages/minio/">MinIO</a></li>
+</ul>
+</li>
+</ul>
+<h2>支持的模式</h2>
+<h3><code>parquet_metadata</code></h3>
+<p>默认模式。</p>
+<p>该模式可用于查询 Parquet 文件中包含的元数据。这些元数据会揭示 Parquet 文件的各种内部细节，例如不同列的统计信息。这有助于确定 Parquet 文件中可以进行何种类型的跳过操作，甚至可以快速了解不同列包含的内容。</p>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file_name</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>row_group_id</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>row_group_num_rows</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>row_group_num_columns</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>row_group_bytes</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>column_id</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>file_offset</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>num_values</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>path_in_schema</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>type</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>stats_min</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>stats_max</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>stats_null_count</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>stats_distinct_count</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>stats_min_value</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>stats_max_value</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>compression</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>encodings</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>index_page_offset</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>dictionary_page_offset</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>data_page_offset</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>total_compressed_size</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>total_uncompressed_size</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>key_value_metadata</td>
+<td><code>MAP&lt;VARBINARY, VARBINARY&gt;</code></td>
+</tr>
+<tr>
+<td>bloom_filter_offset</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>bloom_filter_length</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>min_is_exact</td>
+<td>BOOLEAN</td>
+</tr>
+<tr>
+<td>max_is_exact</td>
+<td>BOOLEAN</td>
+</tr>
+<tr>
+<td>row_group_compressed_bytes</td>
+<td>BIGINT</td>
+</tr>
+</tbody>
+</table>
+<h3><code>parquet_schema</code></h3>
+<p>该模式可用于查询 Parquet 文件中包含的内部架构。请注意，这是 Parquet 文件元数据中包含的结构。</p>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file_name</td>
+<td>VARCHAR</td>
+</tr>
+<tr>
+<td>name</td>
+<td>VARCHAR</td>
+</tr>
+<tr>
+<td>type</td>
+<td>VARCHAR</td>
+</tr>
+<tr>
+<td>type_length</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>repetition_type</td>
+<td>VARCHAR</td>
+</tr>
+<tr>
+<td>num_children</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>converted_type</td>
+<td>VARCHAR</td>
+</tr>
+<tr>
+<td>scale</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>precision</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>field_id</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>logical_type</td>
+<td>VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h3><code>parquet_file_metadata</code></h3>
+<p>该模式可用于查询文件级元数据，例如所使用的格式版本和加密算法。</p>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file_name</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>created_by</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>num_rows</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>num_row_groups</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>format_version</td>
+<td>BIGINT</td>
+</tr>
+<tr>
+<td>encryption_algorithm</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>footer_signing_key_metadata</td>
+<td>STRING</td>
+</tr>
+</tbody>
+</table>
+<h3><code>parquet_kv_metadata</code></h3>
+<p>该模式可用于查询定义为键值对的自定义元数据。</p>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file_name</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>key</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>value</td>
+<td>STRING</td>
+</tr>
+</tbody>
+</table>
+<h3><code>parquet_bloom_probe</code></h3>
+<p>Doris 支持使用 Parquet 文件中的布隆过滤器进行数据过滤和裁剪。该模式用于检测指定列和列值是否可以通过布隆过滤器检测。</p>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file_name</td>
+<td>STRING</td>
+</tr>
+<tr>
+<td>row_group_id</td>
+<td>INT</td>
+</tr>
+<tr>
+<td>bloom_filter_excludes</td>
+<td>INT</td>
+</tr>
+</tbody>
+</table>
+<p><code>bloom_filter_excludes</code> 的含义：</p>
+<ul>
+<li><code>1</code>：Bloom Filter 判断该 Row Group 一定不包含该值</li>
+<li><code>0</code>：Bloom Filter 判断可能包含该值</li>
+<li><code>-1</code>：文件没有 Bloom Filter</li>
+</ul>
+<h2>示例</h2>
+<ul>
+<li>
+<p>本地文件（不带 scheme）</p>
+<pre><code>SELECT * FROM parquet_meta(
+  "uri" = "/path/to/test.parquet"
+);
+</code></pre>
+</li>
+<li>
+<p>S3 文件（带 scheme + 存储参数）</p>
+<pre><code>SELECT * FROM parquet_meta(
+  "uri" = "s3://bucket/path/test.parquet",
+  "mode" = "parquet_schema",
+  "s3.access_key" = "...",
+  "s3.secret_key" = "...",
+  "s3.endpoint" = "s3.xxx.com",
+  "s3.region" = "us-east-1"
+);
+</code></pre>
+</li>
+<li>
+<p>使用通配符（glob）</p>
+<pre><code>SELECT file_name FROM parquet_meta(
+  "uri" = "s3://bucket/path/*meta.parquet",
+  "mode" = "parquet_file_metadata"
+);
+</code></pre>
+</li>
+<li>
+<p>使用 <code>parquet_bloom_probe</code> 模式</p>
+<pre><code>select * from parquet_meta(
+    "uri" = "${basePath}/bloommeta.parquet",
+    "mode" = "parquet_bloom_probe",
+    "column" = "col",
+    "value" = 500,
+    "s3.access_key" = "${ak}",
+    "s3.secret_key" = "${sk}",
+    "s3.endpoint" = "${endpoint}",
+    "s3.region" = "${region}",
+);
+</code></pre>
+</li>
+</ul>
+<h2>说明与限制</h2>
+<ul>
+<li><code>parquet_meta</code> 只读取 Parquet Footer 元数据，不读取数据页，适合快速查看元信息。</li>
+<li>支持通配符（如 <code>*</code>、<code>{}</code>、<code>[]</code>），若无匹配文件则会报错。</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/parquet-meta/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

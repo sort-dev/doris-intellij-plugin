@@ -1,0 +1,36 @@
+<div class="definition"><pre>DOMAIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>提取字符串 URL 中的域名</p>
+<h2>语法</h2>
+<pre><code>DOMAIN ( &lt;url&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;url&gt;</code></td>
+<td>需要提取域名的 <code>URL</code></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数 <code>&lt;url&gt;</code> 的域名</p>
+<h2>举例</h2>
+<pre><code>SELECT DOMAIN("https://doris.apache.org/docs/gettingStarted/what-is-apache-doris")
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------+
+| domain('https://doris.apache.org/docs/gettingStarted/what-is-apache-doris') |
++-----------------------------------------------------------------------------+
+| doris.apache.org                                                            |
++-----------------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/domain/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,98 @@
+<div class="definition"><pre>MIN_BY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MIN_BY 函数用于根据指定列的最小值，返回对应的的关联值。</p>
+<p>当 <code>&lt;expr2&gt;</code> 为 Array 时，数组按字典序逐元素比较；数组元素中的 NULL 大于任何非 NULL 元素。整个数组为 NULL 时会被忽略。</p>
+<p>版本差异：Doris 4.1 系列自 4.1.5 起，以及 Doris 4.2 及后续版本中，数组内的 <code>NULL</code> 元素大于非 <code>NULL</code> 元素；Doris 4.0 和 4.1.5 之前的 4.1 版本中数组内的 <code>NULL</code> 元素小于非 <code>NULL</code> 元素。整个数组值为 <code>NULL</code> 的输入在这些版本中均被忽略。</p>
+<h2>语法</h2>
+<pre><code>MIN_BY(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数 {#参数说明}</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr1&gt;</code></td>
+<td>用于指定对应关联的表达式，支持类型为 Bool, TinyInt，SmallInt，Int，BigtInt，LargeInt，Float，Double，Decimal, String, Date, Datetime, Array, Map, Struct。</td>
+</tr>
+<tr>
+<td><code>&lt;expr2&gt;</code></td>
+<td>用于指定最小值统计的表达式，支持类型为 Bool, TinyInt，SmallInt，Int，BigtInt，LargeInt，Float，Double，Decimal, String, Date, Datetime, Array。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回与输入表达式 &lt;expr1&gt; 相同的数据类型。
+如果组内没有合法数据，则返回 NULL 。</p>
+<h2>示例 {#举例}</h2>
+<pre><code>-- setup
+create table tbl(
+    k1 int,
+    k2 int,
+    arr ARRAY&lt;INT&gt;,
+    mp MAP&lt;STRING, INT&gt;,
+    st STRUCT&lt;a: INT, b: STRING&gt;,
+) distributed by hash(k1) buckets 1
+properties ("replication_num"="1");
+insert into tbl values
+    (0, 100, [1,2,3], {"x": 1, "y": 4}, NAMED_STRUCT("a", 1, "b", "x")),
+    (1, 4,   [5, 6],  {"x": 2, "y": 3}, NAMED_STRUCT("a", 2, "b", "y")),
+    (4, 1,   [7],     {"x": 3, "y": 2}, NAMED_STRUCT("a", 3, "b", "z")),
+    (3, 1,   [8],     {"x": 4, "y": 1}, NAMED_STRUCT("a", 4, "b", "r"));
+</code></pre>
+<pre><code>建表成功，数据已插入。
+</code></pre>
+<pre><code>select min_by(k1, k2) from tbl;
+</code></pre>
+<pre><code>+----------------+
+| min_by(k1, k2) |
++----------------+
+|              3 |
++----------------+
+</code></pre>
+<pre><code>select min_by(arr, k1), min_by(mp, k1), min_by(st, k1) from tbl;
+</code></pre>
+<pre><code>+-----------------+----------------+------------------+
+| min_by(arr, k1) | min_by(mp, k1) | min_by(st, k1)   |
++-----------------+----------------+------------------+
+| [1, 2, 3]       | {"x":1, "y":4} | {"a":1, "b":"x"} |
++-----------------+----------------+------------------+
+</code></pre>
+<pre><code>select min_by(k1, arr), min_by(mp, arr), min_by(st, arr), min_by(arr, arr) from tbl;
+</code></pre>
+<pre><code>+-----------------+-----------------+------------------+------------------+
+| min_by(k1, arr) | min_by(mp, arr) | min_by(st, arr)  | min_by(arr, arr) |
++-----------------+-----------------+------------------+------------------+
+|               0 | {"x":1, "y":4}  | {"a":1, "b":"x"} | [1, 2, 3]        |
++-----------------+-----------------+------------------+------------------+
+</code></pre>
+<pre><code>select min_by(k1, k2) from tbl where k1 is null;
+</code></pre>
+<pre><code>+----------------+
+| min_by(k1, k2) |
++----------------+
+|           NULL |
++----------------+
+</code></pre>
+<p>以下数组比较示例适用于 Doris 4.1 系列自 4.1.5 起，以及 Doris 4.2 及后续版本。</p>
+<pre><code>SELECT min_by(label, sort_key) AS result
+FROM (
+    SELECT 'null element' AS label, [1, NULL] AS sort_key
+    UNION ALL SELECT 'non-null element', [1, 2]
+    UNION ALL SELECT 'null array', CAST(NULL AS ARRAY&lt;INT&gt;)
+) t;
+</code></pre>
+<pre><code>non-null element
+</code></pre>
+<pre><code>SELECT min_by(1, CAST(NULL AS ARRAY&lt;INT&gt;)) AS result;
+</code></pre>
+<pre><code>NULL
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/min-by/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

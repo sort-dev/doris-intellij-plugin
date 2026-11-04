@@ -1,0 +1,162 @@
+<div class="definition"><pre>POSITION</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>POSITION 函数用于查找子字符串在主字符串中的位置，位置从 1 开始计数。</p>
+<h2>语法</h2>
+<pre><code>POSITION(&lt;substr&gt; IN &lt;str&gt;)
+
+POSITION(&lt;substr&gt;, &lt;str&gt; [, &lt;pos&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>substr</code></td>
+<td>需要查找的子字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>str</code></td>
+<td>主字符串，在其中搜索子字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>pos</code></td>
+<td>可选参数，指定开始搜索的位置（从 1 开始）。如果指定，则从该位置开始搜索</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示子字符串在主字符串中第一次出现的位置。</p>
+<p>查找规则：</p>
+<ul>
+<li>返回从 1 开始的位置索引</li>
+<li>如果子字符串不存在，返回 0</li>
+<li>如果指定了起始位置，从该位置开始查找</li>
+<li>查找是大小写敏感的</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果子字符串为空字符串，返回 1（或起始位置）</li>
+<li>如果起始位置超出字符串长度，返回 0</li>
+<li>起始位置为负数时，从字符串开头开始查找</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本查找（两种语法）</li>
+</ol>
+<pre><code>SELECT POSITION('bar' IN 'foobarbar'), POSITION('bar', 'foobarbar');
+</code></pre>
+<pre><code>+----------------------------------+--------------------------------+
+| POSITION('bar' IN 'foobarbar')   | POSITION('bar', 'foobarbar')   |
++----------------------------------+--------------------------------+
+|                                4 |                              4 |
++----------------------------------+--------------------------------+
+</code></pre>
+<ol>
+<li>指定起始位置查找</li>
+</ol>
+<pre><code>SELECT POSITION('bar', 'foobarbar', 5), POSITION('xbar', 'foobar');
+</code></pre>
+<pre><code>+-----------------------------------+----------------------------------+
+| POSITION('bar', 'foobarbar', 5)   | POSITION('xbar', 'foobar')       |
++-----------------------------------+----------------------------------+
+|                                 7 |                                0 |
++-----------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT POSITION('test' IN NULL), POSITION(NULL, 'test');
+</code></pre>
+<pre><code>+--------------------------+------------------------+
+| POSITION('test' IN NULL) | POSITION(NULL, 'test') |
++--------------------------+------------------------+
+| NULL                     | NULL                   |
++--------------------------+------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT POSITION('' IN 'hello'), POSITION('world' IN '');
+</code></pre>
+<pre><code>+------------------------+------------------------+
+| POSITION('' IN 'hello') | POSITION('world' IN '') |
++------------------------+------------------------+
+|                      1 |                      0 |
++------------------------+------------------------+
+</code></pre>
+<ol>
+<li>大小写敏感查找</li>
+</ol>
+<pre><code>SELECT POSITION('World' IN 'Hello World'), POSITION('world' IN 'Hello World');
+</code></pre>
+<pre><code>+----------------------------------+----------------------------------+
+| POSITION('World' IN 'Hello World') | POSITION('world' IN 'Hello World') |
++----------------------------------+----------------------------------+
+|                                7 |                                0 |
++----------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>从不同位置开始查找</li>
+</ol>
+<pre><code>SELECT POSITION('a', 'banana', 1), POSITION('a', 'banana', 3);
+</code></pre>
+<pre><code>+-----------------------------+-----------------------------+
+| POSITION('a', 'banana', 1)  | POSITION('a', 'banana', 3)  |
++-----------------------------+-----------------------------+
+|                           2 |                           4 |
++-----------------------------+-----------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT POSITION('ḍḍumai' IN 'ṭṛì ḍḍumai hello'), POSITION('hello', 'ṭṛì ḍḍumai hello', 8);
+</code></pre>
+<pre><code>+-------------------------------------------------------+---------------------------------------------------+
+| POSITION('ḍḍumai' IN 'ṭṛì ḍḍumai hello')              | POSITION('hello', 'ṭṛì ḍḍumai hello', 8)          |
++-------------------------------------------------------+---------------------------------------------------+
+|                                                     5 |                                                12 |
++-------------------------------------------------------+---------------------------------------------------+
+</code></pre>
+<ol>
+<li>特殊字符查找</li>
+</ol>
+<pre><code>SELECT POSITION('@' IN 'user@domain.com'), POSITION('.', 'user@domain.com', 10);
+</code></pre>
+<pre><code>+----------------------------------+--------------------------------------+
+| POSITION('@' IN 'user@domain.com') | POSITION('.', 'user@domain.com', 10) |
++----------------------------------+--------------------------------------+
+|                                5 |                                   12 |
++----------------------------------+--------------------------------------+
+</code></pre>
+<ol>
+<li>超出边界的起始位置</li>
+</ol>
+<pre><code>SELECT POSITION('test', 'hello world', 20), POSITION('test', 'hello world', 0);
+</code></pre>
+<pre><code>+--------------------------------------+-------------------------------------+
+| POSITION('test', 'hello world', 20)  | POSITION('test', 'hello world', 0)  |
++--------------------------------------+-------------------------------------+
+|                                   0 |                                   0 |
++--------------------------------------+-------------------------------------+
+</code></pre>
+<ol>
+<li>数字和符号中的查找</li>
+</ol>
+<pre><code>SELECT POSITION('123' IN '456123789'), POSITION('-', 'phone: 123-456-7890', 11);
+</code></pre>
+<pre><code>+------------------------------+-------------------------------------------+
+| POSITION('123' IN '456123789') | POSITION('-', 'phone: 123-456-7890', 11) |
++------------------------------+-------------------------------------------+
+|                            4 |                                        11 |
++------------------------------+-------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/position/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

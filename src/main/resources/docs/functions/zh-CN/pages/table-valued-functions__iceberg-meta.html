@@ -1,0 +1,154 @@
+<div class="definition"><pre>ICEBERG_META</pre></div>
+<div class="content">
+<p><code>iceberg_meta()</code> 表函数自 <strong>4.1.4</strong> 版本起已移除。执行该表函数会报错：</p>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = Could not find table function iceberg_meta
+</code></pre>
+<p>请改用 Iceberg 系统表查询同样的元数据信息。系统表自 3.1.0 版本开始支持，功能覆盖 <code>iceberg_meta()</code> 的全部 <code>query_type</code>，并且支持更完整的元数据类型。详见 <a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/catalogs/iceberg-catalog/#%E7%B3%BB%E7%BB%9F%E8%A1%A8">Iceberg Catalog 系统表</a>。</p>
+<p>4.1.4 之前的版本仍可以使用 <code>iceberg_meta()</code>，本文保留其用法说明以供参考。</p>
+<h2>描述</h2>
+<p>iceberg_meta 表函数（table-valued-function,tvf），可以用于读取 iceberg 表的各类元数据信息，如操作历史、生成的快照、文件元数据等。</p>
+<h2>替代用法：Iceberg 系统表</h2>
+<p>系统表的访问方式是在表名后添加 <code>$</code> 符号，后跟系统表名称：</p>
+<pre><code>SELECT * FROM &lt;catalog&gt;.&lt;database&gt;.&lt;table&gt;$&lt;system_table_name&gt;;
+</code></pre>
+<p><code>iceberg_meta()</code> 的 <code>query_type</code> 与系统表的对应关系如下：</p>
+<table>
+<thead>
+<tr>
+<th><code>iceberg_meta()</code> 的 <code>query_type</code></th>
+<th>等价的系统表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>snapshots</code></td>
+<td><code>&lt;table&gt;$snapshots</code></td>
+</tr>
+<tr>
+<td><code>manifests</code></td>
+<td><code>&lt;table&gt;$manifests</code></td>
+</tr>
+<tr>
+<td><code>all_manifests</code></td>
+<td><code>&lt;table&gt;$all_manifests</code></td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td><code>&lt;table&gt;$files</code></td>
+</tr>
+<tr>
+<td><code>data_files</code></td>
+<td><code>&lt;table&gt;$data_files</code></td>
+</tr>
+<tr>
+<td><code>delete_files</code></td>
+<td><code>&lt;table&gt;$delete_files</code></td>
+</tr>
+<tr>
+<td><code>partitions</code></td>
+<td><code>&lt;table&gt;$partitions</code></td>
+</tr>
+<tr>
+<td><code>refs</code></td>
+<td><code>&lt;table&gt;$refs</code></td>
+</tr>
+<tr>
+<td><code>history</code></td>
+<td><code>&lt;table&gt;$history</code></td>
+</tr>
+<tr>
+<td><code>metadata_log_entries</code></td>
+<td><code>&lt;table&gt;$metadata_log_entries</code></td>
+</tr>
+</tbody>
+</table>
+<p>改写示例：</p>
+<pre><code>-- 4.1.4 之前
+SELECT * FROM iceberg_meta("table" = "iceberg_ctl.test_db.test_tbl", "query_type" = "snapshots");
+
+-- 4.1.4 及之后
+SELECT * FROM iceberg_ctl.test_db.test_tbl$snapshots;
+</code></pre>
+<pre><code>-- 4.1.4 之前：根据 snapshot_id 字段筛选
+SELECT * FROM iceberg_meta("table" = "iceberg_ctl.test_db.test_tbl", "query_type" = "snapshots")
+WHERE snapshot_id = 98865735822;
+
+-- 4.1.4 及之后
+SELECT * FROM iceberg_ctl.test_db.test_tbl$snapshots WHERE snapshot_id = 98865735822;
+</code></pre>
+<h2>语法（4.1.4 之前）</h2>
+<pre><code>ICEBERG_META(
+    "table" = "&lt;table&gt;", 
+    "query_type" = "&lt;query_type&gt;"
+  );
+</code></pre>
+<h2>必填参数（4.1.4 之前）</h2>
+<p>iceberg_meta 表函数 tvf 中的每一个参数都是一个 <code>"key"="value"</code> 对</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;table&gt;</code></td>
+<td>完整的表名，需要按照目录名。库名.表名的格式，填写需要查看的 iceberg 表名。</td>
+</tr>
+<tr>
+<td><code>&lt;query_type&gt;</code></td>
+<td>元数据类型，支持以下类型：<br><code>snapshots</code>：快照信息<br><code>manifests</code>：当前快照的清单文件<br><code>all_manifests</code>：所有有效快照的清单文件（从 4.0.4 版本开始支持）<br><code>files</code>：当前快照的文件信息<br><code>data_files</code>：当前快照的数据文件<br><code>delete_files</code>：当前快照的删除文件<br><code>partitions</code>：分区信息<br><code>refs</code>：引用信息（分支和标签）<br><code>history</code>：历史记录<br><code>metadata_log_entries</code>：元数据日志条目</td>
+</tr>
+</tbody>
+</table>
+<h2>示例（Examples）</h2>
+<ul>
+<li>
+<p>读取并访问 iceberg 表格式的 snapshots 元数据。</p>
+<pre><code>select * from iceberg_ctl.db.tbl$snapshots;
+</code></pre>
+</li>
+<li>
+<p>查看 iceberg 表的 snapshots</p>
+<pre><code>select * from iceberg_ctl.test_db.test_tbl$snapshots;
+</code></pre>
+<pre><code>+------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+|      committed_at      |  snapshot_id   |   parent_id   | operation |   manifest_list   |            summary           |
++------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+|  2022-09-20 11:14:29   |  64123452344   |       -1      |  append   | hdfs:/path/to/m1  | {"flink.job-id":"xxm1", ...} |
+|  2022-09-21 10:36:35   |  98865735822   |  64123452344  | overwrite | hdfs:/path/to/m2  | {"flink.job-id":"xxm2", ...} |
+|  2022-09-21 21:44:11   |  51232845315   |  98865735822  | overwrite | hdfs:/path/to/m3  | {"flink.job-id":"xxm3", ...} |
++------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+</code></pre>
+</li>
+<li>
+<p>根据 snapshot_id 字段筛选</p>
+<pre><code>select * from iceberg_ctl.test_db.test_tbl$snapshots where snapshot_id = 98865735822;
+</code></pre>
+<pre><code>+------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+|      committed_at      |  snapshot_id   |   parent_id   | operation |   manifest_list   |            summary           |
++------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+|  2022-09-21 10:36:35   |  98865735822   |  64123452344  | overwrite | hdfs:/path/to/m2  | {"flink.job-id":"xxm2", ...} |
++------------------------+----------------+---------------+-----------+-------------------+------------------------------+
+</code></pre>
+</li>
+<li>
+<p>查看 iceberg 表的其他元数据</p>
+<pre><code>select * from iceberg_ctl.test_db.test_tbl$manifests;
+select * from iceberg_ctl.test_db.test_tbl$all_manifests;
+select * from iceberg_ctl.test_db.test_tbl$files;
+select * from iceberg_ctl.test_db.test_tbl$data_files;
+select * from iceberg_ctl.test_db.test_tbl$delete_files;
+select * from iceberg_ctl.test_db.test_tbl$partitions;
+select * from iceberg_ctl.test_db.test_tbl$refs;
+select * from iceberg_ctl.test_db.test_tbl$history;
+select * from iceberg_ctl.test_db.test_tbl$metadata_log_entries;
+</code></pre>
+</li>
+</ul>
+<h2>相关说明</h2>
+<p>更多关于 Iceberg 系统表的详细信息，请参阅 <a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/catalogs/iceberg-catalog/#%E7%B3%BB%E7%BB%9F%E8%A1%A8">Iceberg Catalog 系统表</a>。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/iceberg-meta/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

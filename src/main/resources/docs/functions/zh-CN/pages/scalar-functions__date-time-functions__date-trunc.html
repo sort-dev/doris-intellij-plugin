@@ -1,0 +1,122 @@
+<div class="definition"><pre>DATE_TRUNC</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>DATE_TRUNC 函数用于将日期或时间值按照指定的时间单位（time_unit）截断，即保留指定单位及更高层级的时间信息，将更低层级的时间信息清至最小日期时间。例如，按 “小时” 截断时，会保留年、月、日、小时，将分钟、秒等清零，按照年截断时，会把日，月截断为 xxxx-01-01。支持输入类型为 TIMESTAMPTZ, DATETIME, DATE。</p>
+<p>该函数与 postgresql 中的 <a href="https://www.postgresql.org/docs/16/functions-datetime.html#FUNCTIONS-DATETIME-TRUNC">date_trunc函数</a> 行为基本一致, 不同的是, doris暂不支持 second 单位以下的截断, postgresql 支持到 microsecond 。</p>
+<h2>语法</h2>
+<pre><code>DATE_TRUNC(&lt;datetime&gt;, &lt;time_unit&gt;)
+DATE_TRUNC(&lt;time_unit&gt;, &lt;datetime&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime&gt;</code></td>
+<td>合法的日期表达式，支持输入 date/datetime/timestamptz 类型，具体格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/timestamptz-conversion">timestamptz的转换</a>, <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+<tr>
+<td><code>&lt;time_unit&gt;</code></td>
+<td>希望截断的时间间隔，可选的值如下：[<code>second</code>,<code>minute</code>,<code>hour</code>,<code>day</code>,<code>week</code>,<code>month</code>,<code>quarter</code>,<code>year</code>] 该参数必须是字符串常量，不能是列或非常量表达式。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回类型与<code>&lt;datetime&gt;</code>类型保持一致， 返回对应的日期时间类型截断之后的结果（即保留指定单位及更高层级的时间信息，将更低层级的时间信息清至最小日期时间）</p>
+<ul>
+<li>若输入为 TIMESTAMPTZ 类型，则会先将其转换为 local_time(如：<code>2025-12-31 23:59:59+05:00</code> 在会话变量为<code>+08:00</code>的情况下代表的local_time为<code>2026-01-01 02:59:59</code>)，再进行截断操作。</li>
+<li>对于带有 scale 的 datetime 类型，会截小数为零但保留 scale 返回.</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>任何参数为 NULL 时，返回 NULL；</li>
+<li>不支持的 time_unit 时，返回错误。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>
+--- 按照秒，分，时，日，周，月，季度，年 来截断
+mysql&gt; select date_trunc(cast('2010-12-02 19:28:30' as datetime), 'second');
++---------------------------------------------------------------+
+| date_trunc(cast('2010-12-02 19:28:30' as datetime), 'second') |
++---------------------------------------------------------------+
+| 2010-12-02 19:28:30                                           |
++---------------------------------------------------------------+
+
+select date_trunc('2010-12-02 19:28:30', 'minute');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30', 'minute')     |
++-------------------------------------------------+
+| 2010-12-02 19:28:00                             |
++-------------------------------------------------+
+
+select date_trunc('2010-12-02 19:28:30', 'hour');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30', 'hour')       |
++-------------------------------------------------+
+| 2010-12-02 19:00:00                             |
++-------------------------------------------------+
+
+select date_trunc('2010-12-02 19:28:30', 'day');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30', 'day')        |
++-------------------------------------------------+
+| 2010-12-02 00:00:00                             |
++-------------------------------------------------+
+
+select date_trunc('2023-4-05 19:28:30', 'week');
++-------------------------------------------+
+| date_trunc('2023-04-05 19:28:30', 'week') |
++-------------------------------------------+
+| 2023-04-03 00:00:00                       |
++-------------------------------------------+
+
+select date_trunc(cast('2010-12-02' as date), 'month');
++-------------------------------------------------+
+| date_trunc(cast('2010-12-02' as date), 'month') |
++-------------------------------------------------+
+| 2010-12-01                                      |
++-------------------------------------------------+
+
+select date_trunc('2010-12-02 19:28:30', 'quarter');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30', 'quarter')    |
++-------------------------------------------------+
+| 2010-10-01 00:00:00                             |
++-------------------------------------------------+
+
+select date_trunc('2010-12-02 19:28:30', 'year');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30', 'year')       |
++-------------------------------------------------+
+| 2010-01-01 00:00:00                             |
++-------------------------------------------------+
+
+---对于带有 scale 的日期时间，会截断小数位为零不进行四舍五入，但返回值带有 scale
+mysql&gt; select date_trunc('2010-12-02 19:28:30.523', 'second');
++-------------------------------------------------+
+| date_trunc('2010-12-02 19:28:30.523', 'second') |
++-------------------------------------------------+
+| 2010-12-02 19:28:30.000                         |
++-------------------------------------------------+
+
+-- TimeStampTz类型样例, SET time_zone = '+08:00'
+-- 将变量值转换为 local_time(2026-01-01 02:59:59)后再做 DATE_TRUNC 截断操作
+SELECT DATE_TRUNC('2025-12-31 23:59:59+05:00', 'year');
++-------------------------------------------------+
+| DATE_TRUNC('2025-12-31 23:59:59+05:00', 'year') |
++-------------------------------------------------+
+| 2026-01-01 00:00:00+08:00                       |
++-------------------------------------------------+
+
+---不支持的单位，返回错误
+select date_trunc('2010-12-02 19:28:30', 'quar');
+ERROR 1105 (HY000): errCode = 2, detailMessage = date_trunc function time unit param only support argument is year|quarter|month|week|day|hour|minute|second
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/date-trunc/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

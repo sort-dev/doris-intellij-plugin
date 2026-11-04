@@ -1,0 +1,70 @@
+<div class="definition"><pre>INTERSECT_COUNT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>聚合函数，求 bitmap 交集大小的函数。
+第一个参数是 Bitmap 列，第二个参数是用来过滤的维度列，第三个参数是变长参数，含义是过滤维度列的不同取值。
+计算 bitmap_column 中符合 column_to_filter 在 filter_values 之内的元素的交集数量，即 bitmap 交集计数。
+对于 filter_values 相同的数据，取它们 bitmap 的并集，最终对每个 filter_values 的并集 bitmap 求交集。</p>
+<h2>语法</h2>
+<pre><code>INTERSECT_COUNT(&lt;bitmap_column&gt;, &lt;column_to_filter&gt;, &lt;filter_values&gt; [, ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap_column&gt;</code></td>
+<td>输入的 bitmap 参数列</td>
+</tr>
+<tr>
+<td><code>&lt;column_to_filter&gt;</code></td>
+<td>是用来过滤的维度列，支持类型为 TinyInt，SmallInt，Integer，BigInt，LargeInt。</td>
+</tr>
+<tr>
+<td><code>&lt;filter_values&gt;</code></td>
+<td>是过滤维度列的不同取值，TinyInt，SmallInt，Integer，BigInt，LargeInt。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回所求 bitmap 交集的元素数量</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE pv_bitmap (
+	dt INT,
+	user_id BITMAP,
+	city STRING
+) DISTRIBUTED BY HASH(dt) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO pv_bitmap VALUES
+	(20250801, to_bitmap(1), 'beijing'),
+	(20250801, to_bitmap(2), 'beijing'),
+	(20250801, to_bitmap(3), 'shanghai'),
+	(20250802, to_bitmap(3), 'beijing'),
+	(20250802, to_bitmap(4), 'shanghai'),
+	(20250802, to_bitmap(5), 'shenzhen');
+</code></pre>
+<pre><code>select intersect_count(user_id,dt,20250801) from pv_bitmap;
+</code></pre>
+<pre><code>+--------------------------------------+
+| intersect_count(user_id,dt,20250801) |
++--------------------------------------+
+|                                    3 |
++--------------------------------------+
+</code></pre>
+<pre><code>select intersect_count(user_id,dt,20250801,20250802) from pv_bitmap;
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| intersect_count(user_id,dt,20250801,20250802) |
++-----------------------------------------------+
+|                                             1 |
++-----------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/intersect-count/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

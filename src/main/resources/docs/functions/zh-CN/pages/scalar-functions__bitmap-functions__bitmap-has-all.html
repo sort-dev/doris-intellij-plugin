@@ -1,0 +1,66 @@
+<div class="definition"><pre>BITMAP_HAS_ALL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断一个 Bitmap 是否包含另一个 Bitmap 的全部元素。</p>
+<h2>语法</h2>
+<pre><code>bitmap_has_all(&lt;bitmap1&gt;, &lt;bitmap2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap1&gt;</code></td>
+<td>第一个 Bitmap</td>
+</tr>
+<tr>
+<td><code>&lt;bitmap2&gt;</code></td>
+<td>第二个 bitmap</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>如果 <code>&lt;bitmap1&gt;</code> 包含 <code>&lt;bitmap2&gt;</code> 的全部元素，则返回 true；<br>
+如果 <code>&lt;bitmap2&gt;</code> 包含的元素为空，返回 true；<br>
+否则返回 false。</p>
+<ul>
+<li>当参数存在NULL时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<p>检查一个 Bitmap 是否包含另一个 Bitmap 的全部元素：</p>
+<pre><code>select bitmap_has_all(bitmap_from_string('0, 1, 2'), bitmap_from_string('1, 2')) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    1 |
++------+
+</code></pre>
+<p>检查一个空 Bitmap 是否包含另一个 Bitmap 的全部元素：</p>
+<pre><code>select bitmap_has_all(bitmap_empty(), bitmap_from_string('1, 2')) as res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+|    0 |
++------+
+</code></pre>
+<pre><code>select bitmap_has_all(bitmap_empty(), NULL) as res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+| NULL |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-has-all/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

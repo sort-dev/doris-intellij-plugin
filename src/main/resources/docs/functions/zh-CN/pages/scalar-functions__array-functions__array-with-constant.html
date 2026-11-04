@@ -1,0 +1,81 @@
+<div class="definition"><pre>ARRAY_WITH_CONSTANT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>ARRAY_WITH_CONSTANT</code> 用于生成一个指定长度的数组，其中所有元素都为给定的值。</p>
+<h2>语法</h2>
+<pre><code>ARRAY_WITH_CONSTANT(count, element)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li>
+<p><code>count</code>：整数类型，指定返回数组的长度。</p>
+</li>
+<li>
+<p><code>element</code>： <code>ARRAY</code> 类型中支持的所有存储类型。</p>
+</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回一个 <code>ARRAY&lt;T&gt;</code> 类型的数组，其中 <code>T</code> 是 <code>element</code> 的类型。
+<ul>
+<li>数组中包含 <code>count</code> 个相同的 <code>element</code>。</li>
+</ul>
+</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>如果 <code>count = 0</code> 或者 <code>NULL</code>，返回空数组。</li>
+<li>如果 element 为 NULL，数组中所有元素均为 NULL。</li>
+<li>函数功能和 <code>ARRAY_REPEAT</code> 函数相同，参数位置相反。</li>
+<li>可以与其他数组函数组合使用，实现更复杂的数据构造逻辑。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>
+<p>简单实例</p>
+<pre><code>SELECT ARRAY_WITH_CONSTANT(3, 'hello');
++---------------------------------+
+| ARRAY_WITH_CONSTANT(3, 'hello') |
++---------------------------------+
+| ["hello", "hello", "hello"]     |
++---------------------------------+
+</code></pre>
+</li>
+<li>
+<p>异常参数</p>
+<pre><code>SELECT ARRAY_WITH_CONSTANT(0, 'hello');
++---------------------------------+
+| ARRAY_WITH_CONSTANT(0, 'hello') |
++---------------------------------+
+| []                              |
++---------------------------------+
+
+SELECT ARRAY_WITH_CONSTANT(NULL, 'hello');
++------------------------------------+
+| ARRAY_WITH_CONSTANT(NULL, 'hello') |
++------------------------------------+
+| []                                 |
++------------------------------------+
+
+SELECT ARRAY_WITH_CONSTANT(2, NULL);
++------------------------------+
+| ARRAY_WITH_CONSTANT(2, NULL) |
++------------------------------+
+| [null, null]                 |
++------------------------------+
+
+SELECT ARRAY_WITH_CONSTANT(NULL, NULL);
++---------------------------------+
+| ARRAY_WITH_CONSTANT(NULL, NULL) |
++---------------------------------+
+| []                              |
++---------------------------------+
+
+-- 返回错误：INVALID_ARGUMENT
+SELECT ARRAY_WITH_CONSTANT(-1, 'hello');
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-with-constant/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

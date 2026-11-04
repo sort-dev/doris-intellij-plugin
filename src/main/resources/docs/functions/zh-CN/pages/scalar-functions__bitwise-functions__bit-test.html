@@ -1,0 +1,49 @@
+<div class="definition"><pre>BIT_TEST</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将 <code>&lt;x&gt;</code> 的值转换为二进制的形式，返回指定位置 <code>&lt;bits&gt;</code> 的值， <code>&lt;bits&gt;</code> 从 0 开始，从右到左。</p>
+<p>如果 <code>&lt;bits&gt;</code> 有多个值，则将多个 <code>&lt;bits&gt;</code> 位置上的值用与运算符结合起来，返回最终结果。</p>
+<p>如果 <code>&lt;bits&gt;</code> 的取值为负数或者超过<code>&lt;x&gt;</code>的 bit 位总数，则会返回结果为 0。</p>
+<p>整数 <code>&lt;x&gt;</code> 范围：TINYINT、SMALLINT、INT、BIGINT、LARGEINT。</p>
+<h2>别名</h2>
+<ul>
+<li>BIT_TEST_ALL</li>
+</ul>
+<h2>语法</h2>
+<pre><code>BIT_TEST( &lt;x&gt;, &lt;bits&gt;[, &lt;bits&gt; ... ])
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;x&gt;</code></li>
+<li><code>&lt;bits&gt;</code></li>
+</ul>
+<h2>返回值</h2>
+<p>返回指定位置的值</p>
+<h2>举例</h2>
+<ol>
+<li>示例 1<pre><code>select BIT_TEST(43, 1), BIT_TEST(43, -1), BIT_TEST(43, 2), BIT_TEST(43, 0, 1, 3, 5), BIT_TEST(43, 0, 1, 3, 5, 2);
+</code></pre>
+<pre><code>+-----------------+------------------+-----------------+--------------------------+-----------------------------+
+| BIT_TEST(43, 1) | BIT_TEST(43, -1) | BIT_TEST(43, 2) | BIT_TEST(43, 0, 1, 3, 5) | BIT_TEST(43, 0, 1, 3, 5, 2) |
++-----------------+------------------+-----------------+--------------------------+-----------------------------+
+|               1 |                0 |               0 |                        1 |                           0 |
++-----------------+------------------+-----------------+--------------------------+-----------------------------+
+</code></pre>
+<blockquote>
+<p>43 的二进制表示是 "101011"，所以 <code>BIT_TEST(43, 1)</code> 的值是 1，<code>BIT_TEST(43, 2)</code> 的值是 0，<code>BIT_TEST(43, 0, 1, 3, 5)</code> 的值是 1。
+而 <code>BIT_TEST(43, 0, 1, 3, 5, 2)</code> 的值是 0。</p>
+</blockquote>
+</li>
+<li>NULL 参数<pre><code>select BIT_TEST(NULL, 1), BIT_TEST(43, NULL), BIT_TEST(NULL, NULL);
+</code></pre>
+<pre><code>+-------------------+--------------------+----------------------+
+| BIT_TEST(NULL, 1) | BIT_TEST(43, NULL) | BIT_TEST(NULL, NULL) |
++-------------------+--------------------+----------------------+
+|              NULL |               NULL |                 NULL |
++-------------------+--------------------+----------------------+
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitwise-functions/bit-test/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,170 @@
+<div class="definition"><pre>WEEK</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>WEEK 函数用于返回指定日期对应的星期数，默认 Mode 为 0，支持通过 mode 参数自定义星期计算规则（如星期的第一天是周日还是周一、星期数的范围、第一个星期的判定标准等）。
+参数 mode 的作用参见下面的表格：</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>星期的第一天</th>
+<th>星期数的范围</th>
+<th>第一个星期的定义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>星期日</td>
+<td>0-53</td>
+<td>这一年中的第一个星期日所在的星期</td>
+</tr>
+<tr>
+<td>1</td>
+<td>星期一</td>
+<td>0-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>2</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年中的第一个星期日所在的星期</td>
+</tr>
+<tr>
+<td>3</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>4</td>
+<td>星期日</td>
+<td>0-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>5</td>
+<td>星期一</td>
+<td>0-53</td>
+<td>这一年中的第一个星期一所在的星期</td>
+</tr>
+<tr>
+<td>6</td>
+<td>星期日</td>
+<td>1-53</td>
+<td>这一年的日期所占的天数大于等于 4 天的第一个星期</td>
+</tr>
+<tr>
+<td>7</td>
+<td>星期一</td>
+<td>1-53</td>
+<td>这一年中的第一个星期一所在的星期</td>
+</tr>
+</tbody>
+</table>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_week">week函数</a> 行为一致。</p>
+<h2>语法</h2>
+<pre><code>WEEK(`&lt;date_or_time_expr&gt;`)
+WEEK(`&lt;date_or_time_expr&gt;`,`&lt;mode&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime_or_date&gt;</code></td>
+<td>输入的日期时间值，支持输入 date/datetime 类型，具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+<tr>
+<td><code>&lt;mode&gt;</code></td>
+<td>可选，INT 类型，默认值为 0。计算规则由 <code>mode &amp; 7</code> 决定，对应上表中的模式 0-7。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回类型为 INT，表示指定日期对应的星期数，具体范围由 <code>&lt;mode&gt;</code> 决定（0-53 或 1-53）。</p>
+<ul>
+<li>若 <code>&lt;mode&gt;</code> 为非 0-7 的整数，则使用其低 3 位（<code>mode &amp; 7</code>）对应的模式计算。例如，8 对应模式 0，9 对应模式 1，-1 对应模式 7；</li>
+<li>若任一参数为 NULL，返回 NULL；</li>
+<li>跨年日期可能返回上一年的最后一周（如 2023 年 1 月 1 日在部分模式下属于 2022 年第 52 周）。</li>
+</ul>
+<h2>举例</h2>
+<p>越界 mode 使用其低 3 位。例如，8 对应模式 0：</p>
+<pre><code>SELECT WEEK('2021-01-01', 8) AS mode_8,
+       WEEK('2021-01-01', 0) AS mode_0,
+       WEEK('2021-01-01', 7) AS mode_7;
+</code></pre>
+<pre><code>+--------+--------+--------+
+| mode_8 | mode_0 | mode_7 |
++--------+--------+--------+
+|      0 |      0 |     52 |
++--------+--------+--------+
+</code></pre>
+<pre><code>
+-- 2020-01-01是星期三，当年第一个周日是2020-01-05，故属于第0周
+SELECT WEEK('2020-01-01') AS week_result;
++-------------+
+| week_result |
++-------------+
+|           0 |
++-------------+
+
+-- 2020-07-01是星期三，所在周包含≥4天属于2020年，为第27周
+SELECT WEEK('2020-07-01', 1) AS week_result;
++-------------+
+| week_result |
++-------------+
+|          27 |
++-------------+
+
+-- 对比mode=0和mode=3（不同规则的差异）
+SELECT 
+  WEEK('2023-01-01', 0) AS mode_0, 
+  WEEK('2023-01-01', 3) AS mode_3;  
++--------+--------+
+| mode_0 | mode_3 |
++--------+--------+
+|      1 |     52 |
++--------+--------+
+
+-- 2023年第一个周一是1月2日，故2023-01-01属于2022年第52周
+SELECT WEEK('2023-01-01', 7) AS week_result;
++-------------+
+| week_result |
++-------------+
+|          52 |
++-------------+
+
+-- -1 &amp; 7 = 7，因此使用模式 7
+SELECT WEEK('2023-01-01', -1) AS week_result;
++-------------+
+| week_result |
++-------------+
+|          52 |
++-------------+
+
+-- 输入为DATETIME类型（忽略时间部分）
+SELECT WEEK('2023-12-31 23:59:59', 3) AS week_result;
++-------------+
+| week_result |
++-------------+
+|          52 |  
++-------------+
+
+---任意参数为 NULL ，结果返回 NULL
+SELECT WEEK('2023-12-31 23:59:59', NULL),WEEK(NULL,3);
++-----------------------------------+--------------+
+| WEEK('2023-12-31 23:59:59', NULL) | WEEK(NULL,3) |
++-----------------------------------+--------------+
+|                              NULL |         NULL |
++-----------------------------------+--------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/week/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

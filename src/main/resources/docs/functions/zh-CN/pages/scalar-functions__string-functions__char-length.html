@@ -1,0 +1,83 @@
+<div class="definition"><pre>CHAR_LENGTH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>CHAR_LENGTH 函数用于计算字符串的字符数（而非字节数）。对于多字节字符（如中文），返回的是字符个数。</p>
+<p>目前仅支持 UTF-8 编码。</p>
+<h2>别名</h2>
+<ul>
+<li>CHARACTER_LENGTH</li>
+</ul>
+<h2>语法</h2>
+<pre><code>CHAR_LENGTH(&lt;str&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要计算字符长度的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示字符串的字符数。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果参数为 NULL，返回 NULL</li>
+<li>空字符串返回 0</li>
+<li>多字节 UTF-8 字符每个字符计数为 1</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>英文字符</li>
+</ol>
+<pre><code>SELECT CHAR_LENGTH('hello');
+</code></pre>
+<pre><code>+----------------------+
+| char_length('hello') |
++----------------------+
+|                    5 |
++----------------------+
+</code></pre>
+<ol>
+<li>中文字符（每个汉字算一个字符）</li>
+</ol>
+<pre><code>SELECT CHAR_LENGTH('中国');
+</code></pre>
+<pre><code>+----------------------+
+| char_length('中国')  |
++----------------------+
+|                    2 |
++----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT CHAR_LENGTH(NULL);
+</code></pre>
+<pre><code>+--------------------+
+| char_length(NULL)  |
++--------------------+
+|               NULL |
++--------------------+
+</code></pre>
+<ol>
+<li>与 LENGTH 函数对比（LENGTH 返回字节数）</li>
+</ol>
+<pre><code>SELECT CHAR_LENGTH('中国') AS char_len, LENGTH('中国') AS byte_len;
+</code></pre>
+<pre><code>+----------+----------+
+| char_len | byte_len |
++----------+----------+
+|        2 |        6 |
++----------+----------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/char-length/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

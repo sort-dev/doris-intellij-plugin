@@ -1,0 +1,96 @@
+<div class="definition"><pre>IPV4_CIDR_TO_RANGE | Ip Functions</pre></div>
+<div class="content">
+<h1>IPV4_CIDR_TO_RANGE</h1>
+<h2>ipv4_cidr_to_range</h2>
+<h2>描述</h2>
+<p>根据 IPv4 地址和 CIDR 前缀长度，计算该网段的最小和最大 IPv4 地址，返回一个包含两个 IPv4 地址的结构体。</p>
+<h2>语法</h2>
+<pre><code>IPV4_CIDR_TO_RANGE(&lt;ipv4_address&gt;, &lt;cidr_prefix&gt;)
+</code></pre>
+<h3>参数</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;ipv4_address&gt;</code></td>
+<td>IPv4 类型的地址。可使用 <code>TO_IPV4</code> 将地址字符串转换为 IPv4；<code>INET_ATON</code> 返回 BIGINT，不能用作此参数。</td>
+</tr>
+<tr>
+<td><code>&lt;cidr_prefix&gt;</code></td>
+<td>CIDR 前缀长度，SMALLINT 类型，范围 0-32。</td>
+</tr>
+</tbody>
+</table>
+<h3>返回值</h3>
+<p>返回类型：STRUCT&lt;min: IPv4, max: IPv4&gt;</p>
+<p>任一参数为 NULL 时返回 NULL。</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个结构体，包含两个字段：
+<ul>
+<li><code>min</code>：网段的最小 IPv4 地址</li>
+<li><code>max</code>：网段的最大 IPv4 地址</li>
+</ul>
+</li>
+</ul>
+<h3>使用说明</h3>
+<ul>
+<li>CIDR 前缀长度必须在 0-32 范围内</li>
+<li>计算基于网络掩码，将主机位全部置零得到最小地址，全部置一得到最大地址</li>
+<li>支持常量参数和列参数的各种组合</li>
+</ul>
+<h2>举例</h2>
+<p>计算 /24 网段的地址范围。</p>
+<pre><code>SELECT ipv4_cidr_to_range(TO_IPV4('192.168.1.1'), 24) as range;
+</code></pre>
+<pre><code>+----------------------------------------+
+| range                                  |
++----------------------------------------+
+| {"min": "192.168.1.0", "max": "192.168.1.255"} |
++----------------------------------------+
+</code></pre>
+<p>计算 /16 网段的地址范围。</p>
+<pre><code>SELECT ipv4_cidr_to_range(TO_IPV4('10.0.0.1'), 16) as range;
+</code></pre>
+<pre><code>+----------------------------------------+
+| range                                  |
++----------------------------------------+
+| {"min": "10.0.0.0", "max": "10.0.255.255"} |
++----------------------------------------+
+</code></pre>
+<p>访问结构体中的具体字段。</p>
+<pre><code>SELECT 
+  ipv4_cidr_to_range(TO_IPV4('172.16.1.1'), 24).min as min_ip,
+  ipv4_cidr_to_range(TO_IPV4('172.16.1.1'), 24).max as max_ip;
+</code></pre>
+<pre><code>+-------------+-------------+
+| min_ip      | max_ip      |
++-------------+-------------+
+| 172.16.1.0  | 172.16.1.255 |
++-------------+-------------+
+</code></pre>
+<p>CIDR 前缀超出范围会抛出异常。</p>
+<pre><code>SELECT ipv4_cidr_to_range(TO_IPV4('192.168.1.1'), 33);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (...)[INVALID_ARGUMENT]Illegal cidr value '33'
+</code></pre>
+<p>NULL 输入：</p>
+<pre><code>SELECT ipv4_cidr_to_range(NULL, 24) AS null_address,
+       ipv4_cidr_to_range(TO_IPV4('192.168.1.1'), NULL) AS null_prefix;
+</code></pre>
+<pre><code>+--------------+-------------+
+| null_address | null_prefix |
++--------------+-------------+
+| NULL         | NULL        |
++--------------+-------------+
+</code></pre>
+<h3>关键词</h3>
+<p>IPV4_CIDR_TO_RANGE</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv4-cidr-to-range/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,119 @@
+<div class="definition"><pre>RTRIM_IN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>RTRIM_IN 函数用于移除字符串右侧的指定字符。当不指定移除字符集合时，默认移除右侧的空格；当指定字符集合时，将移除右侧出现的所有指定字符（不考虑字符集合顺序）。
+RTRIM_IN 的特点是会移除指定字符集合中的任意字符组合，而 RTRIM 函数则是按照完整的字符串匹配进行移除。</p>
+<h2>语法</h2>
+<pre><code>RTRIM_IN(&lt;str&gt;[, &lt;rhs&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要处理的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;rhs&gt;</code></td>
+<td>可选参数，要移除的字符集合。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示处理后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 str 为 NULL，返回 NULL</li>
+<li>如果不指定 rhs，移除右侧所有空格</li>
+<li>如果指定 rhs，移除右侧出现在 rhs 中的所有字符，直到遇到第一个不在 rhs 中的字符</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>移除右侧空格</li>
+</ol>
+<pre><code>SELECT rtrim_in('ab d   ') str;
+</code></pre>
+<pre><code>+------+
+| str  |
++------+
+| ab d |
++------+
+</code></pre>
+<ol>
+<li>移除指定字符集合</li>
+</ol>
+<pre><code>SELECT rtrim_in('ababccaab', 'ab') str;
+</code></pre>
+<pre><code>+---------+
+| str     |
++---------+
+| ababcc  |
++---------+
+</code></pre>
+<ol>
+<li>与 RTRIM 函数的对比</li>
+</ol>
+<pre><code>SELECT rtrim_in('ababccaab', 'ab'), rtrim('ababccaab', 'ab');
+</code></pre>
+<pre><code>+-----------------------------+--------------------------+
+| rtrim_in('ababccaab', 'ab') | rtrim('ababccaab', 'ab') |
++-----------------------------+--------------------------+
+| ababcc                      | ababcca                  |
++-----------------------------+--------------------------+
+</code></pre>
+<ol>
+<li>字符集合顺序无关</li>
+</ol>
+<pre><code>SELECT rtrim_in('Helloabc', 'cba');
+</code></pre>
+<pre><code>+-----------------------------+
+| rtrim_in('Helloabc', 'cba') |
++-----------------------------+
+| Hello                       |
++-----------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 特殊字符支持</li>
+</ol>
+<pre><code>SELECT rtrim_in('ṭṛì ḍḍumai+++', '+');
+</code></pre>
+<pre><code>+------------------------------------+
+| rtrim_in('ṭṛì ḍḍumai+++', '+')    |
++------------------------------------+
+| ṭṛì ḍḍumai                         |
++------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT rtrim_in(NULL, 'abc');
+</code></pre>
+<pre><code>+------------------------+
+| rtrim_in(NULL, 'abc')  |
++------------------------+
+| NULL                   |
++------------------------+
+</code></pre>
+<ol>
+<li>空字符处理</li>
+</ol>
+<pre><code>SELECT rtrim_in('', 'abc'),rtrim_in('abc', '');
+</code></pre>
+<pre><code>+---------------------+---------------------+
+| rtrim_in('', 'abc') | rtrim_in('abc', '') |
++---------------------+---------------------+
+|                     | abc                 |
++---------------------+---------------------+
+</code></pre>
+<h3>关键词</h3>
+<pre><code>RTRIM_IN,RTRIM
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/rtrim-in/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,38 @@
+<div class="definition"><pre>MURMUR_HASH3_64</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算 64 位 murmur3 hash 值</p>
+<p>-注：经过测试 xxhash_64 的性能大约是 murmur_hash3_64 的 2 倍，所以在计算 hash 值时，更推荐使用<code>xxhash_64</code>，而不是<code>murmur_hash3_64</code>。</p>
+<h2>语法</h2>
+<pre><code>MURMUR_HASH3_64( &lt;str&gt; [ , &lt;str&gt; ... ] )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被计算 64 位 murmur3 hash 的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回输入字符串的 64 位 murmur3 hash 值。</p>
+<p>任一参数输入为 NULL 时返回 NULL。</p>
+<h2>示例</h2>
+<pre><code>select murmur_hash3_64(null), murmur_hash3_64("hello"), murmur_hash3_64("hello", "world");
+</code></pre>
+<pre><code>+-----------------------+--------------------------+-----------------------------------+
+| murmur_hash3_64(NULL) | murmur_hash3_64('hello') | murmur_hash3_64('hello', 'world') |
++-----------------------+--------------------------+-----------------------------------+
+|                  NULL |     -3215607508166160593 |               3583109472027628045 |
++-----------------------+--------------------------+-----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/encrypt-digest-functions/murmur-hash3-64/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

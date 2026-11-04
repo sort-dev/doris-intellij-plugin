@@ -1,0 +1,104 @@
+<div class="definition"><pre>ARRAY_PRODUCT</pre></div>
+<div class="content">
+<h2>array_product</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>计算数组中所有元素的乘积。函数会遍历数组中的所有元素，将它们相乘并返回结果。</p>
+<h2>语法</h2>
+<pre><code>array_product(ARRAY&lt;T&gt; arr)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要计算乘积的数组</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：T</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回数组中所有元素的乘积</li>
+<li>NULL：如果数组为空、数组为 NULL，或者所有元素都为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会跳过数组中的 NULL 值，只对非 NULL 元素进行乘积计算</li>
+<li>如果数组中所有元素都为 NULL，返回 NULL</li>
+<li>空数组返回 NULL</li>
+<li>复杂类型（MAP、STRUCT、ARRAY）不支持乘积计算，调用会报错</li>
+<li>对数组元素中的 null 值：null 元素不参与乘积计算</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>计算整数数组的乘积：</p>
+<pre><code>SELECT array_product([1, 2, 3, 4, 5]);
++--------------------------------+
+| array_product([1, 2, 3, 4, 5]) |
++--------------------------------+
+|                            120 |
++--------------------------------+
+</code></pre>
+<p>计算浮点数数组的乘积：</p>
+<pre><code>SELECT array_product([1.1, 2.2, 3.3, 4.4, 5.5]);
++------------------------------------------+
+| array_product([1.1, 2.2, 3.3, 4.4, 5.5]) |
++------------------------------------------+
+|                                 193.2612 |
++------------------------------------------+
+</code></pre>
+<p>计算包含 null 的数组的乘积：</p>
+<pre><code>SELECT array_product([1, null, 3, null, 5]);
++----------------------------------------+
+| array_product([1, null, 3, null, 5])  |
++----------------------------------------+
+| 15.0                                   |
++----------------------------------------+
+</code></pre>
+<p>计算布尔数组的乘积（true=1, false=0）：</p>
+<pre><code>SELECT array_product([true, false, true, true]);
++------------------------------------------+
+| array_product([true, false, true, true]) |
++------------------------------------------+
+|                                        0 |
++------------------------------------------+
+</code></pre>
+<p>空数组返回 NULL：</p>
+<pre><code>SELECT array_product([]);
++----------------------+
+| array_product([])    |
++----------------------+
+| NULL                 |
++----------------------+
+</code></pre>
+<p>所有元素都为 null 的数组返回 NULL：</p>
+<pre><code>SELECT array_product([null, null, null]);
++----------------------------------+
+| array_product([null, null, null]) |
++----------------------------------+
+| NULL                             |
++----------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组类型不支持，报错：</p>
+<pre><code>SELECT array_product([[1,2],[3,4],[5,6]]);
+ERROR 1105 (HY000): errCode = 2, detailMessage: array_product does not support type: ARRAY&lt;ARRAY&lt;TINYINT&gt;&gt;
+</code></pre>
+<p>map 类型不支持，报错：</p>
+<pre><code>SELECT array_product([{'k':1},{'k':2},{'k':3}]);
+ERROR 1105 (HY000): errCode = 2, detailMessage: array_product does not support type: ARRAY&lt;MAP&lt;VARCHAR(1),TINYINT&gt;&gt;
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_product([1,2,3], [4,5,6]);
+ERROR 1105 (HY000): errCode = 2, detailMessage: Can not found function 'array_product' which has 2 arity. Candidate functions are: [array_product(Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_product('not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage: Can not find the compatibility function signature: array_product(VARCHAR(12))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, PRODUCT, ARRAY_PRODUCT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-product/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

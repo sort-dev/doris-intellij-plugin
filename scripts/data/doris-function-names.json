@@ -1,0 +1,3732 @@
+[
+  {
+    "name": "ABS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ACOS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ACOSH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ADD_TIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AES_DECRYPT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AES_ENCRYPT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_CLASSIFY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_EXTRACT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_FILTER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_FIXGRAMMAR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_GENERATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_MASK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_SENTIMENT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_SIMILARITY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_SUMMARIZE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_TRANSLATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "APPEND_TRAILING_CHAR_IF_ABSENT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAYS_OVERLAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_APPLY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_AVG",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_COMPACT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_CONCAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_CONTAINS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_CONTAINS_ALL",
+    "aliases": [
+      "HASSUBSTR"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_CROSS_PRODUCT",
+    "aliases": [
+      "CROSS_PRODUCT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_CUM_SUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_DIFFERENCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_DISTINCT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_ENUMERATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_ENUMERATE_UNIQ",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_EXCEPT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_EXISTS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_FILTER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_FIRST",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_FIRST_INDEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_FLATTEN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_INTERSECT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_JOIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_LAST",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_LAST_INDEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_MAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_MATCH_ALL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_MATCH_ANY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_MAX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_MIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_POPBACK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_POPFRONT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_POSITION",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_PRODUCT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_PUSHBACK",
+    "aliases": [
+      "ARRAY_APPEND"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_PUSHFRONT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_RANGE",
+    "aliases": [
+      "SEQUENCE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_REMOVE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_REPEAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_REVERSE_SORT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_REVERSE_SPLIT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SHUFFLE",
+    "aliases": [
+      "SHUFFLE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SIZE",
+    "aliases": [
+      "CARDINALITY",
+      "SIZE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SLICE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SORT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SORTBY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SPLIT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_SUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_UNION",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_WITH_CONSTANT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ARRAY_ZIP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ASCII",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ASIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ASINH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ASSERT_TRUE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ATAN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ATAN2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ATANH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AUTO_PARTITION_NAME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_AND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_ANDNOT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_ANDNOT_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_AND_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_AND_NOT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_AND_NOT_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_CONTAINS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_FROM_ARRAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_FROM_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_FROM_STRING",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_HASH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_HASH64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_HAS_ALL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_HAS_ANY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_MAX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_MIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_NOT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_OR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_OR_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_REMOVE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_SUBSET_IN_RANGE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_SUBSET_LIMIT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_TO_ARRAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_TO_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_TO_STRING",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_XOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BITMAP_XOR_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIT_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIT_LENGTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIT_SHIFT_LEFT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIT_SHIFT_RIGHT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "BIT_TEST",
+    "aliases": [
+      "BIT_TEST_ALL"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CBRT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CEIL",
+    "aliases": [
+      "CEILING"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CENTURY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CHAR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CHAR_LENGTH",
+    "aliases": [
+      "CHARACTER_LENGTH"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COALESCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COMPRESS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONCAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONCAT_WS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONNECTION_ID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONV",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONVERT_TO",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CONVERT_TZ",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COSH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COSINE_DISTANCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COSINE_SIMILARITY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COUNTEQUAL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "COUNT_SUBSTRINGS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CRC32",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CRC32_INTERNAL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CSC",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CURDATE",
+    "aliases": [
+      "CURRENT_DATE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CURRENT_CATALOG",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CURRENT_USER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CURTIME",
+    "aliases": [
+      "CURRENT_TIME"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CUT_IPV6",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "CUT_TO_FIRST_SIGNIFICANT_SUBDOMAIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATABASE",
+    "aliases": [
+      "SCHEMA",
+      "CURRENT_DATABASE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATEDIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATEV2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATE_FORMAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DATE_TRUNC",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY",
+    "aliases": [
+      "DAYOFMONTH"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYNAME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYOFWEEK",
+    "aliases": [
+      "DOW"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYOFYEAR",
+    "aliases": [
+      "DOY"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYS_ADD",
+    "aliases": [
+      "DATE_ADD",
+      "ADDDATE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAYS_SUB",
+    "aliases": [
+      "DATE_SUB",
+      "SUBDATE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_HOUR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_MINUTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DAY_SECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DCEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DECODE_AS_VARCHAR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DEDUPLICATE_MAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DEGREES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DEXP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DFLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DICT_GET",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DICT_GET_MANY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DIGITAL_MASKING",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DLOG10",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DOMAIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DOMAIN_WITHOUT_WWW",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DPOW",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DROUND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "DSQRT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "E",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ELEMENT_AT",
+    "aliases": [
+      "STRUCT_ELEMENT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ELT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "EMBED",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ENCODE_AS_BIGINT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ENCODE_AS_INT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ENCODE_AS_LARGEINT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ENCODE_AS_SMALLINT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ENDS_WITH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ESQUERY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "EVEN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "EXP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "EXPORT_SET",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "EXTRACT_URL_PARAMETER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FACTORIAL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FIELD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FIND_IN_SET",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FIRST_SIGNIFICANT_SUBDOMAIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FMOD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FORMAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FORMAT_NUMBER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FORMAT_ROUND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FPOW",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_BASE64_BINARY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_BINARY",
+    "aliases": [
+      "FROM_HEX"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_DAYS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_ISO8601_DATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_MILLISECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_SECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "FROM_UNIXTIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "G",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "GCD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "GET_FORMAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "GREATEST",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "GROUPING",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "GROUPING_ID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HLL_CARDINALITY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HLL_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HLL_FROM_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HLL_HASH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HLL_TO_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOURS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOURS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOURS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_FROM_UNIXTIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_MINUTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "HOUR_SECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IFNULL",
+    "aliases": [
+      "NVL"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IGNORE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INITCAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INNER_PRODUCT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INNER_PRODUCT_APPROXIMATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INSTR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INTERVAL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "INT_TO_UUID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_CIDR_TO_RANGE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_NUM_TO_STRING",
+    "aliases": [
+      "INET_NTOA"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_STRING_TO_NUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_STRING_TO_NUM_OR_DEFAULT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_STRING_TO_NUM_OR_NULL",
+    "aliases": [
+      "INET_ATON"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV4_TO_IPV6",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_CIDR_TO_RANGE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_FROM_UINT128_STRING_OR_NULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_NUM_TO_STRING",
+    "aliases": [
+      "INET6_NTOA"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_STRING_TO_NUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_STRING_TO_NUM_OR_DEFAULT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IPV6_STRING_TO_NUM_OR_NULL",
+    "aliases": [
+      "INET6_ATON"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ISINF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ISNAN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_IPV4_COMPAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_IPV4_MAPPED",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_IPV4_STRING",
+    "aliases": [
+      "IS_IPV4"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_IPV6_STRING",
+    "aliases": [
+      "IS_IPV6"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_IP_ADDRESS_IN_RANGE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "IS_VALID_UTF8",
+    "aliases": [
+      "ISVALIDUTF8"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXISTS_PATH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT",
+    "aliases": [
+      "JSON_EXTRACT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_BIGINT",
+    "aliases": [
+      "JSON_EXTRACT_BIGINT",
+      "GET_JSON_BIGINT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_BOOL",
+    "aliases": [
+      "JSON_EXTRACT_BOOL"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_DOUBLE",
+    "aliases": [
+      "JSON_EXTRACT_DOUBLE",
+      "GET_JSON_DOUBLE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_INT",
+    "aliases": [
+      "JSON_EXTRACT_INT",
+      "GET_JSON_INT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_ISNULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_LARGEINT",
+    "aliases": [
+      "JSON_EXTRACT_LARGEINT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_EXTRACT_STRING",
+    "aliases": [
+      "JSON_EXTRACT_STRING",
+      "GET_JSON_STRING"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_HASH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_PARSE",
+    "aliases": [
+      "JSON_PARSE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_PARSE_ERROR_TO_NULL",
+    "aliases": [
+      "JSON_PARSE_ERROR_TO_NULL"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_PARSE_ERROR_TO_VALUE",
+    "aliases": [
+      "JSON_PARSE_ERROR_TO_VALUE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_TYPE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSONB_VALID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_ARRAY",
+    "aliases": [
+      "JSONB_ARRAY"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_ARRAY_IGNORE_NULL",
+    "aliases": [
+      "JSONB_ARRAY_IGNORE_NULL"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_CONTAINS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_EXISTS_PATH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_EXTRACT_ISNULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_EXTRACT_NO_QUOTES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_HASH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_INSERT",
+    "aliases": [
+      "JSONB_INSERT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_KEYS",
+    "aliases": [
+      "JSONB_KEYS"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_LENGTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_OBJECT",
+    "aliases": [
+      "JSONB_OBJECT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_OBJECT_FLATTEN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_QUOTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_REMOVE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_REPLACE",
+    "aliases": [
+      "JSONB_REPLACE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_SEARCH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_SET",
+    "aliases": [
+      "JSONB_SET"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_TYPE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_UNQUOTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "JSON_VALID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "L1_DISTANCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "L2_DISTANCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "L2_DISTANCE_APPROXIMATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LAST_DAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LAST_QUERY_ID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LCASE",
+    "aliases": [
+      "LOWER"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LCM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LEAST",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LEFT",
+    "aliases": [
+      "STRLEFT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LENGTH",
+    "aliases": [
+      "OCTET_LENGTH"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LIKE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LN",
+    "aliases": [
+      "DLOG1"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LOG",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LOG10",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LOG2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LPAD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LTRIM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "LTRIM_IN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAKEDATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAKETIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAKE_SET",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_CONTAINS_ENTRY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_CONTAINS_KEY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_CONTAINS_VALUE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_ENTRIES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_KEYS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_SIZE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MAP_VALUES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MASK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MASK_FIRST_N",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MASK_LAST_N",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MD5",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MD5SUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECONDS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECONDS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECONDS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECOND_FROM_UNIXTIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MICROSECOND_TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MILLISECONDS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MILLISECONDS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MILLISECONDS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MILLISECOND_TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTES_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTES_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTES_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE_FROM_UNIXTIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE_MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MINUTE_SECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONEY_FORMAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTHNAME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTHS_ADD",
+    "aliases": [
+      "ADD_MONTHS"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTHS_BETWEEN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTHS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTHS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTH_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MONTH_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MULTI_MATCH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MULTI_MATCH_ANY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MULTI_SEARCH_ALL_POSITIONS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_128",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_32",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_64_V2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_U128",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "MURMUR_HASH3_U64_V2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NAMED_STRUCT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NEGATIVE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NEXT_DAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NGRAM_SEARCH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NON_NULLABLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NORMALIZE_JSONB_NUMBERS_TO_DOUBLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NORMALIZE_JSON_NUMBERS_TO_DOUBLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NORMAL_CDF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NOT_NULL_OR_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NOW",
+    "aliases": [
+      "CURRENT_TIMESTAMP",
+      "LOCALTIME",
+      "LOCALTIMESTAMP"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NULLABLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NULLIF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "NULL_OR_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "OVERLAY",
+    "aliases": [
+      "INSERT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PARSE_DATA_SIZE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PARSE_TO_VARIANT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PARSE_URL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PASSWORD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PERIOD_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PERIOD_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PI",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PMOD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "POSITION",
+    "aliases": [
+      "LOCATE"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "POSITIVE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "POW",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "POWER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PREVIOUS_DAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "PROTOCOL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUANTILE_PERCENT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUANTILE_STATE_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUANTILE_STATE_FROM_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUANTILE_STATE_TO_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTERS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTERS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTERS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTER_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUARTER_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "QUOTE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RADIANS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RAND",
+    "aliases": [
+      "RANDOM"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RANDOM_BYTES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_COUNT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_EXTRACT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_EXTRACT_ALL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_EXTRACT_OR_NULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_REPLACE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REGEXP_REPLACE_ONE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REPEAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REPLACE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REPLACE_EMPTY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "REVERSE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RIGHT",
+    "aliases": [
+      "STRRIGHT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ROUND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ROUND_BANKERS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RPAD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RTRIM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "RTRIM_IN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SCORE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SEARCH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SEC",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECONDS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECONDS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECONDS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND_FROM_UNIXTIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND_MICROSECOND",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SECOND_TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SEC_TO_TIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SESSION_USER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SHA1",
+    "aliases": [
+      "SHA"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SHA2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SIGN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SIGNBIT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SINH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SLEEP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SM3",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SM3SUM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SM4_DECRYPT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SM4_ENCRYPT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SORT_JSONB_OBJECT_KEYS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SORT_JSON_OBJECT_KEYS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SOUNDEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SPACE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SPLIT_BY_REGEXP",
+    "aliases": [
+      "REGEXP_SPLIT_TO_ARRAY"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SPLIT_BY_STRING",
+    "aliases": [
+      "SPLIT"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SPLIT_PART",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SQRT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STARTS_WITH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STRCMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STRIP_NULL_VALUE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STRUCT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STR_TO_DATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "STR_TO_MAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_ANGLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_ANGLE_SPHERE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_AREA_SQUARE_KM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_AREA_SQUARE_METERS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_ASBINARY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_ASTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_ASWKT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_AZIMUTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_CIRCLE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_CONTAINS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_DISJOINT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_DISTANCE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_DISTANCE_SPHERE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_GEOMETRYFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_GEOMETRYFROMWKB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_GEOMETRYTYPE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_GEOMFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_GEOMFROMWKB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_INTERSECTS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_LENGTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_LINEFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_LINESTRINGFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_POINT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_POLYFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_POLYGON",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_POLYGONFROMTEXT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_TOUCHES",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_X",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "ST_Y",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUBSTR",
+    "aliases": [
+      "SUBSTRING",
+      "MID"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUBSTRING_INDEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUB_BINARY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUB_BITMAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUB_REPLACE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "SUB_TIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TAN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TANH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TIMEDIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TIME_FORMAT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TIME_TO_SEC",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TOKENIZE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TOP_LEVEL_DOMAIN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_BASE64",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_BASE64_BINARY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_BINARY",
+    "aliases": [
+      "TO_HEX"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_BITMAP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_BITMAP_WITH_CHECK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_DATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_DATEV2",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_DAYS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV4",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV4_OR_DEFAULT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV4_OR_NULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV6",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV6_OR_DEFAULT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_IPV6_OR_NULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_ISO8601",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_JSON",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_MONDAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_QUANTILE_STATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TO_SECONDS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TRANSLATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TRIM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TRIM_IN",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TRUNCATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "TRY_PARSE_TO_VARIANT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UCASE",
+    "aliases": [
+      "UPPER"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNCOMPRESS",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNHEX",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNHEX_NULL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNICODE_NORMALIZE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNIFORM",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UNIX_TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "URL_DECODE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "URL_ENCODE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "USER",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UTC_DATE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UTC_TIME",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UTC_TIMESTAMP",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UUID",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UUID_NUMERIC",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "UUID_TO_INT",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "VARIANT_TYPE",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "VERSION",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEKDAY",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEKOFYEAR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEKS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEKS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEKS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEK_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WEEK_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "WIDTH_BUCKET",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "XOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "XPATH_STRING",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "XXHASH_32",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "XXHASH_64",
+    "aliases": [
+      "XXHASH3_64"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEAR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEARS_ADD",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEARS_DIFF",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEARS_SUB",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEARWEEK",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEAR_CEIL",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEAR_FLOOR",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEAR_MONTH",
+    "aliases": [],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "YEAR_OF_WEEK",
+    "aliases": [
+      "YOW"
+    ],
+    "kind": "SCALAR"
+  },
+  {
+    "name": "AI_AGG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ANY",
+    "aliases": [
+      "ANY_VALUE"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "APPROX_COUNT_DISTINCT",
+    "aliases": [
+      "NDV"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ARRAY_AGG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "AVG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "AVG_WEIGHTED",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BITMAP_AGG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BITMAP_INTERSECT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BITMAP_UNION",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BITMAP_UNION_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BITMAP_UNION_INT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BOOL_AND",
+    "aliases": [
+      "BOOLAND_AGG"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BOOL_OR",
+    "aliases": [
+      "BOOLOR_AGG"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "BOOL_XOR",
+    "aliases": [
+      "BOOLXOR_AGG"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COLLECT_LIST",
+    "aliases": [
+      "GROUP_ARRAY"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COLLECT_SET",
+    "aliases": [
+      "GROUP_UNIQ_ARRAY"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "CORR",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "CORR_WELFORD",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COUNT_BY_ENUM",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COVAR",
+    "aliases": [
+      "COVAR_POP"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "COVAR_SAMP",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "DATASKETCHES_HLL_UNION_AGG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "EXPONENTIAL_MOVING_AVERAGE",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_ARRAY_INTERSECT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_ARRAY_UNION",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_BITMAP_XOR",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_BIT_AND",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_BIT_OR",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_BIT_XOR",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "GROUP_CONCAT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "HIST",
+    "aliases": [
+      "HISTOGRAM"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "HLL_RAW_AGG",
+    "aliases": [
+      "HLL_UNION"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "HLL_UNION_AGG",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "INTERSECT_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "KURT",
+    "aliases": [
+      "KURT_POP",
+      "KURTOSIS"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "LINEAR_HISTOGRAM",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MAP_AGG_V1",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MAP_AGG_V2",
+    "aliases": [
+      "MAP_AGG"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MAX",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MAX_BY",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MEDIAN",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MIN",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MIN_BY",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MULTI_DISTINCT_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MULTI_DISTINCT_GROUP_CONCAT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MULTI_DISTINCT_SUM",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "MULTI_DISTINCT_SUM0",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ORTHOGONAL_BITMAP_EXPR_CALCULATE",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ORTHOGONAL_BITMAP_EXPR_CALCULATE_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ORTHOGONAL_BITMAP_INTERSECT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ORTHOGONAL_BITMAP_INTERSECT_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "ORTHOGONAL_BITMAP_UNION_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "PERCENTILE",
+    "aliases": [
+      "PERCENTILE_CONT"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "PERCENTILE_APPROX",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "PERCENTILE_APPROX_WEIGHTED",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "PERCENTILE_ARRAY",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "PERCENTILE_RESERVOIR",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "QUANTILE_UNION",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "REGR_INTERCEPT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "REGR_SLOPE",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "RETENTION",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SEM",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SEQUENCE_COUNT",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SEQUENCE_MATCH",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SKEW",
+    "aliases": [
+      "SKEW_POP",
+      "SKEWNESS"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "STDDEV_POP",
+    "aliases": [
+      "STDDEV",
+      "STD"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "STDDEV_SAMP",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SUM",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "SUM0",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "TOPN",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "TOPN_ARRAY",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "TOPN_WEIGHTED",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "VAR_POP",
+    "aliases": [
+      "VARIANCE_POP",
+      "VARIANCE"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "VAR_SAMP",
+    "aliases": [
+      "VARIANCE_SAMP"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "WINDOW_FUNNEL_V1",
+    "aliases": [],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "WINDOW_FUNNEL_V2",
+    "aliases": [
+      "WINDOW_FUNNEL"
+    ],
+    "kind": "AGGREGATE"
+  },
+  {
+    "name": "CUME_DIST",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "DENSE_RANK",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "FIRST_VALUE",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "LAG",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "LAST_VALUE",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "LEAD",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "NTH_VALUE",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "NTILE",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "PERCENT_RANK",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "RANK",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "ROW_NUMBER",
+    "aliases": [],
+    "kind": "WINDOW"
+  },
+  {
+    "name": "BACKENDS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "CATALOGS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "CDC_STREAM",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "FILE",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "FRONTENDS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "FRONTENDS_DISKS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "GROUP_COMMIT",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "HDFS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "HTTP",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "HTTP_STREAM",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "HUDI_META",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "JOBS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "LOCAL",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "MV_INFOS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "NUMBERS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARQUET_BLOOM_PROBE",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARQUET_FILE_METADATA",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARQUET_KV_METADATA",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARQUET_META",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARTITIONS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "PARTITION_VALUES",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "QUERY",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "S3",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "TASKS",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "VECTOR_SEARCH",
+    "aliases": [],
+    "kind": "TABLE_VALUED"
+  },
+  {
+    "name": "EXPLODE",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_BITMAP",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_BITMAP_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_DOUBLE",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_DOUBLE_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_INT",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_INT_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_JSON",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_JSON_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_STRING",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_ARRAY_STRING_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_OBJECT",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_JSON_OBJECT_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_MAP",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_MAP_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_NUMBERS",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_NUMBERS_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_SPLIT",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_SPLIT_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "EXPLODE_VARIANT_ARRAY",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "JSON_EACH",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "JSON_EACH_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "JSON_EACH_TEXT",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "JSON_EACH_TEXT_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "POSEXPLODE",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "POSEXPLODE_OUTER",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  },
+  {
+    "name": "UNNEST",
+    "aliases": [],
+    "kind": "TABLE_GENERATING"
+  }
+]

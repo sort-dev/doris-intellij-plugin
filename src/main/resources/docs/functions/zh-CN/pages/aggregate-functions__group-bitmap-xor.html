@@ -1,0 +1,62 @@
+<div class="definition"><pre>GROUP_BITMAP_XOR</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>主要用于合并多个 bitmap 的值，并对结果进行按位 xor 计算</p>
+<h2>语法</h2>
+<pre><code>GROUP_BITMAP_XOR(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>支持 bitmap 的数据类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回值的数据类型为 BITMAP。
+当组内没有合法数据时，返回 NULL 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE pv_bitmap (
+	page varchar(10),
+	user_id BITMAP
+) DISTRIBUTED BY HASH(page) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO pv_bitmap VALUES
+	('m', to_bitmap(4)),
+	('m', to_bitmap(7)),
+	('m', to_bitmap(8)),
+	('m', to_bitmap(1)),
+	('m', to_bitmap(3)),
+	('m', to_bitmap(6)),
+	('m', to_bitmap(15)),
+	('m', to_bitmap(4)),
+	('m', to_bitmap(7));
+</code></pre>
+<pre><code>select page, bitmap_to_string(group_bitmap_xor(user_id)) from pv_bitmap group by page;
+</code></pre>
+<pre><code>+------+---------------------------------------------+
+| page | bitmap_to_string(group_bitmap_xor(user_id)) |
++------+---------------------------------------------+
+| m    | 1,3,6,8,15                                  |
++------+---------------------------------------------+
+</code></pre>
+<pre><code>select bitmap_to_string(group_bitmap_xor(user_id)) from pv_bitmap where page is null;
+</code></pre>
+<pre><code>+---------------------------------------------+
+| bitmap_to_string(group_bitmap_xor(user_id)) |
++---------------------------------------------+
+| NULL                                        |
++---------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/group-bitmap-xor/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

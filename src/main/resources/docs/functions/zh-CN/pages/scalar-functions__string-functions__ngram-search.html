@@ -1,0 +1,97 @@
+<div class="definition"><pre>NGRAM_SEARCH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>NGRAM_SEARCH 函数用于计算两个字符串的 N-gram 相似度。相似度范围为 0 到 1，值越大表示字符串越相似。</p>
+<p>N-gram 是将字符串分解为连续 N 个字符的集合。相似度计算公式为：<code>2 * |交集| / (|集合1| + |集合2|)</code></p>
+<p>仅支持 ASCII 字符。</p>
+<h2>语法</h2>
+<pre><code>NGRAM_SEARCH(&lt;text&gt;, &lt;pattern&gt;, &lt;gram_num&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;text&gt;</code></td>
+<td>需要比较的文本字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;pattern&gt;</code></td>
+<td>模式字符串（必须为常量）。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;gram_num&gt;</code></td>
+<td>N-gram 的 N 值，必须为正整数常量。类型：INT。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 DOUBLE 类型，为两个字符串的 N-gram 相似度（0 到 1 之间）。</p>
+<p>特殊情况：</p>
+<ul>
+<li><code>&lt;text&gt;</code> 或 <code>&lt;pattern&gt;</code> 为 NULL 时，返回 NULL；<code>&lt;gram_num&gt;</code> 必须满足正整数常量约束，不能为 NULL</li>
+<li>如果字符串长度小于 <code>&lt;gram_num&gt;</code>，返回 0</li>
+<li><code>&lt;pattern&gt;</code> 和 <code>&lt;gram_num&gt;</code> 必须为常量。Doris 4.1 系列自 4.1.5 起，对 <code>&lt;gram_num&gt;</code> 为 0、负数或非整数常量等非法输入显式报错</li>
+<li>相似度为 1 不一定表示字符串完全相同</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：计算相似度</li>
+</ol>
+<pre><code>SELECT ngram_search('123456789', '12345', 3);
+</code></pre>
+<pre><code>+---------------------------------------+
+| ngram_search('123456789', '12345', 3) |
++---------------------------------------+
+|                                   0.6 |
++---------------------------------------+
+</code></pre>
+<ol>
+<li>高相似度示例</li>
+</ol>
+<pre><code>SELECT ngram_search('abababab', 'babababa', 2);
+</code></pre>
+<pre><code>+-----------------------------------------+
+| ngram_search('abababab', 'babababa', 2) |
++-----------------------------------------+
+|                                       1 |
++-----------------------------------------+
+</code></pre>
+<ol>
+<li>字符串过短返回 0</li>
+</ol>
+<pre><code>SELECT ngram_search('ab', 'abc', 3);
+</code></pre>
+<pre><code>+----------------------------------+
+| ngram_search('ab', 'abc', 3)     |
++----------------------------------+
+|                                0 |
++----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT ngram_search(NULL, 'test', 2);
+</code></pre>
+<pre><code>+--------------------------------+
+| ngram_search(NULL, 'test', 2)  |
++--------------------------------+
+| NULL                           |
++--------------------------------+
+</code></pre>
+<p>非法的 gram_num 会报错：</p>
+<pre><code>SELECT NGRAM_SEARCH('abc', 'abc', 0);
+</code></pre>
+<pre><code>ngram_search(text,pattern,gram_num): gram_num must be a positive constant.
+</code></pre>
+<h2>关键词</h2>
+<pre><code>NGRAM_SEARCH,NGRAM,SEARCH
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/ngram-search/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

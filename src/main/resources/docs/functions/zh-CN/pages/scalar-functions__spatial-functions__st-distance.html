@@ -1,0 +1,95 @@
+<div class="definition"><pre>ST_DISTANCE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个几何图形在球面上的最短距离，单位为米。此函数使用球面地球模型进行计算。</p>
+<p>与 <code>ST_DISTANCE_SPHERE</code> 接受经纬度坐标不同，<code>ST_DISTANCE</code> 接受几何对象（点、线、多边形、圆等）作为参数，并计算它们边界之间的最短距离。若两个图形相交（包括接触或包含），则返回 0。</p>
+<h2>语法</h2>
+<pre><code>ST_DISTANCE( &lt;shape1&gt;, &lt;shape2&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;shape1&gt;</code></td>
+<td>第一个几何图形，支持 Point,Line,Polygon,Circle,MultiPolygon。</td>
+</tr>
+<tr>
+<td><code>&lt;shape2&gt;</code></td>
+<td>第二个几何图形，支持 Point,Line,Polygon,Circle,MultiPolygon。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回两个几何图形边界之间的最短球面距离，单位为米（DOUBLE 类型）。</p>
+<p><code>ST_DISTANCE</code> 存在以下边缘情况：</p>
+<ul>
+<li>若任一输入参数为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+<li>若任一输入参数无法解析为有效的几何对象，返回 <code>NULL</code>。</li>
+<li>若两个几何图形相交（包括一个图形包含另一个图形），返回 <code>0.0</code>。</li>
+<li>支持的几何类型包括：<code>POINT</code>, <code>LINESTRING</code>, <code>POLYGON</code>, <code>CIRCLE</code>, <code>MULTIPOLYGON</code>。</li>
+</ul>
+<h2>举例</h2>
+<p><strong>点与点之间的距离</strong></p>
+<pre><code>-- 计算赤道上经度相差 1 度的两个点之间的距离
+SELECT ST_DISTANCE(ST_GeometryFromText('POINT(0 0)'), ST_GeometryFromText('POINT(1 0)'));
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------+
+| ST_DISTANCE(ST_GeometryFromText('POINT(0 0)'), ST_GeometryFromText('POINT(1 0)')) |
++------------------------------------------------------------------------------------+
+|                                                                  111195.1011774839 |
++------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>点与线之间的距离</strong></p>
+<pre><code>-- 计算点到线的最短距离
+SELECT ST_DISTANCE(ST_GeometryFromText('POINT(2 2)'), ST_GeometryFromText('LINESTRING(0 0, 10 0)'));
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------------------------+
+| ST_DISTANCE(ST_GeometryFromText('POINT(2 2)'), ST_GeometryFromText('LINESTRING(0 0, 10 0)')) |
++----------------------------------------------------------------------------------------------+
+|                                                                            222390.2023549678 |
++----------------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>多边形与圆相交（距离为 0）</strong></p>
+<pre><code>-- 圆与多边形相交，圆心在外但圆包含了多边形的一部分边界
+SELECT ST_DISTANCE(
+    ST_GeometryFromText('POLYGON ((-0.00045 -0.00045, 0.00045 -0.00045, 0.00045 0.00045, -0.00045 0.00045, -0.00045 -0.00045))'),
+    ST_Circle(0.0006, 0, 50)
+);
+</code></pre>
+<pre><code>+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ST_DISTANCE(
+    ST_GeometryFromText('POLYGON ((-0.00045 -0.00045, 0.00045 -0.00045, 0.00045 0.00045, -0.00045 0.00045, -0.00045 -0.00045))'),
+    ST_Circle(0.0006, 0, 50)
+) |
++-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                                             0 |
++-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>无效参数（返回 NULL）</strong></p>
+<pre><code>-- 无效的 WKT 字符串
+SELECT ST_DISTANCE(ST_GeometryFromText('NOT_A_GEOMETRY'), ST_GeometryFromText('POINT(1 1)'));
+</code></pre>
+<pre><code>+---------------------------------------------------------------------------------------+
+| ST_DISTANCE(ST_GeometryFromText('NOT_A_GEOMETRY'), ST_GeometryFromText('POINT(1 1)')) |
++---------------------------------------------------------------------------------------+
+|                                                                                  NULL |
++---------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>NULL 参数</strong></p>
+<pre><code>SELECT ST_DISTANCE(NULL, ST_GeometryFromText('POINT(1 1)'));
+</code></pre>
+<pre><code>+------------------------------------------------------+
+| ST_DISTANCE(NULL, ST_GeometryFromText('POINT(1 1)')) |
++------------------------------------------------------+
+|                                                 NULL |
++------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-distance/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,132 @@
+<div class="definition"><pre>UNIFORM</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>使用给定的随机数种子，在特定范围内均匀采样生成随机数。</p>
+<h2>语法</h2>
+<pre><code>UNIFORM( &lt;min&gt; , &lt;max&gt; , &lt;gen&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;min&gt;</code></td>
+<td>随机数的下限，接受数字类型，必须为字面量</td>
+</tr>
+<tr>
+<td><code>&lt;max&gt;</code></td>
+<td>随机数的上限，接受数字类型，必须为字面量</td>
+</tr>
+<tr>
+<td><code>&lt;gen&gt;</code></td>
+<td>整数，随机数种子，常用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/random/">RANDOM</a> 函数随机生成</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回在 <code>[&lt;min&gt;, &lt;max&gt;]</code> 范围内的随机数。如果 <code>&lt;min&gt;</code> 和 <code>&lt;max&gt;</code> 均为整数，则返回值类型为 <code>BIGINT</code>，否则返回值类型为 <code>DOUBLE</code>。</p>
+<p>注意与 Snowflake 的<a href="https://docs.snowflake.com/en/sql-reference/functions/uniform">常见用法</a>不同，由于 Doris 中 RANDOM 的函数返回值默认为 0-1 之间的浮点数，因此如果使用 <code>RANDOM()</code> 作为随机种子，应当附加乘数使其结果一个整数范围内分布。详情见示例。</p>
+<h2>举例</h2>
+<p>输入参数全为整数时，返回整数：</p>
+<pre><code>select uniform(-100, 100, random() * 10000) as result from numbers("number" = "10");
+</code></pre>
+<pre><code>+--------+
+| result |
++--------+
+|    -82 |
+|    -79 |
+|     21 |
+|     19 |
+|     50 |
+|     53 |
+|   -100 |
+|    -67 |
+|     46 |
+|     40 |
++--------+
+</code></pre>
+<p>输入参数有非整数时，返回 double 类型：</p>
+<pre><code>select uniform(1, 100., random() * 10000) as result from numbers("number" = "10");
+</code></pre>
+<pre><code>+-------------------+
+| result            |
++-------------------+
+| 84.25057360297031 |
+| 63.34296160793329 |
+|  81.8770598286311 |
+| 26.53334147605743 |
+| 17.42787914185705 |
+| 2.532901549399078 |
+| 63.72223367924216 |
+| 78.42165786093118 |
+|   18.913688179943 |
+| 41.73057334477316 |
++-------------------+
+</code></pre>
+<p>必须为字面量：</p>
+<pre><code>select uniform(1, unix_timestamp(), random() * 10000) as result from numbers("number" = "10");
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = The second parameter (max) of uniform function must be literal
+</code></pre>
+<p>必须为字面量：</p>
+<pre><code>select uniform(1, ksint, random()) from fn_test;
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = The second parameter (max) of uniform function must be literal
+</code></pre>
+<p>固定的种子将产生固定的结果（<code>random()</code> 的结果在 0-1 之间分布，直接使用时 <code>uniform</code> 的种子参数始终为 <code>0</code>）：</p>
+<pre><code>select uniform(-100, 100, random()) as result from numbers("number" = "10");
+</code></pre>
+<pre><code>+--------+
+| result |
++--------+
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
+|    -68 |
++--------+
+</code></pre>
+<p>当任意输入为 NULL 时，输出也为 NULL：</p>
+<pre><code>select uniform(-100, NULL, random() * 10000) as result from numbers("number" = "10");
+</code></pre>
+<pre><code>+--------+
+| result |
++--------+
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
+|   NULL |
++--------+
+</code></pre>
+<pre><code>select k0, uniform(0, 1000, k0) from it order by k0;
+</code></pre>
+<pre><code>+------+----------------------+
+| k0   | uniform(0, 1000, k0) |
++------+----------------------+
+| NULL |                 NULL |
+|    1 |                  134 |
+|    2 |                  904 |
+|    3 |                  559 |
+|    4 |                  786 |
+|    5 |                  673 |
++------+----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/uniform/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

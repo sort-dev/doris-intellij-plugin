@@ -1,0 +1,67 @@
+<div class="definition"><pre>NORMAL_CDF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算正态分布在值 <code>x</code> 处的累积分布函数 (CDF)。</p>
+<ul>
+<li>当正态分布的标准差小于等于 <code>0</code>，则返回 <code>NULL</code>。</li>
+</ul>
+<h2>语法</h2>
+<pre><code>NORMAL_CDF(&lt;mean&gt;, &lt;sd&gt;, &lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;mean&gt;</code></td>
+<td>正态分布的均值</td>
+</tr>
+<tr>
+<td><code>&lt;sd&gt;</code></td>
+<td>正态分布的标准差</td>
+</tr>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>要评价的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回某一正态随机变量在值 <code>x</code> 处的累积分布函数 (CDF) 值。</p>
+<ul>
+<li>当正态分布的标准差小于等于 <code>0</code>，则返回 <code>NULL</code>。</li>
+<li>任意一个输入为<code>NULL</code>,则返回 <code>NULL</code>。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select normal_cdf(10, 9, 10);
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------+
+| normal_cdf(cast(10 as DOUBLE), cast(9 as DOUBLE), cast(10 as DOUBLE)) |
++-----------------------------------------------------------------------+
+|                                                                   0.5 |
++-----------------------------------------------------------------------+
+</code></pre>
+<pre><code>select NORMAL_CDF(10, 0, 10);
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------+
+| normal_cdf(cast(10 as DOUBLE), cast(0 as DOUBLE), cast(10 as DOUBLE)) |
++-----------------------------------------------------------------------+
+|                                                                  NULL |
++-----------------------------------------------------------------------+
+</code></pre>
+<pre><code>select normal_cdf(10, 9, NULL);
+</code></pre>
+<pre><code>+-------------------------+
+| normal_cdf(10, 9, NULL) |
++-------------------------+
+|                    NULL |
++-------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/normal-cdf/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

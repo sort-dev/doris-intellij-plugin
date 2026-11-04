@@ -1,0 +1,85 @@
+<div class="definition"><pre>ATANH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回<code>x</code>的反双曲正切值。如果<code>x</code>不在<code>-1</code>到<code>1</code>之间 (不包括<code>-1</code>和<code>1</code>)，则返回<code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>ATANH(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>需要计算反双曲正切值的数值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数<code>x</code>的反双曲正切值。</p>
+<h2>特殊情况处理</h2>
+<ul>
+<li>当 <code>x</code> 等于 0 时，返回 0</li>
+<li>当 <code>x</code> 等于 1 或 -1 时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 超出 (-1, 1) 范围时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NaN 时，返回 NaN</li>
+<li>当 <code>x</code> 为正无穷大或负无穷大时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NULL 时，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<pre><code>select atanh(0.0);
+</code></pre>
+<pre><code>+------------+
+| atanh(0.0) |
++------------+
+|          0 |
++------------+
+</code></pre>
+<pre><code>select atanh(-1.0);
+</code></pre>
+<pre><code>+-------------+
+| atanh(-1.0) |
++-------------+
+|        NULL |
++-------------+
+</code></pre>
+<pre><code>select atanh(1.0);
+</code></pre>
+<pre><code>+------------+
+| atanh(1.0) |
++------------+
+|       NULL |
++------------+
+</code></pre>
+<pre><code>select atanh(0.5);
+</code></pre>
+<pre><code>+--------------------+
+| atanh(0.5)         |
++--------------------+
+| 0.5493061443340548 |
++--------------------+
+</code></pre>
+<pre><code>select atanh(cast('nan' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| atanh(cast('nan' AS DOUBLE)) |
++---------------------------+
+| NaN                       |
++---------------------------+
+</code></pre>
+<pre><code>select atanh(cast('inf' as double));
+</code></pre>
+<pre><code>+---------------------------+
+| atanh(cast('inf' AS DOUBLE)) |
++---------------------------+
+| NULL                      |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/atanh/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

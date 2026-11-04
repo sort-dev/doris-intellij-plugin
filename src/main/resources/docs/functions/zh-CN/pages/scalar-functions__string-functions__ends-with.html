@@ -1,0 +1,156 @@
+<div class="definition"><pre>ENDS_WITH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>ENDS_WITH 函数用于检查字符串是否以指定的后缀结尾。</p>
+<h2>语法</h2>
+<pre><code>ENDS_WITH(&lt;str&gt;, &lt;suffix&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>str</code></td>
+<td>要检查的主字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>suffix</code></td>
+<td>要匹配的后缀字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 BOOLEAN 类型（在 Doris 中以 TINYINT 形式显示，1 表示 true，0 表示 false）。</p>
+<p>匹配规则：</p>
+<ul>
+<li>精确后缀匹配，大小写敏感</li>
+<li>空后缀与任何字符串都匹配（返回 true）</li>
+<li>支持 UTF-8 多字节字符的正确匹配</li>
+<li>后缀长度不能超过主字符串长度（除非后缀为空）</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果后缀为空字符串，返回 true（任何字符串都以空字符串结尾）</li>
+<li>如果主字符串为空但后缀不为空，返回 false</li>
+<li>如果两者都为空字符串，返回 true</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本后缀匹配</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('Hello doris', 'doris'), ENDS_WITH('Hello doris', 'Hello');
+</code></pre>
+<pre><code>+-----------------------------------+-----------------------------------+
+| ENDS_WITH('Hello doris', 'doris') | ENDS_WITH('Hello doris', 'Hello') |
++-----------------------------------+-----------------------------------+
+|                                 1 |                                 0 |
++-----------------------------------+-----------------------------------+
+</code></pre>
+<ol>
+<li>大小写敏感性</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('Hello World', 'world'), ENDS_WITH('Hello World', 'World');
+</code></pre>
+<pre><code>+-----------------------------------+-----------------------------------+
+| ENDS_WITH('Hello World', 'world') | ENDS_WITH('Hello World', 'World') |
++-----------------------------------+-----------------------------------+
+|                                 0 |                                 1 |
++-----------------------------------+-----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT ENDS_WITH(NULL, 'test'), ENDS_WITH('test', NULL);
+</code></pre>
+<pre><code>+--------------------------+--------------------------+
+| ENDS_WITH(NULL, 'test')  | ENDS_WITH('test', NULL)  |
++--------------------------+--------------------------+
+| NULL                     | NULL                     |
++--------------------------+--------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('hello', ''), ENDS_WITH('', 'world');
+</code></pre>
+<pre><code>+-------------------------+--------------------------+
+| ENDS_WITH('hello', '')  | ENDS_WITH('', 'world')   |
++-------------------------+--------------------------+
+|                       1 |                        0 |
++-------------------------+--------------------------+
+</code></pre>
+<ol>
+<li>完整字符串匹配</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('test', 'test'), ENDS_WITH('testing', 'test');
+</code></pre>
+<pre><code>+---------------------------+------------------------------+
+| ENDS_WITH('test', 'test') | ENDS_WITH('testing', 'test') |
++---------------------------+------------------------------+
+|                         1 |                            0 |
++---------------------------+------------------------------+
+</code></pre>
+<ol>
+<li>文件扩展名检查</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('document.pdf', '.pdf'), ENDS_WITH('image.jpg', '.png');
+</code></pre>
+<pre><code>+------------------------------------+----------------------------------+
+| ENDS_WITH('document.pdf', '.pdf')  | ENDS_WITH('image.jpg', '.png')   |
++------------------------------------+----------------------------------+
+|                                  1 |                                0 |
++------------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('hello ṭṛì ḍḍumai', 'ḍḍumai'), ENDS_WITH('hello ṭṛì ḍḍumai', 'ṭṛì');
+</code></pre>
+<pre><code>+------------------------------------------+---------------------------------------+
+| ENDS_WITH('hello ṭṛì ḍḍumai', 'ḍḍumai') | ENDS_WITH('hello ṭṛì ḍḍumai', 'ṭṛì')  |
++------------------------------------------+---------------------------------------+
+|                                        1 |                                     0 |
++------------------------------------------+---------------------------------------+
+</code></pre>
+<ol>
+<li>URL 路径检查</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('https://example.com/api', '/api'), ENDS_WITH('https://example.com/', '.html');
+</code></pre>
+<pre><code>+--------------------------------------------+---------------------------------------------+
+| ENDS_WITH('https://example.com/api', '/api') | ENDS_WITH('https://example.com/', '.html') |
++--------------------------------------------+---------------------------------------------+
+|                                          1 |                                           0 |
++--------------------------------------------+---------------------------------------------+
+</code></pre>
+<ol>
+<li>数字字符串后缀</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('123456789', '789'), ENDS_WITH('123456789', '456');
+</code></pre>
+<pre><code>+--------------------------------+--------------------------------+
+| ENDS_WITH('123456789', '789')  | ENDS_WITH('123456789', '456')  |
++--------------------------------+--------------------------------+
+|                              1 |                              0 |
++--------------------------------+--------------------------------+
+</code></pre>
+<ol>
+<li>电子邮件域名检查</li>
+</ol>
+<pre><code>SELECT ENDS_WITH('user@gmail.com', '.com'), ENDS_WITH('admin@company.org', '.com');
+</code></pre>
+<pre><code>+------------------------------------+--------------------------------------+
+| ENDS_WITH('user@gmail.com', '.com') | ENDS_WITH('admin@company.org', '.com') |
++------------------------------------+--------------------------------------+
+|                                  1 |                                    0 |
++------------------------------------+--------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/ends-with/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

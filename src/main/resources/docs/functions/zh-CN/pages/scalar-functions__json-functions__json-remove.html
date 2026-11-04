@@ -1,0 +1,64 @@
+<div class="definition"><pre>JSON_REMOVE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>JSON_REMOVE</code> 函数用于从 JSON 文档中删除数据并返回结果。</p>
+<h2>语法</h2>
+<pre><code>JSON_REMOVE (&lt;json_object&gt;, path[, path] ...)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;json_object&gt;</code> JSON 类型表达式，被删除的目标。</li>
+<li><code>&lt;path&gt;</code> String 类型表达式，路径参数按从左到右的顺序进行求值。对一个路径进行求值所产生的 JSON 文档成为下一个路径求值的新值。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li><code>Nullable(JSON)</code> 返回被删除后的 JSON 对象。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>路径不存在</li>
+</ol>
+<pre><code>SELECT JSON_REMOVE('{"a": 1, "b": 2, "c": 3}', '$.d');
+</code></pre>
+<pre><code>+------------------------------------------------+
+| JSON_REMOVE('{"a": 1, "b": 2, "c": 3}', '$.d') |
++------------------------------------------------+
+| {"a":1,"b":2,"c":3}                            |
++------------------------------------------------+
+</code></pre>
+<ol>
+<li><code>&lt;path&gt;</code> 指向的值在 JSON 对象中删除</li>
+</ol>
+<pre><code>SELECT JSON_REMOVE('{"Name": "Jack", "Gender": "Male", "Age": 20}', '$.Age');
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------+
+| JSON_REMOVE('{"Name": "Jack", "Gender": "Male", "Age": 20}', '$.Age') |
++-----------------------------------------------------------------------+
+| {"Name":"Jack","Gender":"Male"}                                       |
++-----------------------------------------------------------------------+
+</code></pre>
+<ol>
+<li>指定多个路径从 JSON 对象的多个位置删除数据</li>
+</ol>
+<pre><code>SELECT JSON_REMOVE('[1, 2, 3, 4, 5]', '$[3]'), JSON_REMOVE('[1, 2, 3, 4, 5]', '$[1]', '$[3]');
+</code></pre>
+<pre><code>+----------------------------------------+------------------------------------------------+
+| JSON_REMOVE('[1, 2, 3, 4, 5]', '$[3]') | JSON_REMOVE('[1, 2, 3, 4, 5]', '$[1]', '$[3]') |
++----------------------------------------+------------------------------------------------+
+| [1,2,3,5]                              | [1,3,4]                                        |
++----------------------------------------+------------------------------------------------+
+</code></pre>
+<ol>
+<li>更大的 JSON 对象</li>
+</ol>
+<pre><code>SELECT JSON_REMOVE('{"Person": {"Name": "Jack","Age": 20,"Hobbies": ["Eating", "Sleeping", "Base Jumping"]}}', '$.Person.Age', '$.Person.Hobbies[2]');
+</code></pre>
+<pre><code>+------------------------------------------------------------------------------------------------------------------------------------------------+
+| JSON_REMOVE('{"Person": {"Name": "Jack","Age": 20,"Hobbies": ["Eating", "Sleeping", "Base Jumping"]}}', '$.Person.Age', '$.Person.Hobbies[2]') |
++------------------------------------------------------------------------------------------------------------------------------------------------+
+| {"Person":{"Name":"Jack","Hobbies":["Eating","Sleeping"]}}                                                                                     |
++------------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/json-functions/json-remove/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

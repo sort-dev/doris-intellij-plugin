@@ -1,0 +1,113 @@
+<div class="definition"><pre>FIELD</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回 <code>&lt;expr&gt;</code> 在参数列表中的位置（基于 1 的索引），常用于 <code>ORDER BY</code> 子句中实现自定义排序。如果 <code>&lt;expr&gt;</code> 不在参数列表中，或 <code>&lt;expr&gt;</code> 为 <code>NULL</code>，则返回 <code>0</code>。在自定义排序中，不在参数列表中的数据会被排到最前面，可通过 <code>asc</code> 或 <code>desc</code> 控制整体排序顺序；对于 <code>NULL</code> 值，可以使用 <code>nulls first</code> 或 <code>nulls last</code> 控制排序顺序。</p>
+<h2>语法</h2>
+<pre><code>FIELD(&lt;expr&gt;, &lt;param&gt; [, ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>要搜索的值。</td>
+</tr>
+<tr>
+<td><code>&lt;param&gt;</code></td>
+<td>用于比较的一系列值。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>&lt;expr&gt;</code> 在 <code>&lt;param&gt;</code> 参数列表中的位置（基于 1 的索引）。如果 <code>&lt;expr&gt;</code> 不存在于参数列表中，或者 <code>&lt;expr&gt;</code> 为 <code>NULL</code>，则返回 <code>0</code>。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+CREATE TABLE baseall (k1 INT, k7 VARCHAR(64))
+DISTRIBUTED BY HASH(k1) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO baseall VALUES
+    (1, 'wangjing04'),
+    (2, 'wangyu14'),
+    (3, 'yuanyuan06');
+
+CREATE TABLE class_test (class_name VARCHAR(64))
+DISTRIBUTED BY HASH(class_name) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO class_test VALUES
+    ('Suzi'), ('Suzi'),
+    ('Ben'), ('Ben'),
+    ('Henry'), ('Henry'),
+    (NULL);
+</code></pre>
+<p>直接使用 <code>FIELD</code> 查找位置（基于 1 的索引）：</p>
+<pre><code>SELECT FIELD(2, 3, 1, 2, 5);
+</code></pre>
+<pre><code>+----------------------+
+| FIELD(2, 3, 1, 2, 5) |
++----------------------+
+|                    3 |
++----------------------+
+</code></pre>
+<pre><code>SELECT k1, k7 FROM baseall WHERE k1 IN (1,2,3) ORDER BY FIELD(k1,2,1,3);
+</code></pre>
+<pre><code>+------+------------+
+| k1   | k7         |
++------+------------+
+|    2 | wangyu14   |
+|    1 | wangjing04 |
+|    3 | yuanyuan06 |
++------+------------+
+</code></pre>
+<pre><code>SELECT class_name FROM class_test ORDER BY FIELD(class_name, 'Suzi', 'Ben', 'Henry');
+</code></pre>
+<pre><code>+------------+
+| class_name |
++------------+
+| NULL       |
+| Suzi       |
+| Suzi       |
+| Ben        |
+| Ben        |
+| Henry      |
+| Henry      |
++------------+
+</code></pre>
+<pre><code>SELECT class_name FROM class_test ORDER BY FIELD(class_name, 'Suzi', 'Ben', 'Henry') DESC;
+</code></pre>
+<pre><code>+------------+
+| class_name |
++------------+
+| Henry      |
+| Henry      |
+| Ben        |
+| Ben        |
+| Suzi       |
+| Suzi       |
+| NULL       |
++------------+
+</code></pre>
+<pre><code>SELECT class_name FROM class_test ORDER BY FIELD(class_name, 'Suzi', 'Ben', 'Henry') NULLS FIRST;
+</code></pre>
+<pre><code>+------------+
+| class_name |
++------------+
+| NULL       |
+| Suzi       |
+| Suzi       |
+| Ben        |
+| Ben        |
+| Henry      |
+| Henry      |
++------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/other-functions/field/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

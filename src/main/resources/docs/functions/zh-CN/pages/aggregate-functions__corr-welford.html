@@ -1,0 +1,92 @@
+<div class="definition"><pre>CORR_WELFORD</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>采用 <a href="https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford&#x27;s_online_algorithm">Welford</a> 算法计算两个随机变量的皮尔逊系数，能够有效降低计算误差。</p>
+<h2>语法</h2>
+<pre><code>CORR_WELFORD(&lt;expr1&gt;, &lt;expr2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr1&gt;</code></td>
+<td>用于计算的表达式之一，支持类型为 Double 。</td>
+</tr>
+<tr>
+<td><code>&lt;expr2&gt;</code></td>
+<td>用于计算的表达式之一，支持类型为 Double 。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回值为 DOUBLE 类型，expr1 和 expr2 的协方差，除 expr1 和 expr2 的标准差乘积，特殊情况：</p>
+<ul>
+<li>如果 expr1 或 expr2 的标准差为 0, 将返回 0。</li>
+<li>如果 expr1 或者 expr2 某一列为 NULL 时，该行数据不会被统计到最终结果中。</li>
+<li>如果组内没有有效数据，返回 NULL 。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- setup
+create table test_corr(
+    id int,
+    k1 double,
+    k2 double
+) distributed by hash (id) buckets 1
+properties ("replication_num"="1");
+
+insert into test_corr values 
+    (1, 20, 22),
+    (1, 10, 20),
+    (2, 36, 21),
+    (2, 30, 22),
+    (2, 25, 20),
+    (3, 25, NULL),
+    (4, 25, 21),
+    (4, 25, 22),
+    (4, 25, 20);
+</code></pre>
+<pre><code>select * from test_corr order by id, k1, k2;
+</code></pre>
+<pre><code>+------+------+------+
+| id   | k1   | k2   |
++------+------+------+
+|    1 |   10 |   20 |
+|    1 |   20 |   22 |
+|    2 |   25 |   20 |
+|    2 |   30 |   22 |
+|    2 |   36 |   21 |
+|    3 |   25 | NULL |
+|    4 |   25 |   20 |
+|    4 |   25 |   21 |
+|    4 |   25 |   22 |
++------+------+------+
+</code></pre>
+<pre><code>select id, corr_welford(k1, k2) from test_corr group by id order by id;
+</code></pre>
+<pre><code>+------+----------------------+
+| id   | corr_welford(k1, k2) |
++------+----------------------+
+|    1 |                    1 |
+|    2 |   0.4539206495016017 |
+|    3 |                 NULL |
+|    4 |                    0 |
++------+----------------------+
+</code></pre>
+<p>当分组内没有有效的 <code>(k1, k2)</code> 数据对时（此处 <code>id = 999</code> 没有匹配行），聚合返回 NULL。</p>
+<pre><code>select corr_welford(k1, k2) from test_corr where id = 999;
+</code></pre>
+<pre><code>+----------------------+
+| corr_welford(k1, k2) |
++----------------------+
+|                 NULL |
++----------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/corr-welford/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,162 @@
+<div class="definition"><pre>LOCATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>LOCATE 函数返回子字符串 substr 在字符串 str 中第一次出现的位置（从 1 开始计数）。如果指定了可选的第三个参数 pos，则从字符串 str 的指定位置开始搜索。该函数是 MySQL 兼容函数，常用于字符串匹配和位置查找。</p>
+<h2>语法</h2>
+<pre><code>LOCATE(&lt;substr&gt;, &lt;str&gt; [, &lt;pos&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;substr&gt;</code></td>
+<td>需要查找的目标子字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被搜索的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;pos&gt;</code></td>
+<td>可选参数，搜索的起始位置（从 1 开始计数）。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示 substr 在 str 中第一次出现的位置（从 1 开始计数）。</p>
+<p>查找规则：</p>
+<ul>
+<li>位置从 1 开始计数（不是从 0）</li>
+<li>返回第一次匹配的位置</li>
+<li>如果指定了 pos，则从该位置开始搜索，但返回的位置仍然是相对于字符串开头的绝对位置</li>
+<li>搜索是大小写敏感的</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果没有找到匹配项，返回 0</li>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 substr 为空字符串，返回 1（或 pos 的值，如果指定了 pos 且 pos &gt; 1）</li>
+<li>如果 str 为空字符串而 substr 不为空，返回 0</li>
+<li>如果 pos 小于 1，返回 0</li>
+<li>如果 pos 大于 str 的长度，返回 0</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本查找</li>
+</ol>
+<pre><code>SELECT LOCATE('bar', 'foobarbar'), LOCATE('xbar', 'foobar'), LOCATE('bar', 'foobarbar', 5);
+</code></pre>
+<pre><code>+----------------------------+--------------------------+-------------------------------+
+| LOCATE('bar', 'foobarbar') | LOCATE('xbar', 'foobar') | LOCATE('bar', 'foobarbar', 5) |
++----------------------------+--------------------------+-------------------------------+
+|                          4 |                        0 |                             7 |
++----------------------------+--------------------------+-------------------------------+
+</code></pre>
+<ol>
+<li>查找第一个字符</li>
+</ol>
+<pre><code>SELECT LOCATE('f', 'foobar'), LOCATE('r', 'foobar');
+</code></pre>
+<pre><code>+-----------------------+-----------------------+
+| LOCATE('f', 'foobar') | LOCATE('r', 'foobar') |
++-----------------------+-----------------------+
+|                     1 |                     6 |
++-----------------------+-----------------------+
+</code></pre>
+<ol>
+<li>未找到匹配项</li>
+</ol>
+<pre><code>SELECT LOCATE('xyz', 'foobar'), LOCATE('FOO', 'foobar');
+</code></pre>
+<pre><code>+-------------------------+-------------------------+
+| LOCATE('xyz', 'foobar') | LOCATE('FOO', 'foobar') |
++-------------------------+-------------------------+
+|                       0 |                       0 |
++-------------------------+-------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT LOCATE(NULL, 'foobar'), LOCATE('foo', NULL), LOCATE(NULL, NULL);
+</code></pre>
+<pre><code>+------------------------+----------------------+---------------------+
+| LOCATE(NULL, 'foobar') | LOCATE('foo', NULL)  | LOCATE(NULL, NULL)  |
++------------------------+----------------------+---------------------+
+|                   NULL |                 NULL |                NULL |
++------------------------+----------------------+---------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT LOCATE('', 'foobar'), LOCATE('foo', ''), LOCATE('', '');
+</code></pre>
+<pre><code>+----------------------+-------------------+----------------+
+| LOCATE('', 'foobar') | LOCATE('foo', '') | LOCATE('', '') |
++----------------------+-------------------+----------------+
+|                    1 |                 0 |              1 |
++----------------------+-------------------+----------------+
+</code></pre>
+<ol>
+<li>指定起始位置</li>
+</ol>
+<pre><code>SELECT LOCATE('o', 'foobar', 1), LOCATE('o', 'foobar', 2), LOCATE('o', 'foobar', 4);
+</code></pre>
+<pre><code>+--------------------------+--------------------------+--------------------------+
+| LOCATE('o', 'foobar', 1) | LOCATE('o', 'foobar', 2) | LOCATE('o', 'foobar', 4) |
++--------------------------+--------------------------+--------------------------+
+|                        2 |                        2 |                        0 |
++--------------------------+--------------------------+--------------------------+
+</code></pre>
+<ol>
+<li>边界位置参数</li>
+</ol>
+<pre><code>SELECT LOCATE('foo', 'foobar', 0), LOCATE('foo', 'foobar', -1), LOCATE('foo', 'foobar', 10);
+</code></pre>
+<pre><code>+----------------------------+-----------------------------+-----------------------------+
+| LOCATE('foo', 'foobar', 0) | LOCATE('foo', 'foobar', -1) | LOCATE('foo', 'foobar', 10) |
++----------------------------+-----------------------------+-----------------------------+
+|                          0 |                           0 |                           0 |
++----------------------------+-----------------------------+-----------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符查找</li>
+</ol>
+<pre><code>SELECT LOCATE('ṛì', 'ṭṛì ḍḍumai'), LOCATE('ḍḍu', 'ṭṛì ḍḍumai');
+</code></pre>
+<pre><code>+---------------------------+-----------------------------+
+| LOCATE('ṛì', 'ṭṛì ḍḍumai') | LOCATE('ḍḍu', 'ṭṛì ḍḍumai') |
++---------------------------+-----------------------------+
+|                         2 |                           5 |
++---------------------------+-----------------------------+
+</code></pre>
+<ol>
+<li>大小写敏感性</li>
+</ol>
+<pre><code>SELECT LOCATE('BAR', 'foobar'), LOCATE('Bar', 'foobar'), LOCATE('bar', 'fooBAR');
+</code></pre>
+<pre><code>+-------------------------+-------------------------+-------------------------+
+| LOCATE('BAR', 'foobar') | LOCATE('Bar', 'foobar') | LOCATE('bar', 'fooBAR') |
++-------------------------+-------------------------+-------------------------+
+|                       0 |                       0 |                       0 |
++-------------------------+-------------------------+-------------------------+
+</code></pre>
+<ol>
+<li>空字符串与位置参数</li>
+</ol>
+<pre><code>SELECT LOCATE('', 'foobar', 3), LOCATE('', 'foobar', 7), LOCATE('', '', 1);
+</code></pre>
+<pre><code>+-------------------------+-------------------------+---------------------+
+| LOCATE('', 'foobar', 3) | LOCATE('', 'foobar', 7) | LOCATE('', '', 1)   |
++-------------------------+-------------------------+---------------------+
+|                       3 |                       0 |                   1 |
++-------------------------+-------------------------+---------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/locate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

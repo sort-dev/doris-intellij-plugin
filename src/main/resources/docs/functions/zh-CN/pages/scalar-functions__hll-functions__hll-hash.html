@@ -1,0 +1,40 @@
+<div class="definition"><pre>HLL_HASH</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将一个值转换为 HLL（HyperLogLog）类型。该函数通常用于数据加载时，将普通类型的值转换为 HLL 类型，常用于处理大数据集的去重和计数操作。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入值为 NULL，则返回 NULL。</li>
+</ul>
+<h2>语法</h2>
+<pre><code>HLL_HASH(&lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>需要转换为 HLL 类型的值。可以是字符串、数字或任意数据类型。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 HLL 类型的值。返回结果类型为 HLL。</p>
+<h2>举例</h2>
+<pre><code>select HLL_CARDINALITY(HLL_HASH('abc'));
+</code></pre>
+<pre><code>+----------------------------------+
+| hll_cardinality(HLL_HASH('abc')) |
++----------------------------------+
+|                                1 |
++----------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/hll-functions/hll-hash/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

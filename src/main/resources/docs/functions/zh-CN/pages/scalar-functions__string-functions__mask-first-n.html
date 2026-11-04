@@ -1,0 +1,157 @@
+<div class="definition"><pre>MASK_FIRST_N</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MASK_FIRST_N 函数用于对字符串的前 N 个字节进行脱敏。将前 N 个字节中的大写字母替换为 <code>X</code>，小写字母替换为 <code>x</code>，数字替换为 <code>n</code>。</p>
+<h2>语法</h2>
+<pre><code>MASK_FIRST_N(&lt;str&gt;[, &lt;n&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被脱敏的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;n&gt;</code></td>
+<td>需要脱敏的前 N 个字节数（可选，默认为整个字符串）。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为前 N 个字节被脱敏后的字符串。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>非字母和数字字符保持不变</li>
+<li>如果 <code>&lt;n&gt;</code> 大于字符串长度，脱敏整个字符串</li>
+<li>仅支持ASCII字母的替换，非ASCII字母（如带重音的拉丁字母）会原样保留</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：脱敏前4个字节</li>
+</ol>
+<pre><code>SELECT mask_first_n('1234-5678', 4);
+</code></pre>
+<pre><code>+------------------------------+
+| mask_first_n('1234-5678', 4) |
++------------------------------+
+| nnnn-5678                    |
++------------------------------+
+</code></pre>
+<ol>
+<li>不指定 n（脱敏整个字符串）</li>
+</ol>
+<pre><code>SELECT mask_first_n('abc123');
+</code></pre>
+<pre><code>+-----------------------+
+| mask_first_n('abc123') |
++-----------------------+
+| xxxnnn                |
++-----------------------+
+</code></pre>
+<ol>
+<li>n 超过字符串长度</li>
+</ol>
+<pre><code>SELECT mask_first_n('Hello', 100);
+</code></pre>
+<pre><code>+----------------------------+
+| mask_first_n('Hello', 100) |
++----------------------------+
+| Xxxxx                      |
++----------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT mask_first_n(NULL, 5);
+</code></pre>
+<pre><code>+-----------------------+
+| mask_first_n(NULL, 5) |
++-----------------------+
+| NULL                  |
++-----------------------+
+</code></pre>
+<ol>
+<li>n 为 0（不脱敏任何字符）</li>
+</ol>
+<pre><code>SELECT mask_first_n('Hello123', 0);
+</code></pre>
+<pre><code>+-----------------------------+
+| mask_first_n('Hello123', 0) |
++-----------------------------+
+| Hello123                    |
++-----------------------------+
+</code></pre>
+<ol>
+<li>n 大于字符串长度（脱敏整个字符串）</li>
+</ol>
+<pre><code>SELECT mask_first_n('Test', 100);
+</code></pre>
+<pre><code>+---------------------------+
+| mask_first_n('Test', 100) |
++---------------------------+
+| Xxxx                      |
++---------------------------+
+</code></pre>
+<ol>
+<li>脱敏邮箱地址前缀</li>
+</ol>
+<pre><code>SELECT mask_first_n('user@example.com', 6);
+</code></pre>
+<pre><code>+-------------------------------------+
+| mask_first_n('user@example.com', 6) |
++-------------------------------------+
+| xxxx@xxample.com                    |
++-------------------------------------+
+</code></pre>
+<ol>
+<li>脱敏手机号前3位</li>
+</ol>
+<pre><code>SELECT mask_first_n('13812345678', 3);
+</code></pre>
+<pre><code>+--------------------------------+
+| mask_first_n('13812345678', 3) |
++--------------------------------+
+| nnn12345678                    |
++--------------------------------+
+</code></pre>
+<ol>
+<li>混合字母数字特殊字符</li>
+</ol>
+<pre><code>SELECT mask_first_n('Abc-123-XYZ', 7);
+</code></pre>
+<pre><code>+---------------------------------+
+| mask_first_n('Abc-123-XYZ', 7)  |
++---------------------------------+
+| Xxx-nnn-XYZ                     |
++---------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 字符处理（按字节脱敏）</li>
+</ol>
+<pre><code>SELECT mask_first_n('ṭṛWorld123', 7);
+</code></pre>
+<pre><code>+-----------------------------------+
+| mask_first_n('ṭṛWorld123', 7)     |
++-----------------------------------+
+| ṭṛXorld123                        |
++-----------------------------------+
+</code></pre>
+<pre><code>select mask_first_n('eeeéèêëìí1234');
+</code></pre>
+<pre><code>+-------------------------------------+
+| mask_first_n('eeeéèêëìí1234')       |
++-------------------------------------+
+| xxxéèêëìínnnn                       |
++-------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/mask-first-n/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

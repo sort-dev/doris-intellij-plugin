@@ -1,0 +1,36 @@
+<div class="definition"><pre>MAP_CONTAINS_KEY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断给定 <code>map</code> 中是否包含特定的键 <code>key</code></p>
+<h2>语法</h2>
+<pre><code>MAP_CONTAINS_KEY(&lt;map&gt;, &lt;key&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;map&gt;</code> <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/MAP/"><code>MAP</code></a> 类型，输入的 map 内容。</li>
+<li><code>&lt;key&gt;</code> <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/semi-structured/MAP/"><code>MAP</code></a> 支持的 key 类型，需要检索的 key。</li>
+</ul>
+<h2>返回值</h2>
+<p>判断给定 <code>map</code> 中是否包含特定的键 <code>key</code>,存在返回 1 ,不存在返回 0。</p>
+<h2>举例</h2>
+<pre><code>select map_contains_key(map(null, 1, 2, null), null),map_contains_key(map(1, "100", 0.1, 2), 0.11);
+</code></pre>
+<pre><code>+-----------------------------------------------+-----------------------------------------------+
+| map_contains_key(map(null, 1, 2, null), null) | map_contains_key(map(1, "100", 0.1, 2), 0.11) |
++-----------------------------------------------+-----------------------------------------------+
+|                                             1 |                                             0 |
++-----------------------------------------------+-----------------------------------------------+
+</code></pre>
+<ul>
+<li>Map 中的 key 比较使用的是 “null-safe equal”（null 和 null 被认为是相等的），这与标准 SQL 的定义不同。</li>
+</ul>
+<pre><code>select map_contains_key(map(null,1), null);
+</code></pre>
+<pre><code>+-------------------------------------+
+| map_contains_key(map(null,1), null) |
++-------------------------------------+
+|                                   1 |
++-------------------------------------+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-contains-key/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,162 @@
+<div class="definition"><pre>SPLIT_BY_REGEXP/REGEXP_SPLIT_TO_ARRAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>SPLIT_BY_REGEXP 函数用于根据指定的正则表达式模式将字符串拆分成字符串数组。与 SPLIT_BY_STRING 不同，该函数支持复杂的正则表达式匹配，可以处理更灵活的分割规则。支持可选的最大分割数量限制，在处理结构化文本、数据清洗和模式匹配中非常有用。</p>
+<h2>语法</h2>
+<pre><code>SPLIT_BY_REGEXP(&lt;str&gt;, &lt;pattern&gt; [, &lt;max_limit&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要分割的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;pattern&gt;</code></td>
+<td>正则表达式模式，用作分割符。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;max_limit&gt;</code></td>
+<td>可选参数，限制返回数组的最大元素个数。类型：INT</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 ARRAY&lt;VARCHAR&gt; 类型，表示按正则表达式拆分后的字符串数组。</p>
+<p>分割规则：</p>
+<ul>
+<li>使用正则表达式模式匹配分割点</li>
+<li>支持标准的正则表达式语法</li>
+<li>空字符串模式会将字符串拆分成单个字符</li>
+<li>如果模式不匹配任何内容，返回包含原字符串的单元素数组</li>
+<li>max_limit 限制结果数组的最大长度</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL</li>
+<li>如果字符串为空，返回包含空字符串的单元素数组</li>
+<li>如果正则表达式为空字符串，按字符拆分</li>
+<li>如果 max_limit 为 0 或负数，不进行限制</li>
+<li>连续的匹配会产生空字符串元素</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>空模式按字符分割</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('abcde', '');
+</code></pre>
+<pre><code>+------------------------------+
+| SPLIT_BY_REGEXP('abcde', '') |
++------------------------------+
+| ["a", "b", "c", "d", "e"]    |
++------------------------------+
+</code></pre>
+<ol>
+<li>数字模式分割</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('a12bc23de345f', '\\d+');
+</code></pre>
+<pre><code>+-----------------------------------------+
+| SPLIT_BY_REGEXP('a12bc23de345f', '\d+') |
++-----------------------------------------+
+| ["a", "bc", "de", "f"]                  |
++-----------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP(NULL, '\\d+'), SPLIT_BY_REGEXP('test', NULL);
+</code></pre>
+<pre><code>+--------------------------------+--------------------------------+
+| SPLIT_BY_REGEXP(NULL, '\d+')   | SPLIT_BY_REGEXP('test', NULL)  |
++--------------------------------+--------------------------------+
+| NULL                           | NULL                           |
++--------------------------------+--------------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('', ','), SPLIT_BY_REGEXP('hello', 'xyz');
+</code></pre>
+<pre><code>+---------------------------+-------------------------------+
+| SPLIT_BY_REGEXP('', ',')  | SPLIT_BY_REGEXP('hello', 'xyz') |
++---------------------------+-------------------------------+
+| [""]                      | ["hello"]                     |
++---------------------------+-------------------------------+
+</code></pre>
+<ol>
+<li>使用最大限制参数</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('a,b,c,d,e', ',', 3), SPLIT_BY_REGEXP('1-2-3-4-5', '-', 2);
+</code></pre>
+<pre><code>+--------------------------------------+--------------------------------------+
+| SPLIT_BY_REGEXP('a,b,c,d,e', ',', 3) | SPLIT_BY_REGEXP('1-2-3-4-5', '-', 2) |
++--------------------------------------+--------------------------------------+
+| ["a", "b", "c,d,e"]                  | ["1", "2-3-4-5"]                    |
++--------------------------------------+--------------------------------------+
+</code></pre>
+<ol>
+<li>空白字符模式</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('hello world  test', '\\s+'), SPLIT_BY_REGEXP('a\tb\nc\rd', '\\s');
+</code></pre>
+<pre><code>+------------------------------------------+------------------------------------+
+| SPLIT_BY_REGEXP('hello world  test', '\s+') | SPLIT_BY_REGEXP('a\tb\nc\rd', '\s') |
++------------------------------------------+------------------------------------+
+| ["hello", "world", "test"]               | ["a", "b", "c", "d"]               |
++------------------------------------------+------------------------------------+
+</code></pre>
+<ol>
+<li>特殊字符和转义</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('a.b.c.d', '\\.'), SPLIT_BY_REGEXP('x(y)z[w]', '[\\(\\)\\[\\]]');
+</code></pre>
+<pre><code>+----------------------------------+--------------------------------------------+
+| SPLIT_BY_REGEXP('a.b.c.d', '\.') | SPLIT_BY_REGEXP('x(y)z[w]', '[\(\)\[\]]') |
++----------------------------------+--------------------------------------------+
+| ["a", "b", "c", "d"]             | ["x", "y", "z", "w"]                   |
++----------------------------------+--------------------------------------------+
+</code></pre>
+<ol>
+<li>单词边界和复杂模式</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('TheQuickBrownFox', '[A-Z]'), SPLIT_BY_REGEXP('user@example.com', '@|\\.');
+</code></pre>
+<pre><code>+------------------------------------------+-------------------------------------------+
+| SPLIT_BY_REGEXP('TheQuickBrownFox', '[A-Z]') | SPLIT_BY_REGEXP('user@example.com', '@|\.') |
++------------------------------------------+-------------------------------------------+
+| ["", "he", "uick", "rown", "ox"]         | ["user", "example", "com"]                |
++------------------------------------------+-------------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('ṭṛì→ḍḍumai→hello', '→'), SPLIT_BY_REGEXP('αβγδε', '[βδ]');
+</code></pre>
+<pre><code>+------------------------------------------+----------------------------------+
+| SPLIT_BY_REGEXP('ṭṛì→ḍḍumai→hello', '→') | SPLIT_BY_REGEXP('αβγδε', '[βδ]') |
++------------------------------------------+----------------------------------+
+| ["ṭṛì", "ḍḍumai", "hello"]               | ["α", "γ", "ε"]                  |
++------------------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>连续匹配和空元素</li>
+</ol>
+<pre><code>SELECT SPLIT_BY_REGEXP('a,,b,c', ','), SPLIT_BY_REGEXP('123abc456def', '[a-z]+');
+</code></pre>
+<pre><code>+-------------------------------+---------------------------------------+
+| SPLIT_BY_REGEXP('a,,b,c', ',') | SPLIT_BY_REGEXP('123abc456def', '[a-z]+') |
++-------------------------------+---------------------------------------+
+| ["a", "", "b", "c"]           | ["123", "456", ""]                    |
++-------------------------------+---------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/split-by-regexp/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

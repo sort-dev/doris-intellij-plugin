@@ -1,0 +1,55 @@
+<div class="definition"><pre>BITMAP_AND_NOT_COUNT,BITMAP_ANDNOT_COUNT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将两个 BITMAP 进行与非操作并返回计算结果集的元素个数，其中入参第一个叫 <code>基准 BITMAP</code>，第二个叫 <code>排除 BITMAP</code>。</p>
+<h2>别名</h2>
+<ul>
+<li>BITMAP_ANDNOT_COUNT</li>
+</ul>
+<h2>语法</h2>
+<pre><code>BITMAP_AND_NOT_COUNT(&lt;bitmap1&gt;, &lt;bitmap2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap1&gt;</code></td>
+<td>被求与非的<code>基准 BITMAP</code></td>
+</tr>
+<tr>
+<td><code>&lt;bitmap2&gt;</code></td>
+<td>被求与非的<code>排除 BITMAP</code></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回整数。</p>
+<ul>
+<li>当参数存在NULL值时，返回 0</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select bitmap_and_not_count(NULL, bitmap_from_string('1,2,3')) banc1, bitmap_and_not_count(bitmap_from_string('1,2,3') ,NULL) banc2;
+</code></pre>
+<pre><code>+-------+-------+
+| banc1 | banc2 |
++-------+-------+
+|     0 |     0 |
++-------+-------+
+</code></pre>
+<pre><code>select bitmap_and_not_count(bitmap_from_string('1,2,3'), bitmap_from_string('3,4,5')) banc;
+</code></pre>
+<pre><code>+------+
+| banc |
++------+
+|    2 |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-and-not-count/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

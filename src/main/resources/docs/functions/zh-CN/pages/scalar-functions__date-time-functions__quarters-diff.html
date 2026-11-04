@@ -1,0 +1,43 @@
+<div class="definition"><pre>QUARTERS_DIFF</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>QUARTERS_DIFF</code> 函数用于计算两个日期之间相差的季度数。该函数接受两个日期参数，返回第一个日期减去第二个日期后的相差季度数。相差季度数等价于相差月份数除以 3（向 0 取整）。</p>
+<h2>语法</h2>
+<pre><code>QUARTERS_DIFF(&lt;enddate&gt;, &lt;startdate&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;enddate&gt;</code></td>
+<td>结束日期，表示计算差值时的较晚日期。支持 <code>DATE</code> 或 <code>DATETIME</code> 类型</td>
+</tr>
+<tr>
+<td><code>&lt;startdate&gt;</code></td>
+<td>开始日期，表示计算差值时的较早日期。支持 <code>DATE</code> 或 <code>DATETIME</code> 类型</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>&lt;enddate&gt;</code> 减去 <code>&lt;startdate&gt;</code> 所得季度数</p>
+<ul>
+<li>当 <code>&lt;enddate&gt;</code> 与 <code>&lt;startdate&gt;</code> 任意为 NULL 时，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select QUARTERS_DIFF('2021-03-25', '2020-10-25'), QUARTERS_DIFF('2020-10-25 10:00:00', '2022-12-25 11:00:00');
+</code></pre>
+<pre><code>+------------------------------------------+------------------------------------------------------------+
+| QUARTERS_DIFF('2021-03-25','2020-10-25') | QUARTERS_DIFF('2020-10-25 10:00:00','2022-12-25 11:00:00') |
++------------------------------------------+------------------------------------------------------------+
+|                                        1 |                                                         -8 |
++------------------------------------------+------------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/quarters-diff/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

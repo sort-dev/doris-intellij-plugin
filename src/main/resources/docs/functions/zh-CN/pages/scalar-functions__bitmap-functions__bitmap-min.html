@@ -1,0 +1,58 @@
+<div class="definition"><pre>BITMAP_MIN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算并返回 Bitmap 中的最小值。</p>
+<h2>语法</h2>
+<pre><code>bitmap_min(&lt;bitmap&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 类型列或表达式</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>Bitmap 中的最小值。<br>
+若 Bitmap 为空或者为NULL则返回 <code>NULL</code>。</p>
+<h2>示例</h2>
+<p>计算一个空 Bitmap 的最小值：</p>
+<pre><code>select bitmap_min(bitmap_from_string('')) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+|  NULL |
++-------+
+</code></pre>
+<p>计算包含多个元素的 Bitmap 的最小值：</p>
+<pre><code>select bitmap_min(bitmap_from_string('1,9999999999')) value;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+-------+
+| value |
++-------+
+|     1 |
++-------+
+</code></pre>
+<pre><code>select bitmap_min(bitmap_empty()) res1,bitmap_min(NULL) res2;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+------+
+| res1 | res2 |
++------+------+
+| NULL | NULL |
++------+------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-min/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

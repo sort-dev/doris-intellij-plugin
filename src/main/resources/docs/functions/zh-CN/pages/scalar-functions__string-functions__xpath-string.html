@@ -1,0 +1,139 @@
+<div class="definition"><pre>XPATH_STRING</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>XPATH_STRING 函数用于解析 XML 字符串，并返回第一个匹配 XPath 表达式的 XML 节点的文本内容。使用标准的 <a href="https://www.w3.org/TR/xpath-10/">XPath 1.0</a> 语法。</p>
+<p>自 Apache Doris 3.0.6 版本开始支持。</p>
+<h2>语法</h2>
+<pre><code>XPATH_STRING(&lt;xml_string&gt;, &lt;xpath_expression&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;xml_string&gt;</code></td>
+<td>需要解析的 XML 字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;xpath_expression&gt;</code></td>
+<td>XPath 表达式路径。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，为匹配 XPath 表达式的第一个节点的文本内容。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果 XML 格式不正确，函数会报错</li>
+<li>如果 XPath 表达式不正确，函数会报错</li>
+<li>如果没有匹配的节点，返回空字符串</li>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>自动忽略 XML 注释和 CDATA 标记</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本节点值提取</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;123&lt;/a&gt;', '/a');
+</code></pre>
+<pre><code>+-----------------------------------+
+| xpath_string('&lt;a&gt;123&lt;/a&gt;', '/a')  |
++-----------------------------------+
+| 123                               |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>嵌套元素提取</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;&lt;b&gt;123&lt;/b&gt;&lt;/a&gt;', '/a/b');
+</code></pre>
+<pre><code>+--------------------------------------------+
+| xpath_string('&lt;a&gt;&lt;b&gt;123&lt;/b&gt;&lt;/a&gt;', '/a/b')  |
++--------------------------------------------+
+| 123                                        |
++--------------------------------------------+
+</code></pre>
+<ol>
+<li>使用属性</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;&lt;b id="1"&gt;123&lt;/b&gt;&lt;/a&gt;', '//b[@id="1"]');
+</code></pre>
+<pre><code>+----------------------------------------------------------+
+| xpath_string('&lt;a&gt;&lt;b id="1"&gt;123&lt;/b&gt;&lt;/a&gt;', '//b[@id="1"]') |
++----------------------------------------------------------+
+| 123                                                      |
++----------------------------------------------------------+
+</code></pre>
+<ol>
+<li>使用位置谓词</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;&lt;b&gt;1&lt;/b&gt;&lt;b&gt;2&lt;/b&gt;&lt;/a&gt;', '/a/b[2]');
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| xpath_string('&lt;a&gt;&lt;b&gt;1&lt;/b&gt;&lt;b&gt;2&lt;/b&gt;&lt;/a&gt;', '/a/b[2]') |
++----------------------------------------------------+
+| 2                                                  |
++----------------------------------------------------+
+</code></pre>
+<ol>
+<li>处理 CDATA</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;&lt;![CDATA[123]]&gt;&lt;/a&gt;', '/a');
+</code></pre>
+<pre><code>+-----------------------------------------------+
+| xpath_string('&lt;a&gt;&lt;![CDATA[123]]&gt;&lt;/a&gt;', '/a')  |
++-----------------------------------------------+
+| 123                                           |
++-----------------------------------------------+
+</code></pre>
+<ol>
+<li>处理注释</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;123&lt;/a&gt;', '/a');
+</code></pre>
+<pre><code>+---------------------------------------------------+
+| xpath_string('&lt;a&gt;123&lt;/a&gt;', '/a')  |
++---------------------------------------------------+
+| 123                                               |
++---------------------------------------------------+
+</code></pre>
+<ol>
+<li>没有匹配节点</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;123&lt;/a&gt;', '/b');
+</code></pre>
+<pre><code>+----------------------------------+
+| xpath_string('&lt;a&gt;123&lt;/a&gt;', '/b') |
++----------------------------------+
+|                                  |
++----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT xpath_string(NULL, '/a');
+</code></pre>
+<pre><code>+--------------------------+
+| xpath_string(NULL, '/a') |
++--------------------------+
+| NULL                     |
++--------------------------+
+</code></pre>
+<ol>
+<li>格式错误</li>
+</ol>
+<pre><code>SELECT xpath_string('&lt;a&gt;123/a&gt;', '/a');
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.3)[INVALID_ARGUMENT]Function xpath_string failed to parse XML string: Start-end tags mismatch
+</code></pre>
+<h3>关键词</h3>
+<pre><code>XPATH_STRING,XPATH,XML
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/xpath-string/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

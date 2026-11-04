@@ -1,0 +1,100 @@
+<div class="definition"><pre>ARRAY_ENUMERATE</pre></div>
+<div class="content">
+<h2>array_enumerate</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>返回数组中每个元素的位置索引（从1开始）。函数会为数组中的每个元素生成对应的位置编号</p>
+<h2>语法</h2>
+<pre><code>array_enumerate(ARRAY&lt;T&gt; arr)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要生成位置索引的数组。支持列名或常量值。</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;BIGINT&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个与输入数组等长的新数组，每个位置的值为对应元素在数组中的位置索引（从1开始）</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会为数组中的每个元素生成位置索引，从1开始递增</li>
+<li>空数组返回空数组，NULL 数组返回 NULL</li>
+<li>对数组元素中的 null 值：null 元素也会生成对应的位置索引</li>
+</ul>
+<h3>示例</h3>
+<p><strong>查询示例：</strong></p>
+<p>为数组生成位置索引：</p>
+<pre><code>SELECT array_enumerate([1, 2, 1, 4, 5]);
++----------------------------------+
+| array_enumerate([1, 2, 1, 4, 5]) |
++----------------------------------+
+| [1, 2, 3, 4, 5]                  |
++----------------------------------+
+</code></pre>
+<p>空数组返回空数组：</p>
+<pre><code>SELECT array_enumerate([]);
++----------------------+
+| array_enumerate([])  |
++----------------------+
+| []                   |
++----------------------+
+</code></pre>
+<p>包含 null 的数组，null 元素也会生成位置索引：</p>
+<pre><code>SELECT array_enumerate([1, null, 3, null, 5]);
++--------------------------------------------+
+| array_enumerate([1, null, 3, null, 5])     |
++--------------------------------------------+
+| [1, 2, 3, 4, 5]                            |
++--------------------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组类型：</p>
+<pre><code>SELECT array_enumerate([[1,2],[3,4],[5,6]]);
++----------------------------------------+
+| array_enumerate([[1,2],[3,4],[5,6]])   |
++----------------------------------------+
+| [1, 2, 3]                              |
++----------------------------------------+
+</code></pre>
+<p>map 类型：</p>
+<pre><code>SELECT array_enumerate([{'k':1},{'k':2},{'k':3}]);
++----------------------------------------------+
+| array_enumerate([{'k':1},{'k':2},{'k':3}])   |
++----------------------------------------------+
+| [1, 2, 3]                                    |
++----------------------------------------------+
+</code></pre>
+<p>struct 类型：</p>
+<pre><code>SELECT array_enumerate(array(named_struct('name','Alice','age',20),named_struct('name','Bob','age',30)));
++----------------------------------------------------------------------------------------+
+| array_enumerate(array(named_struct('name','Alice','age',20),named_struct('name','Bob','age',30))) |
++----------------------------------------------------------------------------------------+
+| [1, 2]                                                                                  |
++----------------------------------------------------------------------------------------+
+</code></pre>
+<p>参数数量错误会报错：</p>
+<pre><code>SELECT array_enumerate([1,2,3], [4,5,6]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not found function 'array_enumerate' which has 2 arity. Candidate functions are: [array_enumerate(Expression)]
+</code></pre>
+<p>传入非数组类型时会报错：</p>
+<pre><code>SELECT array_enumerate('not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_enumerate(VARCHAR(12))
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, ENUMERATE, ARRAY_ENUMERATE</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-enumerate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

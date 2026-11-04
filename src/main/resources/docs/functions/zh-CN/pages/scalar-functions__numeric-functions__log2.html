@@ -1,0 +1,72 @@
+<div class="definition"><pre>LOG2</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回以<code>2</code>为底的<code>x</code>的自然对数。</p>
+<h2>语法</h2>
+<pre><code>LOG2(&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>真数 必须大于 0</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个浮点数。特殊情况：</p>
+<ul>
+<li>当 <code>x</code> 为 NULL 时，返回 <code>NULL</code></li>
+<li>当 <code>x</code> 为 NaN 时，返回 NaN</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select log2(1);
+</code></pre>
+<pre><code>+-------------------------+
+| log2(cast(1 as DOUBLE)) |
++-------------------------+
+|                     0.0 |
++-------------------------+
+</code></pre>
+<pre><code>select log2(2);
+</code></pre>
+<pre><code>+-------------------------+
+| log2(cast(2 as DOUBLE)) |
++-------------------------+
+|                     1.0 |
++-------------------------+
+</code></pre>
+<pre><code>select log2(10);
+</code></pre>
+<pre><code>+--------------------------+
+| log2(cast(10 as DOUBLE)) |
++--------------------------+
+|       3.3219280948873626 |
++--------------------------+
+</code></pre>
+<pre><code>select log2(NULL);
+</code></pre>
+<pre><code>+------------+
+| log2(NULL) |
++------------+
+|       NULL |
++------------+
+</code></pre>
+<pre><code>select log2(cast('Nan' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| log2(cast('Nan' as double)) |
++-----------------------------+
+|                         NaN |
++-----------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/log2/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,165 @@
+<div class="definition"><pre>CONCAT_WS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>CONCAT_WS 函数（Concatenate With Separator）用于使用指定的分隔符连接多个字符串或数组。与 CONCAT 函数不同，CONCAT_WS 会自动跳过 NULL 值（但不跳过空字符串），并在非 NULL 值之间插入分隔符。该函数支持字符串参数和数组参数两种模式，在生成 CSV 格式、路径拼接、标签列表等场景中非常有用。</p>
+<h2>语法</h2>
+<pre><code>-- 字符串模式
+CONCAT_WS(&lt;sep&gt;, &lt;str&gt; [, &lt;str&gt; ...])
+
+-- 数组模式  
+CONCAT_WS(&lt;sep&gt;, &lt;array&gt; [, &lt;array&gt; ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;sep&gt;</code></td>
+<td>分隔符字符串，用于连接各个部分。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>待连接的字符串参数。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;array&gt;</code></td>
+<td>待连接的数组参数，数组元素必须为字符串类型。类型：ARRAY&lt;VARCHAR&gt;</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示使用分隔符连接后的字符串。</p>
+<p>连接规则：</p>
+<ul>
+<li>使用第一个参数作为分隔符连接后续参数</li>
+<li>自动跳过 NULL 值，但保留空字符串</li>
+<li>支持字符串参数或数组参数，但不能混合使用</li>
+<li>支持 UTF-8 多字节字符作为分隔符和内容</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果分隔符为 NULL，返回 NULL</li>
+<li>如果所有待连接的参数都是 NULL，返回空字符串</li>
+<li>数组模式中，跳过数组中的 NULL 元素，但保留空字符串元素</li>
+<li>多个数组参数中包含 NULL 数组时，返回空字符串</li>
+<li>不允许字符串参数和数组参数混合使用</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符串连接</li>
+</ol>
+<pre><code>SELECT CONCAT_WS(',', 'apple', 'banana', 'orange'), CONCAT_WS('-', 'hello', 'world');
+</code></pre>
+<pre><code>+-------------------------------------------+----------------------------------+
+| CONCAT_WS(',', 'apple', 'banana', 'orange') | CONCAT_WS('-', 'hello', 'world') |
++-------------------------------------------+----------------------------------+
+| apple,banana,orange                       | hello-world                      |
++-------------------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>NULL 分隔符处理</li>
+</ol>
+<pre><code>SELECT CONCAT_WS(NULL, 'd', 'is'), CONCAT_WS('or', 'd', NULL, 'is');
+</code></pre>
+<pre><code>+----------------------------+----------------------------------+
+| CONCAT_WS(NULL, 'd', 'is') | CONCAT_WS('or', 'd', NULL, 'is') |
++----------------------------+----------------------------------+
+| NULL                       | doris                            |
++----------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理（保留空字符串）</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('|', 'hello', '', 'world', NULL), CONCAT_WS(',', '', 'test', '');
+</code></pre>
+<pre><code>+--------------------------------------------+-------------------------------+
+| CONCAT_WS('|', 'hello', '', 'world', NULL) | CONCAT_WS(',', '', 'test', '') |
++--------------------------------------------+-------------------------------+
+| hello||world                               | ,test,                        |
++--------------------------------------------+-------------------------------+
+</code></pre>
+<ol>
+<li>全部为 NULL 的情况</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('x', NULL, NULL), CONCAT_WS('-', NULL, NULL, NULL);
+</code></pre>
+<pre><code>+----------------------------+---------------------------------+
+| CONCAT_WS('x', NULL, NULL) | CONCAT_WS('-', NULL, NULL, NULL) |
++----------------------------+---------------------------------+
+|                            |                                 |
++----------------------------+---------------------------------+
+</code></pre>
+<ol>
+<li>数组模式基本用法</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('or', ['d', 'is']), CONCAT_WS('-', ['apple', 'banana', 'cherry']);
+</code></pre>
+<pre><code>+------------------------------+--------------------------------------------+
+| CONCAT_WS('or', ['d', 'is']) | CONCAT_WS('-', ['apple', 'banana', 'cherry']) |
++------------------------------+--------------------------------------------+
+| doris                        | apple-banana-cherry                        |
++------------------------------+--------------------------------------------+
+</code></pre>
+<ol>
+<li>数组中的 NULL 值处理</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('or', ['d', NULL, 'is']), CONCAT_WS(',', [NULL, 'a', 'b', NULL, 'c']);
+</code></pre>
+<pre><code>+------------------------------------+------------------------------------------+
+| CONCAT_WS('or', ['d', NULL, 'is']) | CONCAT_WS(',', [NULL, 'a', 'b', NULL, 'c']) |
++------------------------------------+------------------------------------------+
+| doris                              | a,b,c                                    |
++------------------------------------+------------------------------------------+
+</code></pre>
+<ol>
+<li>多个数组连接</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('-', ['a', 'b'], ['c', NULL], ['d']), CONCAT_WS('|', ['x'], ['y', 'z']);
+</code></pre>
+<pre><code>+------------------------------------------------+----------------------------------+
+| CONCAT_WS('-', ['a', 'b'], ['c', NULL], ['d']) | CONCAT_WS('|', ['x'], ['y', 'z']) |
++------------------------------------------------+----------------------------------+
+| a-b-c-d                                        | x|y|z                            |
++------------------------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>多个数组中包含 NULL 数组</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('-', ['a', 'b'], NULL, ['c', NULL], ['d']);
+</code></pre>
+<pre><code>+-----------------------------------------------------+
+| CONCAT_WS('-', ['a', 'b'], NULL, ['c', NULL], ['d']) |
++-----------------------------------------------------+
+|                                                     |
++-----------------------------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符处理</li>
+</ol>
+<pre><code>SELECT CONCAT_WS('x', 'ṭṛì', 'ḍḍumai'), CONCAT_WS('→', ['ṭṛì', 'ḍḍumai', 'hello']);
+</code></pre>
+<pre><code>+-------------------------------+----------------------------------------------+
+| CONCAT_WS('x', 'ṭṛì', 'ḍḍumai') | CONCAT_WS('→', ['ṭṛì', 'ḍḍumai', 'hello']) |
++-------------------------------+----------------------------------------------+
+| ṭṛìxḍḍumai                    | ṭṛì→ḍḍumai→hello                          |
++-------------------------------+----------------------------------------------+
+</code></pre>
+<ol>
+<li>CSV 格式生成和路径拼接</li>
+</ol>
+<pre><code>SELECT CONCAT_WS(',', 'Name', 'Age', 'City'), CONCAT_WS('/', 'home', 'user', 'documents', 'file.txt');
+</code></pre>
+<pre><code>+------------------------------------+--------------------------------------------------------+
+| CONCAT_WS(',', 'Name', 'Age', 'City') | CONCAT_WS('/', 'home', 'user', 'documents', 'file.txt') |
++------------------------------------+--------------------------------------------------------+
+| Name,Age,City                      | home/user/documents/file.txt                          |
++------------------------------------+--------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/concat-ws/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

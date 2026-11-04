@@ -1,0 +1,151 @@
+<div class="definition"><pre>STR_TO_DATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>函数将输入的日期时间字符串根据指定的格式转换为 DATETIME 类型的值。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_str-to-date">str_to_date 函数</a> 行为一致</p>
+<h2>语法</h2>
+<pre><code>STR_TO_DATE(&lt;datetime_str&gt;, &lt;format&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;datetime_str&gt;</code></td>
+<td>必填，输入的日期时间字符串，表示要转换的日期或时间。输入支持的格式可以查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a>, <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+<tr>
+<td><code>&lt;format&gt;</code></td>
+<td>必填，指定的日期时间格式字符串，如 <code>%Y-%m-%d %H:%i:%s</code> 等，具体格式参数详见<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/date-format#%E5%8F%82%E6%95%B0">DATE_FORMAT</a>文档</td>
+</tr>
+</tbody>
+</table>
+<p>除此之外，<code>&lt;format&gt;</code> 额外支持以下若干代用格式，并按照正规 format 格式解读：</p>
+<table>
+<thead>
+<tr>
+<th>代用输入</th>
+<th>解读为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>yyyyMMdd</code></td>
+<td><code>%Y%m%d</code></td>
+</tr>
+<tr>
+<td><code>yyyy-MM-dd</code></td>
+<td><code>%Y-%m-%d</code></td>
+</tr>
+<tr>
+<td><code>yyyy-MM-dd HH:mm:ss</code></td>
+<td><code>%Y-%m-%d %H:%i:%s</code></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 DATETIME 类型值，表示转换后的日期时间。</p>
+<p>日期时间匹配方式，用两根指针指向两字符串起始位置，然后：</p>
+<ol>
+<li>当遇格式字符串到 % 符号时，会根据 % 下一个字母匹配时间字符对应的时间部分，若不匹配（如 %Y 匹配日期时间部分却为 10:10:10 或者 % 不支持解析的字符如 %*），则返回错误，匹配成功则移动到下一个字符解析。</li>
+<li>任意时刻两串中的任一个遇到空格字符，直接跳过解析下一个字符</li>
+<li>当遇到普通字母的匹配，则查看两字符串现在指针所指向的字符是否相等，不相等则返回错误，相等则解析下一个字符</li>
+<li>当任日期指针指向字符串末尾时，若日期时间只包含日期部分，则格式字符串会检查是否包含匹配时间部分的字符（如 %H），若包含，则会设置时间部分为 00:00:00。</li>
+<li>当格式字符串指向末尾时，匹配结束。</li>
+<li>最后检查匹配时间部分是否合法（如月份必须在 [1，12] 区间内），如果不合法，则返回错误，合法则返回解析出的日期时间</li>
+</ol>
+<p>错误处理：</p>
+<ul>
+<li>若任一参数为 NULL，返回 NULL；</li>
+<li>若 <code>&lt;format&gt;</code> 为空字符串，返回 NULL；</li>
+<li><code>&lt;datetime_str&gt;</code> 与 <code>&lt;format&gt;</code> 匹配失败，返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>-- 使用标准格式符解析
+SELECT STR_TO_DATE('2025-01-23 12:34:56', '%Y-%m-%d %H:%i:%s') AS result;
++---------------------+
+| result              |
++---------------------+
+| 2025-01-23 12:34:56 |
++---------------------+
+
+-- 使用代用格式解析
+SELECT STR_TO_DATE('2025-01-23 12:34:56', 'yyyy-MM-dd HH:mm:ss') AS result;
++---------------------+
+| result              |
++---------------------+
+| 2025-01-23 12:34:56 |
++---------------------+
+
+-- 仅日期字符串（时间默认 00:00:00）
+SELECT STR_TO_DATE('20230713', 'yyyyMMdd') AS result;
++---------------------+
+| result              |
++---------------------+
+| 2023-07-13 00:00:00 |
++---------------------+
+
+-- 解析带星期和周数的字符串
+SELECT STR_TO_DATE('200442 Monday', '%X%V %W') AS result;
++------------+
+| result     |
++------------+
+| 2004-10-18 |
++------------+
+
+-- 解析简写月名和12小时制时间
+SELECT STR_TO_DATE('Oct 5 2023 3:45:00 PM', '%b %d %Y %h:%i:%s %p') AS result;
++---------------------+
+| result              |
++---------------------+
+| 2023-10-05 15:45:00 |
++---------------------+
+
+-- 格式与字符串不匹配（返回 NULL）
+SELECT STR_TO_DATE('2023/01/01', '%Y-%m-%d') AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- 字符串包含多余字符（自动忽略）
+SELECT STR_TO_DATE('2023-01-01 10:00:00 (GMT)', '%Y-%m-%d %H:%i:%s') AS result;
++---------------------+
+| result              |
++---------------------+
+| 2023-01-01 10:00:00 |
++---------------------+
+
+-- 解析微秒（保留精度）
+SELECT STR_TO_DATE('2023-07-13 12:34:56.789', '%Y-%m-%d %H:%i:%s.%f') AS result;
++----------------------------+
+| result                     |
++----------------------------+
+| 2023-07-13 12:34:56.789000 |
++----------------------------+
+
+-- 任一参数为 NULL（返回 NULL）
+SELECT STR_TO_DATE(NULL, '%Y-%m-%d'), STR_TO_DATE('2023-01-01', NULL) AS result;
++--------------------------------+--------+
+| str_to_date(NULL, '%Y-%m-%d')  | result |
++--------------------------------+--------+
+| NULL                           | NULL   |
++--------------------------------+--------+
+
+-- 格式为空字符串（返回 NULL）
+SELECT STR_TO_DATE('2023-01-01', '') AS result;
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/str-to-date/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

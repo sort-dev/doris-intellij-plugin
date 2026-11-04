@@ -1,0 +1,196 @@
+<div class="definition"><pre>MV_INFOS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>表函数，生成异步物化视图临时表，可以查看某个 db 中创建的异步物化视图信息。</p>
+<h2>语法</h2>
+<pre><code>MV_INFOS("database"="&lt;database&gt;")
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>&lt;database&gt;</code></strong></td>
+<td>字符串，必填。指定需要查询异步物化视图元数据的数据库名。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>该表函数返回 0 行或多行异步物化视图信息。函数本身不返回 NULL；当对应元数据不可用时，部分字段可能为空或 <code>NULL</code>。</p>
+<table>
+<thead>
+<tr>
+<th>字段名称</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Id</td>
+<td>BIGINT</td>
+<td>物化视图 id</td>
+</tr>
+<tr>
+<td>Name</td>
+<td>TEXT</td>
+<td>物化视图 Name</td>
+</tr>
+<tr>
+<td>JobName</td>
+<td>TEXT</td>
+<td>物化视图对应的刷新 job 名称，可用于查询 <code>jobs("type"="mv")</code> 和 <code>tasks("type"="mv")</code>。</td>
+</tr>
+<tr>
+<td>State</td>
+<td>TEXT</td>
+<td>物化视图元数据状态。可取值：<code>INIT</code>、<code>NORMAL</code>、<code>SCHEMA_CHANGE</code>。</td>
+</tr>
+<tr>
+<td>SchemaChangeDetail</td>
+<td>TEXT</td>
+<td><code>State</code> 变为 <code>SCHEMA_CHANGE</code> 的原因。物化视图不处于 schema change 状态时通常为空。</td>
+</tr>
+<tr>
+<td>RefreshState</td>
+<td>TEXT</td>
+<td>最近一次刷新状态。可取值：<code>INIT</code>、<code>SUCCESS</code>、<code>FAIL</code>。</td>
+</tr>
+<tr>
+<td>RefreshInfo</td>
+<td>TEXT</td>
+<td>物化视图定义的刷新策略信息，包括构建方式、刷新方式和触发方式。</td>
+</tr>
+<tr>
+<td>QuerySql</td>
+<td>TEXT</td>
+<td>物化视图定义的查询语句</td>
+</tr>
+<tr>
+<td>EnvInfo</td>
+<td>TEXT</td>
+<td>物化视图创建时的环境信息</td>
+</tr>
+<tr>
+<td>MvProperties</td>
+<td>TEXT</td>
+<td>物化视属性</td>
+</tr>
+<tr>
+<td>MvPartitionInfo</td>
+<td>TEXT</td>
+<td>物化视图的分区信息</td>
+</tr>
+<tr>
+<td>SyncWithBaseTables</td>
+<td>BOOLEAN</td>
+<td>物化视图数据是否和基表数据同步。如需查看哪个分区不同步，请使用 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-statements/table-and-view/table/SHOW-PARTITIONS">SHOW PARTITIONS</a>。</td>
+</tr>
+</tbody>
+</table>
+<p><code>RefreshInfo</code> 的展示格式为 <code>BUILD &lt;BuildMode&gt; REFRESH &lt;RefreshMethod&gt; ON &lt;RefreshTrigger&gt; [schedule]</code>。每一部分的含义见下面的枚举字段说明。</p>
+<h3>MV 信息枚举字段说明</h3>
+<p>查看物化视图定义和健康状态时，下面这些枚举字段最常用：</p>
+<ul>
+<li><code>State</code>：物化视图元数据状态。
+<ul>
+<li><code>INIT</code>：物化视图已创建，但还没有进入正常可用的元数据状态。</li>
+<li><code>NORMAL</code>：物化视图元数据正常。大多数情况下应该是这个状态。</li>
+<li><code>SCHEMA_CHANGE</code>：基表或相关对象的 schema 变更影响了该物化视图。需要查看 <code>SchemaChangeDetail</code> 了解原因。此时物化视图通常仍可直接查询，但在刷新成功前可能不能用于透明改写。</li>
+</ul>
+</li>
+<li><code>RefreshState</code>：最近一次刷新结果状态。
+<ul>
+<li><code>INIT</code>：还没有记录刷新结果。</li>
+<li><code>SUCCESS</code>：最近一次刷新成功。</li>
+<li><code>FAIL</code>：最近一次刷新失败。可以用 <code>JobName</code> 查询 <code>tasks("type"="mv")</code>，查看失败 task 的 <code>ErrorMsg</code>。</li>
+</ul>
+</li>
+<li><code>RefreshInfo.BuildMode</code>：Doris 什么时候构建物化视图数据。
+<ul>
+<li><code>IMMEDIATE</code>：创建物化视图后立即构建。</li>
+<li><code>DEFERRED</code>：创建时不立即构建，需要后续刷新后才有新鲜数据。</li>
+</ul>
+</li>
+<li><code>RefreshInfo.RefreshMethod</code>：Doris 如何选择要刷新的数据。
+<ul>
+<li><code>COMPLETE</code>：总是全量刷新物化视图。</li>
+<li><code>AUTO</code>：Doris 自动判断刷新全部分区还是只刷新变更分区。</li>
+</ul>
+</li>
+<li><code>RefreshInfo.RefreshTrigger</code>：什么动作触发刷新 task。
+<ul>
+<li><code>MANUAL</code>：手动触发刷新。</li>
+<li><code>COMMIT</code>：相关基表数据变更后触发刷新。</li>
+<li><code>SCHEDULE</code>：按调度周期触发刷新。调度细节会出现在 <code>RefreshInfo</code> 的 <code>ON SCHEDULE</code> 后面。</li>
+</ul>
+</li>
+<li><code>MvPartitionInfo.partitionType</code>：物化视图的分区方式。
+<ul>
+<li><code>FOLLOW_BASE_TABLE</code>：物化视图分区跟随基表分区列。</li>
+<li><code>SELF_MANAGE</code>：物化视图自己管理分区。</li>
+<li><code>EXPR</code>：物化视图使用表达式定义分区。</li>
+</ul>
+</li>
+<li><code>SyncWithBaseTables</code>：物化视图数据是否和基表同步。
+<ul>
+<li><code>1</code> 或 <code>true</code>：已同步。</li>
+<li><code>0</code> 或 <code>false</code>：未完全同步。对于分区物化视图，可以用 <code>SHOW PARTITIONS FROM &lt;mv_name&gt;</code> 查看分区级同步状态。</li>
+</ul>
+</li>
+</ul>
+<h2>示例</h2>
+<p>查看 <code>test</code> 数据库下名为 <code>mv1</code> 的物化视图。</p>
+<pre><code>select *
+from mv_infos("database"="test")
+where Name = "mv1"\G
+</code></pre>
+<pre><code>*************************** 1. row ***************************
+                Id: 19494
+              Name: mv1
+           JobName: inner_mtmv_19494
+             State: NORMAL
+SchemaChangeDetail:
+      RefreshState: SUCCESS
+       RefreshInfo: BUILD DEFERRED REFRESH AUTO ON MANUAL
+          QuerySql: SELECT `internal`.`test`.`user`.`k2`, `internal`.`test`.`user`.`k3` FROM `internal`.`test`.`user`
+           EnvInfo: EnvInfo{ctlId='0', dbId='16813'}
+      MvProperties: {partition_sync_limit=100, partition_sync_time_unit=YEAR}
+   MvPartitionInfo: MTMVPartitionInfo{partitionType=FOLLOW_BASE_TABLE, relatedTable=user, relatedCol='k2', partitionCol='k2'}
+SyncWithBaseTables: 1
+</code></pre>
+<p>该结果中：</p>
+<ul>
+<li><code>Id</code> 和 <code>Name</code> 标识该物化视图。</li>
+<li><code>JobName</code> 是该物化视图的刷新 job 名称。可以通过该字段继续查询 job 或刷新 task，例如 <code>select * from jobs("type"="mv") where Name = "inner_mtmv_19494";</code>。</li>
+<li><code>State</code> 为 <code>NORMAL</code>，表示物化视图元数据状态正常。<code>INIT</code> 表示物化视图刚创建或初始化中；<code>SCHEMA_CHANGE</code> 表示基表 schema 变更影响了该物化视图，此时需要查看 <code>SchemaChangeDetail</code>。</li>
+<li><code>SchemaChangeDetail</code> 为空，因为当前 <code>State</code> 不是 <code>SCHEMA_CHANGE</code>。</li>
+<li><code>RefreshState</code> 为 <code>SUCCESS</code>，表示最近一次刷新成功。<code>INIT</code> 表示尚未记录成功刷新状态；<code>FAIL</code> 表示最近一次刷新失败，此时可使用 <code>JobName</code> 查询 <code>tasks("type"="mv")</code>，查看失败 task 的 <code>ErrorMsg</code>。</li>
+<li><code>RefreshInfo</code> 为 <code>BUILD DEFERRED REFRESH AUTO ON MANUAL</code>。<code>BUILD DEFERRED</code> 表示创建物化视图时不立即构建；<code>REFRESH AUTO</code> 表示 Doris 自动判断刷新全部分区还是部分分区；<code>ON MANUAL</code> 表示刷新由手动触发，而不是定时触发。</li>
+<li><code>QuerySql</code> 是物化视图定义的查询 SQL。</li>
+<li><code>EnvInfo</code> 记录物化视图创建时的环境信息。</li>
+<li><code>MvProperties</code> 展示物化视图属性。本例中，分区同步由 <code>partition_sync_limit=100</code> 和 <code>partition_sync_time_unit=YEAR</code> 控制。</li>
+<li><code>MvPartitionInfo</code> 展示物化视图分区方式。<code>FOLLOW_BASE_TABLE</code> 表示跟随基表分区列；<code>SELF_MANAGE</code> 表示物化视图自己管理分区；<code>EXPR</code> 表示基于表达式定义分区。</li>
+<li><code>SyncWithBaseTables</code> 为 <code>1</code>，表示物化视图数据和基表数据同步。<code>0</code> 表示不完全同步。对于分区物化视图，可使用 <code>SHOW PARTITIONS FROM &lt;mv_name&gt;</code> 查看分区级同步状态。</li>
+</ul>
+<p>查看该物化视图最近一次刷新 task：</p>
+<pre><code>select TaskId, JobName, MvName, Status, ErrorMsg, CreateTime, FinishTime
+from tasks("type"="mv")
+where JobName = "inner_mtmv_19494"
+order by CreateTime desc
+limit 1;
+</code></pre>
+<pre><code>+-----------------+------------------+--------+---------+----------+---------------------+---------------------+
+| TaskId          | JobName          | MvName | Status  | ErrorMsg | CreateTime          | FinishTime          |
++-----------------+------------------+--------+---------+----------+---------------------+---------------------+
+| 437156301250803 | inner_mtmv_19494 | mv1    | SUCCESS |          | 2025-01-07 22:13:48 | 2025-01-07 22:17:45 |
++-----------------+------------------+--------+---------+----------+---------------------+---------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/mv_infos/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,74 @@
+<div class="definition"><pre>STRCMP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>STRCMP 函数用于按照字典顺序比较两个字符串。该函数将返回一个整数值来表示两个字符串的比较结果。</p>
+<h2>语法</h2>
+<pre><code>STRCMP(&lt;str0&gt;, &lt;str1&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str0&gt;</code></td>
+<td>第一个要比较的字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;str1&gt;</code></td>
+<td>第二个要比较的字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 TINYINT 类型，表示比较结果：</p>
+<ul>
+<li>返回 0：如果 str0 和 str1 相同</li>
+<li>返回 1：如果 str0 在字典顺序上大于 str1</li>
+<li>返回 -1：如果 str0 在字典顺序上小于 str1</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>相同字符串比较</li>
+</ol>
+<pre><code>SELECT strcmp('test', 'test');
+</code></pre>
+<pre><code>+------------------------+
+| strcmp('test', 'test') |
++------------------------+
+|                      0 |
++------------------------+
+</code></pre>
+<ol>
+<li>第一个字符串较大</li>
+</ol>
+<pre><code>SELECT strcmp('test1', 'test');
+</code></pre>
+<pre><code>+-------------------------+
+| strcmp('test1', 'test') |
++-------------------------+
+|                       1 |
++-------------------------+
+</code></pre>
+<ol>
+<li>第一个字符串较小</li>
+</ol>
+<pre><code>SELECT strcmp('test', 'test1');
+</code></pre>
+<pre><code>+-------------------------+
+| strcmp('test', 'test1') |
++-------------------------+
+|                      -1 |
++-------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/strcmp/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

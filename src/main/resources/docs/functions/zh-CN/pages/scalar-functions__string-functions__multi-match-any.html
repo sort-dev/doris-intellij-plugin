@@ -1,0 +1,55 @@
+<div class="definition"><pre>MULTI_MATCH_ANY</pre></div>
+<div class="content">
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/multi-match-any/"></a></p>
+<h2>描述</h2>
+<p>检查 <code>&lt;haystack&gt;</code> 是否匹配 <code>&lt;patterns&gt;</code> 中的任意一个正则表达式。默认区分大小写。任一参数为 <code>NULL</code> 时返回 <code>0</code>，不会返回 <code>NULL</code>。</p>
+<h2>语法</h2>
+<pre><code>MULTI_MATCH_ANY(&lt;haystack&gt;, &lt;patterns&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;haystack&gt;</code></td>
+<td>要匹配的字符串，类型为 <code>STRING</code>。</td>
+</tr>
+<tr>
+<td><code>&lt;patterns&gt;</code></td>
+<td>正则表达式数组，类型为 <code>ARRAY&lt;STRING&gt;</code>。表达式元素应为非 NULL 字符串。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>TINYINT</code>：任一表达式匹配时为 <code>1</code>，否则为 <code>0</code>。空表达式数组返回 <code>0</code>；任一参数为 <code>NULL</code> 时也返回 <code>0</code>。</p>
+<p>该函数使用 Hyperscan/VectorScan 正则引擎。非法或该引擎不支持的表达式会报错。常量字符串不能与非常量表达式数组列组合；这种组合会返回参数错误。</p>
+<h2>示例 {#举例}</h2>
+<pre><code>SELECT multi_match_any('Hello, World!', ['hello', '!', 'world']) AS matched;
+</code></pre>
+<pre><code>1
+</code></pre>
+<pre><code>SELECT multi_match_any('abc', ['A', 'bcd']) AS matched;
+</code></pre>
+<pre><code>0
+</code></pre>
+<p>正则表达式会执行模式匹配，而不是按字面值查找子串：</p>
+<pre><code>SELECT multi_match_any('abc123', ['[0-9]+', '^xyz']) AS matched;
+</code></pre>
+<pre><code>1
+</code></pre>
+<pre><code>SELECT multi_match_any('abc', CAST([] AS ARRAY&lt;STRING&gt;)) AS empty_patterns,
+       multi_match_any(CAST(NULL AS STRING), ['a']) AS null_text,
+       multi_match_any('abc', CAST(NULL AS ARRAY&lt;STRING&gt;)) AS null_patterns;
+</code></pre>
+<pre><code>0    0    0
+</code></pre>
+<h2>关键词</h2>
+<p>MULTI_MATCH, MATCH, ANY</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/multi-match-any/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

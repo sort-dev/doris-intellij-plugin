@@ -1,0 +1,47 @@
+<div class="definition"><pre>ARRAY_REVERSE_SORT</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p>对数组元素按降序排序。</p>
+<h2>语法</h2>
+<ul>
+<li><code>ARRAY_REVERSE_SORT(arr)</code></li>
+</ul>
+<h2>参数</h2>
+<ul>
+<li><code>arr</code>：<code>ARRAY&lt;T&gt;</code>，<code>T</code> 可为数值、布尔、字符串、日期时间、IP 等类型，也支持多维数组，但所有数组元素（无论嵌套多少层）都必须属于上述类型。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回与输入同类型的 <code>ARRAY&lt;T&gt;</code>。</li>
+<li><code>NULL</code> 元素放在返回的数组最后面。</li>
+</ul>
+<h2>使用说明</h2>
+<ul>
+<li>若输入为 <code>NULL</code>，返回 <code>NULL</code>; 若输入为空数组 <code>[]</code>，返回空数组。</li>
+<li><code>ARRAY_REVERSE_SORT</code> 是降序排序, <code>ARRAY_SORT</code> 是升序排序。</li>
+</ul>
+<h2>示例</h2>
+<ul>
+<li>
+<p>基本: <code>NULL</code> 元素放在返回的数组最后面</p>
+<ul>
+<li><code>ARRAY_REVERSE_SORT([1,2,3,null])</code> -&gt; <code>[3,2,1,null]</code></li>
+</ul>
+</li>
+<li>
+<p>输入为 <code>NULL</code>，返回 <code>NULL</code>; 输入为空数组 <code>[]</code>，返回空数组。</p>
+<ul>
+<li><code>ARRAY_REVERSE_SORT(NULL)</code> -&gt; <code>NULL</code></li>
+<li><code>ARRAY_REVERSE_SORT([])</code> -&gt; <code>[]</code></li>
+</ul>
+</li>
+<li>
+<p>多维数组排序</p>
+<ul>
+<li><code>ARRAY_REVERSE_SORT([[3, 4], [5, 6]])</code> -&gt; <code>[[5, 6], [3, 4]]</code></li>
+</ul>
+</li>
+</ul>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-reverse-sort/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,54 @@
+<div class="definition"><pre>BITMAP_REMOVE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>从 Bitmap 列中删除指定的值。</p>
+<h2>语法</h2>
+<pre><code>bitmap_remove(&lt;bitmap&gt;, &lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;bitmap&gt;</code></td>
+<td>Bitmap 值</td>
+</tr>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>要删除的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>删除后的 Bitmap。</p>
+<p>若要删除的值不存在，则返回原 Bitmap；<br>
+若要删除的值为 <code>NULL</code>, 则返回 <code>NULL</code>。</p>
+<h2>示例</h2>
+<p>从 Bitmap 中移除一个值：</p>
+<pre><code>select bitmap_to_string(bitmap_remove(bitmap_from_string('1, 2, 3'), 3)) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+| 1,2  |
++------+
+</code></pre>
+<p>从 Bitmap 中移除一个 <code>NULL</code> 值：</p>
+<pre><code>select bitmap_to_string(bitmap_remove(bitmap_from_string('1, 2, 3'), null)) res;
+</code></pre>
+<p>结果如下：</p>
+<pre><code>+------+
+| res  |
++------+
+| NULL |
++------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/bitmap-functions/bitmap-remove/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

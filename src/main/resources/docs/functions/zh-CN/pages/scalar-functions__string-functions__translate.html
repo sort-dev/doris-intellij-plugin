@@ -1,0 +1,172 @@
+<div class="definition"><pre>TRANSLATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>TRANSLATE 函数用于字符串替换，将源字符串中的字符按照映射规则进行逐字符转换。该函数会将源字符串中出现在 from 字符串中的每个字符替换为 to 字符串中对应位置的字符。</p>
+<h2>语法</h2>
+<pre><code>TRANSLATE(&lt;source&gt;, &lt;from&gt;, &lt;to&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;source&gt;</code></td>
+<td>需要进行转换的源字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;from&gt;</code></td>
+<td>要被替换的字符集合，定义映射规则的源字符。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;to&gt;</code></td>
+<td>替换后的字符集合，定义映射规则的目标字符。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示按照字符映射规则转换后的字符串。</p>
+<p>字符映射规则：</p>
+<ul>
+<li>按照 from 和 to 字符串的位置建立一对一的字符映射关系</li>
+<li>from 第1个字符映射到 to 第1个字符，from 第2个字符映射到 to 第2个字符，依此类推</li>
+<li>如果 from 字符串中有重复字符，优先使用第一次出现的映射规则，忽略后续重复出现的字符</li>
+<li>源字符串中不在 from 字符串中的字符保持不变</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 source 为空字符串，返回空字符串</li>
+<li>如果 from 为空字符串，返回原 source 字符串</li>
+<li>如果 to 为空字符串，删除 source 中所有在 from 中出现的字符</li>
+<li>如果 to 字符串长度小于 from，超出部分的 from 字符在 source 中会被删除</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符替换</li>
+</ol>
+<pre><code>SELECT TRANSLATE('abcd', 'a', 'z');
+</code></pre>
+<pre><code>+-----------------------------+
+| TRANSLATE('abcd', 'a', 'z') |
++-----------------------------+
+| zbcd                        |
++-----------------------------+
+</code></pre>
+<ol>
+<li>源字符串中每次出现都会被替换</li>
+</ol>
+<pre><code>SELECT TRANSLATE('abcda', 'a', 'z');
+</code></pre>
+<pre><code>+------------------------------+
+| TRANSLATE('abcda', 'a', 'z') |
++------------------------------+
+| zbcdz                        |
++------------------------------+
+</code></pre>
+<ol>
+<li>多字符映射（按位置一一对应）</li>
+</ol>
+<pre><code>SELECT TRANSLATE('abcd', 'ac', 'zx');
+</code></pre>
+<pre><code>+-------------------------------+
+| TRANSLATE('abcd', 'ac', 'zx') |
++-------------------------------+
+| zbxd                          |
++-------------------------------+
+</code></pre>
+<ol>
+<li><code>&lt;from&gt;</code> 中存在重复字符时只使用第一次映射</li>
+</ol>
+<pre><code>SELECT TRANSLATE('abacad', 'aac', 'zxy');
+</code></pre>
+<pre><code>+-----------------------------------+
+| TRANSLATE('abacad', 'aac', 'zxy') |
++-----------------------------------+
+| zbzyzd                            |
++-----------------------------------+
+</code></pre>
+<ol>
+<li><code>&lt;to&gt;</code> 比 <code>&lt;from&gt;</code> 短时多余字符被删除</li>
+</ol>
+<pre><code>SELECT TRANSLATE('abcde', 'ace', 'xy');
+</code></pre>
+<pre><code>+---------------------------------+
+| TRANSLATE('abcde', 'ace', 'xy') |
++---------------------------------+
+| xbyd                            |
++---------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理 —— 任一参数为 NULL 时返回 NULL</li>
+</ol>
+<pre><code>SELECT TRANSLATE(NULL, 'a', 'z'), TRANSLATE('abc', NULL, 'z'), TRANSLATE('abc', 'a', NULL);
+</code></pre>
+<pre><code>+---------------------------+-----------------------------+-----------------------------+
+| TRANSLATE(NULL, 'a', 'z') | TRANSLATE('abc', NULL, 'z') | TRANSLATE('abc', 'a', NULL) |
++---------------------------+-----------------------------+-----------------------------+
+| NULL                      | NULL                        | NULL                        |
++---------------------------+-----------------------------+-----------------------------+
+</code></pre>
+<ol>
+<li>空字符串边界 —— source 为空返回空，<code>&lt;from&gt;</code> 为空返回原 source，<code>&lt;to&gt;</code> 为空则删除被匹配的字符</li>
+</ol>
+<pre><code>SELECT TRANSLATE('', 'a', 'z'), TRANSLATE('abc', '', 'z'), TRANSLATE('abc', 'a', '');
+</code></pre>
+<pre><code>+-------------------------+---------------------------+---------------------------+
+| TRANSLATE('', 'a', 'z') | TRANSLATE('abc', '', 'z') | TRANSLATE('abc', 'a', '') |
++-------------------------+---------------------------+---------------------------+
+|                         | abc                       | bc                        |
++-------------------------+---------------------------+---------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符</li>
+</ol>
+<pre><code>SELECT TRANSLATE('ṭṛì ḍḍumai', 'ṭṛ', 'ab');
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| TRANSLATE('ṭṛì ḍḍumai', 'ṭṛ', 'ab')              |
++--------------------------------------------------+
+| abì ḍḍumai                                       |
++--------------------------------------------------+
+</code></pre>
+<ol>
+<li>数字字符替换</li>
+</ol>
+<pre><code>SELECT TRANSLATE('a1b2c3', '123', 'xyz');
+</code></pre>
+<pre><code>+-----------------------------------+
+| TRANSLATE('a1b2c3', '123', 'xyz') |
++-----------------------------------+
+| axbycz                            |
++-----------------------------------+
+</code></pre>
+<ol>
+<li>两侧都含重复字符的复杂映射</li>
+</ol>
+<pre><code>SELECT TRANSLATE('aabbccaa', 'abab', 'xyuv');
+</code></pre>
+<pre><code>+---------------------------------------+
+| TRANSLATE('aabbccaa', 'abab', 'xyuv') |
++---------------------------------------+
+| xxyyccxx                              |
++---------------------------------------+
+</code></pre>
+<ol>
+<li>特殊符号替换</li>
+</ol>
+<pre><code>SELECT TRANSLATE('hello@world.com', '@.', '-_');
+</code></pre>
+<pre><code>+------------------------------------------+
+| TRANSLATE('hello@world.com', '@.', '-_') |
++------------------------------------------+
+| hello-world_com                          |
++------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/translate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

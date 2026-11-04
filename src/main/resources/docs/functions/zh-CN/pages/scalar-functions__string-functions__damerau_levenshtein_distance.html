@@ -1,0 +1,141 @@
+<div class="definition"><pre>DAMERAU_LEVENSHTEIN_DISTANCE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>DAMERAU_LEVENSHTEIN_DISTANCE</code> 函数用于计算两个字符串之间的 <a href="https://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance">Damerau-Levenshtein 编辑距离</a>。</p>
+<p>Damerau-Levenshtein 编辑距离表示将一个字符串转换为另一个字符串所需的最少单字符编辑次数。支持的编辑操作包括：</p>
+<ul>
+<li>插入一个字符</li>
+<li>删除一个字符</li>
+<li>替换一个字符</li>
+<li>交换两个相邻字符</li>
+</ul>
+<p>与 <code>LEVENSHTEIN</code> 相比，<code>DAMERAU_LEVENSHTEIN_DISTANCE</code> 将相邻字符交换视为一次编辑操作，因此更适合处理由于字符顺序颠倒造成的输入错误。例如，<code>abcd</code> 与 <code>abdc</code> 之间只需要交换相邻的 <code>c</code> 和 <code>d</code>，Damerau-Levenshtein 距离为 1，而 Levenshtein 距离为 2。</p>
+<p>该函数按 UTF-8 字符计算距离，而不是按字节计算。因此，多字节字符（例如中文字符）会被视为一个字符。</p>
+<p>Since 4.2.0</p>
+<h2>语法</h2>
+<pre><code>DAMERAU_LEVENSHTEIN_DISTANCE(&lt;str1&gt;, &lt;str2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str1&gt;</code></td>
+<td>第一个字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;str2&gt;</code></td>
+<td>第二个字符串。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 INT 类型，表示两个字符串之间的 Damerau-Levenshtein 编辑距离。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL。</li>
+<li>如果两个字符串相同，返回 0。</li>
+<li>如果其中一个字符串为空字符串，返回另一个字符串的字符数。</li>
+<li>该函数满足交换律，即 <code>DAMERAU_LEVENSHTEIN_DISTANCE(a, b)</code> 与 <code>DAMERAU_LEVENSHTEIN_DISTANCE(b, a)</code> 返回相同结果。</li>
+<li>当输入过大导致内部距离矩阵超过限制时，函数会返回错误。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance('kitten', 'sitting');
+</code></pre>
+<pre><code>+---------------------------------------------------+
+| damerau_levenshtein_distance('kitten', 'sitting') |
++---------------------------------------------------+
+|                                                 3 |
++---------------------------------------------------+
+</code></pre>
+<ol>
+<li>相邻字符交换</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance('abcd', 'abdc');
+</code></pre>
+<pre><code>+----------------------------------------------+
+| damerau_levenshtein_distance('abcd', 'abdc') |
++----------------------------------------------+
+|                                            1 |
++----------------------------------------------+
+</code></pre>
+<p><code>abcd</code> 可以通过交换相邻的 <code>c</code> 和 <code>d</code> 变为 <code>abdc</code>，因此距离为 1。</p>
+<ol>
+<li>与 <code>LEVENSHTEIN</code> 的差异</li>
+</ol>
+<pre><code>SELECT levenshtein('abcd', 'abdc'), damerau_levenshtein_distance('abcd', 'abdc');
+</code></pre>
+<pre><code>+-----------------------------+----------------------------------------------+
+| levenshtein('abcd', 'abdc') | damerau_levenshtein_distance('abcd', 'abdc') |
++-----------------------------+----------------------------------------------+
+|                           2 |                                            1 |
++-----------------------------+----------------------------------------------+
+</code></pre>
+<p><code>LEVENSHTEIN</code> 不支持交换操作，因此需要 2 次编辑；<code>DAMERAU_LEVENSHTEIN_DISTANCE</code> 支持相邻交换，因此只需要 1 次编辑。</p>
+<ol>
+<li>UTF-8 字符</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance('你好', '好你');
+</code></pre>
+<pre><code>+--------------------------------------------------+
+| damerau_levenshtein_distance('你好', '好你')     |
++--------------------------------------------------+
+|                                                1 |
++--------------------------------------------------+
+</code></pre>
+<p><code>你</code> 和 <code>好</code> 是两个 UTF-8 字符，交换相邻字符需要 1 次编辑。</p>
+<ol>
+<li>插入、删除、替换</li>
+</ol>
+<pre><code>SELECT
+    damerau_levenshtein_distance('', 'abc'),
+    damerau_levenshtein_distance('数据库', '数据'),
+    damerau_levenshtein_distance('flaw', 'lawn');
+</code></pre>
+<pre><code>+-----------------------------------------+-----------------------------------------------------+----------------------------------------------+
+| damerau_levenshtein_distance('', 'abc') | damerau_levenshtein_distance('数据库', '数据')      | damerau_levenshtein_distance('flaw', 'lawn') |
++-----------------------------------------+-----------------------------------------------------+----------------------------------------------+
+|                                       3 |                                                   1 |                                            2 |
++-----------------------------------------+-----------------------------------------------------+----------------------------------------------+
+</code></pre>
+<ol>
+<li>完整 Damerau-Levenshtein 距离示例</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance('CA', 'ABC');
+</code></pre>
+<pre><code>+-------------------------------------------+
+| damerau_levenshtein_distance('CA', 'ABC') |
++-------------------------------------------+
+|                                         2 |
++-------------------------------------------+
+</code></pre>
+<p>该函数计算完整 Damerau-Levenshtein 距离。对于 <code>CA</code> 和 <code>ABC</code>，最少编辑次数为 2。</p>
+<ol>
+<li>NULL 参数</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance(NULL, 'abc'), damerau_levenshtein_distance('abc', NULL);
+</code></pre>
+<pre><code>+-------------------------------------------+-------------------------------------------+
+| damerau_levenshtein_distance(NULL, 'abc') | damerau_levenshtein_distance('abc', NULL) |
++-------------------------------------------+-------------------------------------------+
+|                                      NULL |                                      NULL |
++-------------------------------------------+-------------------------------------------+
+</code></pre>
+<ol>
+<li>输入过大</li>
+</ol>
+<pre><code>SELECT damerau_levenshtein_distance(repeat('a', 4096), repeat('b', 4096));
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]damerau_levenshtein_distance distance matrix is too large: 16793604 cells exceeds limit 16777216
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/damerau_levenshtein_distance/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

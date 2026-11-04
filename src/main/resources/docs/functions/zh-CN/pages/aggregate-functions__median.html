@@ -1,0 +1,62 @@
+<div class="definition"><pre>MEDIAN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>MEDIAN 函数返回表达式的中位数，等价于 percentile(expr, 0.5)。</p>
+<h2>语法</h2>
+<pre><code>MEDIAN(&lt;expr&gt;)
+</code></pre>
+<h2>参数说明</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要获取值的表达式，支持类型：Double、Float、LargeInt、BigInt、Int、SmallInt、TinyInt。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回与输入表达式相同的数据类型。
+如果组内没有合法数据，则返回 NULL 。</p>
+<h2>举例</h2>
+<pre><code>-- setup
+create table log_statis(
+    datetime datetime,
+    scan_rows int
+) distributed by hash(datetime) buckets 1
+properties ("replication_num"="1");
+insert into log_statis values
+    ('2025-08-25 10:00:00', 10),
+    ('2025-08-25 10:00:00', 50),
+    ('2025-08-25 10:00:00', 100),
+    ('2025-08-25 11:00:00', 20),
+    ('2025-08-25 11:00:00', 30),
+    ('2025-08-25 11:00:00', 40);
+</code></pre>
+<pre><code>select datetime,median(scan_rows) from log_statis group by datetime;
+</code></pre>
+<pre><code>select datetime, median(scan_rows) from log_statis group by datetime;
++---------------------+-------------------+
+| datetime            | median(scan_rows) |
++---------------------+-------------------+
+| 2025-08-25 10:00:00 |                50 |
+| 2025-08-25 11:00:00 |                30 |
++---------------------+-------------------+
+</code></pre>
+<pre><code>select median(scan_rows) from log_statis where scan_rows is null;
+</code></pre>
+<pre><code>select median(scan_rows) from log_statis where scan_rows is null;
++-------------------+
+| median(scan_rows) |
++-------------------+
+|              NULL |
++-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/median/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

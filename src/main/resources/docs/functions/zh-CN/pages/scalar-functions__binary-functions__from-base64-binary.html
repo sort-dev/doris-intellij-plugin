@@ -1,0 +1,59 @@
+<div class="definition"><pre>FROM_BASE64_BINARY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>FROM_BASE64_BINARY 函数用于对输入字符串进行 Base64 解码，并返回结果的 VARBINARY 类型值。</p>
+<p>特殊情况：</p>
+<ul>
+<li>如果输入字符串不是合法的 Base64 编码字符串，则返回 NULL。</li>
+</ul>
+<h2>语法</h2>
+<pre><code>FROM_BASE64_BINARY ( &lt;str&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要被 Base64 解码的字符串</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>参数 <code>&lt;str&gt;</code> 通过 Base64 解码后的 VARBINARY 结果。特殊情况：</p>
+<ul>
+<li>当输入字符串不正确时（出现非 Base64 编码后可能出现的字符串）将会返回 NULL</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT FROM_BASE64_BINARY('MQ==');
+</code></pre>
+<pre><code>+--------------------------------------------------------+
+| FROM_BASE64_BINARY('MQ==')                             |
++--------------------------------------------------------+
+| 0x31                                                   |
++--------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT FROM_BASE64_BINARY('MjM0');
+</code></pre>
+<pre><code>+--------------------------------------------------------+
+| FROM_BASE64_BINARY('MjM0')                             |
++--------------------------------------------------------+
+| 0x323334                                               |
++--------------------------------------------------------+
+</code></pre>
+<pre><code>SELECT FROM_BASE64_BINARY(NULL);
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| FROM_BASE64_BINARY(NULL)                           |
++----------------------------------------------------+
+| NULL                                               |
++----------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/binary-functions/from-base64-binary/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

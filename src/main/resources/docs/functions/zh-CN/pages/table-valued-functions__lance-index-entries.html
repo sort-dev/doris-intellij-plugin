@@ -1,0 +1,109 @@
+<div class="definition"><pre>LANCE_INDEX_ENTRIES</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>lance_index_entries</code> 自 Apache Doris 4.1.5 起支持。</p>
+<p><code>lance_index_entries</code> 表函数（TVF）列出 Lance 表最新快照中记录的物理索引条目，每个物理索引条目返回一行。它是对 <code>SHOW INDEX</code> 的补充：<code>SHOW INDEX</code> 以固定的 MySQL 风格结果集展示逻辑索引视图（索引名、被索引列、索引类型和属性），而物理索引条目的 UUID 和数据集版本无法放入该固定 Schema，只能通过本 TVF 获取。一个逻辑索引存在多个不同 UUID 的物理条目时，同一索引名会出现在多行中。</p>
+<p>该 TVF 为只读，仅通过 <code>Dataset.getIndexes()</code> 读取索引元数据，不读取行数或统计信息。结果可以使用普通谓词过滤。结果按 <code>(IndexName, IndexUuid)</code> 排序。读取经过完整校验且为 all-or-error：空白或超长名称、缺失 UUID、非正 <code>DatasetVersion</code>、重复 UUID，或原始条目数超过 16,384，都会使整个查询失败，而不是返回截断后的部分结果。Lance 内部维护的保留系统索引（<code>__lance_frag_reuse</code> 和 <code>__lance_mem_wal</code>）会被校验但不会展示。</p>
+<p>该 TVF 需要用户拥有该表的 <code>SHOW</code> 权限，且仅支持 Lance Filesystem Catalog。对于 REST Catalog，该 TVF 会被拒绝并返回错误 <code>lance_index_entries is not supported for Lance REST catalogs</code>。</p>
+<h2>语法</h2>
+<pre><code>LANCE_INDEX_ENTRIES(
+    "table" = "&lt;table&gt;"
+  );
+</code></pre>
+<h2>参数</h2>
+<p><code>lance_index_entries</code> 表函数（TVF）接受一个 <code>"key"="value"</code> 参数对。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;table&gt;</code></td>
+<td>要查看的 Lance 表的完整三部分 <code>catalog.database.table</code> 名称。标识符支持反引号引用；多级 Lance Namespace 映射为包含 <code>.</code> 的数据库名时，需要使用反引号引用数据库部分，例如 <code>lance_catalog.`doris.analytics`.items</code>。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>该 TVF 返回一个结果集，不返回标量 NULL。表中没有用户索引时返回零行；缺失或无效的 <code>table</code> 参数会报错。<code>table</code> 必须为非空字符串，不接受 SQL NULL。</p>
+<p>该 TVF 返回以下固定列：</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CatalogName</code></td>
+<td>STRING</td>
+<td>Catalog 名。</td>
+</tr>
+<tr>
+<td><code>DatabaseName</code></td>
+<td>STRING</td>
+<td>数据库名。</td>
+</tr>
+<tr>
+<td><code>TableName</code></td>
+<td>STRING</td>
+<td>表名。</td>
+</tr>
+<tr>
+<td><code>IndexName</code></td>
+<td>STRING</td>
+<td>Lance 逻辑索引名。</td>
+</tr>
+<tr>
+<td><code>IndexUuid</code></td>
+<td>STRING</td>
+<td>物理索引条目的 UUID。</td>
+</tr>
+<tr>
+<td><code>DatasetVersion</code></td>
+<td>BIGINT</td>
+<td>物理索引条目上记录的数据集版本，即该条目写入时的数据集版本。同一逻辑索引的不同物理条目可能对应不同的数据集版本。恒大于等于 <code>1</code>。</td>
+</tr>
+</tbody>
+</table>
+<h2>示例</h2>
+<p>先按 <a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/catalogs/lance-catalog/">Lance Catalog</a> 配置 Filesystem Catalog，并在外部 Lance 工具中创建数据集及索引。将示例名称替换为可访问的表；需要该表的 <code>SHOW</code> 权限。</p>
+<ul>
+<li>
+<p>查看 <code>lance_catalog</code> 中表 <code>vs_ivf_pq_f32</code> 的物理索引条目：</p>
+<pre><code>select * from lance_index_entries("table" = "lance_catalog.default.vs_ivf_pq_f32");
+</code></pre>
+<pre><code>+---------------+--------------+---------------+----------------------+--------------------------------------+----------------+
+| CatalogName   | DatabaseName | TableName     | IndexName            | IndexUuid                            | DatasetVersion |
++---------------+--------------+---------------+----------------------+--------------------------------------+----------------+
+| lance_catalog | default      | vs_ivf_pq_f32 | embedding_ivf_pq_f32 | 3f9c2a1e-7b4d-4e6f-9a1c-2d5e8f0b3a47 | 12             |
++---------------+--------------+---------------+----------------------+--------------------------------------+----------------+
+</code></pre>
+<p>以上输出中的 <code>IndexUuid</code> 和 <code>DatasetVersion</code> 为示意值。</p>
+</li>
+<li>
+<p>使用普通谓词过滤结果：</p>
+<pre><code>select IndexName, IndexUuid
+from lance_index_entries("table" = "lance_catalog.default.vs_ivf_pq_f32")
+where DatasetVersion &gt;= 12
+order by IndexName, IndexUuid;
+</code></pre>
+<pre><code>IndexName             IndexUuid
+embedding_ivf_pq_f32  3f9c2a1e-7b4d-4e6f-9a1c-2d5e8f0b3a47
+</code></pre>
+</li>
+</ul>
+<p>空的 <code>table</code> 参数会报错，错误信息包含：</p>
+<pre><code>SELECT * FROM lance_index_entries("table" = "");
+</code></pre>
+<pre><code>Missing required lance_index_entries property 'table'
+</code></pre>
+<h2>相关说明</h2>
+<p>更多关于 Lance 索引查看的信息，包括 <code>SHOW INDEX</code> 提供的逻辑视图，请参阅 <a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/catalogs/lance-catalog/">Lance Catalog</a>。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/lance-index-entries/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

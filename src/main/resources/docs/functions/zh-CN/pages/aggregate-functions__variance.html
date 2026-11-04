@@ -1,0 +1,63 @@
+<div class="definition"><pre>VARIANCE,VAR_POP,VARIANCE_POP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>VARIANCE 函数计算指定表达式的统计方差。它衡量了数据值与其算术平均值之间的差异程度。</p>
+<h2>别名</h2>
+<ul>
+<li>VAR_POP</li>
+<li>VARIANCE_POP</li>
+</ul>
+<h2>语法</h2>
+<pre><code>VARIANCE(&lt;expr&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>要计算方差的列或表达式，支持类型为 Double。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 Double 类型的值，表示计算得到的方差。
+组内没有合法数据时，返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>-- 创建示例表
+CREATE TABLE student_scores (
+    student_id INT,
+    score DECIMAL(4,1)
+) DISTRIBUTED BY HASH(student_id)
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+-- 插入测试数据
+INSERT INTO student_scores VALUES
+(1, 85.5),
+(2, 92.0),
+(3, 78.5),
+(4, 88.0),
+(5, 95.5),
+(6, 82.0),
+(7, 90.0),
+(8, 87.5);
+-- 计算学生成绩的方差
+SELECT VARIANCE(score) as score_variance
+FROM student_scores;
+</code></pre>
+<pre><code>+-------------------+
+| score_variance    |
++-------------------+
+| 25.73437499999998 |
++-------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/variance/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

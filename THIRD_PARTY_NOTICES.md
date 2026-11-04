@@ -312,3 +312,20 @@ The full text of the Apache License, Version 2.0 is included in the accompanying
 `LICENSE` file and is also available at https://www.apache.org/licenses/LICENSE-2.0.
 In the packaged plugin, `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` are included
 under `META-INF`.
+
+## Apache Doris Website — Chinese function documentation (bundled)
+
+This plugin includes offline HTML adapted from the Apache Doris Website's Chinese
+4.x SQL function documentation and CAST expression documentation.
+
+- Project: https://github.com/apache/doris-website
+- Source snapshot: `86b74d856b11f04d9fc5888e6da3d3ef3c83c168`
+- Copyright: The Apache Software Foundation and contributors
+- License: Apache License, Version 2.0
+- Changes: Markdown rendered to restricted HTML, relative links expanded, English section
+  labels localized, alias pages linked to shared documentation, offline index added.
+- Full license and per-page provenance: `docs/functions/zh-CN/APACHE_DORIS_WEBSITE_LICENSE.txt`
+  and `docs/functions/zh-CN/manifest.json` inside the plugin resources.
+
+Generation uses markdown-it-py under the MIT License, only as a developer tool. It is
+not bundled with the plugin.

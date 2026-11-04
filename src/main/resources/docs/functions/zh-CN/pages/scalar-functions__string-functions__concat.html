@@ -1,0 +1,130 @@
+<div class="definition"><pre>CONCAT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>CONCAT 函数用于将多个字符串按顺序连接成一个字符串。该函数支持可变数量的参数，是字符串处理中最基本和常用的函数之一。在数据拼接、报表生成、动态 SQL 构建等场景中广泛使用。需要注意的是，如果任一参数为 NULL，整个结果都将为 NULL。</p>
+<h2>语法</h2>
+<pre><code>CONCAT(&lt;expr&gt; [, &lt;expr&gt; ...])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>需要连接的字符串表达式，可以是字符串常量、列名或其他表达式。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型，表示所有参数连接后的字符串。</p>
+<p>连接规则：</p>
+<ul>
+<li>按参数顺序依次连接字符串</li>
+<li>支持任意数量的参数（至少1个）</li>
+<li>支持 UTF-8 多字节字符的正确连接</li>
+<li>数字和其他类型会自动转换为字符串</li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任一参数为 NULL，返回 NULL（这是与 CONCAT_WS 的主要区别）</li>
+<li>如果没有参数，语法错误</li>
+<li>空字符串参数不影响连接结果</li>
+<li>支持与非字符串类型混合使用</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本字符串连接</li>
+</ol>
+<pre><code>SELECT CONCAT('a', 'b'), CONCAT('a', 'b', 'c');
+</code></pre>
+<pre><code>+------------------+-----------------------+
+| CONCAT('a', 'b') | CONCAT('a', 'b', 'c') |
++------------------+-----------------------+
+| ab               | abc                   |
++------------------+-----------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理（关键特性）</li>
+</ol>
+<pre><code>SELECT CONCAT('a', NULL, 'c'), CONCAT('hello', NULL);
+</code></pre>
+<pre><code>+------------------------+---------------------+
+| CONCAT('a', NULL, 'c') | CONCAT('hello', NULL) |
++------------------------+---------------------+
+| NULL                   | NULL                |
++------------------------+---------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT CONCAT('hello', '', 'world'), CONCAT('', 'test', '');
+</code></pre>
+<pre><code>+-----------------------------+------------------------+
+| CONCAT('hello', '', 'world') | CONCAT('', 'test', '') |
++-----------------------------+------------------------+
+| helloworld                  | test                   |
++-----------------------------+------------------------+
+</code></pre>
+<ol>
+<li>数字与字符串混合</li>
+</ol>
+<pre><code>SELECT CONCAT('User', 123), CONCAT('Price: $', 99.99);
+</code></pre>
+<pre><code>+---------------------+---------------------------+
+| CONCAT('User', 123) | CONCAT('Price: $', 99.99) |
++---------------------+---------------------------+
+| User123             | Price: $99.99             |
++---------------------+---------------------------+
+</code></pre>
+<ol>
+<li>多个参数连接</li>
+</ol>
+<pre><code>SELECT CONCAT('A', 'B', 'C', 'D', 'E'), CONCAT('1', '2', '3', '4', '5');
+</code></pre>
+<pre><code>+----------------------------------+----------------------------------+
+| CONCAT('A', 'B', 'C', 'D', 'E') | CONCAT('1', '2', '3', '4', '5') |
++----------------------------------+----------------------------------+
+| ABCDE                            | 12345                            |
++----------------------------------+----------------------------------+
+</code></pre>
+<ol>
+<li>UTF-8 多字节字符连接</li>
+</ol>
+<pre><code>SELECT CONCAT('ṭṛì', ' ', 'ḍḍumai'), CONCAT('Hello', ' ', 'ṭṛì', ' ', 'ḍḍumai');
+</code></pre>
+<pre><code>+------------------------------+--------------------------------------+
+| CONCAT('ṭṛì', ' ', 'ḍḍumai') | CONCAT('Hello', ' ', 'ṭṛì', ' ', 'ḍḍumai') |
++------------------------------+--------------------------------------+
+| ṭṛì ḍḍumai                   | Hello ṭṛì ḍḍumai                     |
++------------------------------+--------------------------------------+
+</code></pre>
+<ol>
+<li>路径和URL构建</li>
+</ol>
+<pre><code>SELECT CONCAT('/home/', 'user/', 'file.txt'), CONCAT('https://', 'www.example.com', '/api');
+</code></pre>
+<pre><code>+--------------------------------------+----------------------------------------------+
+| CONCAT('/home/', 'user/', 'file.txt') | CONCAT('https://', 'www.example.com', '/api') |
++--------------------------------------+----------------------------------------------+
+| /home/user/file.txt                  | https://www.example.com/api                 |
++--------------------------------------+----------------------------------------------+
+</code></pre>
+<ol>
+<li>电子邮件地址构建</li>
+</ol>
+<pre><code>SELECT CONCAT('user', '@', 'example.com'), CONCAT('admin.', 'support', '@', 'company.org');
+</code></pre>
+<pre><code>+------------------------------------+-----------------------------------------------+
+| CONCAT('user', '@', 'example.com') | CONCAT('admin.', 'support', '@', 'company.org') |
++------------------------------------+-----------------------------------------------+
+| user@example.com                   | admin.support@company.org                    |
++------------------------------------+-----------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/concat/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

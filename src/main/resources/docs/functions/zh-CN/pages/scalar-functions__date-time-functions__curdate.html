@@ -1,0 +1,27 @@
+<div class="definition"><pre>CURDATE,CURRENT_DATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>获取当前的日期，以 DATE 类型返回。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_adddate">curdate 函数</a> 行为一致</p>
+<h2>别名</h2>
+<ul>
+<li>current_date</li>
+</ul>
+<h2>语法</h2>
+<pre><code>CURDATE()
+</code></pre>
+<h2>返回值</h2>
+<p>当前的日期，返回值为 date 类型。</p>
+<h2>示例</h2>
+<pre><code>---获取当前的日期
+SELECT CURDATE();
+
++------------+
+| CURDATE()  |
++------------+
+| 2019-12-20 |
++------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/curdate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

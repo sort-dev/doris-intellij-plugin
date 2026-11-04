@@ -1,0 +1,68 @@
+<div class="definition"><pre>PMOD</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回模运算 x mod y 在模系中的最小正数解，即通过计算 (x % y + y) % y 得出结果。</p>
+<h2>语法</h2>
+<pre><code>PMOD(&lt;x&gt; , &lt;y&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>被除数</td>
+</tr>
+<tr>
+<td><code>&lt;y&gt;</code></td>
+<td>除数 不能为 0</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个整型或浮点数。特殊情况：</p>
+<ul>
+<li>当 x=0 时，返回 0。</li>
+<li>当 x is NULL 或 y is NULL 时，返回 NULL。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT PMOD(13,5);
+</code></pre>
+<pre><code>+-------------+
+| pmod(13, 5) |
++-------------+
+|           3 |
++-------------+
+</code></pre>
+<pre><code>SELECT PMOD(-13,5);
+</code></pre>
+<pre><code>+--------------+
+| pmod(-13, 5) |
++--------------+
+|            2 |
++--------------+
+</code></pre>
+<pre><code>SELECT PMOD(0,-12);
+</code></pre>
+<pre><code>+--------------+
+| pmod(0, -12) |
++--------------+
+|            0 |
++--------------+
+</code></pre>
+<pre><code>SELECT PMOD(0,null);
+</code></pre>
+<pre><code>+-------------------------------+
+| pmod(cast(0 as DOUBLE), NULL) |
++-------------------------------+
+|                          NULL |
++-------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/pmod/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,54 @@
+<div class="definition"><pre>PARSE_URL</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>PARSE_URL 函数主要用于解析 URL 字符串，并从中提取各种组成部分，如协议、主机、路径、查询参数等。</p>
+<h2>语法</h2>
+<pre><code>PARSE_URL( &lt;url&gt;, &lt;name&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;url&gt;</code></td>
+<td>需要被解析的 URL</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;</code></td>
+<td>需要提取的部分，可选的值有<code>PROTOCOL</code>，<code>HOST</code>，<code>PATH</code>，<code>REF</code>，<code>AUTHORITY</code>，<code>FILE</code>，<code>USERINFO</code>，<code>PORT</code>，<code>QUERY</code>（不区分大小写）</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回<code>&lt;url&gt;</code>指定的部分。特殊情况：</p>
+<ul>
+<li>任意参数中有一个为 NULL，则返回 NULL</li>
+<li><code>&lt;name&gt;</code>传入其他非法值，则会报错</li>
+</ul>
+<h2>举例</h2>
+<pre><code>SELECT parse_url ('https://doris.apache.org/', 'HOST');
+</code></pre>
+<pre><code>+------------------------------------------------+
+| parse_url('https://doris.apache.org/', 'HOST') |
++------------------------------------------------+
+| doris.apache.org                               |
++------------------------------------------------+
+</code></pre>
+<pre><code>SELECT parse_url ('https://doris.apache.org/', null);
+</code></pre>
+<pre><code>+----------------------------------------------+
+| parse_url('https://doris.apache.org/', NULL) |
++----------------------------------------------+
+| NULL                                         |
++----------------------------------------------+
+</code></pre>
+<h2>相关命令</h2>
+<p>如果想获取 QUERY 中的特定参数，可使用<a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/extract-url-parameter/">extract_url_parameter</a>。</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/parse-url/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

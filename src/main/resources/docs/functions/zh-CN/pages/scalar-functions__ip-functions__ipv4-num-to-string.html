@@ -1,0 +1,56 @@
+<div class="definition"><pre>IPV4_NUM_TO_STRING | Ip Functions</pre></div>
+<div class="content">
+<h1>IPV4_NUM_TO_STRING</h1>
+<h2>描述</h2>
+<p>接受一个类型为 Int16、Int32、Int64 且大端表示的 IPv4 的地址，返回相应 IPv4 的字符串表现形式，格式为 A.B.C.D（以点分割的十进制数字）。</p>
+<h2>别名</h2>
+<ul>
+<li>INET_NTOA</li>
+</ul>
+<h2>语法</h2>
+<pre><code>IPV4_NUM_TO_STRING(&lt;ipv4_num&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;ipv4_num&gt;</code></td>
+<td>由 ipv4 地址转换而来的 int 值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回相应 IPv4 的字符串表现形式，格式为 A.B.C.D（以点分割的十进制数字）。</p>
+<ul>
+<li>对于负数或超过 <code>4294967295</code>（即 <code>'255.255.255.255'</code>）的入参都返回 <code>NULL</code>，表示无效输入。</li>
+</ul>
+<h2>举例</h2>
+<pre><code>select ipv4_num_to_string(3232235521);
+</code></pre>
+<pre><code>+--------------------------------+
+| ipv4_num_to_string(3232235521) |
++--------------------------------+
+| 192.168.0.1                    |
++--------------------------------+
+</code></pre>
+<pre><code>select num,ipv4_num_to_string(num) from ipv4_bi;
+</code></pre>
+<pre><code>+------------+---------------------------+
+| num        | ipv4_num_to_string(`num`) |
++------------+---------------------------+
+|         -1 | NULL                      |
+|          0 | 0.0.0.0                   |
+| 2130706433 | 127.0.0.1                 |
+| 4294967295 | 255.255.255.255           |
+| 4294967296 | NULL                      |
++------------+---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/ip-functions/ipv4-num-to-string/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

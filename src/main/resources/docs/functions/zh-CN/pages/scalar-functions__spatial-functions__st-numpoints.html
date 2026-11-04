@@ -1,0 +1,111 @@
+<div class="definition"><pre>ST_NUMPOINTS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回几何对象中的顶点（点）总数。不同几何类型的计数规则如下：Point 返回 1，LineString 返回顶点数，Polygon 返回所有环上的顶点总数（包含闭合点），MultiPolygon 返回所有子多边形点数之和。</p>
+<p>Since 4.1.2</p>
+<h2>语法</h2>
+<pre><code>ST_NUMPOINTS( &lt;shape&gt; )
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;shape&gt;</code></td>
+<td>输入几何，类型为 GEOMETRY 或 VARCHAR（WKT 格式），且可转换为 GEOMETRY。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 BIGINT 值，表示几何对象中的点总数。</p>
+<p><code>ST_NUMPOINTS</code> 具有如下边界情况：</p>
+<ul>
+<li>如果输入参数为 <code>NULL</code>，返回 <code>NULL</code>。</li>
+<li>如果输入参数无法解析为有效几何对象，返回 <code>NULL</code>。</li>
+<li>对于 <code>POINT</code>，返回 <code>1</code>。</li>
+<li>对于 <code>LINESTRING</code>，返回线上的顶点数。</li>
+<li>对于 <code>POLYGON</code>，返回所有环（外环 + 内环）的顶点总数。每个环都包含闭合点。</li>
+<li>对于 <code>MULTIPOLYGON</code>，返回所有子多边形点数之和。</li>
+<li>对于 <code>CIRCLE</code>，返回 <code>-1</code>（圆没有离散顶点）。</li>
+</ul>
+<h2>示例</h2>
+<p><strong>Point 中的点数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_Point(1, 2));
+</code></pre>
+<pre><code>+------------------------------+
+| ST_NUMPOINTS(ST_Point(1, 2)) |
++------------------------------+
+|                            1 |
++------------------------------+
+</code></pre>
+<p><strong>LineString 中的点数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_GeometryFromText('LINESTRING(0 0, 1 1, 2 2)'));
+</code></pre>
+<pre><code>+-------------------------------------------------------------------+
+| ST_NUMPOINTS(ST_GeometryFromText('LINESTRING(0 0, 1 1, 2 2)'))   |
++-------------------------------------------------------------------+
+|                                                                 3 |
++-------------------------------------------------------------------+
+</code></pre>
+<p><strong>方形 Polygon 中的点数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'));
+</code></pre>
+<pre><code>+----------------------------------------------------------------------------+
+| ST_NUMPOINTS(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))  |
++----------------------------------------------------------------------------+
+|                                                                          5 |
++----------------------------------------------------------------------------+
+</code></pre>
+<p><strong>带洞 Polygon 中的点数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_GeometryFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0),(1 1, 2 1, 2 2, 1 2, 1 1))'));
+</code></pre>
+<pre><code>+-----------------------------------------------------------------------------------------------------------+
+| ST_NUMPOINTS(ST_GeometryFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0),(1 1, 2 1, 2 2, 1 2, 1 1))'))   |
++-----------------------------------------------------------------------------------------------------------+
+|                                                                                                        10 |
++-----------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>MultiPolygon 中的点数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_GeometryFromText('MULTIPOLYGON(((0 0, 1 0, 1 1, 0 1, 0 0)),((2 2, 3 2, 3 3, 2 3, 2 2)))'));
+</code></pre>
+<pre><code>+--------------------------------------------------------------------------------------------------------------+
+| ST_NUMPOINTS(ST_GeometryFromText('MULTIPOLYGON(((0 0, 1 0, 1 1, 0 1, 0 0)),((2 2, 3 2, 3 3, 2 3, 2 2)))')) |
++--------------------------------------------------------------------------------------------------------------+
+|                                                                                                           10 |
++--------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p><strong>Circle 中的点数（返回 -1）</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_Circle(0, 0, 100));
+</code></pre>
+<pre><code>+--------------------------------------+
+| ST_NUMPOINTS(ST_Circle(0, 0, 100))  |
++--------------------------------------+
+|                                   -1 |
++--------------------------------------+
+</code></pre>
+<p><strong>NULL 参数</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(NULL);
+</code></pre>
+<pre><code>+---------------------+
+| ST_NUMPOINTS(NULL)  |
++---------------------+
+|                NULL |
++---------------------+
+</code></pre>
+<p><strong>非法参数（返回 NULL）</strong></p>
+<pre><code>SELECT ST_NUMPOINTS(ST_GeometryFromText('INVALID'));
+</code></pre>
+<pre><code>+------------------------------------------------+
+| ST_NUMPOINTS(ST_GeometryFromText('INVALID'))   |
++------------------------------------------------+
+|                                           NULL |
++------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/spatial-functions/st-numpoints/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

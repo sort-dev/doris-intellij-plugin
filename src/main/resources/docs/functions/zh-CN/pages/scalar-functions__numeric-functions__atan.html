@@ -1,0 +1,127 @@
+<div class="definition"><pre>ATAN</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回反正切值。</p>
+<ul>
+<li>当只有一个参数时：返回 <code>x</code> 的反正切值，结果范围为 [-π/2, π/2]</li>
+<li>当有两个参数时：返回 <code>y/x</code> 的反正切值，行为与 <a href="https://doris.apache.org/zh-CN/docs/dev/sql-manual/sql-functions/scalar-functions/numeric-functions/atan2">ATAN2(y, x)</a> 相同，结果范围为 [-π, π]</li>
+</ul>
+<h2>语法</h2>
+<pre><code>ATAN([&lt;y&gt;, ]&lt;x&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;x&gt;</code></td>
+<td>当只有一个参数时，表示需要被计算反正切的值；当有两个参数时，表示水平坐标（或 x 值），从原点 (0,0) 沿 x 轴的距离</td>
+</tr>
+<tr>
+<td><code>&lt;y&gt;</code></td>
+<td>可选参数，表示垂直坐标（或 y 值），从原点 (0,0) 沿 y 轴的距离</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<ul>
+<li>单参数时：参数 x 的反正切值</li>
+<li>双参数时：参数 y/x 的反正切值</li>
+</ul>
+<h2>特殊情况</h2>
+<h3>单参数版本</h3>
+<ul>
+<li>当 <code>x</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>x</code> 为正无穷，返回 <code>π/2</code>（约 1.570796326794897）</li>
+<li>当 <code>x</code> 为负无穷，返回 <code>-π/2</code>（约 -1.570796326794897）</li>
+<li>当 <code>x</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h3>双参数版本</h3>
+<ul>
+<li>若 <code>y</code> 或 <code>x</code> 为 <code>NaN</code>，返回 <code>NaN</code></li>
+<li>当 <code>x &gt; 0</code> 且 <code>y = ±0.0</code>，返回 <code>±0</code>（符号同 <code>y</code>）</li>
+<li>当 <code>x = 0.0</code>（含 <code>+0.0</code> 与 <code>-0.0</code>）且 <code>y &gt; 0</code>，返回 <code>π/2</code>（约 1.570796326794897）</li>
+<li>当 <code>x = 0.0</code>（含 <code>+0.0</code> 与 <code>-0.0</code>）且 <code>y &lt; 0</code>，返回 <code>-π/2</code>（约 -1.570796326794897）</li>
+<li>当 <code>x &lt; 0</code> 且 <code>y = +0.0</code>，返回 <code>π</code>（约 3.141592653589793）；当 <code>x &lt; 0</code> 且 <code>y = -0.0</code>，返回 <code>-π</code></li>
+<li>当 <code>y = +∞</code>、<code>x</code> 有限，返回 <code>π/2</code>；当 <code>y = -∞</code>、<code>x</code> 有限，返回 <code>-π/2</code></li>
+<li>当 <code>y = +∞</code> 且 <code>x = +∞</code>，返回 <code>π/4</code>（约 0.7853981633974483）</li>
+<li>当 <code>y = -∞</code> 且 <code>x = +∞</code>，返回 <code>-π/4</code>（约 -0.7853981633974483）</li>
+<li>当 <code>y = +∞</code> 且 <code>x = -∞</code>，返回 <code>3π/4</code>（约 2.356194490192345）</li>
+<li>当 <code>y = -∞</code> 且 <code>x = -∞</code>，返回 <code>-3π/4</code>（约 -2.356194490192345）</li>
+<li>当 <code>x = +∞</code> 且 <code>y</code> 有限为正，返回 <code>0</code>；当 <code>x = +∞</code> 且 <code>y</code> 有限为负，返回 <code>-0</code></li>
+<li>当 <code>x = -∞</code> 且 <code>y</code> 有限为正，返回 <code>π</code>；当 <code>x = -∞</code> 且 <code>y</code> 有限为负，返回 <code>-π</code></li>
+<li>当 <code>y</code> 或 <code>x</code> 为 <code>NULL</code>，返回 <code>NULL</code></li>
+</ul>
+<h2>举例</h2>
+<pre><code>select atan(0);
+</code></pre>
+<pre><code>+-----------+
+| atan(0.0) |
++-----------+
+|         0 |
++-----------+
+</code></pre>
+<pre><code>select atan(2);
+</code></pre>
+<pre><code>+--------------------+
+| atan(2.0)          |
++--------------------+
+| 1.1071487177940904 |
++--------------------+
+</code></pre>
+<pre><code>select atan(cast('nan' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| atan(cast('nan' AS DOUBLE)) |
++-----------------------------+
+| NaN                         |
++-----------------------------+
+</code></pre>
+<pre><code>select atan(cast('inf' as double));
+</code></pre>
+<pre><code>+-----------------------------+
+| atan(cast('inf' AS DOUBLE)) |
++-----------------------------+
+| 1.570796326794897           |
++-----------------------------+
+</code></pre>
+<pre><code>select atan(cast('-inf' as double));
+</code></pre>
+<pre><code>+------------------------------+
+| atan(cast('-inf' AS DOUBLE)) |
++------------------------------+
+| -1.570796326794897           |
++------------------------------+
+</code></pre>
+<pre><code>select atan(cast('nan' as double), 1.0);
+</code></pre>
+<pre><code>+----------------------------------+
+| atan(cast('nan' as double), 1.0) |
++----------------------------------+
+|                              NaN |
++----------------------------------+
+</code></pre>
+<pre><code>select atan(-1.0, cast('inf' as double));
+</code></pre>
+<pre><code>+-----------------------------------+
+| atan(-1.0, cast('inf' as double)) |
++-----------------------------------+
+|                                -0 |
++-----------------------------------+
+</code></pre>
+<pre><code>select atan(cast('-inf' as double), cast('inf' as double));
+</code></pre>
+<pre><code>+-----------------------------------------------------+
+| atan(cast('-inf' as double), cast('inf' as double)) |
++-----------------------------------------------------+
+|                                 -0.7853981633974483 |
++-----------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/atan/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

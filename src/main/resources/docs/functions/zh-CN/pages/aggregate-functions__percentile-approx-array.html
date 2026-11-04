@@ -1,0 +1,88 @@
+<div class="definition"><pre>PERCENTILE_APPROX_ARRAY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>PERCENTILE_APPROX_ARRAY</code> 在一次聚合中计算多个近似百分位数。函数为输入值构建一个 T-Digest，并基于这个共享状态计算所有指定的百分位数，因此比针对每个百分位数分别调用 <code>PERCENTILE_APPROX</code> 更高效。</p>
+<p>自 4.2.0 版本开始支持该函数。</p>
+<h2>语法</h2>
+<pre><code>PERCENTILE_APPROX_ARRAY(&lt;col&gt;, &lt;quantiles&gt; [, &lt;compression&gt;])
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;col&gt;</code></td>
+<td>需要计算百分位数的数值表达式，输入值会转换为 <code>DOUBLE</code>。函数忽略 <code>NULL</code> 值。</td>
+</tr>
+<tr>
+<td><code>&lt;quantiles&gt;</code></td>
+<td>常量 <code>ARRAY&lt;DOUBLE&gt;</code>。每个元素都必须是有限值、非 NULL 且位于 <code>[0.0, 1.0]</code> 范围内。结果顺序与数组一致，并保留重复的百分位点。允许传入空数组。</td>
+</tr>
+<tr>
+<td><code>&lt;compression&gt;</code></td>
+<td>可选的常量 <code>DOUBLE</code>，取值范围为 <code>[2048, 10000]</code>。值越大通常精度越高，但内存占用也越大。默认值为 <code>10000</code>；非有限值或超出有效范围时也使用 <code>10000</code>。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>ARRAY&lt;DOUBLE&gt;</code>，其中每个元素对应 <code>&lt;quantiles&gt;</code> 中相同位置的近似百分位数。当 <code>&lt;quantiles&gt;</code> 为空，或组内没有非 NULL 输入值时，返回空数组。百分位点超出范围或 <code>&lt;quantiles&gt;</code> 包含 NULL 元素时返回错误。</p>
+<h2>举例</h2>
+<pre><code>CREATE TABLE percentile_approx_array_example (
+    id INT,
+    value DOUBLE NULL
+) DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO percentile_approx_array_example VALUES
+    (1, 1.0), (2, 2.0), (3, 3.0), (4, NULL),
+    (5, 10.0), (6, 20.0), (7, 30.0), (8, 100.0);
+</code></pre>
+<p>使用默认 compression 计算多个近似百分位数：</p>
+<pre><code>SELECT percentile_approx_array(value, [0.0, 0.25, 0.5, 0.75, 1.0]) AS percentiles
+FROM percentile_approx_array_example;
+</code></pre>
+<pre><code>+--------------------------+
+| percentiles              |
++--------------------------+
+| [1, 2.25, 10, 27.5, 100] |
++--------------------------+
+</code></pre>
+<p>显式指定 compression：</p>
+<pre><code>SELECT percentile_approx_array(value, [0.25, 0.5, 0.75], 2048) AS percentiles
+FROM percentile_approx_array_example;
+</code></pre>
+<pre><code>+------------------+
+| percentiles      |
++------------------+
+| [2.25, 10, 27.5] |
++------------------+
+</code></pre>
+<p>输入值全部为 NULL 时返回空数组：</p>
+<pre><code>SELECT percentile_approx_array(CAST(NULL AS DOUBLE), [0.0, 0.5, 1.0]) AS percentiles
+FROM percentile_approx_array_example;
+</code></pre>
+<pre><code>+-------------+
+| percentiles |
++-------------+
+| []          |
++-------------+
+</code></pre>
+<p>百分位数组为空时也返回空数组：</p>
+<pre><code>SELECT percentile_approx_array(value, []) AS percentiles
+FROM percentile_approx_array_example;
+</code></pre>
+<pre><code>+-------------+
+| percentiles |
++-------------+
+| []          |
++-------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/aggregate-functions/percentile-approx-array/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

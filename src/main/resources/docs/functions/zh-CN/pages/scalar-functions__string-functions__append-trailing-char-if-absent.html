@@ -1,0 +1,96 @@
+<div class="definition"><pre>APPEND_TRAILING_CHAR_IF_ABSENT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>APPEND_TRAILING_CHAR_IF_ABSENT 函数用于确保字符串以指定字符结尾。如果字符串末尾不存在该字符，则添加；如果已存在，则保持不变。</p>
+<h2>语法</h2>
+<pre><code>APPEND_TRAILING_CHAR_IF_ABSENT(&lt;str&gt;, &lt;trailing_char&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>需要处理的目标字符串。类型：VARCHAR</td>
+</tr>
+<tr>
+<td><code>&lt;trailing_char&gt;</code></td>
+<td>需要确保出现在字符串末尾的字符。类型：VARCHAR</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 VARCHAR 类型：</p>
+<ul>
+<li>如果 <code>&lt;str&gt;</code> 末尾不存在 <code>&lt;trailing_char&gt;</code>，返回 <code>&lt;str&gt;</code> 与 <code>&lt;trailing_char&gt;</code> 拼接后的字符串</li>
+<li>如果 <code>&lt;str&gt;</code> 末尾已存在 <code>&lt;trailing_char&gt;</code>，返回原始 <code>&lt;str&gt;</code></li>
+</ul>
+<p>特殊情况：</p>
+<ul>
+<li>如果任意参数为 NULL，返回 NULL</li>
+<li>如果 <code>&lt;str&gt;</code> 为空字符串，返回 <code>&lt;trailing_char&gt;</code></li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>基本用法：字符不存在时添加</li>
+</ol>
+<pre><code>SELECT APPEND_TRAILING_CHAR_IF_ABSENT('a', 'c');
+</code></pre>
+<pre><code>+------------------------------------------+
+| append_trailing_char_if_absent('a', 'c') |
++------------------------------------------+
+| ac                                       |
++------------------------------------------+
+</code></pre>
+<ol>
+<li>字符已存在时不添加</li>
+</ol>
+<pre><code>SELECT APPEND_TRAILING_CHAR_IF_ABSENT('ac', 'c');
+</code></pre>
+<pre><code>+-------------------------------------------+
+| append_trailing_char_if_absent('ac', 'c') |
++-------------------------------------------+
+| ac                                        |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>空字符串处理</li>
+</ol>
+<pre><code>SELECT APPEND_TRAILING_CHAR_IF_ABSENT('', '/');
+</code></pre>
+<pre><code>+------------------------------------------+
+| append_trailing_char_if_absent('', '/')  |
++------------------------------------------+
+| /                                        |
++------------------------------------------+
+</code></pre>
+<ol>
+<li>NULL 值处理</li>
+</ol>
+<pre><code>SELECT APPEND_TRAILING_CHAR_IF_ABSENT(NULL, 'c');
+</code></pre>
+<pre><code>+-------------------------------------------+
+| append_trailing_char_if_absent(NULL, 'c') |
++-------------------------------------------+
+| NULL                                      |
++-------------------------------------------+
+</code></pre>
+<ol>
+<li>utf-8 字符</li>
+</ol>
+<pre><code>SELECT APPEND_TRAILING_CHAR_IF_ABSENT('acf', 'ṛ');
+</code></pre>
+<pre><code>+----------------------------------------------+
+| APPEND_TRAILING_CHAR_IF_ABSENT('acf', 'ṛ')   |
++----------------------------------------------+
+| acfṛ                                         |
++----------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/append-trailing-char-if-absent/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

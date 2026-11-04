@@ -1,0 +1,62 @@
+<div class="definition"><pre>CONVERT_TO</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将指定的 VARCHAR 列的字符编码转换为目标字符集，常用于 ORDER BY 子句中对包含中文的列进行按拼音排序。当前仅支持将 <code>&lt;character&gt;</code> 转换为 <code>'gbk'</code> 编码。</p>
+<h2>语法</h2>
+<pre><code>CONVERT_TO(&lt;column&gt;, &lt;character&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;column&gt;</code></td>
+<td>需要转换字符编码的 VARCHAR 列。</td>
+</tr>
+<tr>
+<td><code>&lt;character&gt;</code></td>
+<td>目标字符集，目前仅支持 <code>'gbk'</code>。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回转换编码后的 VARCHAR 值，可用于 ORDER BY 子句中按拼音顺序排序。</p>
+<h2>举例</h2>
+<pre><code>SELECT * FROM class_test ORDER BY class_name;
+</code></pre>
+<pre><code>+----------+------------+-------------+
+| class_id | class_name | student_ids |
++----------+------------+-------------+
+|        6 | asd        | [6]         |
+|        7 | qwe        | [7]         |
+|        8 | z          | [8]         |
+|        2 | 哈         | [2]         |
+|        3 | 哦         | [3]         |
+|        1 | 啊         | [1]         |
+|        4 | 张         | [4]         |
+|        5 | 我         | [5]         |
++----------+------------+-------------+
+</code></pre>
+<pre><code>SELECT * FROM class_test ORDER BY CONVERT_TO(class_name, 'gbk');
+</code></pre>
+<pre><code>+----------+------------+-------------+
+| class_id | class_name | student_ids |
++----------+------------+-------------+
+|        6 | asd        | [6]         |
+|        7 | qwe        | [7]         |
+|        8 | z          | [8]         |
+|        1 | 啊         | [1]         |
+|        2 | 哈         | [2]         |
+|        3 | 哦         | [3]         |
+|        5 | 我         | [5]         |
+|        4 | 张         | [4]         |
++----------+------------+-------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/other-functions/convert-to/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

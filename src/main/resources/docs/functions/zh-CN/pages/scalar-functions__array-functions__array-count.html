@@ -1,0 +1,184 @@
+<div class="definition"><pre>ARRAY_COUNT</pre></div>
+<div class="content">
+<h2>array_count</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>对数组中的元素应用 lambda 表达式，统计返回值不为 0 的元素个数。</p>
+<h2>语法</h2>
+<pre><code>array_count(lambda, array1, ...)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>lambda</code>：lambda 表达式，用于对数组元素进行判断和计算</li>
+<li><code>array1, ...</code>：一个或多个 ARRAY&lt;T&gt; 类型参数</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂数据类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：BIGINT</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回 lambda 表达式结果是 True 的元素个数</li>
+<li>0：如果没有元素满足条件，或输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>lambda 表达式中参数个数需与数组参数个数一致</li>
+<li>所有输入数组的长度必须一致</li>
+<li>支持对多数组、复杂类型数组进行统计</li>
+<li>空数组返回 0，NULL 数组返回 0</li>
+<li>lambda 表达式可以调用其他高阶函数，但需要返回类型兼容</li>
+<li>对数组元素中的 null 值：null 元素会传递给 lambda 表达式处理，lambda 可以判断 null 值</li>
+</ul>
+<h3>示例</h3>
+<pre><code>CREATE TABLE array_count_test (
+    id INT,
+    int_array ARRAY&lt;INT&gt;,
+    double_array ARRAY&lt;DOUBLE&gt;,
+    string_array ARRAY&lt;STRING&gt;
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 3
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+INSERT INTO array_count_test VALUES
+(1, [1, 2, 3, 4, 5], [1.1, 2.2, 3.3, 4.4, 5.5], ['a', 'bb', 'ccc', 'dddd', 'eeeee']),
+(2, [1, null, 3, null, 5], [1.1, null, 3.3, null, 5.5], ['a', null, 'ccc', null, 'eeeee']),
+(3, [], [], []),
+(4, NULL, NULL, NULL);
+</code></pre>
+<p><strong>查询示例：</strong></p>
+<p>统计 int_array 中大于 2 的元素个数：</p>
+<pre><code>SELECT array_count(x -&gt; x &gt; 2, int_array) FROM array_count_test WHERE id = 1;
++-------------------------------------+
+| array_count(x -&gt; x &gt; 2, int_array)  |
++-------------------------------------+
+|                                   3 |
++-------------------------------------+
+</code></pre>
+<p>统计 double_array 中大于等于 3 的元素个数：</p>
+<pre><code>SELECT array_count(x -&gt; x &gt;= 3, double_array) FROM array_count_test WHERE id = 1;
++------------------------------------------+
+| array_count(x -&gt; x &gt;= 3, double_array)   |
++------------------------------------------+
+|                                        3 |
++------------------------------------------+
+</code></pre>
+<p>统计 string_array 中长度大于 2 的元素个数：</p>
+<pre><code>SELECT array_count(x -&gt; length(x) &gt; 2, string_array) FROM array_count_test WHERE id = 1;
++--------------------------------------------------+
+| array_count(x -&gt; length(x) &gt; 2, string_array)    |
++--------------------------------------------------+
+|                                              3   |
++--------------------------------------------------+
+</code></pre>
+<p>对于空数组进行计算：</p>
+<pre><code>SELECT array_count(x -&gt; x &gt; 0, int_array) FROM array_count_test WHERE id = 3;
++-------------------------------------+
+| array_count(x -&gt; x &gt; 0, int_array)  |
++-------------------------------------+
+|                                   0 |
++-------------------------------------+
+</code></pre>
+<p>对 NULL 数组进行计算：当输入数组为 NULL 时返回 0，不会抛出错误。</p>
+<pre><code>SELECT array_count(x -&gt; x &gt; 0, int_array) FROM array_count_test WHERE id = 4;
++-------------------------------------+
+| array_count(x -&gt; x &gt; 0, int_array)  |
++-------------------------------------+
+|                                   0 |
++-------------------------------------+
+</code></pre>
+<p>统计包含 null 的数组，lambda 表达式可判断 null：</p>
+<pre><code>SELECT array_count(x -&gt; x is null, [null, 1, null, 2, null]);
++-------------------------------------------------------+
+| array_count(x -&gt; x is null, [null, 1, null, 2, null]) |
++-------------------------------------------------------+
+|                                                     3 |
++-------------------------------------------------------+
+</code></pre>
+<p>多数组统计，统计 int_array &gt; double_array 的元素个数：</p>
+<pre><code>SELECT array_count((x, y) -&gt; x &gt; y, int_array, double_array) FROM array_count_test WHERE id = 1;
++-------------------------------------------------------+
+| array_count((x, y) -&gt; x &gt; y, int_array, double_array) |
++-------------------------------------------------------+
+|                                                     0 |
++-------------------------------------------------------+
+</code></pre>
+<p>复杂类型示例：</p>
+<p>嵌套数组统计，统计每个子数组长度大于 2 的个数：</p>
+<pre><code>SELECT array_count(x -&gt; size(x) &gt; 2, [[1,2], [3,4,5], [6], [7,8,9,10]]);
++------------------------------------------------------------------+
+| array_count(x -&gt; size(x) &gt; 2, [[1,2], [3,4,5], [6], [7,8,9,10]]) |
++------------------------------------------------------------------+
+|                                                                2 |
++------------------------------------------------------------------+
+</code></pre>
+<p>map 类型统计，统计 key 为 'a' 的 value 大于 10 的个数：</p>
+<pre><code>SELECT array_count(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]);
++--------------------------------------------------------------+
+| array_count(x -&gt; x['a'] &gt; 10, [{'a':5}, {'a':15}, {'a':20}]) |
++--------------------------------------------------------------+
+|                                                            2 |
++--------------------------------------------------------------+
+</code></pre>
+<p>struct 类型统计，统计 age 大于 18 的个数：</p>
+<pre><code>SELECT array_count(x -&gt; struct_element(x, 'age') &gt; 18, array(named_struct('name','Alice','age',20),named_struct('name','Bob','age',16),named_struct('name','Eve','age',30)));
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| array_count(x -&gt; struct_element(x, 'age') &gt; 18, array(named_struct('name','Alice','age',20),named_struct('name','Bob','age',16),named_struct('name','Eve','age',30))) |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                                     2 |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>参数数量错误会报错。</p>
+<pre><code>SELECT array_count(x -&gt; x &gt; 0, [1,2,3], [4,5,6], [7,8,9]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda x -&gt; (x &gt; 0) arguments' size is not equal parameters' size
+</code></pre>
+<p>数组长度不一致会报错。</p>
+<pre><code>SELECT array_count((x, y) -&gt; x &gt; y, [1,2,3], [4,5]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = (10.16.10.6)[INVALID_ARGUMENT]in array map function, the input column size are not equal completely, nested column data rows 1st size is 3, 2th size is 2.
+</code></pre>
+<p>传入非数组类型时会报错。</p>
+<pre><code>SELECT array_count(x -&gt; x &gt; 0, 'not_an_array');
+ERROR 1105 (HY000): errCode = 2, detailMessage = lambda argument must be array but is 'not_an_array'
+</code></pre>
+<p><strong>嵌套高阶函数示例：</strong>
+<strong>正确示例：在 lambda 中调用返回标量的高阶函数</strong></p>
+<p>嵌套数组中使用高阶函数，统计每个子数组中大于5的元素个数：
+这里可以嵌套使用，因为内层的 array_count 返回标量值（INT64），外层的 array_count 可以处理。</p>
+<ul>
+<li>array_count(y -&gt; y &gt; 5, [1,2,3]) = 0 → 0 (false)</li>
+<li>array_count(y -&gt; y &gt; 5, [4,5,6]) = 1 → 1 (true)</li>
+<li>array_count(y -&gt; y &gt; 5, [7,8,9]) = 3 → 3 (true)</li>
+<li>外层 array_count 统计结果为 2（有两个子数组包含大于5的元素）</li>
+</ul>
+<pre><code>SELECT array_count(x -&gt; array_count(y -&gt; y &gt; 5, x), [[1,2,3],[4,5,6],[7,8,9]]);
++------------------------------------------------------------------+
+| array_count(x -&gt; array_count(y -&gt; y &gt; 5, x), [[1,2,3],[4,5,6],[7,8,9]]) |
++------------------------------------------------------------------+
+|                                                                2 |
++------------------------------------------------------------------+
+</code></pre>
+<p><strong>错误示例：lambda 返回数组类型</strong></p>
+<p>lambda 表达式返回数组类型时会报错,  array_count 期望 lambda 返回一个可以转换为布尔值的标量,当 lambda 返回数组时，array_count 无法处理这种类型</p>
+<ul>
+<li>对于 x = [1,2,3]：array_exists(y -&gt; y &gt; 5, [1,2,3]) 返回 [false, false, false]</li>
+<li>对于 x = [4,5,6]：array_exists(y -&gt; y &gt; 5, [4,5,6]) 返回 [false, false, true]</li>
+</ul>
+<pre><code>SELECT array_count(x -&gt; array_exists(y -&gt; y &gt; 5, x), [[1,2,3],[4,5,6]]);
+ERROR 1105 (HY000): errCode = 2, detailMessage = Can not find the compatibility function signature: array_count(ARRAY&lt;ARRAY&lt;BOOLEAN&gt;&gt;)
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, COUNT, ARRAY_COUNT</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-count/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

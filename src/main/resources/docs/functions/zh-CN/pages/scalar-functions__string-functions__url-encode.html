@@ -1,0 +1,36 @@
+<div class="definition"><pre>URL_ENCODE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>使用 UTF-8 编码完成所提供文本的 URL 编码。通常用于对作为 URL 的一部分传递的参数信息进行编码</p>
+<h2>语法</h2>
+<pre><code>URL_ENCODE(  &lt;str&gt;  ) 
+</code></pre>
+<h2>必选参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>待编码的字符串</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>UTF-8 编码完成所提供文本的 URL 编码</p>
+<h2>示例</h2>
+<pre><code>select URL_ENCODE('Doris Q&amp;A');
+</code></pre>
+<pre><code>+-------------------------+
+| url_encode('Doris Q&amp;A') |
++-------------------------+
+| Doris+Q%26A             |
++-------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/url-encode/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

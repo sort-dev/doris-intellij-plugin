@@ -1,0 +1,114 @@
+<div class="definition"><pre>ARRAY_POPBACK</pre></div>
+<div class="content">
+<h2>array_popback</h2>
+&lt;version since="2.0.0"&gt;
+
+<h2>描述</h2>
+<p>移除数组的最后一个元素。函数会返回一个新数组，包含原数组中除最后一个元素外的所有元素。</p>
+<h2>语法</h2>
+<pre><code>array_popback(ARRAY&lt;T&gt; arr)
+</code></pre>
+<h3>参数</h3>
+<ul>
+<li><code>arr</code>：ARRAY&lt;T&gt; 类型，要移除最后一个元素的数组</li>
+</ul>
+<p><strong>T 支持的类型：</strong></p>
+<ul>
+<li>数值类型：TINYINT、SMALLINT、INT、BIGINT、LARGEINT、FLOAT、DOUBLE、DECIMAL</li>
+<li>字符串类型：CHAR、VARCHAR、STRING</li>
+<li>日期时间类型：DATE、DATETIME、DATEV2、DATETIMEV2</li>
+<li>布尔类型：BOOLEAN</li>
+<li>IP 类型：IPV4、IPV6</li>
+<li>复杂类型：ARRAY、MAP、STRUCT</li>
+</ul>
+<h3>返回值</h3>
+<p>返回类型：ARRAY&lt;T&gt;</p>
+<p>返回值含义：</p>
+<ul>
+<li>返回一个新数组，包含原数组中除最后一个元素外的所有元素</li>
+<li>NULL：如果输入数组为 NULL</li>
+</ul>
+<p>使用说明：</p>
+<ul>
+<li>函数会移除数组的最后一个元素，返回剩余的元素</li>
+<li>空数组返回空数组，只有一个元素的数组返回空数组</li>
+<li>对数组元素中的 null 值：null 元素会被正常处理</li>
+</ul>
+<p><strong>查询示例：</strong></p>
+<p>移除字符串数组的最后一个元素：</p>
+<pre><code>SELECT array_popback(['apple', 'banana', 'cherry', 'date']);
++--------------------------------------------------+
+| array_popback(['apple', 'banana', 'cherry', 'date']) |
++--------------------------------------------------+
+| ["apple", "banana", "cherry"]                    |
++--------------------------------------------------+
+</code></pre>
+<p>移除包含 null 的数组的最后一个元素：</p>
+<pre><code>SELECT array_popback([1, null, 3, null, 5]);
++--------------------------------------------+
+| array_popback([1, null, 3, null, 5])      |
++--------------------------------------------+
+| [1, null, 3, null]                        |
++--------------------------------------------+
+</code></pre>
+<p>只有一个元素的数组返回空数组：</p>
+<pre><code>SELECT array_popback([42]);
++----------------------+
+| array_popback([42])  |
++----------------------+
+| []                   |
++----------------------+
+</code></pre>
+<p>空数组返回空数组：</p>
+<pre><code>SELECT array_popback([]);
++----------------------+
+| array_popback([])    |
++----------------------+
+| []                   |
++----------------------+
+</code></pre>
+<p>NULL 数组返回 NULL：</p>
+<pre><code>SELECT array_popback(NULL);
++----------------------+
+| array_popback(NULL)  |
++----------------------+
+| NULL                 |
++----------------------+
+</code></pre>
+<p>移除 IP 地址数组的最后一个元素：</p>
+<pre><code>SELECT array_popback(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;));
++----------------------------------------------------------------------------------+
+| array_popback(CAST(['192.168.1.1', '192.168.1.2', '192.168.1.3'] AS ARRAY&lt;IPV4&gt;)) |
++----------------------------------------------------------------------------------+
+| ["192.168.1.1", "192.168.1.2"]                                                   |
++----------------------------------------------------------------------------------+
+</code></pre>
+<p>移除嵌套数组的最后一个元素：</p>
+<pre><code>SELECT array_popback([[1, 2], [3, 4], [5, 6]]);
++------------------------------------------+
+| array_popback([[1, 2], [3, 4], [5, 6]]) |
++------------------------------------------+
+| [[1, 2], [3, 4]]                         |
++------------------------------------------+
+</code></pre>
+<p>移除 MAP 数组的最后一个元素：</p>
+<pre><code>SELECT array_popback([{'name':'Alice','age':20}, {'name':'Bob','age':30}, {'name':'Charlie','age':40}]);
++--------------------------------------------------------------------------------------------------+
+| array_popback([{'name':'Alice','age':20}, {'name':'Bob','age':30}, {'name':'Charlie','age':40}]) |
++--------------------------------------------------------------------------------------------------+
+| [{"name":"Alice", "age":"20"}, {"name":"Bob", "age":"30"}]                                       |
++--------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>移除 STRUCT 数组的最后一个元素：</p>
+<pre><code>SELECT array_popback(array(named_struct('name','Alice','age',20), named_struct('name','Bob','age',30), named_struct('name','Charlie','age',40)));
++-------------------------------------------------------------------------------------------------------------------------------------------+
+| array_popback(array(named_struct('name','Alice','age',20), named_struct('name','Bob','age',30), named_struct('name','Charlie','age',40))) |
++-------------------------------------------------------------------------------------------------------------------------------------------+
+| [{"name":"Alice", "age":20}, {"name":"Bob", "age":30}]                                                                                    |
++-------------------------------------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<h3>关键词</h3>
+<p>ARRAY, POPBACK, ARRAY_POPBACK</p>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/array-functions/array-popback/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

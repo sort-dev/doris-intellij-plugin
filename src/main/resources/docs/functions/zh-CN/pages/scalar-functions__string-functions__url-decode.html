@@ -1,0 +1,46 @@
+<div class="definition"><pre>URL_DECODE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>将 URL 转换为解码字符串。</p>
+<h2>语法</h2>
+<pre><code>URL_DECODE( &lt;str&gt; ) 
+</code></pre>
+<h2>必选参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;str&gt;</code></td>
+<td>待解码的字符串</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>解码后的值</p>
+<h2>示例</h2>
+<p>解码百分号编码的 URL —— <code>%3A</code> → <code>:</code>，<code>%2F</code> → <code>/</code>。</p>
+<pre><code>select url_decode('https%3A%2F%2Fdoris.apache.org%2Fzh-CN%2Fdocs%2Fsql-manual%2Fsql-functions%2Fstring-functions');
+</code></pre>
+<pre><code>+-------------------------------------------------------------------------------------------------------------+
+| url_decode('https%3A%2F%2Fdoris.apache.org%2Fzh-CN%2Fdocs%2Fsql-manual%2Fsql-functions%2Fstring-functions') |
++-------------------------------------------------------------------------------------------------------------+
+| https://doris.apache.org/zh-CN/docs/sql-manual/sql-functions/string-functions                               |
++-------------------------------------------------------------------------------------------------------------+
+</code></pre>
+<p>解码 <code>application/x-www-form-urlencoded</code> 风格的字符串 —— <code>+</code> → 空格，<code>%26</code> → <code>&amp;</code>。</p>
+<pre><code>select url_decode('Doris+Q%26A');
+</code></pre>
+<pre><code>+---------------------------+
+| url_decode('Doris+Q%26A') |
++---------------------------+
+| Doris Q&amp;A                 |
++---------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/string-functions/url-decode/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,58 @@
+<div class="definition"><pre>QUANTILE_PERCENT</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>QUANTILE_PERCENT</code> 函数用于计算给定百分比的分位数值。它接受两个参数：一个 quantile_state 列和一个表示百分比的常量浮点数。该函数返回一个浮点数，表示给定百分比位置的分位数值。</p>
+<h2>语法</h2>
+<pre><code>QUANTILE_PERCENT(&lt;quantile_state&gt;, &lt;percent&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;quantile_state&gt;</code></td>
+<td>目标列。</td>
+</tr>
+<tr>
+<td><code>&lt;percent&gt;</code></td>
+<td>目标百分比。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 <code>Double</code> 类型的分位数值。</p>
+<h2>示例</h2>
+<pre><code>CREATE TABLE IF NOT EXISTS quantile_state_agg_test (
+         `dt` int(11) NULL COMMENT "",
+         `id` int(11) NULL COMMENT "",
+         `price` quantile_state QUANTILE_UNION NOT NULL COMMENT ""
+        ) ENGINE=OLAP
+        AGGREGATE KEY(`dt`, `id`)
+        COMMENT "OLAP"
+        DISTRIBUTED BY HASH(`dt`) BUCKETS 1
+        PROPERTIES ("replication_num" = "1");
+
+INSERT INTO quantile_state_agg_test VALUES(20220201,0, to_quantile_state(1, 2048));
+
+INSERT INTO quantile_state_agg_test VALUES(20220201,1, to_quantile_state(-1, 2048)),
+            (20220201,1, to_quantile_state(0, 2048)),(20220201,1, to_quantile_state(1, 2048)),
+            (20220201,1, to_quantile_state(2, 2048)),(20220201,1, to_quantile_state(3, 2048));
+
+SELECT dt, id, quantile_percent(quantile_union(price), 0) FROM quantile_state_agg_test GROUP BY dt, id ORDER BY dt, id
+</code></pre>
+<p>结果为</p>
+<pre><code>+----------+------+--------------------------------------------+
+| dt       | id   | quantile_percent(quantile_union(price), 0) |
++----------+------+--------------------------------------------+
+| 20220201 |    0 |                                          1 |
+| 20220201 |    1 |                                         -1 |
++----------+------+--------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/quantile-functions/quantile-percent/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

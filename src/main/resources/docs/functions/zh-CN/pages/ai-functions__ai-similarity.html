@@ -1,0 +1,64 @@
+<div class="definition"><pre>AI_SIMILARITY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断两个文本之间的语义相似性</p>
+<h2>语法</h2>
+<pre><code>AI_AI_SIMILARITY([&lt;resource_name&gt;], &lt;text_1&gt;, &lt;text_2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;resource_name&gt;</code></td>
+<td>指定的资源名称</td>
+</tr>
+<tr>
+<td><code>&lt;text_1&gt;</code></td>
+<td>文本</td>
+</tr>
+<tr>
+<td><code>&lt;text_2&gt;</code></td>
+<td>文本</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个 0 - 10 之间的浮点数。0 表示无相似性，10 表示强相似性。</p>
+<p>当输入有值为 NULL 时返回 NULL</p>
+<p>结果为大模型生成，所以返回内容并不固定</p>
+<h2>示例</h2>
+<p>假设我有如下表，代表某家快递公司收到的评论：</p>
+<pre><code>CREATE TABLE user_comments (
+    id      INT,
+    comment VARCHAR(500)
+) DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 10
+PROPERTIES (
+    "replication_num" = "1"
+);
+</code></pre>
+<p>当我想按顾客语气情绪对评论进行排行时可以：</p>
+<pre><code>SELECT comment,
+    AI_SIMILARITY('resource_name', 'I am extremely dissatisfied with their service.', comment) AS score
+FROM user_comments ORDER BY score DESC LIMIT 5;
+</code></pre>
+<p>查询结果大致如下：</p>
+<pre><code>+-------------------------------------------------+-------+
+| comment                                         | score |
++-------------------------------------------------+-------+
+| It arrived broken and I am really disappointed. |   7.5 |
+| Delivery was very slow and frustrating.         |   6.5 |
+| Not bad, but the packaging could be better.     |   3.5 |
+| It is fine, nothing special to mention.         |     3 |
+| Absolutely fantastic, highly recommend it.      |     1 |
++-------------------------------------------------+-------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/ai-similarity/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

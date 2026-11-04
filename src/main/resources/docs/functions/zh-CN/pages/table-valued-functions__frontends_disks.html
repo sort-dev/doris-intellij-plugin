@@ -1,0 +1,123 @@
+<div class="definition"><pre>FRONTENDS_DISKS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>frontends_disks</code> 表函数会生成一个临时表，允许查看当前 Doris 集群中 FE 节点的磁盘信息。其结果基本与 <code>show frontends disks</code> 语句展示出的信息一致，但是 <code>frontends_disks()</code> 的各个字段类型更加明确，且可以利用 tvf 生成的表去做过滤、join 等操作</p>
+<p>该函数可用于 <code>FROM</code> 子句中。</p>
+<h2>语法</h2>
+<pre><code>FRONTENDS_DISKS()
+</code></pre>
+<h2>权限控制</h2>
+<table>
+<thead>
+<tr>
+<th>权限（Privilege）</th>
+<th>对象（Object）</th>
+<th>说明（Notes）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SELECT_PRIV</td>
+<td>internal.information_schema</td>
+<td>所有用户默认有该 db 的权限</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>查看 frontends_disks() 函数的描述字段</p>
+<pre><code>desc function frontends_disks();
+</code></pre>
+<pre><code>+------------+------+------+-------+---------+-------+
+| Field      | Type | Null | Key   | Default | Extra |
++------------+------+------+-------+---------+-------+
+| Name       | text | No   | false | NULL    | NONE  |
+| Host       | text | No   | false | NULL    | NONE  |
+| DirType    | text | No   | false | NULL    | NONE  |
+| Dir        | text | No   | false | NULL    | NONE  |
+| Filesystem | text | No   | false | NULL    | NONE  |
+| Capacity   | text | No   | false | NULL    | NONE  |
+| Used       | text | No   | false | NULL    | NONE  |
+| Available  | text | No   | false | NULL    | NONE  |
+| UseRate    | text | No   | false | NULL    | NONE  |
+| MountOn    | text | No   | false | NULL    | NONE  |
++------------+------+------+-------+---------+-------+
+</code></pre>
+<p>字段含义如下：</p>
+<table>
+<thead>
+<tr>
+<th>字段名称</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Name</code></td>
+<td>TEXT</td>
+<td>当前 frontend 的名称，用于唯一标识该 frontend。</td>
+</tr>
+<tr>
+<td><code>Host</code></td>
+<td>TEXT</td>
+<td>Frontend 所在的主机地址。</td>
+</tr>
+<tr>
+<td><code>DirType</code></td>
+<td>TEXT</td>
+<td>磁盘目录的类型，例如 <code>meta</code>、<code>log</code>、<code>audit-log</code>、<code>temp</code> 和 <code>deploy</code>。</td>
+</tr>
+<tr>
+<td><code>Dir</code></td>
+<td>TEXT</td>
+<td>目录路径，表示该磁盘目录在服务器上的实际位置。</td>
+</tr>
+<tr>
+<td><code>Filesystem</code></td>
+<td>TEXT</td>
+<td>磁盘的文件系统类型。</td>
+</tr>
+<tr>
+<td><code>Capacity</code></td>
+<td>TEXT</td>
+<td>磁盘的总容量。</td>
+</tr>
+<tr>
+<td><code>Used</code></td>
+<td>TEXT</td>
+<td>已使用的磁盘空间。</td>
+</tr>
+<tr>
+<td><code>Available</code></td>
+<td>TEXT</td>
+<td>可用的磁盘空间。</td>
+</tr>
+<tr>
+<td><code>UseRate</code></td>
+<td>TEXT</td>
+<td>磁盘的使用率，表示已用空间与总空间的百分比。</td>
+</tr>
+<tr>
+<td><code>MountOn</code></td>
+<td>TEXT</td>
+<td>磁盘挂载点，即磁盘在系统中的挂载位置。</td>
+</tr>
+</tbody>
+</table>
+<h2>示例</h2>
+<p>查看 doris 集群 frontends 的磁盘信息</p>
+<pre><code>select * from frontends_disks();
+</code></pre>
+<pre><code>+-----------------------------------------+------------+-----------+-----------------------------------------------------------+--------------+----------+------+-----------+---------+------------+
+| Name                                    | Host       | DirType   | Dir                                                       | Filesystem   | Capacity | Used | Available | UseRate | MountOn    |
++-----------------------------------------+------------+-----------+-----------------------------------------------------------+--------------+----------+------+-----------+---------+------------+
+| fe_f4642d47_62a2_44a2_b79d_3259050ab9de | 10.x.x.6 | meta      | /mnt/disk2/doris/fe/doris-meta | /dev/nvme1n1 | 3T       | 3T   | 223G      | 94%     | /mnt/disk2                              |
+| fe_f4642d47_62a2_44a2_b79d_3259050ab9de | 10.x.x.6 | log       | /mnt/disk2/doris/fe/log        | /dev/nvme1n1 | 3T       | 3T   | 223G      | 94%     | /mnt/disk2                              |
+| fe_f4642d47_62a2_44a2_b79d_3259050ab9de | 10.x.x.6 | audit-log | /mnt/disk2/doris/fe/log        | /dev/nvme1n1 | 3T       | 3T   | 223G      | 94%     | /mnt/disk2                              |
+| fe_f4642d47_62a2_44a2_b79d_3259050ab9de | 10.x.x.6 | temp      | /mnt/disk2/doris/fe/temp_dir   | /dev/nvme1n1 | 3T       | 3T   | 223G      | 94%     | /mnt/disk2                              |
+| fe_f4642d47_62a2_44a2_b79d_3259050ab9de | 10.x.x.6 | deploy    | /mnt/disk2/doris/fe            | /dev/nvme1n1 | 3T       | 3T   | 223G      | 94%     | /mnt/disk2                              |
++-----------------------------------------+------------+-----------+-----------------------------------------------------------+--------------+----------+------+-----------+---------+------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-valued-functions/frontends_disks/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

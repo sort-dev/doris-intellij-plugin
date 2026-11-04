@@ -1,0 +1,55 @@
+<div class="definition"><pre>HAMMING_DISTANCE_APPROXIMATE</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个 byte 向量的 Hamming 距离，即按位 XOR 后不同 bit 的数量。 NULL 数组或 NULL 元素会报错。</p>
+<p>在包含此能力的 Doris 4.2 构建中可用。 符合条件的 Lance Top-N 可使用原生近似检索；其他查询执行标量内核。</p>
+<h2>语法</h2>
+<pre><code>HAMMING_DISTANCE_APPROXIMATE(&lt;array1&gt;, &lt;array2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;array1&gt;</code></td>
+<td>整数数组，允许 TINYINT、SMALLINT、INT、BIGINT，统一转换为 ARRAY&lt;BIGINT&gt;；每个元素必须在 <code>[0,255]</code>。不接受浮点、Decimal、LARGEINT 数组。</td>
+</tr>
+<tr>
+<td><code>&lt;array2&gt;</code></td>
+<td>整数数组，允许 TINYINT、SMALLINT、INT、BIGINT，统一转换为 ARRAY&lt;BIGINT&gt;；每个元素必须在 <code>[0,255]</code>。不接受浮点、Decimal、LARGEINT 数组。 两个数组的长度必须相同。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回 <code>FLOAT</code>，值越小越接近。空数组对返回 0；N 字节向量的最大距离是 8N。 长度不匹配、NULL 数组或 NULL 元素会报错，不返回 NULL。 越界元素也会报错。 原生检索的候选范围、数值精度及 NULL/NaN 行为可能与标量执行不同，详见<a href="https://doris.apache.org/zh-CN/docs/4.x/lakehouse/best-practices/lance-hybrid-search/#automatic-search">自动检索下推</a>。</p>
+<h2>示例</h2>
+<pre><code>SELECT HAMMING_DISTANCE_APPROXIMATE([0,255,170], [255,0,85]) AS value;
+</code></pre>
+<pre><code>value
+24
+</code></pre>
+<pre><code>SELECT HAMMING_DISTANCE_APPROXIMATE([], []) AS value;
+</code></pre>
+<pre><code>value
+0
+</code></pre>
+<pre><code>SELECT HAMMING_DISTANCE_APPROXIMATE(NULL, [0,1]);
+</code></pre>
+<pre><code>ERROR: First argument for function hamming_distance_approximate cannot be null
+</code></pre>
+<pre><code>SELECT HAMMING_DISTANCE_APPROXIMATE([0,NULL], [0,1]);
+</code></pre>
+<pre><code>ERROR: First argument for function hamming_distance_approximate cannot have null
+</code></pre>
+<pre><code>SELECT HAMMING_DISTANCE_APPROXIMATE([256], [0]);
+</code></pre>
+<pre><code>ERROR: Hamming vector elements must be integers in [0, 255]
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/distance-functions/hamming-distance-approximate/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

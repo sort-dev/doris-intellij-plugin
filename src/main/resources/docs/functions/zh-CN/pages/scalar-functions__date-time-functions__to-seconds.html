@@ -1,0 +1,69 @@
+<div class="definition"><pre>TO_SECONDS</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>秒数计算函数，它用于将日期转换为秒数值，即计算从零日期(<code>0000-00-00</code>)到指定日期时间的总秒数。</p>
+<p>该函数与 mysql 中的 <a href="https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html#function_to-seconds">to_seconds 函数</a> 行为一致。</p>
+<h2>语法</h2>
+<pre><code>TO_SECONDS(`&lt;date_or_time_expr&gt;`)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;date_or_time_expr&gt;</code></td>
+<td>输入的日期时间值，支持输入 date/datetime 类型，具体 datetime 和 date 格式请查看 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/datetime-conversion">datetime 的转换</a> 和 <a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/basic-element/sql-data-types/conversion/date-conversion">date 的转换</a></td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回从零日期(<code>0000-00-00</code>)到指定日期时间的总秒数，类型为 BIGINT。</p>
+<p>若输入为 NULL 则返回 NULL。</p>
+<h2>举例</h2>
+<pre><code>-- 以`0000-00-00`为基准日期
+select to_seconds('0000-01-01');
++--------------------------+
+| to_seconds('0000-01-01') |
++--------------------------+
+|                    86400 |
++--------------------------+
+-- 从 00-00算 1 天，共 24 * 3600 == 86400s
+
+select to_seconds('2025-01-01'), to_seconds(20250101);
++--------------------------+----------------------+
+| to_seconds('2025-01-01') | to_seconds(20250101) |
++--------------------------+----------------------+
+|              63902908800 |          63902908800 |
++--------------------------+----------------------+
+
+SELECT
+    to_seconds('2025-01-01 11:22:33') AS datetime_type,
+    to_seconds(20250101112233) AS int_type;
++---------------+-------------+
+| datetime_type | int_type    |
++---------------+-------------+
+|   63902949753 | 63902949753 |
++---------------+-------------+
+
+select to_seconds('9999-12-31 23:59:59.999999');
++------------------------------------------+
+| to_seconds('9999-12-31 23:59:59.999999') |
++------------------------------------------+
+|                             315569519999 |
++------------------------------------------+
+
+SELECT to_seconds(NULL);
++------------------+
+| to_seconds(NULL) |
++------------------+
+|             NULL |
++------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/date-time-functions/to-seconds/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

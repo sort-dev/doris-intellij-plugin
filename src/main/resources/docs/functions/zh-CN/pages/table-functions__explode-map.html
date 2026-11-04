@@ -1,0 +1,64 @@
+<div class="definition"><pre>EXPLODE_MAP</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>explode_map</code> 表函数，接受一个 map (映射类型)，将 map（映射类型）展开成多个行，每行包含一个键值对。
+需配合 <a href="https://doris.apache.org/zh-CN/docs/4.x/query-data/lateral-view/"><code>LATERAL VIEW</code></a> 使用。</p>
+<h2>语法</h2>
+<pre><code>EXPLODE_MAP(&lt;map&gt;)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>&lt;map&gt;</code> MAP 类型。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回由 <code>&lt;map&gt;</code> 所有元素组成的单列多行数据，列类型为 <code>Nullable&lt;Struct&lt;K, V&gt;&gt;</code>。</li>
+<li>如果 <code>&lt;map&gt;</code> 为 NULL 或者 <code>&lt;map&gt;</code> 为空，返回 0 行数据。</li>
+</ul>
+<h2>示例</h2>
+<ol>
+<li>准备数据<pre><code>create table example(
+    k1 int
+) properties(
+    "replication_num" = "1"
+);
+
+insert into example values(1);
+</code></pre>
+</li>
+<li>常规参数<pre><code>select  * from example lateral view explode_map(map("k", "v", "k2", 123, null, null)) t2 as c;
+</code></pre>
+<pre><code>+------+-----------------------------+
+| k1   | c                           |
++------+-----------------------------+
+|    1 | {"col1":"k", "col2":"v"}    |
+|    1 | {"col1":"k2", "col2":"123"} |
+|    1 | {"col1":null, "col2":null}  |
++------+-----------------------------+
+</code></pre>
+</li>
+<li>将键值对展开为独立的列<pre><code>select  * from example lateral view explode_map(map("k", "v", "k2", 123, null, null)) t2 as k, v;
+</code></pre>
+<pre><code>+------+------+------+
+| k1   | k    | v    |
++------+------+------+
+|    1 | k    | v    |
+|    1 | k2   | 123  |
+|    1 | NULL | NULL |
++------+------+------+
+</code></pre>
+</li>
+<li>空对象<pre><code>select  * from example lateral view explode_map(map()) t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+<li>NULL 参数<pre><code>select  * from example lateral view explode_map(NULL) t2 as c;
+</code></pre>
+<pre><code>Empty set (0.03 sec)
+</code></pre>
+</li>
+</ol>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/table-functions/explode-map/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

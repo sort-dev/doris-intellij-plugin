@@ -1,0 +1,61 @@
+<div class="definition"><pre>MAP_CONTAINS_ENTRY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>判断给定 <code>map</code> 中是否包含指定的 <code>(key, value)</code> 键值对。</p>
+<h2>语法</h2>
+<pre><code>MAP_CONTAINS_ENTRY(&lt;map&gt;, &lt;key&gt;, &lt;value&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;map&gt;</code></td>
+<td>输入的 map 内容</td>
+</tr>
+<tr>
+<td><code>&lt;key&gt;</code></td>
+<td>需要检索的键</td>
+</tr>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>需要检索的值</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>判断给定 <code>map</code> 中是否包含指定的 <code>(key, value)</code> 键值对。存在返回 1，不存在返回 0。若 <code>&lt;map&gt;</code> 为 <code>NULL</code>，返回 <code>NULL</code>。</p>
+<p>键和值的比较使用 “null-safe equal”（两个 <code>NULL</code> 视为相等），这与标准 SQL 定义不同。</p>
+<h2>举例</h2>
+<pre><code>select map_contains_entry(map(null, 1, 2, null), null, 1);
+</code></pre>
+<pre><code>+----------------------------------------------------+
+| map_contains_entry(map(null, 1, 2, null), null, 1) |
++----------------------------------------------------+
+|                                                  1 |
++----------------------------------------------------+
+</code></pre>
+<pre><code>select map_contains_entry(map(1, '100', 0.1, '2'), 1, '100');
+</code></pre>
+<pre><code>+-------------------------------------------------------+
+| map_contains_entry(map(1, '100', 0.1, '2'), 1, '100') |
++-------------------------------------------------------+
+|                                                     1 |
++-------------------------------------------------------+
+</code></pre>
+<pre><code>select map_contains_entry(map(1, '100', 0.1, '2'), 0.11, '2');
+</code></pre>
+<pre><code>+--------------------------------------------------------+
+| map_contains_entry(map(1, '100', 0.1, '2'), 0.11, '2') |
++--------------------------------------------------------+
+|                                                      0 |
++--------------------------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/map-functions/map-contains-entry/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

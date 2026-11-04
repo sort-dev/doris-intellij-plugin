@@ -1,0 +1,59 @@
+<div class="definition"><pre>ESQUERY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p><code>ESQUERY(&lt;field&gt;, &lt;query_dsl&gt;)</code> 函数用于将无法用 SQL 表达的查询下推到 Elasticsearch 进行过滤。<br>
+第一个参数 <code>&lt;field&gt;</code> 用于关联索引，第二个参数 <code>&lt;query_dsl&gt;</code> 为 Elasticsearch 的基本 Query DSL 的 JSON 表达式，<br>
+JSON 需使用 <code>{}</code> 包裹，并且必须包含且仅包含一个根键，例如 <code>match_phrase</code>、<code>geo_shape</code>、<code>bool</code> 等。</p>
+<h2>语法</h2>
+<pre><code>ESQUERY(&lt;field&gt;, &lt;query_dsl&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;field&gt;</code></td>
+<td>需要查询的字段，用于关联 Elasticsearch 索引。</td>
+</tr>
+<tr>
+<td><code>&lt;query_dsl&gt;</code></td>
+<td>Elasticsearch Query DSL 的 JSON 表达式，需使用 <code>{}</code> 包裹，并且根键必须唯一（如 <code>match_phrase</code>、<code>geo_shape</code>、<code>bool</code>）。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回一个布尔值，表示该文档是否匹配提供的 Elasticsearch 查询 DSL。</p>
+<h2>举例</h2>
+<pre><code>-- match_phrase 查询：
+SELECT * FROM es_table 
+WHERE ESQUERY(k4, '{
+    "match_phrase": {
+       "k4": "doris on es"
+    }
+}');
+</code></pre>
+<pre><code>-- geo_shape 查询：
+SELECT * FROM es_table 
+WHERE ESQUERY(k4, '{
+  "geo_shape": {
+     "location": {
+        "shape": {
+           "type": "envelope",
+           "coordinates": [
+              [13, 53],
+              [14, 52]
+           ]
+        },
+        "relation": "within"
+     }
+  }
+}');
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/other-functions/esquery/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

@@ -1,0 +1,53 @@
+<div class="definition"><pre>VARIANT_TYPE</pre></div>
+<div class="content">
+<h2>功能</h2>
+<p><code>VARIANT_TYPE</code> 函数用于返回 <code>VARIANT</code> 类型值的实际类型。<br>
+该函数通常用于调试或分析 <code>VARIANT</code> 数据的结构，辅助进行类型判断和数据处理。</p>
+<h2>语法</h2>
+<pre><code>VARIANT_TYPE(variant_value)
+</code></pre>
+<h2>参数</h2>
+<ul>
+<li><code>variant_value</code>：一个 <code>VARIANT</code> 类型的值。</li>
+</ul>
+<h2>返回值</h2>
+<ul>
+<li>返回一个字符串，表示该 <code>VARIANT</code> 值的实际类型。
+<ul>
+<li>字符串的结构是 <code>{"key":"value"}</code> 结构</li>
+<li>key 表示子列的 path，value 表示类型</li>
+</ul>
+</li>
+</ul>
+<h2>使用说明</h2>
+<ol>
+<li>用于查找 <code>VARIANT</code> 类型的列中实际存储的类型；</li>
+<li>对于表中的每一行都会读取子列获取类型，实际使用中用 LIMIT 限制行数以避免执行速度太慢。</li>
+</ol>
+<h2>示例</h2>
+<pre><code>```SQL
+CREATE TABLE variant_table(
+    k INT,
+    v VARIANT NULL
+)
+DUPLICATE KEY(`k`)
+DISTRIBUTED BY HASH(`k`) BUCKETS 1
+PROPERTIES (
+    "replication_num" = "1"
+);
+
+INSERT INTO variant_table VALUES(1, '{"a": 10, "b": 1.2, "c" : "ddddd"}'), (2, NULL);
+
+SELECT VARIANT_TYPE(v) FROM variant_table;
++-------------------------------------------+
+| VARIANT_TYPE(v)                           |
++-------------------------------------------+
+| {"a":"tinyint","b":"double","c":"string"} |
+| NULL                                      |
++-------------------------------------------+
+
+```
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/variant-functions/variant-type/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

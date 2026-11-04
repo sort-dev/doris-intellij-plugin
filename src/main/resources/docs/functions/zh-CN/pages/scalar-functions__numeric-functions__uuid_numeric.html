@@ -1,0 +1,21 @@
+<div class="definition"><pre>UUID_NUMERIC</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>返回一个 <code>LARGEINT</code> 类型的 <code>uuid</code></p>
+<h2>语法</h2>
+<pre><code>UUID_NUMERIC()
+</code></pre>
+<h2>返回值</h2>
+<p>返回一个 <code>LARGEINT</code> 类型的 <code>uuid</code>。注意 <code>LARGEINT</code> 是一个 Int128，所以 <code>uuid_numeric()</code> 可能会得到负值。</p>
+<h2>举例</h2>
+<pre><code>select uuid_numeric()
+</code></pre>
+<pre><code>+----------------------------------------+
+| uuid_numeric()                         |
++----------------------------------------+
+| 82218484683747862468445277894131281464 |
++----------------------------------------+
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/scalar-functions/numeric-functions/uuid_numeric/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>

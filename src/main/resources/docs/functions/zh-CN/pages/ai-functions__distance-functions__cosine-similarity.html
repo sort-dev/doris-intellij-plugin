@@ -1,0 +1,81 @@
+<div class="definition"><pre>COSINE_SIMILARITY</pre></div>
+<div class="content">
+<h2>描述</h2>
+<p>计算两个向量之间的余弦相似度。
+函数按照向量的点积与模长计算相似度，结果范围为 <code>[-1, 1]</code>。</p>
+<p>自 4.1.2 起支持。</p>
+<h2>语法</h2>
+<pre><code>COSINE_SIMILARITY(&lt;array1&gt;, &lt;array2&gt;)
+</code></pre>
+<h2>参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;array1&gt;</code></td>
+<td>第一个向量。类型必须为 <code>ARRAY&lt;FLOAT&gt;</code>。</td>
+</tr>
+<tr>
+<td><code>&lt;array2&gt;</code></td>
+<td>第二个向量。类型必须为 <code>ARRAY&lt;FLOAT&gt;</code>，且元素个数需与 <code>&lt;array1&gt;</code> 一致。</td>
+</tr>
+</tbody>
+</table>
+<h2>返回值</h2>
+<p>返回两个向量的余弦相似度，类型为 FLOAT。
+如果输入数组为 <code>NULL</code>，或者数组中包含 <code>NULL</code> 元素，则报错。
+如果两个数组的元素个数不一致，则报错。
+如果数组为空，或者任一向量为零向量，则返回 <code>0.0</code>。</p>
+<h2>举例</h2>
+<pre><code>-- 两个向量完全相同，相似度为 1
+SELECT COSINE_SIMILARITY([1, 2, 3], [1, 2, 3]);
+</code></pre>
+<pre><code>+-----------------------------------------+
+| COSINE_SIMILARITY([1, 2, 3], [1, 2, 3]) |
++-----------------------------------------+
+|                                       1 |
++-----------------------------------------+
+</code></pre>
+<p><code>[1, 2, 3]</code> 与 <code>[1, 2, 3]</code> 的方向完全一致，因此相似度为 <code>1</code>。</p>
+<pre><code>-- 两个向量正交，相似度为 0
+SELECT COSINE_SIMILARITY([1, 0], [0, 1]);
+</code></pre>
+<pre><code>+-----------------------------------+
+| COSINE_SIMILARITY([1, 0], [0, 1]) |
++-----------------------------------+
+|                                 0 |
++-----------------------------------+
+</code></pre>
+<p>两个向量互相垂直，点积为 <code>0</code>，因此相似度为 <code>0</code>。</p>
+<pre><code>-- 任一向量为零向量时，返回 0
+SELECT COSINE_SIMILARITY([0, 0, 0], [1, 2, 3]);
+</code></pre>
+<pre><code>+-----------------------------------------+
+| COSINE_SIMILARITY([0, 0, 0], [1, 2, 3]) |
++-----------------------------------------+
+|                                       0 |
++-----------------------------------------+
+</code></pre>
+<p>零向量没有有效方向，因此结果为 <code>0</code>。</p>
+<pre><code>-- 空数组返回 0
+SELECT COSINE_SIMILARITY([], []);
+</code></pre>
+<pre><code>+---------------------------+
+| COSINE_SIMILARITY([], []) |
++---------------------------+
+|                         0 |
++---------------------------+
+</code></pre>
+<pre><code>-- 输入数组中包含 NULL，会报错
+SELECT COSINE_SIMILARITY([1, NULL, 3], [1, 2, 3]);
+</code></pre>
+<pre><code>ERROR 1105 (HY000): errCode = 2, detailMessage = (127.0.0.1)[INVALID_ARGUMENT]First argument for function cosine_similarity cannot have null
+</code></pre>
+<p><a href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-functions/ai-functions/distance-functions/cosine-similarity/">Apache Doris 4.x 官方中文文档</a></p>
+<p>文档来源：Apache Software Foundation；Apache License 2.0。离线排版已作适配。</p>
+</div>
