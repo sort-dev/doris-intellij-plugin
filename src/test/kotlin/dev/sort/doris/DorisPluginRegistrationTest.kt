@@ -17,7 +17,7 @@ class DorisPluginRegistrationTest : BasePlatformTestCase() {
             PluginRegistrationContract::class.java to "brikk-sql-intellij-test-support",
         )) {
             val source = type.getResource("${type.simpleName}.class").toString()
-            assertTrue(source, source.contains("$artifact-0.4.0.jar"))
+            assertTrue(source, source.contains("$artifact-0.4.1.jar"))
         }
     }
 }

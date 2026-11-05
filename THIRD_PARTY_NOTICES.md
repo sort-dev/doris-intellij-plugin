@@ -46,9 +46,9 @@ use `brikk-sql-jvm` and `brikk-sql-metadata-jvm` at the same version.
 The SQLGlot source pin is `a00dc2e5c`. The registry provenance below records the
 published 0.19.1 baseline.
 
-## Brikk SQL IntelliJ support 0.4.0 (bundled)
+## Brikk SQL IntelliJ support 0.4.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.4.0`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.4.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -56,11 +56,11 @@ published 0.19.1 baseline.
 The library supplies cooperative Execute registration, promotion and script-model
 preparation and shared column completion rendering. Its JAR contains its license and notice. IntelliJ APIs are compile-only;
 the distribution does not bundle an IDE SDK, verifier, database driver or Kotlin stdlib.
-Source artifact: `brikk-sql-intellij-support-0.4.0-sources.jar`.
+Source artifact: `brikk-sql-intellij-support-0.4.1-sources.jar`.
 
-## Brikk SQL IntelliJ JDBC support 0.4.0 (bundled)
+## Brikk SQL IntelliJ JDBC support 0.4.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-jdbc-support:0.4.0`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-jdbc-support:0.4.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -68,7 +68,7 @@ Source artifact: `brikk-sql-intellij-support-0.4.0-sources.jar`.
 This optional library supplies generic JDBC introspector routing. It is bundled without
 changing Doris's existing introspector registration. IntelliJ APIs are compile-only;
 the library does not bundle an IDE SDK or JDBC driver.
-Source artifact: `brikk-sql-intellij-jdbc-support-0.4.0-sources.jar`.
+Source artifact: `brikk-sql-intellij-jdbc-support-0.4.1-sources.jar`.
 
 ## Brikk Kotlin IntelliJ support 0.3.0 (bundled)
 
