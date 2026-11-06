@@ -55,6 +55,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.6.5</b> - shared library updates and live function catalog refresh fixes.
+        <ul>
+            <li>Updates Brikk SQL core, metadata and verification libraries to 0.23.0, and common, JDBC and test IntelliJ support to 0.4.1.</li>
+            <li>Live function catalog refreshes ignore stale in-flight results after a newer successful refresh or a forgotten data source.</li>
+            <li>Keeps the Doris parser, introspector, PIPE settings and optional SQL Transpiler integration unchanged.</li>
+        </ul>
         <b>1.6.4</b> - platform API cleanup.
         <ul>
             <li>The trace-id connection interceptor no longer carries a bridge to the connection API scheduled for removal.</li>
