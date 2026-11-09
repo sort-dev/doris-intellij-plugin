@@ -19,6 +19,7 @@ import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.RunAll
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.fixtures.impl.CodeInsightTestFixtureImpl
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
@@ -118,7 +119,10 @@ class DorisClearedModelFlowTest : BasePlatformTestCase() {
 
     private fun errors(): List<String> {
         settle()
-        return myFixture.doHighlighting().filter { it.severity == HighlightSeverity.ERROR }.map { it.description.orEmpty() }
+        // Highlighting starts asynchronous namespace listing; its delayed DbPsi cache refresh
+        // may legitimately land during the pass. Keep background errors and diagnostics checked.
+        return CodeInsightTestFixtureImpl.instantiateAndRun(myFixture.file, myFixture.editor, intArrayOf(), true)
+            .filter { it.severity == HighlightSeverity.ERROR }.map { it.description.orEmpty() }
     }
 
     private fun awaitListing(condition: () -> Boolean) {
