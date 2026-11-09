@@ -22,13 +22,16 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
         assertEquals(setOf("trino", "duckdb", "clickhouse"), System.getProperty("test.siblingPlugins", "").split(',').toSet())
         assertEquals("installed", System.getProperty("test.sqlTranspiler"))
         val dorisLoader = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.doris-intellij-plugin"))!!.pluginClassLoader!!
+        val coreVersion = System.getProperty("test.brikk.sql.coreVersion")
+        val verifyVersion = System.getProperty("test.brikk.sql.verifyVersion")
+        val supportVersion = System.getProperty("test.brikk.sql.intellijSupportVersion")
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", dorisLoader.javaClass.name)
         assertEquals("Optional Kotlin loading must match the selected lane", System.getProperty("test.kotlin") == "present",
             PluginManagerCore.getPlugin(PluginId.getId("org.jetbrains.kotlin"))?.isEnabled == true)
         for (name in listOf("CooperativeExecuteAction", "TranslatingScriptModel", "SqlColumnCompletion")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-0.4.1.jar"))
+            assertTrue(shared.getResource("$name.class").toString().contains("brikk-sql-intellij-support-$supportVersion.jar"))
         }
         for (name in listOf("completion.SqlCompletionContributor", "completion.SqlCompletionConfidence",
             "completion.SqlBuiltinPrototypeFilter", "psi.SelectAliasResolveExtension", "catalog.DialectDataSourceResolver",
@@ -37,14 +40,14 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             "catalog.OutOfScopeReferenceFilter", "catalog.IntrospectNamespaceIntention", "catalog.CatalogImports")) {
             val shared = dorisLoader.loadClass("dev.brikk.house.sql.intellij.$name")
             assertSame(dorisLoader, shared.classLoader)
-            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-0.4.1.jar"))
+            assertTrue(shared.getResource("${shared.simpleName}.class").toString().contains("brikk-sql-intellij-support-$supportVersion.jar"))
         }
         val verifier = dorisLoader.loadClass("dev.brikk.house.sql.verify.DorisVerifier")
         assertSame(dorisLoader, verifier.classLoader)
-        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-0.23.0.jar"))
+        assertTrue(verifier.getResource("DorisVerifier.class").toString().contains("brikk-sql-verify-doris-$verifyVersion.jar"))
         val verifyResult = dorisLoader.loadClass("dev.brikk.house.sql.verify.VerifyResult")
         assertSame(dorisLoader, verifyResult.classLoader)
-        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-0.23.0.jar"))
+        assertTrue(verifyResult.getResource("VerifyResult.class").toString().contains("brikk-sql-verify-api-$verifyVersion.jar"))
         val factory = verifier.getField("Companion").get(null)
         val native = factory.javaClass.getMethod("create", java.nio.file.Path::class.java).invoke(factory, null)
         val checkCanceled: () -> Unit = com.intellij.openapi.progress.ProgressManager::checkCanceled
@@ -73,7 +76,7 @@ class DorisPipesIsolationTest : BasePlatformTestCase() {
             setEnabled.invoke(settings, true)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             assertEquals(true, isEnabled.invoke(instance, project))
-            checkEngine(dorisLoader, "jvmMain-0.23.0")
+            checkEngine(dorisLoader, "jvmMain-$coreVersion")
             val profile = dorisLoader.loadClass("dev.sort.doris.pipes.DorisPipeDialect").getField("INSTANCE").get(null)
             val profileType = dorisLoader.loadClass("dev.brikk.house.sql.intellij.pipe.PipeDialect")
             assertSame(dorisLoader, profileType.classLoader)

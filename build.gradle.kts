@@ -57,6 +57,9 @@ tasks.withType<Test>().configureEach {
         systemProperty("golden.record", "true")
     }
     systemProperty("doris.replay.poc", "false")
+    systemProperty("test.brikk.sql.coreVersion", libs.versions.brikk.sql.core.get())
+    systemProperty("test.brikk.sql.verifyVersion", libs.versions.brikk.sql.verify.get())
+    systemProperty("test.brikk.sql.intellijSupportVersion", libs.versions.brikk.sql.intellij.support.get())
     for (live in listOf("doris.live.url", "doris.live.driverJar", "realSql.dir", "realSql.coreDialects", "realSql.sharedOnly")) {
         providers.gradleProperty(live).orNull?.let { systemProperty(live, it) }
     }

@@ -11,13 +11,14 @@ class DorisPluginRegistrationTest : BasePlatformTestCase() {
     }
 
     fun testCommonJdbcAndTestSupportUseAlignedArtifacts() {
+        val version = System.getProperty("test.brikk.sql.intellijSupportVersion")
         for ((type, artifact) in listOf(
             SqlCompletionContributor::class.java to "brikk-sql-intellij-support",
             GenericJdbcIntrospectorGate::class.java to "brikk-sql-intellij-jdbc-support",
             PluginRegistrationContract::class.java to "brikk-sql-intellij-test-support",
         )) {
             val source = type.getResource("${type.simpleName}.class").toString()
-            assertTrue(source, source.contains("$artifact-0.4.1.jar"))
+            assertTrue(source, source.contains("$artifact-$version.jar"))
         }
     }
 }

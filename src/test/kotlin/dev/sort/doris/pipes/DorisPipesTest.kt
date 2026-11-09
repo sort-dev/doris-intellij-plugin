@@ -39,8 +39,9 @@ class DorisPipesTest {
 
     @Test
     fun `embedded core and metadata use the latest pinned artifact and platform serialization`() {
-        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-0.23.0.jar"))
-        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-0.23.0.jar"))
+        val version = System.getProperty("test.brikk.sql.coreVersion")
+        assertTrue(SqlFragment::class.java.getResource("SqlFragment.class").toString().contains("brikk-sql-jvmMain-$version.jar"))
+        assertTrue(FunctionDef::class.java.getResource("FunctionDef.class").toString().contains("brikk-sql-metadata-jvmMain-$version.jar"))
         val function = DORIS_FUNCTION_CATALOG.functions.first()
         val encoded = Json.encodeToString(FunctionDef.serializer(), function)
         assertEquals(function, Json.decodeFromString(FunctionDef.serializer(), encoded))
@@ -115,6 +116,19 @@ class DorisPipesTest {
         assertNull(lowered.blocker)
         assertFalse(lowered.sql, "|>" in lowered.sql)
         assertTrue(lowered.sql, "next_id" in lowered.sql && "LIMIT 2" in lowered.sql)
+    }
+
+    @Test
+    fun `Doris full text MATCH_ANY pipelines lower to valid native SQL`() {
+        val result = DorisPipeDialect.lower("SELECT body MATCH_ANY 'hello' FROM acme_documents |> LIMIT 1")
+        assertTrue("expected Lowered, got $result", result is PipeTranslation.Lowered)
+        val lowered = result as PipeTranslation.Lowered
+        assertNull(lowered.blocker)
+        assertFalse(lowered.sql, DorisPipes.containsPipeOperator(lowered.sql))
+        assertEquals(
+            "SELECT body MATCH_ANY 'hello' FROM acme_documents LIMIT 1",
+            lowered.sql.replace(Regex("\\s+"), " ").trim(),
+        )
     }
 
     @Test
