@@ -27,28 +27,28 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 ```
 
-## brikk-sql and brikk-sql-metadata 0.23.0 (bundled)
+## brikk-sql and brikk-sql-metadata 1.0.1 (bundled)
 
 This plugin bundles the core SQL engine and function metadata libraries from brikk-house:
 
-- `dev.brikk.house:brikk-sql-jvm:0.23.0`
-- `dev.brikk.house:brikk-sql-metadata-jvm:0.23.0`
-- `dev.brikk.house:brikk-sql-verify-doris:0.23.0`
-- `dev.brikk.house:brikk-sql-verify-api:0.23.0`
+- `dev.brikk.house:brikk-sql-jvm:1.0.1`
+- `dev.brikk.house:brikk-sql-metadata-jvm:1.0.1`
+- `dev.brikk.house:brikk-sql-verify-doris:1.0.1`
+- `dev.brikk.house:brikk-sql-verify-api:1.0.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers listed in the published POMs: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0, with third-party-derived portions described below
 
 The libraries and their source archives are published on Maven Central. Gradle module
-metadata names the bundled files `brikk-sql-jvmMain-0.23.0.jar` and
-`brikk-sql-metadata-jvmMain-0.23.0.jar`. The source archive coordinates
+metadata names the bundled files `brikk-sql-jvmMain-1.0.1.jar` and
+`brikk-sql-metadata-jvmMain-1.0.1.jar`. The source archive coordinates
 use `brikk-sql-jvm` and `brikk-sql-metadata-jvm` at the same version.
-The SQLGlot source pin is `a00dc2e5c`. The registry provenance below records the
+The SQLGlot source pin is `v30.29.0` (`2fe25297`). The registry provenance below records the
 published 0.19.1 baseline.
 
-## Brikk SQL IntelliJ support 0.4.1 (bundled)
+## Brikk SQL IntelliJ support 1.0.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-support:0.4.1`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-support:1.0.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -56,11 +56,11 @@ published 0.19.1 baseline.
 The library supplies cooperative Execute registration, promotion and script-model
 preparation and shared column completion rendering. Its JAR contains its license and notice. IntelliJ APIs are compile-only;
 the distribution does not bundle an IDE SDK, verifier, database driver or Kotlin stdlib.
-Source artifact: `brikk-sql-intellij-support-0.4.1-sources.jar`.
+Source artifact: `brikk-sql-intellij-support-1.0.1-sources.jar`.
 
-## Brikk SQL IntelliJ JDBC support 0.4.1 (bundled)
+## Brikk SQL IntelliJ JDBC support 1.0.1 (bundled)
 
-- Artifact: `dev.brikk.house:brikk-sql-intellij-jdbc-support:0.4.1`
+- Artifact: `dev.brikk.house:brikk-sql-intellij-jdbc-support:1.0.1`
 - Project: https://github.com/brikk/brikk-sql
 - Developers: Jayson Minard and Sortdev SRL
 - License: Apache License, Version 2.0
@@ -68,7 +68,7 @@ Source artifact: `brikk-sql-intellij-support-0.4.1-sources.jar`.
 This optional library supplies generic JDBC introspector routing. It is bundled without
 changing Doris's existing introspector registration. IntelliJ APIs are compile-only;
 the library does not bundle an IDE SDK or JDBC driver.
-Source artifact: `brikk-sql-intellij-jdbc-support-0.4.1-sources.jar`.
+Source artifact: `brikk-sql-intellij-jdbc-support-1.0.1-sources.jar`.
 
 ## Brikk Kotlin IntelliJ support 0.3.0 (bundled)
 
@@ -85,15 +85,15 @@ Kotlin compiler or Kotlin standard library. The artifact is published on Maven C
 
 brikk-sql is a Kotlin port of SQLGlot by Toby Mao and contributors. It includes ported
 tokenizer, parser, AST, SQL generator, optimizer, and dialect code, as well as generated
-token tables, AST catalogs, and function registries. In the 0.23.0 sources,
+token tables, AST catalogs, and function registries. In the 1.0.1 sources,
 generated token tables, AST catalogs, and typing metadata identify SQLGlot upstream
-version `v30.22.0-5-ga00dc2e5c`, commit `a00dc2e5c`. `GeneratedFunctionRegistry.kt`
+version `v30.29.0`, commit `2fe25297`. `GeneratedFunctionRegistry.kt`
 names the same pin. `Tokenizer.kt` still cites `v30.12.0-44-g93d16591`, commit
 `93d16591` for its method-level provenance.
 
 - Project: https://github.com/tobymao/sqlglot
 - License: MIT License
-- License source: https://raw.githubusercontent.com/tobymao/sqlglot/a00dc2e5c/LICENSE
+- License source: https://raw.githubusercontent.com/tobymao/sqlglot/2fe25297/LICENSE
 
 ```text
 MIT License

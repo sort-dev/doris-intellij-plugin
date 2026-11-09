@@ -8,10 +8,10 @@ name DORIS-B1 across repositories; other repositories have their own B1 findings
 
 [B22](archive/REVIEW-pipes-2026-09-05.md#b22-embed-the-engine-and-add-a-pipe-toggle) established
 the embedded engine with 0.9.0. The plugin now bundles
-`dev.brikk.house:brikk-sql-jvm:0.20.0` and `brikk-sql-metadata-jvm:0.20.0`, both
+`dev.brikk.house:brikk-sql-jvm:1.0.1` and `brikk-sql-metadata-jvm:1.0.1`, both
 from Maven Central. The [0.16 upgrade report](archive/REVIEW-brikk-sql-0.16.0.md)
 records earlier Doris 4.1.4 coverage and intentional unsafe-boundary refusals.
-Plugin 1.6.1 also embeds `dev.brikk.house:brikk-sql-intellij-support:0.2.0` from
+Plugin 1.7.0 also embeds `dev.brikk.house:brikk-sql-intellij-support:1.0.1` from
 Central. `CooperativeExecuteConfiguration`, `CooperativeExecuteAction` and
 `CooperativeExecutePromoter` own registration, wrapper delegation and promotion.
 `TranslatingScriptModel` owns copied statement/parameter iterators, document revisions
@@ -23,8 +23,13 @@ The native scanner remains until core's newer boundary and
 parameter APIs have demonstrated parity with the Doris corpus.
 SQL Transpiler remains the
 separate cross-dialect conversion, preview, and `.bsql` product. It is not a library
-provider or a prerequisite for Doris PIPE support. No verification library or native
-database engine is bundled just to obtain the core PIPE APIs.
+provider or a prerequisite for Doris PIPE support. The Doris verifier and verification
+API are bundled at 1.0.1; no native database engine is bundled just to obtain the core PIPE APIs.
+
+Brikk SQL 1.0.1 includes the SQLGlot 30.29 catch-up. Full-text MATCH operators now
+lower through `DorisPipeDialect.lower`; the MATCH_ANY regression asserts native-valid,
+unblocked output. Specific exception handling is unchanged; the new `BrikkSqlError`
+base class does not require widening production catches.
 
 The engine's stage offsets, source offsets, and generated-output columns use UTF-16.
 Doris server errors report zero-based code-point columns. Before exact map-back,

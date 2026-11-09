@@ -64,6 +64,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>1.7.0</b> - SQLGlot 30.29 catch-up and Doris full-text PIPE lowering.
+        <ul>
+            <li>Brikk SQL 1.0.1 and IntelliJ support 1.0.1, including core, metadata, verification and common/JDBC/test support.</li>
+            <li>Doris full-text MATCH operators now lower in PIPE queries, including <code>MATCH_ANY</code>, instead of being refused.</li>
+            <li>The embedded engine catches up to SQLGlot 30.29 with new SQL expression nodes, nested XOR and SHA384/512 handling, and warnings for unsupported weighted percentiles.</li>
+            <li>Fixes numeric tokens next to <code>END</code> (<code>13END</code>), MySQL-style <code>PRIMARY KEY (col ASC|DESC)</code>, and VALUES aliases before nested joins in the shared parser.</li>
+            <li>Preserves expression precedence, including MySQL-style <code>!x</code> rendered as <code>(NOT x)</code>. The native Doris parser and PIPE execution safety checks remain unchanged.</li>
+        </ul>
         <b>1.6.5</b> - shared library updates and live function catalog refresh fixes.
         <ul>
             <li>Updates Brikk SQL core, metadata and verification libraries to 0.23.0, and common, JDBC and test IntelliJ support to 0.4.1.</li>

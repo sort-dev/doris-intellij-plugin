@@ -9,6 +9,12 @@ Optional PIPE syntax is built in. Before execution, the plugin transpiles your p
 Doris SQL and validates the generated SQL with the same parser. The server receives ordinary Doris
 SQL, so it needs no PIPE support.
 
+Version **1.7.0** bundles **Brikk SQL 1.0.1 and IntelliJ support 1.0.1**, with the
+SQLGlot 30.29 catch-up. Doris full-text MATCH operators such as `MATCH_ANY` now lower
+in PIPE queries. The embedded engine also improves nested XOR, SHA384/512 handling,
+expression precedence, numeric tokens next to `END`, primary-key sort directions and
+VALUES aliases before nested joins, and warns about unsupported weighted percentiles.
+
 > [!IMPORTANT]
 > **Not affiliated with Apache Doris.** This is an independent plugin by Sortdev SRL. It is not
 > developed, endorsed, or sponsored by the Apache Doris project or the Apache Software Foundation.
