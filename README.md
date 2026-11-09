@@ -1,31 +1,39 @@
-# Apache Doris support for DataGrip & IntelliJ IDEA
+# Apache Doris SQL for DataGrip and IntelliJ IDEA
 
-A plugin that adds a real [Apache Doris](https://doris.apache.org/) SQL dialect to DataGrip and
-IntelliJ IDEA Ultimate. It gives you correct statement boundaries, Doris-aware completion, a
-multi-catalog database tree, and a Stop button that actually stops your query.
+The complete [Apache Doris](https://doris.apache.org/) SQL dialect for DataGrip and IntelliJ IDEA
+Ultimate. Doris's own parser handles parsing and validation, so your SQL is checked against the
+grammar Doris actually uses, not a MySQL approximation. The dialect is updated for new Doris
+releases. This build bundles the **Doris 4.1.4** grammar.
+
+Optional PIPE syntax is built in. Before execution, the plugin transpiles your pipeline into standard
+Doris SQL and validates the generated SQL with the same parser. The server receives ordinary Doris
+SQL, so it needs no PIPE support.
 
 > [!IMPORTANT]
 > **Not affiliated with Apache Doris.** This is an independent plugin by Sortdev SRL. It is not
-> developed, endorsed or sponsored by the Apache Doris project or the Apache Software Foundation.
+> developed, endorsed, or sponsored by the Apache Doris project or the Apache Software Foundation.
 > "Apache Doris" and the Doris logo are ASF trademarks, used here only to name the database this
 > plugin works with.
 
-## Why
+## Why a dedicated dialect?
 
-The IDE's built-in MySQL support can connect to Doris, but it knows nothing about Doris SQL, which
-differs a lot from MySQL. This plugin adds a full Doris dialect and brings Doris catalogs and
-function information into the IDE.
+Doris speaks the MySQL wire protocol, but its SQL grammar is not MySQL's. The IDE's built-in MySQL
+support can connect to Doris, but it flags valid Doris SQL and can split statements in the wrong
+places. This plugin uses the Doris parser for validation instead and adds Doris-specific completion,
+catalogs, and function information.
 
 ## Features
 
-- **Correct statement boundaries** for Doris syntax MySQL gets wrong: `SELECT * EXCEPT(…)`,
-  `QUALIFY`, `INSERT OVERWRITE`, multi-line window functions, `CREATE [OR REPLACE] VIEW`,
-  `DISTRIBUTED BY` / `PROPERTIES` DDL, materialized views, `CREATE JOB` and more.
-- **Doris-accurate errors.** The editor checks your SQL with Doris's own parser and hides the false
-  MySQL syntax errors.
-- **Completion** for Doris functions, data types (`VARIANT`, `BITMAP`, `HLL`, `ARRAY`/`MAP`/`STRUCT`,
-  …) and keywords. Function suggestions pop up only where an expression fits, so they don't get in
-  the way while you type keywords. <kbd>Ctrl</kbd>+<kbd>Space</kbd> always shows the full list.
+- **Correct statement boundaries.** Doris syntax that MySQL gets wrong stays intact:
+  `SELECT * EXCEPT(…)`, `QUALIFY`, `INSERT OVERWRITE`, multi-line window functions,
+  `CREATE [OR REPLACE] VIEW`, `DISTRIBUTED BY` / `PROPERTIES` DDL, materialized views, `CREATE JOB`,
+  and more.
+- **Doris-accurate errors.** The editor underlines errors reported by Doris's own parser and hides
+  false syntax errors from the MySQL dialect.
+- **Doris-aware completion.** Suggestions cover functions, data types (`VARIANT`, `BITMAP`, `HLL`,
+  `ARRAY`/`MAP`/`STRUCT`, …), and keywords. Function suggestions pop up only where an expression
+  fits, so they don't get in the way while you type keywords. <kbd>Ctrl</kbd>+<kbd>Space</kbd> always
+  shows the full list.
 - **Multi-catalog database tree.** External catalogs (Hive, Iceberg, JDBC, …) show up as
   `catalog → database → table`, and `catalog.db.table` references complete and resolve.
 - **Table-valued function completion.** `tasks()`, `jobs()`, `mv_infos()`, `partitions()`,
@@ -34,8 +42,9 @@ function information into the IDE.
   with several consoles open on the same data source. Each Stop only kills its own console's query.
 - **Automatic introspection.** Reference a table in a schema that hasn't been loaded yet and the
   plugin loads just that schema in the background. Columns appear a moment later.
-- **Doris PIPE (optional).** Write pipe-syntax queries (`FROM t |> WHERE … |> AGGREGATE …`) and run
-  them on any Doris version. See [Doris PIPE](#doris-pipe).
+- **Optional PIPE syntax.** Write pipe queries (`FROM t |> WHERE … |> AGGREGATE …`) and run them on
+  a Doris server without native PIPE support. The plugin transpiles them before execution. See
+  [PIPE syntax](#pipe-syntax).
 - **Ready-made data source.** An "Apache Doris" driver template with port 9030 already set up.
 
 ## Requirements
@@ -82,10 +91,10 @@ running it. The console unblocks when the kill lands, usually within a fraction 
 **Tip:** use Doris's `query_timeout` variable instead of the data source's JDBC "query timeout"
 option. The JDBC timeout uses the same unreliable second-connection kill.
 
-## Doris PIPE
+## PIPE syntax
 
 Write queries in [pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide) and run
-them on any Doris server. No server support is needed.
+them as ordinary Doris SQL. Your Doris server does not need to understand PIPE.
 
 ```sql
 FROM sales.orders
@@ -95,8 +104,8 @@ FROM sales.orders
 |> LIMIT 10;
 ```
 
-When you run it, the plugin converts the pipe query to a plain Doris `SELECT` and sends that to
-the server.
+Before execution, the plugin transpiles the pipeline into a plain Doris `SELECT`, validates the
+generated SQL with the bundled Doris parser, and only then sends it to the server.
 
 **Turn it on** in **Settings → Tools → Database → Apache Doris PIPE** with **Enable PIPE syntax in
 this project**. It's off by default and is set per project. No restart is needed. If you used PIPE
@@ -104,7 +113,7 @@ before an upgrade, tick this box again.
 
 What you get:
 
-- Completion after `|>` for stage keywords, and for the columns flowing into each stage.
+- Completion after `|>` for stage keywords and the columns flowing into each stage.
 - Syntax errors underlined on the exact pipe line.
 - Right-click → **Doris PIPE → Run Stages up to Caret** runs the pipeline only up to the stage at
   your cursor.
@@ -112,7 +121,7 @@ What you get:
   it.
 - Server errors point back to the line and column in your pipe query.
 
-The plugin refuses to run a pipe query when the conversion would change its meaning or isn't
+The plugin refuses to run a pipe query when transpilation would change its meaning or isn't
 supported. Preview still shows you the SQL and the reason.
 
 ## Known limitations
@@ -142,9 +151,9 @@ supported. Preview still shows you the SQL and the reason.
 
 Found a bug or SQL the plugin gets wrong?
 [Open an issue](https://github.com/sort-dev/doris-intellij-plugin/issues). A small, anonymized SQL
-sample helps a lot. Want to build or change the plugin? See [CONTRIBUTING.md](CONTRIBUTING.md).
+sample helps a lot.
 
 ## License
 
-Apache License 2.0, see [LICENSE](LICENSE). Copyright 2026 Sortdev SRL. Bundled third-party parts
-are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Licensed under the Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Sortdev SRL. Bundled
+third-party parts are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
