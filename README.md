@@ -138,6 +138,8 @@ supported. Preview still shows you the SQL and the reason.
   IDEs.
 - [DuckDB SQL](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
   dialect for JetBrains IDEs, for embedded DuckDB and Quack servers.
+- [DataFusion and Spice.ai SQL](https://github.com/sort-dev/datafusion-spice-intellij-plugin)
+  dialect for JetBrains IDEs.
 - [Trino SQL](https://plugins.jetbrains.com/plugin/33124-sql-dialect-for-trino) dialect for
   JetBrains IDEs.
 - [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
