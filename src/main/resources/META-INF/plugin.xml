@@ -4,44 +4,53 @@
     <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
 
     <description><![CDATA[
-        <p>First-class Apache Doris support for DataGrip and IntelliJ IDEA Ultimate — a dedicated
-        SQL dialect, a multi-catalog database tree, table-function completion, and a Stop button that
-        actually cancels your Doris query. Compatible with the 2026.1 through 2026.3 IDE lines.</p>
+        <p>The complete Apache Doris SQL dialect for DataGrip and IntelliJ IDEA Ultimate. Doris's own
+        parser handles parsing and validation, so your SQL is checked against the grammar Doris
+        actually uses, not a MySQL approximation. The dialect is updated for new Doris releases. This
+        build bundles the <b>Doris 4.1.4</b> grammar.</p>
+
+        <p>Optional PIPE syntax is built in. Before execution, the plugin transpiles your pipeline into
+        standard Doris SQL and validates the generated SQL with the same parser. The server receives
+        ordinary Doris SQL, so it needs no PIPE support.</p>
+
+        <p>Compatible with the 2026.1 through 2026.3 IDE lines.</p>
 
         <ul>
+            <li><b>Correct statement boundaries.</b> Doris syntax that the generic MySQL dialect
+                misreads stays intact: <code>INSERT OVERWRITE</code>, <code>SELECT * EXCEPT(...)</code>,
+                <code>QUALIFY</code>, <code>CREATE JOB</code>, materialized views,
+                <code>DISTRIBUTED BY</code> / <code>PROPERTIES</code> DDL, <code>REFRESH</code>,
+                <code>WARM UP</code>, and more. Native typed parsing supports navigation inside DDL
+                bodies</li>
+            <li><b>Doris-aware editing and completion.</b> Window functions, CTEs, Doris cast targets
+                (<code>STRING</code>, <code>LARGEINT</code>, <code>ARRAY&lt;...&gt;</code>,
+                <code>MAP&lt;...&gt;</code>), <code>TRY_CAST</code>, and map access
+                (<code>col['key']</code>) parse with full structure. Completion covers Doris built-in
+                functions, keywords, and data types (<code>VARIANT</code>, <code>BITMAP</code>,
+                <code>HLL</code>, <code>AGG_STATE</code>, ...)</li>
             <li><b>Multi-catalog database tree.</b> Doris external catalogs (Hive, Iceberg, JDBC, ...)
-                appear as a real <code>catalog &rarr; database &rarr; table</code> hierarchy, with
-                three-part <code>catalog.db.table</code> completion and resolution and a stepped
-                console catalog/database switcher</li>
+                appear as a <code>catalog &rarr; database &rarr; table</code> hierarchy, with
+                three-part <code>catalog.db.table</code> completion and resolution and a console
+                switcher for catalogs and databases</li>
             <li><b>Table-valued-function completion.</b> <code>tasks()</code>, <code>jobs()</code>,
-                <code>mv_infos()</code>, <code>partitions()</code>, <code>backends()</code> and more
-                complete their property keys and enum values, and their output columns resolve —
-                including schema-by-argument (<code>tasks("type"="mv")</code>)</li>
+                <code>mv_infos()</code>, <code>partitions()</code>, <code>backends()</code>, and more
+                complete their property keys and enum values, and their output columns resolve,
+                including argument-dependent schemas such as <code>tasks("type"="mv")</code></li>
             <li><b>Reliable query cancel.</b> The Stop button kills the running Doris query even
                 behind a load balancer, where the driver's own cancel silently misses</li>
-            <li><b>Doris PIPE (optional).</b> Write queries supported by Doris PIPE syntax
-                (<code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>) directly in Doris consoles —
-                it transpiles to standard Doris SQL on run, with per-stage completion, run-to-stage,
-                generated-SQL preview, and errors mapped back to the pipe line you wrote.
-                Enable it per project under <b>Settings &rarr; Tools &rarr; Database &rarr; Apache Doris PIPE</b>.
-                Disabled by default; no SQL Transpiler plugin installation is required</li>
             <li><b>Automatic targeted introspection.</b> Reference a table in a catalog or schema
                 that hasn't been introspected yet and the plugin introspects just that schema in the
-                background — no more hunting for the right refresh checkbox</li>
-            <li><b>Dedicated DorisSQL dialect</b> with correct statement and run-block boundaries for
-                Doris syntax the generic MySQL dialect mis-parses: <code>INSERT OVERWRITE</code>,
-                <code>SELECT * EXCEPT(...)</code>, <code>QUALIFY</code>, <code>CREATE JOB</code>,
-                materialized views, <code>DISTRIBUTED BY</code> / <code>PROPERTIES</code> DDL,
-                <code>REFRESH</code>, <code>WARM UP</code>, and more — plus native typed parsing for
-                navigation inside DDL bodies</li>
-            <li>Window functions, CTEs, Doris cast targets (<code>STRING</code>, <code>LARGEINT</code>,
-                <code>ARRAY&lt;...&gt;</code>, <code>MAP&lt;...&gt;</code>), <code>TRY_CAST</code>,
-                and map access (<code>col['key']</code>) parse with full structure and completion</li>
-            <li>Completion for Doris built-in functions and Doris data types
-                (<code>VARIANT</code>, <code>BITMAP</code>, <code>HLL</code>, <code>AGG_STATE</code>, ...)</li>
-            <li>Doris-accurate syntax validation via an embedded build of the Doris SQL parser</li>
-            <li>Ready-to-use <b>Apache Doris</b> data-source template: MySQL Connector/J download,
-                default port 9030, connection validation, SHOW CREATE definitions</li>
+                background</li>
+            <li><b>PIPE editing tools.</b> Write queries such as
+                <code>FROM t |&gt; WHERE ... |&gt; AGGREGATE ...</code>. Complete stage keywords and
+                columns, run stages up to the caret, preview generated SQL, and map server errors back
+                to the original pipe line.
+                Enable PIPE per project under
+                <b>Settings &rarr; Tools &rarr; Database &rarr; Apache Doris PIPE</b>. It is disabled
+                by default, and no SQL Transpiler plugin installation is required</li>
+            <li><b>Ready-to-use data source.</b> The <b>Apache Doris</b> template includes MySQL
+                Connector/J download, default port 9030, connection validation, and SHOW CREATE
+                definitions</li>
         </ul>
 
         <p><i>This is an independent, community plugin developed by Sortdev SRL. It is not affiliated
@@ -50,7 +59,7 @@
         the database this plugin supports. For the official project see
         <a href="https://doris.apache.org/">doris.apache.org</a>.</i></p>
 
-        <p>Source, issues and documentation:
+        <p>Source, issues, and documentation:
         <a href="https://github.com/sort-dev/doris-intellij-plugin">github.com/sort-dev/doris-intellij-plugin</a></p>
     ]]></description>
 
