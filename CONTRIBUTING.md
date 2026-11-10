@@ -5,8 +5,8 @@ Please anonymize table and schema names first.
 
 ## Setup
 
-- JDK 21 (`mise install` picks up the version from `mise.toml`).
-- Nothing else. Gradle downloads the IntelliJ IDEA 2026.1 SDK on the first build.
+- JDK 25 (`mise install` picks up the version from `mise.toml`).
+- Nothing else. Gradle downloads the IntelliJ IDEA 2026.2 SDK (262.10968.63) on the first build.
 - You don't need a Doris server for the normal test suite.
 
 ## Everyday commands
@@ -15,13 +15,14 @@ Please anonymize table and schema names first.
 ./gradlew buildPlugin          # zip in build/distributions/
 ./gradlew test                 # headless test suite
 ./gradlew test --rerun-tasks   # force a rerun when Gradle says "up-to-date"
-./gradlew verifyPlugin         # binary compatibility check against 2026.1 to 2026.3
+./gradlew verifyPlugin         # binary compatibility check against 2026.2 and 2026.3
 ./gradlew runIde               # sandbox IDE with the plugin installed
 ```
 
 Run `verifyPlugin` before touching anything near the database metadata model. It must report zero
-compatibility problems. One plugin zip serves IDE builds 261, 262 and 263. `test262` and
-`test263` run the suite on the newer IDE builds.
+compatibility problems. One plugin zip serves IDE builds 262 and 263, running on the IDE's
+Java 25. `test262` and `test263` run the suite on the pinned IDE runtimes. The regular
+suite runs without Kotlin loaded; `-Ptest.kotlin=absent` selects that lane explicitly.
 
 Other useful options:
 

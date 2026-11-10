@@ -97,8 +97,8 @@ needs the compiled/composed relation, bindings, connection and pipe lowering.
 The regular suite runs without Kotlin loaded. Run the Kotlin injection suite with:
 
 ```sh
-./gradlew test -Ptest.brikkKotlin=true --tests '*BrikkDoris*'
-./gradlew testBrikk262 testBrikk263
+./gradlew test -Ptest.kotlin=present --tests '*BrikkDoris*'
+./gradlew test262 test263 -Ptest.kotlin=present
 ```
 
 The genuine generated-shape lane requires the reviewed IDE compiler and its
@@ -112,9 +112,9 @@ This lane verifies compiler-generated `SourceOut` members on cold open and reads
 them through the helper into the Doris SQL table type. It does not manufacture
 an output interface or claim generation is implemented in the helper.
 
-The plugin compiles against IDEA 2026.1.3 to make Kotlin APIs available. Kotlin
-extensions register through an optional dependency descriptor, not a required
-Kotlin dependency in DataGrip.
+The plugin compiles against IDEA 262.10968.63 (2026.2) with JDK 25 to make Kotlin APIs
+available. Kotlin extensions register through an optional dependency descriptor,
+not a required Kotlin dependency in DataGrip.
 
 The adapter subclasses Kotlin's internal injection-performer base. The
 no-argument `trimMargin()` adapter also uses Kotlin's indent-handler JVM accessor

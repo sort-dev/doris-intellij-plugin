@@ -21,7 +21,8 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import org.w3c.dom.Element
 
-private const val JAVA_21 = 65
+// Class-file major version for JAVA_LEVEL (Java 25 = 69).
+private const val DEFAULT_CLASS_VERSION = 44 + JAVA_LEVEL
 private const val PLUGIN_XML = "META-INF/plugin.xml"
 private const val NOTICES = "META-INF/THIRD_PARTY_NOTICES.md"
 private val versionedClass = Regex("^META-INF/versions/\\d+/")
@@ -83,7 +84,7 @@ abstract class VerifyDistribution : DefaultTask() {
             val guarded = internalApiPackages.get()
             val internalUses = mutableListOf<String>()
             for ((name, entry) in jars) {
-                val ceiling = bytecodeCeilings.get()[libraryName(name)] ?: JAVA_21
+                val ceiling = bytecodeCeilings.get()[libraryName(name)] ?: DEFAULT_CLASS_VERSION
                 ZipInputStream(zip.getInputStream(entry)).use { jar ->
                     for (classEntry in generateSequence { jar.nextEntry }.filter { it.name.endsWith(".class") }) {
                         val bytes = jar.readBytes()

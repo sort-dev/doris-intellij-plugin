@@ -55,7 +55,8 @@ catalogs, and function information.
 
 ## Requirements
 
-- DataGrip or IntelliJ IDEA Ultimate, **2026.1 to 2026.3**. Older IDE versions are not supported.
+- DataGrip or IntelliJ IDEA Ultimate, **2026.2 and 2026.3**, using the IDE's Java 25 runtime.
+  Older IDE versions are not supported by future releases.
 - A Doris server reachable on its MySQL query port (default `9030`).
 
 ## Install

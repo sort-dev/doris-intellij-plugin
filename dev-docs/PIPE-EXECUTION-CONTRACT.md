@@ -1,7 +1,7 @@
 # Cooperative pipe execution
 
 This is the DORIS-B1 contract for dialect plugins that intercept the IDE's Execute
-actions. It applies to the 261 through 263 platform generations. Use the qualified
+actions. Future releases target the 262 and 263 platform generations. Use the qualified
 name DORIS-B1 across repositories; other repositories have their own B1 findings.
 
 ## Embedded library and enablement
@@ -213,15 +213,13 @@ Cancel and Explain Plan remain separate B21 work. SQL Transpiler's explicit
 The normal build has no SQL Transpiler dependency. Each companion-mode invocation
 uses a separate worker and sandbox. Installed mode adds the companion only for
 verification; absent mode does not resolve or borrow any of its libraries.
-`verifyEmbeddedPipes` checks the distribution's exact library set, bundled notices,
+`verifyDistribution` checks the distribution's exact library set, bundled notices,
 and removal of the provider dependency. It is also part of `check`.
 
 ```bash
-mise exec -- ./gradlew test verifyEmbeddedPipes --rerun-tasks
+mise exec -- ./gradlew test verifyDistribution --rerun-tasks
 mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed --rerun-tasks
 mise exec -- ./gradlew test -Ptest.sqlTranspiler=absent --rerun-tasks
-mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed --rerun-tasks
-mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=absent --rerun-tasks
 ```
 
 The isolation lane keeps the platform test fixture core-loaded but loads the actual
@@ -230,30 +228,36 @@ different engine/metadata identities, and in-memory transpilation by both engine
 Other tests use the normal flattened fixture classpath and explicitly select Doris's
 engine/metadata instead of the companion's private versions.
 
-To include already-built sibling distributions, pass `-Ptest.trinoPluginZip=/path/to/trino.zip`
-and `-Ptest.duckdbPluginZip=/path/to/duckdb.zip` in the isolation lane. Supplied paths
-must exist. These are test-only inputs; the Doris build does not build or modify peers.
-
-For a 262 or forward-compatibility 263 runtime check, first compile and instrument
-with the default 261 SDK. Then select the newer local SDK and use the opt-in init
-script. The normal build plugin is now 2.19.0 and reads all three SDK generations;
-the script no longer overrides it. Keep the six exclusions below: the check runs
-the 261-compiled/instrumented classes on the newer runtime rather than recompiling
-the whole plugin against a different source API.
-The init script also removes the provider's private Jackson 2.16.1 copies from
-the flattened test classpath so they cannot shadow the 262 SDK's Jackson libraries.
-This changes only the test worker, not the provider distribution or shipped plugin.
-It seeds an empty Marketplace telemetry-ID cache in the test sandbox to avoid
-depending on background downloads or stale partial cache files during registration.
+The current isolation fixture requires all four already-built sibling distributions,
+including SQL Transpiler installed. Supply the ZIPs explicitly for reproducible checks:
 
 ```bash
-mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed
-mise exec -- ./gradlew test -Ptest.sqlTranspiler=installed -Pdoris.localIde=/absolute/path/to/262-sdk --tests dev.sort.doris.pipes.DorisPipesActionTest --tests dev.sort.doris.pipes.DorisPipesActionWiringTest --tests dev.sort.doris.pipes.DorisPipesSettingsTest --tests dev.sort.doris.pipes.DorisPipesBoundaryTest --tests dev.sort.doris.pipes.DorisPipesTest --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
-mise exec -- ./gradlew test -Ptest.pluginIsolation=true -Ptest.sqlTranspiler=installed -Pdoris.localIde=/absolute/path/to/262-sdk --init-script gradle/b1-test-sdk.init.gradle -x compileKotlin -x compileJava -x compileTestKotlin -x compileTestJava -x instrumentCode -x instrumentTestCode
+mise exec -- ./gradlew test test262 test263 -Ptest.pluginIsolation=true \
+  -Ptest.clickhousePluginZip=/path/to/clickhouse.zip \
+  -Ptest.trinoPluginZip=/path/to/trino.zip \
+  -Ptest.duckdbPluginZip=/path/to/duckdb.zip \
+  -Ptest.sqlTranspilerPluginZip=/path/to/sql-transpiler.zip
 ```
 
-Repeat the 262 commands with `-Ptest.sqlTranspiler=absent`. The former `b1.provider`
-property is no longer a verification switch; use `test.sqlTranspiler`.
+Supplied paths must exist, and each ZIP must support the selected IDE lines. These
+are test-only inputs; the Doris build does not build or modify peers. The isolation
+fixture does not support the SQL-Transpiler-absent lane; the ordinary suite does.
+
+Compile and instrument with the default 262 SDK and JDK 25. The shared `test262`
+and `test263` tasks run those classes against the pinned runtimes without
+recompiling the plugin against a different source API. No init script or manual
+compile/instrument exclusions are needed for these tasks.
+
+```bash
+mise exec -- ./gradlew test262 test263 -Ptest.kotlin=absent
+mise exec -- ./gradlew test262 test263 -Ptest.kotlin=present
+mise exec -- ./gradlew test262 -Ptest.sqlTranspiler=installed
+```
+
+Repeat the companion-mode commands with `-Ptest.sqlTranspiler=absent`. The pinned
+SQL Transpiler 0.2.0 only supports through 262, so do not run its installed lane
+on 263. The former `b1.provider` property is no longer a verification switch;
+use `test.sqlTranspiler`.
 
 For engine upgrades, also select `DorisPipesUpgradeTest` and
 `DorisEmbeddedDdlUpgradeTest` in the 262 targeted command and pass `--rerun-tasks`.
@@ -263,8 +267,8 @@ consoles and platform preparation with a recording session/producer, not JDBC.
 Keep the Unicode regression assertions active. Repeat `DorisPipesSettingsTest` in
 separate workers to check deferred reparse synchronization. A successful packaging
 or classloader check does not override failed semantic/offset tests.
-`verifyEmbeddedPipes` also checks every bundled class against the Java 21 bytecode
-ceiling, since tests on a newer bundled JBR would not catch a raised runtime minimum.
+`verifyDistribution` also checks every bundled class against the Java 25 bytecode
+ceiling (class major 69), matching the supported IDEs' runtime minimum.
 
 These tests check action registration, all six simulated three-dialect installation
 orders, all four variants, delegation/state/shortcut behavior, companion independence,
@@ -272,8 +276,8 @@ project enablement/persistence/reparsing, embedded-engine ownership, and restart
 restrictions. They do not execute SQL against a database or replace
 end-to-end testing of the eventual Trino and DuckDB pipe implementations.
 
-The shared-helper backport adds dedicated `testPipes262` and `testPipes263` tasks.
-They run the 261-compiled product against those runtimes without recompiling it.
+The shared conventions provide dedicated `test262` and `test263` tasks.
+They run the 262-compiled product against those runtimes without recompiling it.
 The isolated distribution lane also exercises all six orders of the actual three
 product customizers when both peer ZIPs are supplied. It identifies peers by their
 own plugin classloaders and platform delegate chains, not product wrapper prefixes.

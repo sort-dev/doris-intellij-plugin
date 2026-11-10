@@ -22,7 +22,7 @@ A clear description of the misbehavior.
 If it's a highlighting / completion / resolution issue, a screenshot of the editor helps a lot.
 
 **Environment**
-- IDE + version (e.g. DataGrip 2026.1.4, IntelliJ IDEA 2026.2 EAP):
+- IDE + version (e.g. DataGrip 2026.2.5, IntelliJ IDEA 2026.3 EAP):
 - Plugin version:
 - Doris server version (`SELECT VERSION()` / `SHOW FRONTENDS`):
 - Deployment (single FE / multi-FE behind a load balancer / k8s):

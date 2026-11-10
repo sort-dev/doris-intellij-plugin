@@ -13,7 +13,7 @@
         standard Doris SQL and validates the generated SQL with the same parser. The server receives
         ordinary Doris SQL, so it needs no PIPE support.</p>
 
-        <p>Compatible with the 2026.1 through 2026.3 IDE lines.</p>
+        <p>Compatible with the 2026.2 and 2026.3 IDE lines.</p>
 
         <ul>
             <li><b>Correct statement boundaries.</b> Doris syntax that the generic MySQL dialect
@@ -64,6 +64,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>Unreleased</b>
+        <ul>
+            <li>The next release requires IDE 2026.2 or later and runs on the IDE's Java 25.</li>
+        </ul>
         <b>1.7.0</b> - SQLGlot 30.29 catch-up and Doris full-text PIPE lowering.
         <ul>
             <li>Brikk SQL 1.0.1 and IntelliJ support 1.0.1, including core, metadata, verification and common/JDBC/test support.</li>

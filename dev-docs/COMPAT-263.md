@@ -1,5 +1,9 @@
 # Newer IDE compatibility in 1.4.1
 
+This is a historical report for 1.4.1. Future releases compile against build
+262 with Java 25 and support IDE lines 2026.2 and 2026.3; the recorded 261/Java 21
+results below describe the older artifact only.
+
 ## Baseline failures
 
 Marketplace's verifier 1.410 reported four binary problems for plugin 1.4.0 on
@@ -92,7 +96,7 @@ Real classloader checks also construct the service through the IDE container.
   Git, which supplies the DVCS module needed by IDEA 263's core collaboration module.
   No Git dependency is added to the shipped plugin descriptor or ZIP.
 
-The advertised range is now **261–263**. Production classes remain compiled against
+The advertised range for 1.4.1 was **261–263**. Its production classes were compiled against
 261 with Java 21 bytecode. The existing synchronous console-registry fixture fix
 from `77cb17e` remains in place.
 

@@ -2,6 +2,7 @@ package dev.sort.gradle
 
 import java.io.File
 import org.gradle.api.JavaVersion
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -38,6 +39,8 @@ private const val JSON = "com.intellij.modules.json"
 private const val GIT = "Git4Idea"
 private const val ISOLATION_TESTS = "**/*Isolation*Test.class"
 private const val RUNTIME_ALIAS = "intellij.runtime."
+/** Java level the supported IDE lines require (2026.2 and 2026.3 run on Java 25). */
+internal const val JAVA_LEVEL = 25
 private val platformSerialization = listOf("core", "json").flatMap { listOf("kotlinx-serialization-$it", "kotlinx-serialization-$it-jvm") }
 
 class SqlDialectPlugin : Plugin<Project> {
@@ -140,13 +143,17 @@ class SqlDialectPlugin : Plugin<Project> {
             }
         }
 
+        // IDE line 2026.2 (build 262) requires Java 25, so Java and Kotlin follow one toolchain
+        // instead of fixed targets that the platform plugin would otherwise raise out of step.
         extensions.configure<JavaPluginExtension> {
-            sourceCompatibility = JavaVersion.VERSION_21
-            targetCompatibility = JavaVersion.VERSION_21
+            toolchain.languageVersion.set(JavaLanguageVersion.of(JAVA_LEVEL))
+            sourceCompatibility = JavaVersion.toVersion(JAVA_LEVEL)
+            targetCompatibility = JavaVersion.toVersion(JAVA_LEVEL)
         }
         extensions.configure<KotlinJvmProjectExtension> {
+            jvmToolchain(JAVA_LEVEL)
             compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_21)
+                jvmTarget.set(JvmTarget.fromTarget(JAVA_LEVEL.toString()))
             }
         }
 
@@ -208,6 +215,11 @@ class SqlDialectPlugin : Plugin<Project> {
         val sandboxLibraries = "/$name/lib/"
         fun Test.configureSuite(extraPluginIds: List<String> = emptyList()) {
             useJUnit()
+            // Gradle 9.0's class-file scanner does not read Java 25 classes and then hands every class,
+            // helpers and WhenMappings included, to JUnit. Select test classes by name instead. Includes
+            // are ORed, so the isolation lane adds only its own narrower pattern below.
+            isScanForTestClasses = false
+            if (!pluginIsolation) include("**/*Test.class")
             systemProperty("java.awt.headless", "true")
             systemProperty("test.kotlin", if (kotlinTests.get()) "present" else "absent")
             systemProperty("test.pluginIsolation", pluginIsolation.toString())
