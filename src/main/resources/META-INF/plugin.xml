@@ -64,9 +64,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>Unreleased</b>
+        <b>1.8.0</b> - IDE 2026.2 and later on Java 25.
         <ul>
-            <li>The next release requires IDE 2026.2 or later and runs on the IDE's Java 25.</li>
+            <li>Requires IDE 2026.2 or later and runs on the IDE's Java 25; IDE 2026.1 is no longer supported.</li>
+            <li>Brikk SQL and IntelliJ support remain at 1.0.1.</li>
+            <li>Forwards the 262 connection-aware introspector capability check through the approved <code>isSupported</code> overload.</li>
         </ul>
         <b>1.7.0</b> - SQLGlot 30.29 catch-up and Doris full-text PIPE lowering.
         <ul>
